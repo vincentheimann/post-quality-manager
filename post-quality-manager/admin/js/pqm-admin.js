@@ -71,6 +71,7 @@
         reviews.forEach(function (r) {
             if (!latest[r.command]) latest[r.command] = r;
         });
+        el.pqmLatest = latest;
 
         var tabs = [
             { id: 'review',    label: 'Review' },
@@ -195,7 +196,7 @@
         var items = extractList(d, 'takeaways');
 
         if (!items.length) {
-            var text = d.content || d.text || (typeof d.takeaways === 'string' ? d.takeaways : '');
+            var text = typeof d === 'string' ? d : (d.content || d.text || (typeof d.takeaways === 'string' ? d.takeaways : ''));
             if (text) {
                 return '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Takeaways</h4>'
                      + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
@@ -230,7 +231,7 @@
         var items = extractList(d, 'sources');
 
         if (!items.length) {
-            var text = d.content || d.text || (typeof d.sources === 'string' ? d.sources : '');
+            var text = typeof d === 'string' ? d : (d.content || d.text || (typeof d.sources === 'string' ? d.sources : ''));
             if (text) {
                 return '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Sources</h4>'
                      + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
@@ -294,6 +295,12 @@
         toast('info', (isApply ? 'Applying…' : 'Running "' + label + '"…'));
         setBusy(postId, true);
 
+        var oldDate = null;
+        var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
+        if (!isApply && el && el.pqmLatest && el.pqmLatest[command]) {
+            oldDate = el.pqmLatest[command].reviewed_at;
+        }
+
         var form = new FormData();
         form.append('action', isApply ? 'pqm_apply_command' : 'pqm_trigger_command');
         form.append('post_id', postId);
@@ -303,21 +310,17 @@
         fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (resp) {
-                setBusy(postId, false);
                 if (resp.success) {
-                    toast('ok', (resp.data && resp.data.message) ? resp.data.message : label + ' successful.');
                     if (isApply) {
-                        // Reload window instantly so the user sees the new pending state.
+                        setBusy(postId, false);
+                        toast('ok', (resp.data && resp.data.message) ? resp.data.message : label + ' successful.');
                         setTimeout(function () { window.location.reload(); }, 800);
                     } else {
-                        // Reload detail panel after short delay.
-                        var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
-                        if (el) {
-                            el.dataset.loaded = '0';
-                            setTimeout(function () { loadDetail(postId, el); }, 1500);
-                        }
+                        toast('info', 'Waiting for n8n to finish ' + label + '…');
+                        pollForResult(postId, command, oldDate, 0);
                     }
                 } else {
+                    setBusy(postId, false);
                     toast('err', (resp.data && resp.data.message) ? resp.data.message : (resp.data || 'Failed.'));
                 }
             })
@@ -325,6 +328,48 @@
                 setBusy(postId, false);
                 toast('err', 'Network error.');
             });
+    }
+
+    /* ================================================================
+     *  POLL FOR RESULT
+     * ================================================================ */
+    function pollForResult(postId, command, oldDate, attempt) {
+        if (attempt > 30) { // 90 seconds timeout
+            setBusy(postId, false);
+            toast('err', cap(command) + ' timed out waiting for n8n. Please refresh later.');
+            return;
+        }
+
+        fetch(pqmAdmin.restUrl + '/reviews/' + postId, {
+            headers: { 'X-WP-Nonce': pqmAdmin.nonce }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (reviews) {
+            var latest = null;
+            if (Array.isArray(reviews)) {
+                for (var i = 0; i < reviews.length; i++) {
+                    if (reviews[i].command === command) {
+                        latest = reviews[i];
+                        break;
+                    }
+                }
+            }
+
+            if (latest && (!oldDate || latest.reviewed_at !== oldDate)) {
+                setBusy(postId, false);
+                toast('ok', cap(command) + ' finished successfully!');
+                var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
+                if (el) {
+                    el.dataset.loaded = '0';
+                    loadDetail(postId, el);
+                }
+            } else {
+                setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
+            }
+        })
+        .catch(function () {
+            setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
+        });
     }
 
     function setBusy(postId, on) {

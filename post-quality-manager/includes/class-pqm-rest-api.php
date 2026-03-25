@@ -197,9 +197,12 @@ class PQM_REST_API {
                 'type'     => 'string',
                 'default'  => '',
             ],
+            'error_message' => [
+                'required' => false,
+                'type'     => 'string',
+            ],
             'result' => [
-                'required' => true,
-                'type'     => 'object',
+                'required' => false,
             ],
         ];
     }
@@ -216,7 +219,14 @@ class PQM_REST_API {
         $command = sanitize_key( $request->get_param( 'command' ) );
         $score   = absint( $request->get_param( 'overall_score' ) );
         $status  = sanitize_text_field( $request->get_param( 'status' ) );
+        $error   = sanitize_text_field( $request->get_param( 'error_message' ) );
         $result  = $request->get_param( 'result' );
+
+        // If it's an error, save the error message in the result field.
+        if ( $status === 'error' || ! empty( $error ) ) {
+            $status = $status ?: 'error';
+            $result = [ 'error' => $error ?: 'An unknown error occurred in n8n.' ];
+        }
 
         $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
 
@@ -239,7 +249,11 @@ class PQM_REST_API {
 
         // Decode result_data JSON for each review.
         foreach ( $reviews as &$review ) {
-            $review['result_data'] = json_decode( $review['result_data'], true );
+            $decoded = json_decode( $review['result_data'], true );
+            if ( json_last_error() === JSON_ERROR_NONE ) {
+                $review['result_data'] = $decoded;
+            }
+            // If json_decode fails, $review['result_data'] remains the raw string as saved by n8n.
         }
 
         return new WP_REST_Response( $reviews, 200 );
