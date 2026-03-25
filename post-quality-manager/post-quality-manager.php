@@ -42,6 +42,7 @@ if ( is_admin() ) {
     add_action( 'admin_menu', [ 'PQM_Admin', 'register_pages' ] );
     add_action( 'admin_init', [ 'PQM_Admin', 'register_settings' ] );
     add_action( 'admin_enqueue_scripts', [ 'PQM_Admin', 'enqueue_assets' ] );
+    add_action( 'updated_option', [ 'PQM_Admin', 'on_settings_updated' ] );
 }
 
 /* ─── Cron ───────────────────────────────────────────────────────────── */

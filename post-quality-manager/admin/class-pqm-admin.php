@@ -110,12 +110,16 @@ class PQM_Admin {
         $clean['cron_command']      = in_array( $input['cron_command'] ?? '', [ 'review', 'audit' ], true )
             ? $input['cron_command'] : 'review';
 
-        // Reschedule cron based on new settings.
-        // Temporarily store the clean settings so PQM_Cron::schedule() can read them.
-        update_option( 'pqm_settings', $clean );
-        PQM_Cron::schedule();
-
         return $clean;
+    }
+
+    /**
+     * Reschedule cron after settings are saved (hooked via updated_option).
+     */
+    public static function on_settings_updated( string $option ): void {
+        if ( $option === 'pqm_settings' ) {
+            PQM_Cron::schedule();
+        }
     }
 
     /* ─── Page: Dashboard ────────────────────────────────────────────── */
