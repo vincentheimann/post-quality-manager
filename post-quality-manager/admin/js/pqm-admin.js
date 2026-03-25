@@ -1,108 +1,393 @@
 /**
- * Post Quality Manager — Admin JS
- * Minimal: confirm dialogs, detail row expansion, detail loading via REST.
+ * Post Quality Manager — Admin JS (MVP)
+ *
+ * Clean, focused: detail row expansion with tabs, AJAX command triggers,
+ * toast feedback. No dropdowns, no unnecessary abstractions.
  */
-
 (function () {
     'use strict';
 
-    document.addEventListener('DOMContentLoaded', function () {
-        /* ── Confirm before trigger review ─────────────────────────── */
-        document.querySelectorAll('.pqm-trigger-btn').forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                var msg = btn.getAttribute('data-confirm') || 'Are you sure?';
-                if (!window.confirm(msg)) {
-                    e.preventDefault();
-                }
-            });
-        });
+    var DIMS = ['structure', 'readability', 'neuroscience', 'marketing', 'attractivity'];
 
-        /* ── Toggle detail rows ────────────────────────────────────── */
+    /* ================================================================
+     *  BOOT
+     * ================================================================ */
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // Toggle detail rows.
         document.querySelectorAll('.pqm-detail-toggle').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var postId = btn.getAttribute('data-post-id');
-                var row = document.getElementById('pqm-detail-' + postId);
+                var row    = document.getElementById('pqm-detail-' + postId);
                 if (!row) return;
 
-                var isHidden = row.style.display === 'none';
-                row.style.display = isHidden ? 'table-row' : 'none';
-                btn.textContent = isHidden ? 'Hide' : 'Details';
+                var hidden = row.style.display === 'none';
+                row.style.display = hidden ? 'table-row' : 'none';
+                btn.textContent   = hidden ? 'Hide' : 'Details';
 
-                // Load detail content on first open.
-                var content = row.querySelector('.pqm-detail-content');
-                if (isHidden && content && content.dataset.loaded !== 'true') {
-                    loadDetail(postId, content);
+                var el = row.querySelector('.pqm-detail-content');
+                if (hidden && el && el.dataset.loaded !== '1') {
+                    loadDetail(postId, el);
                 }
             });
         });
+
+        // Delegate clicks on action buttons (inside detail panel or table).
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-pqm-cmd]');
+            if (!btn) return;
+            e.preventDefault();
+            var postId  = btn.getAttribute('data-post-id');
+            var command = btn.getAttribute('data-pqm-cmd');
+            if (postId && command) triggerCommand(postId, command);
+        });
     });
 
-    /**
-     * Fetch review details for a post via REST API.
-     */
-    function loadDetail(postId, container) {
-        container.innerHTML = '<p class="description">Loading...</p>';
+    /* ================================================================
+     *  LOAD DETAIL
+     * ================================================================ */
+    function loadDetail(postId, el) {
+        el.innerHTML = '<div class="pqm-loading"><span class="pqm-spinner"></span> Loading…</div>';
 
         fetch(pqmAdmin.restUrl + '/reviews/' + postId, {
-            headers: {
-                'X-WP-Nonce': pqmAdmin.nonce,
-            },
+            headers: { 'X-WP-Nonce': pqmAdmin.nonce }
         })
-            .then(function (res) { return res.json(); })
-            .then(function (reviews) {
-                if (!reviews || reviews.length === 0) {
-                    container.innerHTML = '<p class="description">No reviews found.</p>';
-                    container.dataset.loaded = 'true';
-                    return;
-                }
+        .then(function (r) { return r.json(); })
+        .then(function (reviews) {
+            renderPanel(postId, el, reviews || []);
+            el.dataset.loaded = '1';
+        })
+        .catch(function () {
+            el.innerHTML = '<div class="pqm-loading" style="color:#d63638">Failed to load. Please try again.</div>';
+        });
+    }
 
-                var html = '';
-                reviews.forEach(function (review) {
-                    var data = review.result_data || {};
-                    html += '<h4>' + escHtml(review.command) + ' — Score: ' + review.overall_score + ' — ' + escHtml(review.reviewed_at) + '</h4>';
+    /* ================================================================
+     *  RENDER TABBED PANEL
+     * ================================================================ */
+    function renderPanel(postId, el, reviews) {
+        // Latest per command.
+        var latest = {};
+        reviews.forEach(function (r) {
+            if (!latest[r.command]) latest[r.command] = r;
+        });
 
-                    // Render breakdown scores if available (review/audit commands).
-                    if (data.structure || data.review) {
-                        var src = data.review || data;
-                        html += '<table class="widefat"><thead><tr><th>Dimension</th><th>Score</th></tr></thead><tbody>';
-                        var dims = ['structure', 'readability', 'neuroscience', 'marketing', 'attractivity'];
-                        dims.forEach(function (dim) {
-                            if (src[dim]) {
-                                var score = typeof src[dim] === 'object' ? src[dim].score : src[dim];
-                                html += '<tr><td>' + dim.charAt(0).toUpperCase() + dim.slice(1) + '</td><td>' + scoreBadge(score) + '</td></tr>';
-                            }
-                        });
-                        html += '</tbody></table>';
+        var tabs = [
+            { id: 'review',    label: 'Review' },
+            { id: 'rewrite',   label: 'Rewrite' },
+            { id: 'takeaways', label: 'Takeaways' },
+            { id: 'sources',   label: 'Sources' },
+            { id: 'history',   label: 'History' },
+        ];
 
-                        // Top edits.
-                        var edits = src.top_edits || [];
-                        if (edits.length > 0) {
-                            html += '<h4>Top Edits</h4><ol>';
-                            edits.forEach(function (edit) {
-                                html += '<li>' + escHtml(edit) + '</li>';
-                            });
-                            html += '</ol>';
-                        }
+        // Build HTML.
+        var html = '';
+
+        // Tab nav.
+        html += '<div class="pqm-tabs-nav">';
+        tabs.forEach(function (t, i) {
+            var has = t.id === 'history' ? reviews.length > 0 : !!latest[t.id] || (t.id === 'review' && latest.audit);
+            html += '<button type="button" class="pqm-tab-btn' + (i === 0 ? ' is-active' : '') + '" data-tab="' + t.id + '-' + postId + '">'
+                  + esc(t.label)
+                  + (has && t.id !== 'history' ? ' <span class="pqm-tab-count">✓</span>' : '')
+                  + (t.id === 'history' ? ' <span class="pqm-tab-count">' + reviews.length + '</span>' : '')
+                  + '</button>';
+        });
+        html += '</div>';
+
+        // Tab panels.
+        html += panelWrap('review-'    + postId, true,  renderReview(latest, postId));
+        html += panelWrap('rewrite-'   + postId, false, renderRewrite(latest.rewrite, postId));
+        html += panelWrap('takeaways-' + postId, false, renderTakeaways(latest.takeaways, postId));
+        html += panelWrap('sources-'   + postId, false, renderSources(latest.sources, postId));
+        html += panelWrap('history-'   + postId, false, renderHistory(reviews));
+
+        el.innerHTML = html;
+
+        // Wire tabs.
+        el.querySelectorAll('.pqm-tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var key = btn.getAttribute('data-tab');
+                el.querySelectorAll('.pqm-tab-btn').forEach(function (b) { b.classList.remove('is-active'); });
+                el.querySelectorAll('.pqm-tab-panel').forEach(function (p) { p.classList.remove('is-active'); });
+                btn.classList.add('is-active');
+                var panel = document.getElementById('pqm-p-' + key);
+                if (panel) panel.classList.add('is-active');
+            });
+        });
+    }
+
+    function panelWrap(id, active, content) {
+        return '<div class="pqm-tab-panel' + (active ? ' is-active' : '') + '" id="pqm-p-' + id + '">' + content + '</div>';
+    }
+
+    /* ─── Review Tab ──────────────────────────────────────── */
+    function renderReview(latest, postId) {
+        var r = latest.review || latest.audit;
+        if (!r) return empty('dashicons-chart-bar', 'No review yet.', postId, 'review', 'Run Review');
+
+        var d = r.result_data || {};
+        var src = d.review || d;
+        var h = '';
+
+        // Score breakdown.
+        h += '<div class="pqm-card"><h4><span class="dashicons dashicons-chart-bar"></span> Score Breakdown</h4>';
+        h += '<table class="pqm-breakdown"><thead><tr><th>Dimension</th><th>Score</th><th style="width:50%"></th></tr></thead><tbody>';
+        DIMS.forEach(function (dim) {
+            if (!src[dim]) return;
+            var s = typeof src[dim] === 'object' ? src[dim].score : src[dim];
+            var c = s >= 71 ? 'green' : s >= 41 ? 'orange' : 'red';
+            h += '<tr><td>' + cap(dim) + '</td><td>' + badge(s) + '</td>'
+               + '<td><div class="pqm-bar-wrap"><div class="pqm-bar-track"><div class="pqm-bar-fill pqm-bar-fill-' + c + '" style="width:' + s + '%"></div></div></div></td></tr>';
+        });
+        h += '</tbody></table></div>';
+
+        // Top edits.
+        var edits = src.top_edits || [];
+        if (edits.length) {
+            h += '<div class="pqm-card"><h4><span class="dashicons dashicons-editor-ol"></span> Top Edits</h4>';
+            h += '<ul class="pqm-edits">';
+            edits.forEach(function (e) { h += '<li>' + esc(e) + '</li>'; });
+            h += '</ul></div>';
+        }
+
+        // Summary.
+        var summary = src.overall_summary || src.summary || d.summary;
+        if (summary) {
+            h += '<div class="pqm-card"><h4><span class="dashicons dashicons-format-aside"></span> Summary</h4>'
+               + '<p style="font-size:13px;line-height:1.6;margin:0">' + esc(summary) + '</p></div>';
+        }
+
+        h += '<div class="pqm-detail-actions">'
+           + actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
+           + '</div>';
+
+        return h;
+    }
+
+    /* ─── Rewrite Tab ─────────────────────────────────────── */
+    function renderRewrite(review, postId) {
+        if (!review) return empty('dashicons-edit', 'No rewrite generated yet.', postId, 'rewrite', 'Generate Rewrite');
+
+        var d = review.result_data || {};
+        var content = d.content || d.content_html || d.rewrite || d.rewritten_content || d.text || '';
+        if (!content) return empty('dashicons-edit', 'Rewrite data is empty.', postId, 'rewrite', 'Regenerate');
+
+        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-edit"></span> Rewritten Content</h4>';
+        if (/<[a-z][\s\S]*>/i.test(content)) {
+            h += '<div class="pqm-rewrite-preview">' + content + '</div>';
+        } else {
+            h += '<div class="pqm-rewrite-preview"><p style="white-space:pre-wrap;margin:0">' + esc(content) + '</p></div>';
+        }
+        h += '<div class="pqm-detail-actions">'
+           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'rewrite', 'Regenerate', 'dashicons-update', '')
+           + '</div></div>';
+
+        return h;
+    }
+
+    /* ─── Takeaways Tab ───────────────────────────────────── */
+    function renderTakeaways(review, postId) {
+        if (!review) return empty('dashicons-lightbulb', 'No takeaways generated yet.', postId, 'takeaways', 'Generate Takeaways');
+
+        var d = review.result_data || {};
+        var items = extractList(d, 'takeaways');
+
+        if (!items.length) {
+            var text = d.content || d.text || (typeof d.takeaways === 'string' ? d.takeaways : '');
+            if (text) {
+                return '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Takeaways</h4>'
+                     + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
+                     + '<div class="pqm-detail-actions">'
+                     + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+                     + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
+                     + '</div></div>';
+            }
+            return empty('dashicons-lightbulb', 'Takeaways data is empty.', postId, 'takeaways', 'Regenerate');
+        }
+
+        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Key Takeaways</h4>';
+        h += '<ol class="pqm-content-list">';
+        items.forEach(function (item) {
+            var t = typeof item === 'string' ? item : (item.text || item.title || item.takeaway || JSON.stringify(item));
+            h += '<li>' + esc(t) + '</li>';
+        });
+        h += '</ol>';
+        h += '<div class="pqm-detail-actions">'
+           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
+           + '</div></div>';
+
+        return h;
+    }
+
+    /* ─── Sources Tab ─────────────────────────────────────── */
+    function renderSources(review, postId) {
+        if (!review) return empty('dashicons-admin-links', 'No sources generated yet.', postId, 'sources', 'Generate Sources');
+
+        var d = review.result_data || {};
+        var items = extractList(d, 'sources');
+
+        if (!items.length) {
+            var text = d.content || d.text || (typeof d.sources === 'string' ? d.sources : '');
+            if (text) {
+                return '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Sources</h4>'
+                     + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
+                     + '<div class="pqm-detail-actions">'
+                     + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+                     + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
+                     + '</div></div>';
+            }
+            return empty('dashicons-admin-links', 'Sources data is empty.', postId, 'sources', 'Regenerate');
+        }
+
+        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Suggested Sources</h4>';
+        h += '<ol class="pqm-content-list">';
+        items.forEach(function (item) {
+            if (typeof item === 'string') {
+                h += '<li>' + esc(item) + '</li>';
+            } else {
+                h += '<li>';
+                if (item.title) h += '<strong>' + esc(item.title) + '</strong><br>';
+                if (item.url) h += '<a href="' + escAttr(item.url) + '" target="_blank" rel="noopener" style="font-size:12px;word-break:break-all">' + esc(item.url) + '</a><br>';
+                if (item.description || item.reason) h += '<span style="color:#646970;font-size:12px">' + esc(item.description || item.reason) + '</span>';
+                h += '</li>';
+            }
+        });
+        h += '</ol>';
+        h += '<div class="pqm-detail-actions">'
+           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
+           + '</div></div>';
+
+        return h;
+    }
+
+    /* ─── History Tab ─────────────────────────────────────── */
+    function renderHistory(reviews) {
+        if (!reviews.length) return '<div class="pqm-empty"><span class="dashicons dashicons-backup"></span><p>No history.</p></div>';
+
+        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-backup"></span> Review History</h4>';
+        h += '<ul class="pqm-history">';
+        reviews.forEach(function (r) {
+            h += '<li><span class="pqm-history-cmd">' + esc(r.command) + '</span>';
+            if (r.overall_score > 0) h += badge(r.overall_score);
+            if (r.status) h += '<span>' + statusLabel(r.status) + '</span>';
+            h += '<span class="pqm-history-date">' + esc(r.reviewed_at) + '</span></li>';
+        });
+        h += '</ul></div>';
+        return h;
+    }
+
+    /* ================================================================
+     *  TRIGGER COMMAND
+     * ================================================================ */
+    function triggerCommand(postId, command) {
+        var label = cap(command);
+        var msg = command === 'apply'
+            ? 'Apply this to the post? The post will be set to Pending status.'
+            : 'Run "' + label + '" for this post?';
+        if (!confirm(msg)) return;
+
+        toast('info', 'Running "' + label + '"…');
+        setBusy(postId, true);
+
+        var form = new FormData();
+        form.append('action', 'pqm_trigger_command');
+        form.append('post_id', postId);
+        form.append('command', command);
+        form.append('_wpnonce', pqmAdmin.pageNonce);
+
+        fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                setBusy(postId, false);
+                if (resp.success) {
+                    toast('ok', resp.data.message || label + ' triggered.');
+                    // Reload detail panel after short delay.
+                    var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
+                    if (el) {
+                        el.dataset.loaded = '0';
+                        setTimeout(function () { loadDetail(postId, el); }, 1500);
                     }
-                });
-
-                container.innerHTML = html;
-                container.dataset.loaded = 'true';
+                } else {
+                    toast('err', resp.data || 'Failed.');
+                }
             })
             .catch(function () {
-                container.innerHTML = '<p class="description" style="color:#d63638">Failed to load details.</p>';
+                setBusy(postId, false);
+                toast('err', 'Network error.');
             });
     }
 
-    function scoreBadge(score) {
-        var cls = score >= 71 ? 'green' : score >= 41 ? 'orange' : 'red';
-        return '<span class="pqm-score-badge pqm-score-' + cls + '">' + score + '</span>';
+    function setBusy(postId, on) {
+        document.querySelectorAll('[data-post-id="' + postId + '"][data-pqm-cmd]').forEach(function (b) {
+            b.disabled = on;
+            b.style.opacity = on ? '.5' : '';
+        });
     }
 
-    function escHtml(str) {
-        if (!str) return '';
-        var div = document.createElement('div');
-        div.appendChild(document.createTextNode(str));
-        return div.innerHTML;
+    /* ================================================================
+     *  TOAST
+     * ================================================================ */
+    function toast(type, msg) {
+        document.querySelectorAll('.pqm-toast').forEach(function (t) { t.remove(); });
+        var icons = { ok: 'dashicons-yes-alt', err: 'dashicons-warning', info: 'dashicons-info' };
+        var el = document.createElement('div');
+        el.className = 'pqm-toast pqm-toast-' + type;
+        el.innerHTML = '<span class="dashicons ' + (icons[type] || icons.info) + '"></span><span>' + esc(msg) + '</span>';
+        document.body.appendChild(el);
+        setTimeout(function () { if (el.parentNode) el.remove(); }, 5000);
     }
+
+    /* ================================================================
+     *  HELPERS
+     * ================================================================ */
+    function empty(icon, msg, postId, cmd, label) {
+        return '<div class="pqm-empty"><span class="dashicons ' + icon + '"></span><p>' + esc(msg) + '</p>'
+             + actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary')
+             + '</div>';
+    }
+
+    function actionBtn(postId, cmd, label, icon, cls) {
+        return '<button type="button" class="button ' + cls + '" data-post-id="' + postId + '" data-pqm-cmd="' + cmd + '">'
+             + '<span class="dashicons ' + icon + '" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'
+             + esc(label) + '</button>';
+    }
+
+    function badge(score) {
+        var c = score >= 71 ? 'green' : score >= 41 ? 'orange' : 'red';
+        return '<span class="pqm-score-badge pqm-score-' + c + '">' + score + '</span>';
+    }
+
+    function statusLabel(s) {
+        return { ship: '🟢 Ship', needs_revision: '🟠 Needs Revision', major_revision: '🔴 Major Revision' }[s] || s;
+    }
+
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+    }
+
+    function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
+
+    /**
+     * Extract an array from result_data, trying common keys.
+     */
+    function extractList(data, key) {
+        var arr = data[key] || data.items || data.results || [];
+        if (Array.isArray(arr) && arr.length) return arr;
+        // Shallow search for any array.
+        var keys = Object.keys(data);
+        for (var i = 0; i < keys.length; i++) {
+            if (Array.isArray(data[keys[i]]) && data[keys[i]].length) return data[keys[i]];
+        }
+        return [];
+    }
+
 })();

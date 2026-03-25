@@ -283,6 +283,10 @@ class PQM_Admin {
         $total = $result['total'];
         $pages = $result['pages'];
 
+        // Get command states for all posts on this page.
+        $post_ids = array_column( $items, 'post_id' );
+        $commands = PQM_DB::get_commands_for_posts( $post_ids );
+
         ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e( 'Post Reviews', 'post-quality-manager' ); ?></h1>
@@ -309,6 +313,7 @@ class PQM_Admin {
                             <?php echo self::sortable_header( 'score', __( 'Score', 'post-quality-manager' ), $orderby, $order ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                         </th>
                         <th class="pqm-col-status"><?php esc_html_e( 'Status', 'post-quality-manager' ); ?></th>
+                        <th class="pqm-col-progress"><?php esc_html_e( 'Progress', 'post-quality-manager' ); ?></th>
                         <th class="pqm-col-date">
                             <?php echo self::sortable_header( 'reviewed_at', __( 'Last Reviewed', 'post-quality-manager' ), $orderby, $order ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                         </th>
@@ -341,23 +346,39 @@ class PQM_Admin {
                                 <?php echo esc_html( self::format_status( $item['latest_status'] ?? '' ) ); ?>
                             </td>
                             <td>
+                                <?php
+                                $cmds = $commands[ $item['post_id'] ] ?? [];
+                                $has_rev = in_array( 'review', $cmds, true ) || in_array( 'audit', $cmds, true );
+                                $has_rew = in_array( 'rewrite', $cmds, true );
+                                $has_tak = in_array( 'takeaways', $cmds, true );
+                                $has_src = in_array( 'sources', $cmds, true );
+                                ?>
+                                <div class="pqm-pills">
+                                    <span class="pqm-pill <?php echo $has_rev ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
+                                        <?php echo $has_rev ? '✓ ' : '— '; ?><?php esc_html_e( 'Review', 'post-quality-manager' ); ?>
+                                    </span>
+                                    <span class="pqm-pill <?php echo $has_rew ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
+                                        <?php echo $has_rew ? '✓ ' : '— '; ?><?php esc_html_e( 'Rewrite', 'post-quality-manager' ); ?>
+                                    </span>
+                                    <span class="pqm-pill <?php echo $has_tak ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
+                                        <?php echo $has_tak ? '✓ ' : '— '; ?><?php esc_html_e( 'Takeaways', 'post-quality-manager' ); ?>
+                                    </span>
+                                    <span class="pqm-pill <?php echo $has_src ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
+                                        <?php echo $has_src ? '✓ ' : '— '; ?><?php esc_html_e( 'Sources', 'post-quality-manager' ); ?>
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
                                 <?php echo $item['latest_reviewed'] ? esc_html( self::format_date( $item['latest_reviewed'] ) ) : '<em>' . esc_html__( 'Never', 'post-quality-manager' ) . '</em>'; ?>
                             </td>
                             <td>
-                                <?php
-                                $trigger_url = wp_nonce_url(
-                                    admin_url( 'admin.php?page=pqm-posts&pqm_action=trigger&post_id=' . $item['post_id'] . '&command=review' ),
-                                    'pqm_trigger_' . $item['post_id']
-                                );
-                                ?>
-                                <a href="<?php echo esc_url( $trigger_url ); ?>"
-                                   class="button button-small pqm-trigger-btn"
-                                   data-confirm="<?php esc_attr_e( 'Trigger a review for this post?', 'post-quality-manager' ); ?>">
-                                    <?php esc_html_e( 'Review', 'post-quality-manager' ); ?>
-                                </a>
-                                <?php if ( $item['latest_score'] !== null ) : ?>
-                                    <button type="button"
-                                            class="button button-small pqm-detail-toggle"
+                                <?php if ( ! $has_rev ) : ?>
+                                    <button type="button" class="button button-primary button-small"
+                                            data-post-id="<?php echo esc_attr( $item['post_id'] ); ?>" data-pqm-cmd="review">
+                                        <?php esc_html_e( 'Run Review', 'post-quality-manager' ); ?>
+                                    </button>
+                                <?php else : ?>
+                                    <button type="button" class="button button-small pqm-detail-toggle"
                                             data-post-id="<?php echo esc_attr( $item['post_id'] ); ?>">
                                         <?php esc_html_e( 'Details', 'post-quality-manager' ); ?>
                                     </button>
@@ -503,6 +524,35 @@ class PQM_Admin {
             </form>
         </div>
         <?php
+    }
+
+    /* ─── AJAX: Trigger Command ──────────────────────────────────────── */
+
+    public static function ajax_trigger_command(): void {
+        check_ajax_referer( 'pqm_admin_action' );
+
+        if ( ! current_user_can( 'edit_posts' ) ) {
+            wp_send_json_error( 'Insufficient permissions.', 403 );
+        }
+
+        $post_id = absint( $_POST['post_id'] ?? 0 );
+        $command = sanitize_key( $_POST['command'] ?? 'review' );
+
+        if ( ! $post_id ) {
+            wp_send_json_error( 'Invalid post ID.' );
+        }
+
+        $request = new WP_REST_Request( 'POST', '/' . PQM_REST_NAMESPACE . '/trigger-review' );
+        $request->set_param( 'post_id', $post_id );
+        $request->set_param( 'command', $command );
+        $response = PQM_REST_API::trigger_review_callback( $request );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( $response->get_error_message() );
+        }
+
+        $data = $response->get_data();
+        wp_send_json_success( $data );
     }
 
     /* ─── Helpers ─────────────────────────────────────────────────────── */

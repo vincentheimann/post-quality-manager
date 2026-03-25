@@ -64,6 +64,35 @@ class PQM_DB {
     }
 
     /**
+     * Get which commands have been executed for a batch of post IDs.
+     *
+     * @param  int[] $post_ids
+     * @return array  Keyed by post_id → array of command names.
+     */
+    public static function get_commands_for_posts( array $post_ids ): array {
+        if ( empty( $post_ids ) ) {
+            return [];
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+        $sql          = "SELECT post_id, command FROM {$table} WHERE post_id IN ($placeholders) GROUP BY post_id, command";
+        $rows         = $wpdb->get_results(
+            $wpdb->prepare( $sql, ...$post_ids ), // phpcs:ignore WordPress.DB.PreparedSQL
+            ARRAY_A
+        ) ?: [];
+
+        $map = [];
+        foreach ( $rows as $row ) {
+            $map[ (int) $row['post_id'] ][] = $row['command'];
+        }
+
+        return $map;
+    }
+
+    /**
      * Get the most recent review for a post + command.
      */
     public static function get_latest_review( int $post_id, string $command = 'review' ): ?array {

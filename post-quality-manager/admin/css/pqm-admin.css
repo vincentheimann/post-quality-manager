@@ -1,168 +1,243 @@
 /**
  * Post Quality Manager — Admin Styles
- * Native WP admin conventions + score badges + stat cards.
+ * Clean WP admin conventions. Focused MVP.
  */
 
-/* ─── Layout ─────────────────────────────────────────────────────────── */
+/* ─── Layout ──────────────────────────────────────────────── */
+.pqm-wrap { max-width: 1200px; }
+.pqm-section { margin-top: 24px; }
 
-.pqm-wrap {
-    max-width: 1200px;
-}
-
-.pqm-section {
-    margin-top: 24px;
-}
-
-/* ─── Stat Cards ─────────────────────────────────────────────────────── */
-
+/* ─── Stat Cards ──────────────────────────────────────────── */
 .pqm-stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin: 20px 0;
 }
-
 .pqm-stat-card {
     background: #fff;
     border: 1px solid #c3c4c7;
     border-radius: 4px;
     padding: 20px;
     text-align: center;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
 }
-
 .pqm-stat-number {
-    display: block;
-    font-size: 32px;
-    font-weight: 600;
-    color: #1d2327;
-    line-height: 1.2;
+    display: block; font-size: 32px; font-weight: 600;
+    color: #1d2327; line-height: 1.2;
 }
-
 .pqm-stat-label {
-    display: block;
-    margin-top: 6px;
-    color: #646970;
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    display: block; margin-top: 6px; color: #646970;
+    font-size: 13px; text-transform: uppercase; letter-spacing: .5px;
 }
 
-/* ─── Status Distribution Bar ────────────────────────────────────────── */
-
+/* ─── Status Distribution Bar ─────────────────────────────── */
 .pqm-status-bar {
-    display: flex;
-    height: 32px;
-    border-radius: 4px;
-    overflow: hidden;
-    background: #dcdcde;
+    display: flex; height: 32px; border-radius: 4px;
+    overflow: hidden; background: #dcdcde;
 }
-
 .pqm-status-segment {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 4px;
-    transition: width 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 4px; transition: width .3s ease;
 }
-
 .pqm-status-segment span {
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    padding: 0 8px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    color: #fff; font-size: 12px; font-weight: 600;
+    white-space: nowrap; padding: 0 8px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.2);
 }
 
-/* ─── Score Badges ───────────────────────────────────────────────────── */
-
+/* ─── Score Badges ────────────────────────────────────────── */
 .pqm-score-badge {
-    display: inline-block;
-    min-width: 36px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-    line-height: 1.5;
+    display: inline-block; min-width: 36px; padding: 2px 8px;
+    border-radius: 12px; font-size: 13px; font-weight: 600;
+    text-align: center; line-height: 1.5;
 }
+.pqm-score-green  { background: #dcfce7; color: #166534; }
+.pqm-score-orange { background: #fef3c7; color: #92400e; }
+.pqm-score-red    { background: #fee2e2; color: #991b1b; }
+.pqm-score-none   { background: #f1f5f9; color: #64748b; }
 
-.pqm-score-green {
-    background: #dcfce7;
-    color: #166534;
-}
+/* ─── Filters ─────────────────────────────────────────────── */
+.pqm-filters { margin: 16px 0; display: flex; gap: 8px; }
 
-.pqm-score-orange {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.pqm-score-red {
-    background: #fee2e2;
-    color: #991b1b;
-}
-
-.pqm-score-none {
-    background: #f1f5f9;
-    color: #64748b;
-}
-
-/* ─── Filters ────────────────────────────────────────────────────────── */
-
-.pqm-filters {
-    margin: 16px 0;
-    display: flex;
-    gap: 8px;
-}
-
-/* ─── Posts Table ─────────────────────────────────────────────────────── */
-
+/* ─── Posts Table ─────────────────────────────────────────── */
 .pqm-posts-table .pqm-col-score,
-.pqm-posts-table .pqm-col-status {
-    width: 120px;
+.pqm-posts-table .pqm-col-status { width: 100px; }
+.pqm-posts-table .pqm-col-progress { width: 220px; }
+.pqm-posts-table .pqm-col-date { width: 160px; }
+.pqm-posts-table .pqm-col-actions { width: 180px; white-space: nowrap; }
+.pqm-posts-table .pqm-col-actions .button { margin-right: 4px; }
+
+/* ─── Progress Pills ─────────────────────────────────────── */
+.pqm-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.pqm-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; font-weight: 500; line-height: 1.5;
+}
+.pqm-pill-done {
+    background: #dcfce7; color: #166534;
+}
+.pqm-pill-pending {
+    background: #f1f5f9; color: #94a3b8;
 }
 
-.pqm-posts-table .pqm-col-date {
-    width: 180px;
-}
-
-.pqm-posts-table .pqm-col-actions {
-    width: 160px;
-}
-
-.pqm-posts-table .pqm-col-actions .button {
-    margin-right: 4px;
-}
-
-/* ─── Detail Row ─────────────────────────────────────────────────────── */
-
-.pqm-detail-row td {
-    padding: 0 !important;
-}
-
+/* ─── Detail Row ──────────────────────────────────────────── */
+.pqm-detail-row td { padding: 0 !important; }
 .pqm-detail-content {
-    padding: 16px 20px;
-    background: #f6f7f7;
-    border-top: 1px solid #dcdcde;
+    padding: 0; background: #f9fafb; border-top: 2px solid #2271b1;
 }
 
-.pqm-detail-content h4 {
-    margin: 0 0 8px;
+/* ─── Tabs ────────────────────────────────────────────────── */
+.pqm-tabs-nav {
+    display: flex; gap: 0; border-bottom: 1px solid #c3c4c7;
+    background: #fff; padding: 0 16px;
+}
+.pqm-tab-btn {
+    padding: 10px 16px; border: none; background: transparent;
+    cursor: pointer; font-size: 13px; font-weight: 500; color: #646970;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: color .15s;
+}
+.pqm-tab-btn:hover { color: #2271b1; }
+.pqm-tab-btn.is-active {
+    color: #2271b1; border-bottom-color: #2271b1; font-weight: 600;
+}
+.pqm-tab-btn .pqm-tab-count {
+    margin-left: 4px; font-size: 11px; color: #8c8f94;
+}
+.pqm-tab-btn.is-active .pqm-tab-count { color: #2271b1; }
+
+.pqm-tab-panel { display: none; padding: 20px; animation: pqmFade .15s ease; }
+.pqm-tab-panel.is-active { display: block; }
+@keyframes pqmFade {
+    from { opacity: 0; } to { opacity: 1; }
 }
 
-.pqm-detail-content table {
-    width: auto;
-    margin: 8px 0;
+/* ─── Cards ───────────────────────────────────────────────── */
+.pqm-card {
+    background: #fff; border: 1px solid #e2e4e7; border-radius: 4px;
+    padding: 16px; margin-bottom: 16px;
+}
+.pqm-card:last-child { margin-bottom: 0; }
+.pqm-card h4 {
+    margin: 0 0 12px; font-size: 13px; font-weight: 600;
+    color: #1d2327; display: flex; align-items: center; gap: 6px;
+}
+.pqm-card h4 .dashicons { font-size: 16px; width: 16px; height: 16px; color: #2271b1; }
+
+/* Score breakdown */
+.pqm-breakdown { width: 100%; border-collapse: collapse; }
+.pqm-breakdown th,
+.pqm-breakdown td { padding: 6px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f1; }
+.pqm-breakdown th { font-weight: 600; color: #646970; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.pqm-breakdown tr:last-child td { border-bottom: none; }
+.pqm-bar-track { height: 6px; background: #e2e4e7; border-radius: 3px; overflow: hidden; flex: 1; }
+.pqm-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+.pqm-bar-fill-green  { background: #22c55e; }
+.pqm-bar-fill-orange { background: #f59e0b; }
+.pqm-bar-fill-red    { background: #ef4444; }
+.pqm-bar-wrap { display: flex; align-items: center; gap: 8px; }
+
+/* Edits list */
+.pqm-edits { list-style: none; padding: 0; margin: 0; }
+.pqm-edits li {
+    padding: 6px 10px; border-left: 3px solid #2271b1;
+    margin-bottom: 6px; background: #f9fafb; border-radius: 0 3px 3px 0;
+    font-size: 13px; line-height: 1.5;
 }
 
-.pqm-detail-content table td,
-.pqm-detail-content table th {
-    padding: 4px 12px;
+/* Content list (takeaways / sources) */
+.pqm-content-list { list-style: none; padding: 0; margin: 0; counter-reset: item; }
+.pqm-content-list li {
+    padding: 10px 12px 10px 38px; margin-bottom: 6px;
+    background: #fff; border: 1px solid #e2e4e7; border-radius: 4px;
+    font-size: 13px; line-height: 1.6; position: relative;
+    counter-increment: item;
+}
+.pqm-content-list li::before {
+    content: counter(item); position: absolute; left: 10px; top: 10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #2271b1; color: #fff; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
 }
 
-/* ─── Settings ───────────────────────────────────────────────────────── */
+/* Rewrite preview */
+.pqm-rewrite-preview {
+    background: #fff; border: 1px solid #e2e4e7; border-radius: 4px;
+    padding: 16px; max-height: 400px; overflow-y: auto;
+    font-size: 14px; line-height: 1.7; color: #1d2327;
+}
 
-.pqm-wrap .form-table th {
-    width: 220px;
+/* ─── Empty State ─────────────────────────────────────────── */
+.pqm-empty {
+    text-align: center; padding: 32px 16px; color: #646970;
+}
+.pqm-empty .dashicons {
+    font-size: 32px; width: 32px; height: 32px;
+    color: #c3c4c7; margin-bottom: 8px;
+}
+.pqm-empty p { font-size: 13px; margin: 0 0 12px; }
+
+/* ─── Action Bar inside detail panel ──────────────────────── */
+.pqm-detail-actions {
+    display: flex; gap: 8px; margin-top: 16px; padding-top: 12px;
+    border-top: 1px solid #e2e4e7; flex-wrap: wrap;
+}
+
+/* ─── History ─────────────────────────────────────────────── */
+.pqm-history { list-style: none; padding: 0; margin: 0; }
+.pqm-history li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-bottom: 1px solid #f0f0f1; font-size: 13px;
+}
+.pqm-history li:last-child { border-bottom: none; }
+.pqm-history-cmd {
+    display: inline-block; padding: 2px 8px; background: #f0f0f1;
+    border-radius: 3px; font-size: 12px; font-family: monospace;
+    min-width: 68px; text-align: center;
+}
+.pqm-history-date { color: #8c8f94; font-size: 12px; margin-left: auto; }
+
+/* ─── Toast ───────────────────────────────────────────────── */
+.pqm-toast {
+    position: fixed; top: 40px; right: 20px; z-index: 100001;
+    min-width: 260px; max-width: 400px; padding: 10px 14px;
+    border-radius: 4px; font-size: 13px; font-weight: 500;
+    box-shadow: 0 3px 8px rgba(0,0,0,.15); display: flex;
+    align-items: center; gap: 8px;
+    animation: pqmSlide .25s ease;
+}
+.pqm-toast-ok    { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.pqm-toast-err   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.pqm-toast-info  { background: #e7f3ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.pqm-toast .dashicons { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
+@keyframes pqmSlide {
+    from { opacity: 0; transform: translateX(30px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Spinner ─────────────────────────────────────────────── */
+.pqm-spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid #c3c4c7; border-top-color: #2271b1;
+    border-radius: 50%; animation: pqmSpin .6s linear infinite;
+}
+@keyframes pqmSpin { to { transform: rotate(360deg); } }
+
+/* ─── Loading ─────────────────────────────────────────────── */
+.pqm-loading {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 40px; color: #646970; font-size: 13px;
+}
+
+/* ─── Settings ────────────────────────────────────────────── */
+.pqm-wrap .form-table th { width: 220px; }
+
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 782px) {
+    .pqm-tabs-nav { flex-wrap: wrap; padding: 0 8px; }
+    .pqm-tab-btn { padding: 8px 10px; font-size: 12px; }
+    .pqm-tab-panel { padding: 12px; }
+    .pqm-pills { gap: 3px; }
+    .pqm-pill { font-size: 10px; padding: 1px 6px; }
 }

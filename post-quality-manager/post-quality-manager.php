@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
-define( 'PQM_VERSION', '2.0.0' );
+define( 'PQM_VERSION', '2.2.0' );
 define( 'PQM_PLUGIN_FILE', __FILE__ );
 define( 'PQM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PQM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -43,6 +43,7 @@ if ( is_admin() ) {
     add_action( 'admin_init', [ 'PQM_Admin', 'register_settings' ] );
     add_action( 'admin_enqueue_scripts', [ 'PQM_Admin', 'enqueue_assets' ] );
     add_action( 'updated_option', [ 'PQM_Admin', 'on_settings_updated' ] );
+    add_action( 'wp_ajax_pqm_trigger_command', [ 'PQM_Admin', 'ajax_trigger_command' ] );
 }
 
 /* ─── Cron ───────────────────────────────────────────────────────────── */
