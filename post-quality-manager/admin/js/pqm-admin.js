@@ -180,7 +180,7 @@
             h += '<div class="pqm-rewrite-preview"><p style="white-space:pre-wrap;margin:0">' + esc(content) + '</p></div>';
         }
         h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'apply_rewrite', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
            + actionBtn(postId, 'rewrite', 'Regenerate', 'dashicons-update', '')
            + '</div></div>';
 
@@ -200,7 +200,7 @@
                 return '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Takeaways</h4>'
                      + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
                      + '<div class="pqm-detail-actions">'
-                     + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+                     + actionBtn(postId, 'apply_takeaways', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
                      + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
                      + '</div></div>';
             }
@@ -215,7 +215,7 @@
         });
         h += '</ol>';
         h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'apply_takeaways', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
            + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
            + '</div></div>';
 
@@ -235,7 +235,7 @@
                 return '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Sources</h4>'
                      + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
                      + '<div class="pqm-detail-actions">'
-                     + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+                     + actionBtn(postId, 'apply_sources', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
                      + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
                      + '</div></div>';
             }
@@ -257,7 +257,7 @@
         });
         h += '</ol>';
         h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+           + actionBtn(postId, 'apply_sources', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
            + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
            + '</div></div>';
 
@@ -284,17 +284,18 @@
      *  TRIGGER COMMAND
      * ================================================================ */
     function triggerCommand(postId, command) {
-        var label = cap(command);
-        var msg = command === 'apply'
+        var isApply = command.indexOf('apply_') === 0;
+        var label = isApply ? 'Apply ' + cap(command.replace('apply_', '')) : cap(command);
+        var msg = isApply
             ? 'Apply this to the post? The post will be set to Pending status.'
             : 'Run "' + label + '" for this post?';
         if (!confirm(msg)) return;
 
-        toast('info', 'Running "' + label + '"…');
+        toast('info', (isApply ? 'Applying…' : 'Running "' + label + '"…'));
         setBusy(postId, true);
 
         var form = new FormData();
-        form.append('action', 'pqm_trigger_command');
+        form.append('action', isApply ? 'pqm_apply_command' : 'pqm_trigger_command');
         form.append('post_id', postId);
         form.append('command', command);
         form.append('_wpnonce', pqmAdmin.pageNonce);
@@ -304,15 +305,20 @@
             .then(function (resp) {
                 setBusy(postId, false);
                 if (resp.success) {
-                    toast('ok', resp.data.message || label + ' triggered.');
-                    // Reload detail panel after short delay.
-                    var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
-                    if (el) {
-                        el.dataset.loaded = '0';
-                        setTimeout(function () { loadDetail(postId, el); }, 1500);
+                    toast('ok', (resp.data && resp.data.message) ? resp.data.message : label + ' successful.');
+                    if (isApply) {
+                        // Reload window instantly so the user sees the new pending state.
+                        setTimeout(function () { window.location.reload(); }, 800);
+                    } else {
+                        // Reload detail panel after short delay.
+                        var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
+                        if (el) {
+                            el.dataset.loaded = '0';
+                            setTimeout(function () { loadDetail(postId, el); }, 1500);
+                        }
                     }
                 } else {
-                    toast('err', resp.data || 'Failed.');
+                    toast('err', (resp.data && resp.data.message) ? resp.data.message : (resp.data || 'Failed.'));
                 }
             })
             .catch(function () {

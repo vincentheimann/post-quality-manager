@@ -55,6 +55,24 @@ class PQM_Admin {
         );
     }
 
+    public static function admin_notices(): void {
+        $screen = get_current_screen();
+        if ( ! $screen || strpos( $screen->id, 'pqm-' ) === false ) {
+            return;
+        }
+
+        $settings = pqm_get_settings();
+        if ( empty( $settings['n8n_webhook_url'] ) ) {
+            $settings_url = admin_url( 'admin.php?page=pqm-settings' );
+            printf(
+                '<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
+                esc_html__( 'Welcome to Post Quality Manager! To start reviewing posts, please configure your n8n Webhook URL.', 'post-quality-manager' ),
+                esc_url( $settings_url ),
+                esc_html__( 'Go to Settings', 'post-quality-manager' )
+            );
+        }
+    }
+
     /* ─── Assets ─────────────────────────────────────────────────────── */
 
     public static function enqueue_assets( string $hook ): void {
