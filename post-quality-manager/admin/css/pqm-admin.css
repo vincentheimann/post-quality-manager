@@ -1,0 +1,168 @@
+/**
+ * Post Quality Manager — Admin Styles
+ * Native WP admin conventions + score badges + stat cards.
+ */
+
+/* ─── Layout ─────────────────────────────────────────────────────────── */
+
+.pqm-wrap {
+    max-width: 1200px;
+}
+
+.pqm-section {
+    margin-top: 24px;
+}
+
+/* ─── Stat Cards ─────────────────────────────────────────────────────── */
+
+.pqm-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+}
+
+.pqm-stat-card {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.pqm-stat-number {
+    display: block;
+    font-size: 32px;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.2;
+}
+
+.pqm-stat-label {
+    display: block;
+    margin-top: 6px;
+    color: #646970;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ─── Status Distribution Bar ────────────────────────────────────────── */
+
+.pqm-status-bar {
+    display: flex;
+    height: 32px;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #dcdcde;
+}
+
+.pqm-status-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 4px;
+    transition: width 0.3s ease;
+}
+
+.pqm-status-segment span {
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 0 8px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Score Badges ───────────────────────────────────────────────────── */
+
+.pqm-score-badge {
+    display: inline-block;
+    min-width: 36px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.pqm-score-green {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.pqm-score-orange {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.pqm-score-red {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.pqm-score-none {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* ─── Filters ────────────────────────────────────────────────────────── */
+
+.pqm-filters {
+    margin: 16px 0;
+    display: flex;
+    gap: 8px;
+}
+
+/* ─── Posts Table ─────────────────────────────────────────────────────── */
+
+.pqm-posts-table .pqm-col-score,
+.pqm-posts-table .pqm-col-status {
+    width: 120px;
+}
+
+.pqm-posts-table .pqm-col-date {
+    width: 180px;
+}
+
+.pqm-posts-table .pqm-col-actions {
+    width: 160px;
+}
+
+.pqm-posts-table .pqm-col-actions .button {
+    margin-right: 4px;
+}
+
+/* ─── Detail Row ─────────────────────────────────────────────────────── */
+
+.pqm-detail-row td {
+    padding: 0 !important;
+}
+
+.pqm-detail-content {
+    padding: 16px 20px;
+    background: #f6f7f7;
+    border-top: 1px solid #dcdcde;
+}
+
+.pqm-detail-content h4 {
+    margin: 0 0 8px;
+}
+
+.pqm-detail-content table {
+    width: auto;
+    margin: 8px 0;
+}
+
+.pqm-detail-content table td,
+.pqm-detail-content table th {
+    padding: 4px 12px;
+}
+
+/* ─── Settings ───────────────────────────────────────────────────────── */
+
+.pqm-wrap .form-table th {
+    width: 220px;
+}
