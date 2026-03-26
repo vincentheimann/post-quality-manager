@@ -4,12 +4,11 @@ _The agent writes and updates this file for each active task._
 
 ---
 
-## Plan: App Release Management in GitHub
+## Plan: Overhaul Agent Instructions for Post Quality Manager
 
-- [x] Create CI workflow (`.github/workflows/ci.yml`)
-  - Triggers on push to `main` and Pull Requests
-  - Runs `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build`
-- [x] Create Release workflow (`.github/workflows/release.yml`)
-  - Triggers on push to `main`
-  - Uses `google-github-actions/release-please-action` to automatically draft releases and changelogs based on Conventional Commits format
-- [x] Verify GitHub Actions are working (implemented via README.md and documentation updates)
+- [x] Review `AGENTS.md` and linked instructions
+- [x] Create implementation plan
+- [x] Rewrite `AGENTS.md` for WordPress structure
+- [x] Rewrite `docs/brand.md` for professional bloggers
+- [x] Update `WORKFLOW.md` to remove npm verifications
+- [x] Document KISS principle and WP plugin structure

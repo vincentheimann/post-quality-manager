@@ -20,11 +20,15 @@
 - Ruthlessly iterate on these lessons until mistake rate drops
 - Review `tasks/lessons.md` at the start of each session
 
-### 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
+### 4. Verification & Definition of Done
+- Never mark a task complete without proving it works.
+- **Definition of Done:**
+  - Code follows the KISS principle.
+  - No WP debug errors or warnings in PHP logs.
+  - REST API endpoints return 200 OK with correct JSON payload and permissions.
+  - UI interactions (buttons, tabs) have been manually tested for loading/error states.
+- Diff behavior between main and your changes when relevant.
 - Ask yourself: "Would a staff engineer approve this?"
-- Run all verification commands defined in `AGENTS.md`, check logs, demonstrate correctness
 
 ### 5. Demand Elegance (Balanced)
 - For non-trivial changes: pause and ask "is there a more elegant way?"
@@ -34,8 +38,8 @@
 
 ### 6. Autonomous Bug Fixing
 - When given a bug report: just fix it, don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Go fix failing tests without being told how
+- Point at logs and errors, then resolve them
+- Fix failing endpoints/UI bugs without being told how
 
 ---
 
@@ -51,6 +55,6 @@
 ---
 
 ## Core Principles
-- **Simplicity First** — Make every change as simple as possible, impact minimal code
+- **Simplicity First** — Make every change as simple as possible, impact minimal code (KISS Principle)
 - **No Laziness** — Find root causes, no temporary fixes, senior developer standards
 - **Minimal Impact** — Changes should only touch what is necessary, avoid introducing bugs
