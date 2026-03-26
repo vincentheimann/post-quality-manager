@@ -175,21 +175,28 @@
         if (!review) return empty('dashicons-edit', 'No rewrite generated yet.', postId, 'rewrite', 'Generate Rewrite');
 
         var d = review.result_data || {};
-        var content = d.content || d.content_html || d.rewrite || d.rewritten_content || d.text || '';
-        if (!content) return empty('dashicons-edit', 'Rewrite data is empty.', postId, 'rewrite', 'Regenerate');
+        
+        // n8n returns { rewrite_applied: true } when it successfully patches the DB directly.
+        if (d.rewrite_applied) {
+            var row = document.querySelector('.pqm-post-row[data-post-id="' + postId + '"]');
+            var titleA = row ? row.querySelector('strong a') : null;
+            var editLnk = titleA ? titleA.getAttribute('href') : '#';
 
-        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-edit"></span> Rewritten Content</h4>';
-        if (/<[a-z][\s\S]*>/i.test(content)) {
-            h += '<div class="pqm-rewrite-preview">' + content + '</div>';
-        } else {
-            h += '<div class="pqm-rewrite-preview"><p style="white-space:pre-wrap;margin:0">' + esc(content) + '</p></div>';
+            var h = '<div class="pqm-card" style="text-align: center; padding: 40px 20px;">';
+            h += '<div style="color: #2e7d32; margin-bottom: 16px;"><span class="dashicons dashicons-yes-alt" style="font-size: 48px; width: 48px; height: 48px;"></span></div>';
+            h += '<h3 style="margin: 0 0 12px; font-size: 18px; font-weight: 600;">Rewrite Applied Successfully</h3>';
+            h += '<p style="font-size: 14px; color: #50575e; max-width: 400px; margin: 0 auto 24px; line-height: 1.6;">';
+            h += 'The post has been updated with the AI-generated content and set to <strong>Pending Review</strong>.<br><br>Please review and validate it using the native WordPress revision compare tool, or rollback to the previous version if needed.';
+            h += '</p>';
+            h += '<div class="pqm-detail-actions" style="justify-content: center; border-top: none; margin-top: 0; padding-top: 0;">';
+            h += '<a href="' + editLnk + '" target="_blank" class="button button-primary">Review in Editor</a> ';
+            h += '<button type="button" class="button" data-post-id="' + postId + '" data-pqm-cmd="rewrite"><span class="dashicons dashicons-update" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>Regenerate Rewrite</button>';
+            h += '</div>';
+            h += '</div>';
+            return h;
         }
-        h += '<div class="pqm-detail-actions">'
-            + actionBtn(postId, 'apply_rewrite', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-            + actionBtn(postId, 'rewrite', 'Regenerate', 'dashicons-update', '')
-            + '</div></div>';
 
-        return h;
+        return empty('dashicons-edit', 'Rewrite data is empty. The workflow may not have returned rewrite_applied correctly.', postId, 'rewrite', 'Regenerate');
     }
 
 
@@ -435,7 +442,6 @@
             + actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary')
             + '</div>';
     }
-
     function actionBtn(postId, cmd, label, icon, cls) {
         return '<button type="button" class="button ' + cls + '" data-post-id="' + postId + '" data-pqm-cmd="' + cmd + '">'
             + '<span class="dashicons ' + icon + '" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'

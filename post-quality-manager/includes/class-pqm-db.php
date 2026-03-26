@@ -150,8 +150,8 @@ class PQM_DB {
             ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
         ";
 
-        // Get all published posts with optional LEFT JOIN to reviews.
-        $where_clauses = [ "p.post_status = 'publish'", "p.post_type = 'post'" ];
+        // Get all published and pending posts with optional LEFT JOIN to reviews.
+        $where_clauses = [ "p.post_status IN ('publish', 'pending')", "p.post_type = 'post'" ];
         $having_clauses = [];
 
         if ( $args['filter'] === 'needs_review' ) {
@@ -197,6 +197,7 @@ class PQM_DB {
                    p.post_title AS title,
                    p.post_name AS slug,
                    p.post_type,
+                   p.post_status AS wp_post_status,
                    lr.overall_score AS latest_score,
                    lr.status AS latest_status,
                    lr.reviewed_at AS latest_reviewed,
@@ -268,9 +269,9 @@ class PQM_DB {
         global $wpdb;
         $table = self::table_name();
 
-        // Total published posts.
+        // Total published and pending posts.
         $total_posts = (int) $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND post_type = 'post'"
+            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status IN ('publish', 'pending') AND post_type = 'post'"
         );
 
         // Posts with at least one review.

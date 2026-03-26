@@ -366,6 +366,9 @@ class PQM_Admin
                                     <a href="<?php echo esc_url(get_edit_post_link($item['post_id'])); ?>">
                                         <?php echo esc_html($item['title']); ?>
                                     </a>
+                                    <?php if (($item['wp_post_status'] ?? '') === 'pending'): ?>
+                                        — <span class="post-state" style="font-weight: normal; color: #50575e;"><?php esc_html_e('Pending', 'post-quality-manager'); ?></span>
+                                    <?php endif; ?>
                                 </strong>
                             </td>
                             <td class="pqm-cell-score">

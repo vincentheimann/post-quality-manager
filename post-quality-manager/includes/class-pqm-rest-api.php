@@ -107,7 +107,7 @@ class PQM_REST_API {
         $query = new WP_Query( [
             'name'           => $slug,
             'post_type'      => $post_type,
-            'post_status'    => 'publish',
+            'post_status'    => [ 'publish', 'pending' ],
             'posts_per_page' => 1,
             'no_found_rows'  => true,
         ] );
@@ -115,7 +115,7 @@ class PQM_REST_API {
         if ( ! $query->have_posts() ) {
             return new WP_Error(
                 'pqm_not_found',
-                sprintf( 'No published %s found with slug: %s', $post_type, $slug ),
+                sprintf( 'No published or pending %s found with slug: %s', $post_type, $slug ),
                 [ 'status' => 404 ]
             );
         }
@@ -291,10 +291,10 @@ class PQM_REST_API {
         $command = sanitize_key( $request->get_param( 'command' ) );
 
         $post = get_post( $post_id );
-        if ( ! $post || $post->post_status !== 'publish' ) {
+        if ( ! $post || ! in_array( $post->post_status, [ 'publish', 'pending' ], true ) ) {
             return new WP_Error(
                 'pqm_invalid_post',
-                'Post not found or not published.',
+                'Post not found or not published/pending.',
                 [ 'status' => 404 ]
             );
         }
