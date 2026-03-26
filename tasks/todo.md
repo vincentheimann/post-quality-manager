@@ -4,11 +4,10 @@ _The agent writes and updates this file for each active task._
 
 ---
 
-## Plan: Overhaul Agent Instructions for Post Quality Manager
+## Plan: Complete Plugin Review (n8n v2 & AGENTS.md compliance)
 
-- [x] Review `AGENTS.md` and linked instructions
-- [x] Create implementation plan
-- [x] Rewrite `AGENTS.md` for WordPress structure
-- [x] Rewrite `docs/brand.md` for professional bloggers
-- [x] Update `WORKFLOW.md` to remove npm verifications
-- [x] Document KISS principle and WP plugin structure
+- [x] Analyze `n8n_post_quality_workflow_v2.json` to understand the exact payload schemas, webhook structures, and logic flow.
+- [x] Audit the REST API endpoints (`includes/class-pqm-rest-api.php`) for data mapping and security compliance against the v2 payload.
+- [x] Audit Database schema (`includes/class-pqm-db.php`) — ensure it stores all necessary n8n results correctly while honoring WordPress core APIs.
+- [x] Audit Admin UI (`admin/class-pqm-admin.php` and JS assets) — ensure the UX aligns with the professional `brand.md` and standard WP UI classes.
+- [x] Ensure the overall architecture adheres to strings KISS requirements defined in `AGENTS.md` and `WORKFLOW.md`.

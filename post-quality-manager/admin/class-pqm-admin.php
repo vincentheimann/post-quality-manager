@@ -607,10 +607,10 @@ class PQM_Admin
     private static function format_status(string $status): string
     {
         return match ($status) {
-                'published' => '🟢 ' . __('published', 'post-quality-manager'),
+                'ship'           => '🟢 ' . __('Ready to Ship', 'post-quality-manager'),
                 'needs_revision' => '🟠 ' . __('Needs Revision', 'post-quality-manager'),
                 'major_revision' => '🔴 ' . __('Major Revision', 'post-quality-manager'),
-                default => $status ? $status : '—',
+                default          => $status ? $status : '—',
             };
     }
 
