@@ -76,8 +76,6 @@
         var tabs = [
             { id: 'review',    label: 'Review' },
             { id: 'rewrite',   label: 'Rewrite' },
-            { id: 'takeaways', label: 'Takeaways' },
-            { id: 'sources',   label: 'Sources' },
             { id: 'history',   label: 'History' },
         ];
 
@@ -87,7 +85,7 @@
         // Tab nav.
         html += '<div class="pqm-tabs-nav">';
         tabs.forEach(function (t, i) {
-            var has = t.id === 'history' ? reviews.length > 0 : !!latest[t.id] || (t.id === 'review' && latest.audit);
+            var has = t.id === 'history' ? reviews.length > 0 : !!latest[t.id];
             html += '<button type="button" class="pqm-tab-btn' + (i === 0 ? ' is-active' : '') + '" data-tab="' + t.id + '-' + postId + '">'
                   + esc(t.label)
                   + (has && t.id !== 'history' ? ' <span class="pqm-tab-count">✓</span>' : '')
@@ -99,8 +97,6 @@
         // Tab panels.
         html += panelWrap('review-'    + postId, true,  renderReview(latest, postId));
         html += panelWrap('rewrite-'   + postId, false, renderRewrite(latest.rewrite, postId));
-        html += panelWrap('takeaways-' + postId, false, renderTakeaways(latest.takeaways, postId));
-        html += panelWrap('sources-'   + postId, false, renderSources(latest.sources, postId));
         html += panelWrap('history-'   + postId, false, renderHistory(reviews));
 
         el.innerHTML = html;
@@ -124,7 +120,7 @@
 
     /* ─── Review Tab ──────────────────────────────────────── */
     function renderReview(latest, postId) {
-        var r = latest.review || latest.audit;
+        var r = latest.review;
         if (!r) return empty('dashicons-chart-bar', 'No review yet.', postId, 'review', 'Run Review');
 
         var d = r.result_data || {};
@@ -188,82 +184,7 @@
         return h;
     }
 
-    /* ─── Takeaways Tab ───────────────────────────────────── */
-    function renderTakeaways(review, postId) {
-        if (!review) return empty('dashicons-lightbulb', 'No takeaways generated yet.', postId, 'takeaways', 'Generate Takeaways');
 
-        var d = review.result_data || {};
-        var items = extractList(d, 'takeaways');
-
-        if (!items.length) {
-            var text = typeof d === 'string' ? d : (d.content || d.text || (typeof d.takeaways === 'string' ? d.takeaways : ''));
-            if (text) {
-                return '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Takeaways</h4>'
-                     + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
-                     + '<div class="pqm-detail-actions">'
-                     + actionBtn(postId, 'apply_takeaways', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-                     + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
-                     + '</div></div>';
-            }
-            return empty('dashicons-lightbulb', 'Takeaways data is empty.', postId, 'takeaways', 'Regenerate');
-        }
-
-        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-lightbulb"></span> Key Takeaways</h4>';
-        h += '<ol class="pqm-content-list">';
-        items.forEach(function (item) {
-            var t = typeof item === 'string' ? item : (item.text || item.title || item.takeaway || JSON.stringify(item));
-            h += '<li>' + esc(t) + '</li>';
-        });
-        h += '</ol>';
-        h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply_takeaways', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-           + actionBtn(postId, 'takeaways', 'Regenerate', 'dashicons-update', '')
-           + '</div></div>';
-
-        return h;
-    }
-
-    /* ─── Sources Tab ─────────────────────────────────────── */
-    function renderSources(review, postId) {
-        if (!review) return empty('dashicons-admin-links', 'No sources generated yet.', postId, 'sources', 'Generate Sources');
-
-        var d = review.result_data || {};
-        var items = extractList(d, 'sources');
-
-        if (!items.length) {
-            var text = typeof d === 'string' ? d : (d.content || d.text || (typeof d.sources === 'string' ? d.sources : ''));
-            if (text) {
-                return '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Sources</h4>'
-                     + '<p style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0">' + esc(text) + '</p>'
-                     + '<div class="pqm-detail-actions">'
-                     + actionBtn(postId, 'apply_sources', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-                     + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
-                     + '</div></div>';
-            }
-            return empty('dashicons-admin-links', 'Sources data is empty.', postId, 'sources', 'Regenerate');
-        }
-
-        var h = '<div class="pqm-card"><h4><span class="dashicons dashicons-admin-links"></span> Suggested Sources</h4>';
-        h += '<ol class="pqm-content-list">';
-        items.forEach(function (item) {
-            if (typeof item === 'string') {
-                h += '<li>' + esc(item) + '</li>';
-            } else {
-                h += '<li>';
-                if (item.title) h += '<strong>' + esc(item.title) + '</strong><br>';
-                if (item.url) h += '<a href="' + escAttr(item.url) + '" target="_blank" rel="noopener" style="font-size:12px;word-break:break-all">' + esc(item.url) + '</a><br>';
-                if (item.description || item.reason) h += '<span style="color:#646970;font-size:12px">' + esc(item.description || item.reason) + '</span>';
-                h += '</li>';
-            }
-        });
-        h += '</ol>';
-        h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply_sources', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-           + actionBtn(postId, 'sources', 'Regenerate', 'dashicons-update', '')
-           + '</div></div>';
-
-        return h;
-    }
 
     /* ─── History Tab ─────────────────────────────────────── */
     function renderHistory(reviews) {
@@ -302,7 +223,7 @@
         }
 
         var form = new FormData();
-        form.append('action', isApply ? 'pqm_apply_command' : 'pqm_trigger_command');
+        form.append('action', 'pqm_trigger_command');
         form.append('post_id', postId);
         form.append('command', command);
         form.append('_wpnonce', pqmAdmin.pageNonce);
@@ -425,20 +346,5 @@
         return d.innerHTML;
     }
 
-    function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
-
-    /**
-     * Extract an array from result_data, trying common keys.
-     */
-    function extractList(data, key) {
-        var arr = data[key] || data.items || data.results || [];
-        if (Array.isArray(arr) && arr.length) return arr;
-        // Shallow search for any array.
-        var keys = Object.keys(data);
-        for (var i = 0; i < keys.length; i++) {
-            if (Array.isArray(data[keys[i]]) && data[keys[i]].length) return data[keys[i]];
-        }
-        return [];
-    }
 
 })();

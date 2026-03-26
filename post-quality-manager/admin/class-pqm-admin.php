@@ -125,8 +125,7 @@ class PQM_Admin {
         $clean['cron_batch_size']   = absint( $input['cron_batch_size'] ?? 5 );
         $clean['cron_min_score']    = absint( $input['cron_min_score'] ?? 60 );
         $clean['cron_max_age_days'] = absint( $input['cron_max_age_days'] ?? 30 );
-        $clean['cron_command']      = in_array( $input['cron_command'] ?? '', [ 'review', 'audit' ], true )
-            ? $input['cron_command'] : 'review';
+        $clean['cron_command']      = 'review';
 
         return $clean;
     }
@@ -340,7 +339,7 @@ class PQM_Admin {
                 </thead>
                 <tbody>
                     <?php if ( empty( $items ) ) : ?>
-                        <tr><td colspan="5"><?php esc_html_e( 'No posts found.', 'post-quality-manager' ); ?></td></tr>
+                        <tr><td colspan="6"><?php esc_html_e( 'No posts found.', 'post-quality-manager' ); ?></td></tr>
                     <?php else : ?>
                         <?php foreach ( $items as $item ) : ?>
                         <tr>
@@ -366,10 +365,8 @@ class PQM_Admin {
                             <td>
                                 <?php
                                 $cmds = $commands[ $item['post_id'] ] ?? [];
-                                $has_rev = in_array( 'review', $cmds, true ) || in_array( 'audit', $cmds, true );
+                                $has_rev = in_array( 'review', $cmds, true );
                                 $has_rew = in_array( 'rewrite', $cmds, true );
-                                $has_tak = in_array( 'takeaways', $cmds, true );
-                                $has_src = in_array( 'sources', $cmds, true );
                                 ?>
                                 <div class="pqm-pills">
                                     <span class="pqm-pill <?php echo $has_rev ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
@@ -377,12 +374,6 @@ class PQM_Admin {
                                     </span>
                                     <span class="pqm-pill <?php echo $has_rew ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
                                         <?php echo $has_rew ? '✓ ' : '— '; ?><?php esc_html_e( 'Rewrite', 'post-quality-manager' ); ?>
-                                    </span>
-                                    <span class="pqm-pill <?php echo $has_tak ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
-                                        <?php echo $has_tak ? '✓ ' : '— '; ?><?php esc_html_e( 'Takeaways', 'post-quality-manager' ); ?>
-                                    </span>
-                                    <span class="pqm-pill <?php echo $has_src ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
-                                        <?php echo $has_src ? '✓ ' : '— '; ?><?php esc_html_e( 'Sources', 'post-quality-manager' ); ?>
                                     </span>
                                 </div>
                             </td>
@@ -405,7 +396,7 @@ class PQM_Admin {
                         </tr>
                         <!-- Expandable detail row -->
                         <tr class="pqm-detail-row" id="pqm-detail-<?php echo esc_attr( $item['post_id'] ); ?>" style="display:none">
-                            <td colspan="5">
+                            <td colspan="6">
                                 <div class="pqm-detail-content" data-post-id="<?php echo esc_attr( $item['post_id'] ); ?>">
                                     <p class="description"><?php esc_html_e( 'Loading...', 'post-quality-manager' ); ?></p>
                                 </div>
@@ -512,10 +503,10 @@ class PQM_Admin {
                     <tr>
                         <th><label for="pqm_cron_command"><?php esc_html_e( 'Command', 'post-quality-manager' ); ?></label></th>
                         <td>
-                            <select id="pqm_cron_command" name="pqm_settings[cron_command]">
-                                <option value="review" <?php selected( $settings['cron_command'], 'review' ); ?>>review</option>
-                                <option value="audit" <?php selected( $settings['cron_command'], 'audit' ); ?>>audit</option>
+                            <select id="pqm_cron_command" name="pqm_settings[cron_command]" disabled>
+                                <option value="review" selected>review</option>
                             </select>
+                            <p class="description"><?php esc_html_e( 'Only "review" is available in this version.', 'post-quality-manager' ); ?></p>
                         </td>
                     </tr>
                     <tr>

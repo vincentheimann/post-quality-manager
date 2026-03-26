@@ -145,7 +145,7 @@ class PQM_DB {
             INNER JOIN (
                 SELECT post_id, MAX(reviewed_at) AS max_date
                 FROM {$table}
-                WHERE command IN ('review', 'audit')
+                WHERE command = 'review'
                 GROUP BY post_id
             ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
         ";
@@ -240,7 +240,7 @@ class PQM_DB {
                 INNER JOIN (
                     SELECT post_id, MAX(reviewed_at) AS max_date
                     FROM {$table}
-                    WHERE command IN ('review', 'audit')
+                    WHERE command = 'review'
                     GROUP BY post_id
                 ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
             ) lr ON p.ID = lr.post_id
@@ -278,7 +278,7 @@ class PQM_DB {
             "SELECT COUNT(DISTINCT post_id) FROM {$table}"
         );
 
-        // Average latest score (for review/audit commands).
+        // Average latest score (for review command).
         $avg_score = (float) $wpdb->get_var(
             "SELECT AVG(latest_score) FROM (
                 SELECT r1.overall_score AS latest_score
@@ -286,7 +286,7 @@ class PQM_DB {
                 INNER JOIN (
                     SELECT post_id, MAX(reviewed_at) AS max_date
                     FROM {$table}
-                    WHERE command IN ('review', 'audit')
+                    WHERE command = 'review'
                     GROUP BY post_id
                 ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
             ) AS t"
@@ -300,7 +300,7 @@ class PQM_DB {
                 INNER JOIN (
                     SELECT post_id, MAX(reviewed_at) AS max_date
                     FROM {$table}
-                    WHERE command IN ('review', 'audit')
+                    WHERE command = 'review'
                     GROUP BY post_id
                 ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
             ) lr GROUP BY lr.status",

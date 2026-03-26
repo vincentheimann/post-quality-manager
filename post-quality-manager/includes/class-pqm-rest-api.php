@@ -185,7 +185,7 @@ class PQM_REST_API {
             'command' => [
                 'required' => true,
                 'type'     => 'string',
-                'enum'     => [ 'review', 'audit', 'score', 'seo', 'takeaways', 'sources' ],
+                'enum'     => [ 'review', 'rewrite' ],
             ],
             'overall_score' => [
                 'required' => false,
@@ -271,7 +271,7 @@ class PQM_REST_API {
                 'required' => false,
                 'type'     => 'string',
                 'default'  => 'review',
-                'enum'     => [ 'review', 'audit', 'score', 'seo', 'takeaways', 'sources', 'rewrite', 'apply' ],
+                'enum'     => [ 'review', 'rewrite' ],
             ],
         ];
     }
