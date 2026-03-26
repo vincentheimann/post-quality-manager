@@ -48,13 +48,13 @@
 
 /* ─── Score Badges ────────────────────────────────────────── */
 .pqm-score-badge {
-    display: inline-block; min-width: 36px; padding: 2px 8px;
-    border-radius: 12px; font-size: 13px; font-weight: 600;
-    text-align: center; line-height: 1.5;
+    display: inline-block; min-width: 48px; padding: 4px 12px;
+    border-radius: 14px; font-size: 14px; font-weight: 600;
+    text-align: center; line-height: 1.5; box-sizing: border-box;
 }
-.pqm-score-green  { background: #dcfce7; color: #166534; }
-.pqm-score-orange { background: #fef3c7; color: #92400e; }
-.pqm-score-red    { background: #fee2e2; color: #991b1b; }
+.pqm-score-green  { background: #e8f5e9; color: #2e7d32; }
+.pqm-score-orange { background: #fff3e0; color: #e65100; }
+.pqm-score-red    { background: #ffebee; color: #c62828; }
 .pqm-score-none   { background: #f1f5f9; color: #64748b; }
 
 /* ─── Filters ─────────────────────────────────────────────── */
@@ -67,6 +67,24 @@
 .pqm-posts-table .pqm-col-date { width: 160px; }
 .pqm-posts-table .pqm-col-actions { width: 180px; white-space: nowrap; }
 .pqm-posts-table .pqm-col-actions .button { margin-right: 4px; }
+
+/* TABLE ALIGNMENTS & WRAP PREVENTION */
+.wp-list-table th.column-score { width: 80px; text-align: center !important; }
+.pqm-cell-score { text-align: center !important; }
+
+.wp-list-table th.column-status { width: 140px; }
+.pqm-cell-status { white-space: nowrap; font-weight: 500; }
+
+.wp-list-table th.column-progress { width: 160px; }
+
+/* ROW TOGGLE BTN */
+.pqm-detail-toggle {
+    transition: all 0.2s;
+}
+.pqm-post-row:hover .pqm-detail-toggle {
+    border-color: #2271b1;
+    color: #2271b1;
+}
 
 /* ─── Progress Pills ─────────────────────────────────────── */
 .pqm-pills { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -89,25 +107,26 @@
 
 /* ─── Tabs ────────────────────────────────────────────────── */
 .pqm-tabs-nav {
-    display: flex; gap: 0; border-bottom: 1px solid #c3c4c7;
-    background: #fff; padding: 0 16px;
+    display: flex; gap: 16px; border-bottom: 1px solid #c3c4c7;
+    background: transparent; padding: 0 16px; margin-bottom: 24px;
 }
 .pqm-tab-btn {
-    padding: 10px 16px; border: none; background: transparent;
-    cursor: pointer; font-size: 13px; font-weight: 500; color: #646970;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-    transition: color .15s;
+    padding: 10px 4px; border: none; background: transparent;
+    cursor: pointer; font-size: 14px; font-weight: 500; color: #646970;
+    border-bottom: 3px solid transparent; margin-bottom: -1px;
+    transition: all .2s;
 }
 .pqm-tab-btn:hover { color: #2271b1; }
 .pqm-tab-btn.is-active {
     color: #2271b1; border-bottom-color: #2271b1; font-weight: 600;
 }
 .pqm-tab-btn .pqm-tab-count {
-    margin-left: 4px; font-size: 11px; color: #8c8f94;
+    margin-left: 4px; font-size: 11px; color: #646970; background: #f0f0f1; 
+    padding: 2px 6px; border-radius: 10px; font-weight: 600;
 }
-.pqm-tab-btn.is-active .pqm-tab-count { color: #2271b1; }
+.pqm-tab-btn.is-active .pqm-tab-count { color: #fff; background: #2271b1; }
 
-.pqm-tab-panel { display: none; padding: 20px; animation: pqmFade .15s ease; }
+.pqm-tab-panel { display: none; padding: 0 20px 20px 20px; animation: pqmFade .15s ease; }
 .pqm-tab-panel.is-active { display: block; }
 @keyframes pqmFade {
     from { opacity: 0; } to { opacity: 1; }
@@ -115,35 +134,41 @@
 
 /* ─── Cards ───────────────────────────────────────────────── */
 .pqm-card {
-    background: #fff; border: 1px solid #e2e4e7; border-radius: 4px;
-    padding: 16px; margin-bottom: 16px;
+    background: #fff; border: 1px solid #c3c4c7; border-radius: 6px;
+    padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 .pqm-card:last-child { margin-bottom: 0; }
 .pqm-card h4 {
-    margin: 0 0 12px; font-size: 13px; font-weight: 600;
-    color: #1d2327; display: flex; align-items: center; gap: 6px;
+    margin: 0 0 20px; font-size: 15px; font-weight: 600;
+    color: #1d2327; display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid #f0f0f1; padding-bottom: 12px;
 }
-.pqm-card h4 .dashicons { font-size: 16px; width: 16px; height: 16px; color: #2271b1; }
+.pqm-card h4 .dashicons { font-size: 20px; width: 20px; height: 20px; color: #2271b1; }
 
 /* Score breakdown */
 .pqm-breakdown { width: 100%; border-collapse: collapse; }
-.pqm-breakdown th,
-.pqm-breakdown td { padding: 6px 10px; text-align: left; font-size: 13px; border-bottom: 1px solid #f0f0f1; }
-.pqm-breakdown th { font-weight: 600; color: #646970; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.pqm-breakdown th { 
+    padding: 0 10px 12px 10px; text-align: left; font-size: 11px; 
+    color: #8c8f94; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #f0f0f1; 
+}
+.pqm-breakdown td { 
+    padding: 16px 10px !important; text-align: left; font-size: 14px; 
+    border-bottom: 1px solid #f6f7f7; vertical-align: middle; color: #3c434a; 
+}
 .pqm-breakdown tr:last-child td { border-bottom: none; }
-.pqm-bar-track { height: 6px; background: #e2e4e7; border-radius: 3px; overflow: hidden; flex: 1; }
-.pqm-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
-.pqm-bar-fill-green  { background: #22c55e; }
-.pqm-bar-fill-orange { background: #f59e0b; }
-.pqm-bar-fill-red    { background: #ef4444; }
-.pqm-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.pqm-bar-wrap { display: flex; align-items: center; gap: 8px; width: 100%; }
+.pqm-bar-track { height: 8px; background: #f0f0f1; border-radius: 4px; overflow: hidden; flex: 1; }
+.pqm-bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.pqm-bar-fill-green  { background: #2e7d32; }
+.pqm-bar-fill-orange { background: #e65100; }
+.pqm-bar-fill-red    { background: #c62828; }
 
 /* Edits list */
-.pqm-edits { list-style: none; padding: 0; margin: 0; }
+.pqm-edits { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
 .pqm-edits li {
-    padding: 6px 10px; border-left: 3px solid #2271b1;
-    margin-bottom: 6px; background: #f9fafb; border-radius: 0 3px 3px 0;
-    font-size: 13px; line-height: 1.5;
+    padding: 14px 18px; border-left: 4px solid #2271b1;
+    margin: 0; background: #f9f9fb; border-radius: 0 4px 4px 0;
+    font-size: 14px; line-height: 1.6; color: #3c434a;
 }
 
 /* Content list (takeaways / sources) */
