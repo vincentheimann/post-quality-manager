@@ -89,14 +89,14 @@ class PQM_Admin
             'pqm-admin',
             PQM_PLUGIN_URL . 'admin/css/pqm-admin.css',
         [],
-            PQM_VERSION
+            filemtime(PQM_PLUGIN_DIR . 'admin/css/pqm-admin.css')
         );
 
         wp_enqueue_script(
             'pqm-admin',
             PQM_PLUGIN_URL . 'admin/js/pqm-admin.js',
         [],
-            PQM_VERSION,
+            filemtime(PQM_PLUGIN_DIR . 'admin/js/pqm-admin.js'),
             true
         );
 
@@ -360,7 +360,7 @@ class PQM_Admin
                     <?php
         else: ?>
                         <?php foreach ($items as $item): ?>
-                        <tr>
+                        <tr class="pqm-post-row" data-post-id="<?php echo esc_attr($item['post_id']); ?>">
                             <td>
                                 <strong>
                                     <a href="<?php echo esc_url(get_edit_post_link($item['post_id'])); ?>">
@@ -368,7 +368,7 @@ class PQM_Admin
                                     </a>
                                 </strong>
                             </td>
-                            <td>
+                            <td class="pqm-cell-score">
                                 <?php if ($item['latest_score'] !== null): ?>
                                     <span class="pqm-score-badge pqm-score-<?php echo esc_attr(self::score_class((int)$item['latest_score'])); ?>">
                                         <?php echo esc_html($item['latest_score']); ?>
@@ -379,10 +379,10 @@ class PQM_Admin
                                 <?php
                 endif; ?>
                             </td>
-                            <td>
+                            <td class="pqm-cell-status">
                                 <?php echo esc_html(self::format_status($item['latest_status'] ?? '')); ?>
                             </td>
-                            <td>
+                            <td class="pqm-cell-progress">
                                 <?php
                 $cmds = $commands[$item['post_id']] ?? [];
                 $has_rev = in_array('review', $cmds, true);
@@ -397,10 +397,10 @@ class PQM_Admin
                                     </span>
                                 </div>
                             </td>
-                            <td>
+                            <td class="pqm-cell-date">
                                 <?php echo $item['latest_reviewed'] ? esc_html(self::format_date($item['latest_reviewed'])) : '<em>' . esc_html__('Never', 'post-quality-manager') . '</em>'; ?>
                             </td>
-                            <td>
+                            <td class="pqm-cell-actions">
                                 <?php if (!$has_rev): ?>
                                     <button type="button" class="button button-primary button-small"
                                             data-post-id="<?php echo esc_attr($item['post_id']); ?>" data-pqm-cmd="review">

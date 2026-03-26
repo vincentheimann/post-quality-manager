@@ -241,3 +241,22 @@
     .pqm-pills { gap: 3px; }
     .pqm-pill { font-size: 10px; padding: 1px 6px; }
 }
+
+/* ─── Modal Overlay ───────────────────────────────────────── */
+.pqm-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6); z-index: 999999;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+.pqm-modal {
+    background: #fff; border-radius: 4px; padding: 24px 32px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-width: 400px; width: 100%; text-align: center;
+}
+.pqm-modal h2 { margin: 0 0 16px; font-size: 18px; color: #1d2327; }
+.pqm-modal p { margin: 0 0 20px; font-size: 14px; color: #50575e; line-height: 1.5; }
+.pqm-modal-actions { display: flex; justify-content: center; gap: 12px; }
+.pqm-modal-running { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 10px 0; }
+.pqm-modal-running .pqm-spinner { width: 32px; height: 32px; border-width: 3px; }
+.pqm-modal-running span { font-size: 14px; font-weight: 500; color: #1d2327; }
