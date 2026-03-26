@@ -18,12 +18,12 @@
         document.querySelectorAll('.pqm-detail-toggle').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var postId = btn.getAttribute('data-post-id');
-                var row    = document.getElementById('pqm-detail-' + postId);
+                var row = document.getElementById('pqm-detail-' + postId);
                 if (!row) return;
 
                 var hidden = row.style.display === 'none';
                 row.style.display = hidden ? 'table-row' : 'none';
-                btn.textContent   = hidden ? 'Hide' : 'Details';
+                btn.textContent = hidden ? 'Hide' : 'Details';
 
                 var el = row.querySelector('.pqm-detail-content');
                 if (hidden && el && el.dataset.loaded !== '1') {
@@ -37,7 +37,7 @@
             var btn = e.target.closest('[data-pqm-cmd]');
             if (!btn) return;
             e.preventDefault();
-            var postId  = btn.getAttribute('data-post-id');
+            var postId = btn.getAttribute('data-post-id');
             var command = btn.getAttribute('data-pqm-cmd');
             if (postId && command) triggerCommand(postId, command);
         });
@@ -52,14 +52,14 @@
         fetch(pqmAdmin.restUrl + '/reviews/' + postId, {
             headers: { 'X-WP-Nonce': pqmAdmin.nonce }
         })
-        .then(function (r) { return r.json(); })
-        .then(function (reviews) {
-            renderPanel(postId, el, reviews || []);
-            el.dataset.loaded = '1';
-        })
-        .catch(function () {
-            el.innerHTML = '<div class="pqm-loading" style="color:#d63638">Failed to load. Please try again.</div>';
-        });
+            .then(function (r) { return r.json(); })
+            .then(function (reviews) {
+                renderPanel(postId, el, reviews || []);
+                el.dataset.loaded = '1';
+            })
+            .catch(function () {
+                el.innerHTML = '<div class="pqm-loading" style="color:#d63638">Failed to load. Please try again.</div>';
+            });
     }
 
     /* ================================================================
@@ -74,9 +74,9 @@
         el.pqmLatest = latest;
 
         var tabs = [
-            { id: 'review',    label: 'Review' },
-            { id: 'rewrite',   label: 'Rewrite' },
-            { id: 'history',   label: 'History' },
+            { id: 'review', label: 'Review' },
+            { id: 'rewrite', label: 'Rewrite' },
+            { id: 'history', label: 'History' },
         ];
 
         // Build HTML.
@@ -87,17 +87,17 @@
         tabs.forEach(function (t, i) {
             var has = t.id === 'history' ? reviews.length > 0 : !!latest[t.id];
             html += '<button type="button" class="pqm-tab-btn' + (i === 0 ? ' is-active' : '') + '" data-tab="' + t.id + '-' + postId + '">'
-                  + esc(t.label)
-                  + (has && t.id !== 'history' ? ' <span class="pqm-tab-count">✓</span>' : '')
-                  + (t.id === 'history' ? ' <span class="pqm-tab-count">' + reviews.length + '</span>' : '')
-                  + '</button>';
+                + esc(t.label)
+                + (has && t.id !== 'history' ? ' <span class="pqm-tab-count">✓</span>' : '')
+                + (t.id === 'history' ? ' <span class="pqm-tab-count">' + reviews.length + '</span>' : '')
+                + '</button>';
         });
         html += '</div>';
 
         // Tab panels.
-        html += panelWrap('review-'    + postId, true,  renderReview(latest, postId));
-        html += panelWrap('rewrite-'   + postId, false, renderRewrite(latest.rewrite, postId));
-        html += panelWrap('history-'   + postId, false, renderHistory(reviews));
+        html += panelWrap('review-' + postId, true, renderReview(latest, postId));
+        html += panelWrap('rewrite-' + postId, false, renderRewrite(latest.rewrite, postId));
+        html += panelWrap('history-' + postId, false, renderHistory(reviews));
 
         el.innerHTML = html;
 
@@ -135,7 +135,7 @@
             var s = typeof src[dim] === 'object' ? src[dim].score : src[dim];
             var c = s >= 71 ? 'green' : s >= 41 ? 'orange' : 'red';
             h += '<tr><td>' + cap(dim) + '</td><td>' + badge(s) + '</td>'
-               + '<td><div class="pqm-bar-wrap"><div class="pqm-bar-track"><div class="pqm-bar-fill pqm-bar-fill-' + c + '" style="width:' + s + '%"></div></div></div></td></tr>';
+                + '<td><div class="pqm-bar-wrap"><div class="pqm-bar-track"><div class="pqm-bar-fill pqm-bar-fill-' + c + '" style="width:' + s + '%"></div></div></div></td></tr>';
         });
         h += '</tbody></table></div>';
 
@@ -152,12 +152,12 @@
         var summary = src.overall_summary || src.summary || d.summary;
         if (summary) {
             h += '<div class="pqm-card"><h4><span class="dashicons dashicons-format-aside"></span> Summary</h4>'
-               + '<p style="font-size:13px;line-height:1.6;margin:0">' + esc(summary) + '</p></div>';
+                + '<p style="font-size:13px;line-height:1.6;margin:0">' + esc(summary) + '</p></div>';
         }
 
         h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
-           + '</div>';
+            + actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
+            + '</div>';
 
         return h;
     }
@@ -177,9 +177,9 @@
             h += '<div class="pqm-rewrite-preview"><p style="white-space:pre-wrap;margin:0">' + esc(content) + '</p></div>';
         }
         h += '<div class="pqm-detail-actions">'
-           + actionBtn(postId, 'apply_rewrite', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
-           + actionBtn(postId, 'rewrite', 'Regenerate', 'dashicons-update', '')
-           + '</div></div>';
+            + actionBtn(postId, 'apply_rewrite', 'Apply to Post (Pending)', 'dashicons-yes-alt', 'button-primary')
+            + actionBtn(postId, 'rewrite', 'Regenerate', 'dashicons-update', '')
+            + '</div></div>';
 
         return h;
     }
@@ -264,33 +264,33 @@
         fetch(pqmAdmin.restUrl + '/reviews/' + postId, {
             headers: { 'X-WP-Nonce': pqmAdmin.nonce }
         })
-        .then(function (r) { return r.json(); })
-        .then(function (reviews) {
-            var latest = null;
-            if (Array.isArray(reviews)) {
-                for (var i = 0; i < reviews.length; i++) {
-                    if (reviews[i].command === command) {
-                        latest = reviews[i];
-                        break;
+            .then(function (r) { return r.json(); })
+            .then(function (reviews) {
+                var latest = null;
+                if (Array.isArray(reviews)) {
+                    for (var i = 0; i < reviews.length; i++) {
+                        if (reviews[i].command === command) {
+                            latest = reviews[i];
+                            break;
+                        }
                     }
                 }
-            }
 
-            if (latest && (!oldDate || latest.reviewed_at !== oldDate)) {
-                setBusy(postId, false);
-                toast('ok', cap(command) + ' finished successfully!');
-                var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
-                if (el) {
-                    el.dataset.loaded = '0';
-                    loadDetail(postId, el);
+                if (latest && (!oldDate || latest.reviewed_at !== oldDate)) {
+                    setBusy(postId, false);
+                    toast('ok', cap(command) + ' finished successfully!');
+                    var el = document.querySelector('.pqm-detail-content[data-post-id="' + postId + '"]');
+                    if (el) {
+                        el.dataset.loaded = '0';
+                        loadDetail(postId, el);
+                    }
+                } else {
+                    setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
                 }
-            } else {
+            })
+            .catch(function () {
                 setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
-            }
-        })
-        .catch(function () {
-            setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
-        });
+            });
     }
 
     function setBusy(postId, on) {
@@ -318,14 +318,14 @@
      * ================================================================ */
     function empty(icon, msg, postId, cmd, label) {
         return '<div class="pqm-empty"><span class="dashicons ' + icon + '"></span><p>' + esc(msg) + '</p>'
-             + actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary')
-             + '</div>';
+            + actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary')
+            + '</div>';
     }
 
     function actionBtn(postId, cmd, label, icon, cls) {
         return '<button type="button" class="button ' + cls + '" data-post-id="' + postId + '" data-pqm-cmd="' + cmd + '">'
-             + '<span class="dashicons ' + icon + '" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'
-             + esc(label) + '</button>';
+            + '<span class="dashicons ' + icon + '" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'
+            + esc(label) + '</button>';
     }
 
     function badge(score) {
@@ -334,7 +334,7 @@
     }
 
     function statusLabel(s) {
-        return { ship: '🟢 Ship', needs_revision: '🟠 Needs Revision', major_revision: '🔴 Major Revision' }[s] || s;
+        return { published: '🟢 published', needs_revision: '🟠 Needs Revision', major_revision: '🔴 Major Revision' }[s] || s;
     }
 
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
