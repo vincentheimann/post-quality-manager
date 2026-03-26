@@ -19,3 +19,8 @@ _The agent writes and updates this file for each active task._
 - [x] Add `processing` label mapping in Admin Table Row logic.
 - [x] Make JS `pollForResult` ignore `processing` status for completion.
 - [x] Add boot loop in JS to resume polling on page reload for rows stuck in `processing`.
+
+## Plan: Dashboard UX Review
+- [x] Fix Status Distribution bar 'ship' status mapping so it shows proper colors instead of grey.
+- [x] Improve "Recent Reviews" table: Add an explicit "Actions" column (e.g. "Edit Post" or "View Report").
+- [x] Refine empty states or column widths to ensure it looks balanced and uses WP native classes properly.

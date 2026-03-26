@@ -156,102 +156,37 @@ class PQM_Admin
             <h1><?php esc_html_e('Content Quality Dashboard', 'post-quality-manager'); ?></h1>
 
             <!-- Stat Cards -->
+            <?php
+            $needs_attention = ($stats['distribution']['needs_revision'] ?? 0) + ($stats['distribution']['major_revision'] ?? 0);
+            $ready_to_ship   = $stats['distribution']['ship'] ?? 0;
+            ?>
             <div class="pqm-stats-grid">
                 <div class="pqm-stat-card">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['total_posts']); ?></span>
-                    <span class="pqm-stat-label"><?php esc_html_e('Total Posts', 'post-quality-manager'); ?></span>
+                    <span class="pqm-stat-number"><?php echo esc_html($stats['avg_score']); ?></span>
+                    <span class="pqm-stat-label" title="<?php esc_attr_e('The overall average quality score across all analyzed posts.', 'post-quality-manager'); ?>">
+                        <?php esc_html_e('Average Score', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                    </span>
                 </div>
                 <div class="pqm-stat-card">
                     <span class="pqm-stat-number"><?php echo esc_html($stats['reviewed']); ?></span>
-                    <span class="pqm-stat-label"><?php esc_html_e('Reviewed', 'post-quality-manager'); ?></span>
+                    <span class="pqm-stat-label" title="<?php esc_attr_e('Total posts that have been processed by the quality manager at least once.', 'post-quality-manager'); ?>">
+                        <?php esc_html_e('Analyzed Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                    </span>
                 </div>
                 <div class="pqm-stat-card">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['not_reviewed']); ?></span>
-                    <span class="pqm-stat-label"><?php esc_html_e('Not Reviewed', 'post-quality-manager'); ?></span>
+                    <span class="pqm-stat-number"><?php echo esc_html($needs_attention); ?></span>
+                    <span class="pqm-stat-label" title="<?php esc_attr_e('Posts requiring manual intervention or major revisions to meet quality standards.', 'post-quality-manager'); ?>">
+                        <?php esc_html_e('Needs Attention', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                    </span>
                 </div>
                 <div class="pqm-stat-card">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['avg_score']); ?></span>
-                    <span class="pqm-stat-label"><?php esc_html_e('Avg Score', 'post-quality-manager'); ?></span>
+                    <span class="pqm-stat-number"><?php echo esc_html($stats['total_posts']); ?></span>
+                    <span class="pqm-stat-label" title="<?php esc_attr_e('Total published and pending posts on your site.', 'post-quality-manager'); ?>">
+                        <?php esc_html_e('Total Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                    </span>
                 </div>
             </div>
 
-            <!-- Status Distribution -->
-            <?php if (!empty($stats['distribution'])): ?>
-            <div class="pqm-section">
-                <h2><?php esc_html_e('Status Distribution', 'post-quality-manager'); ?></h2>
-                <div class="pqm-status-bar">
-                    <?php
-            $total_reviewed = array_sum($stats['distribution']);
-            $colors = [
-                'published' => '#22c55e',
-                'needs_revision' => '#f59e0b',
-                'major_revision' => '#ef4444',
-            ];
-            $labels = [
-                'published' => __('published', 'post-quality-manager'),
-                'needs_revision' => __('Needs Revision', 'post-quality-manager'),
-                'major_revision' => __('Major Revision', 'post-quality-manager'),
-            ];
-            foreach ($stats['distribution'] as $status => $count):
-                $pct = $total_reviewed > 0 ? round(($count / $total_reviewed) * 100, 1) : 0;
-                $color = $colors[$status] ?? '#94a3b8';
-                $label = $labels[$status] ?? $status;
-?>
-                        <div class="pqm-status-segment" style="width:<?php echo esc_attr($pct); ?>%;background:<?php echo esc_attr($color); ?>"
-                             title="<?php echo esc_attr("$label: $count ($pct%)"); ?>">
-                            <?php if ($pct > 10): ?>
-                                <span><?php echo esc_html("$label $count"); ?></span>
-                            <?php
-                endif; ?>
-                        </div>
-                    <?php
-            endforeach; ?>
-                </div>
-            </div>
-            <?php
-        endif; ?>
-
-            <!-- Recent Reviews -->
-            <div class="pqm-section">
-                <h2><?php esc_html_e('Recent Reviews', 'post-quality-manager'); ?></h2>
-                <?php if (empty($stats['recent'])): ?>
-                    <p class="description"><?php esc_html_e('No reviews yet. Trigger a review from the Post Reviews page.', 'post-quality-manager'); ?></p>
-                <?php
-        else: ?>
-                    <table class="widefat fixed striped">
-                        <thead>
-                            <tr>
-                                <th><?php esc_html_e('Post', 'post-quality-manager'); ?></th>
-                                <th><?php esc_html_e('Command', 'post-quality-manager'); ?></th>
-                                <th><?php esc_html_e('Score', 'post-quality-manager'); ?></th>
-                                <th><?php esc_html_e('Status', 'post-quality-manager'); ?></th>
-                                <th><?php esc_html_e('Date', 'post-quality-manager'); ?></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($stats['recent'] as $review): ?>
-                            <tr>
-                                <td>
-                                    <a href="<?php echo esc_url(get_edit_post_link($review['post_id'])); ?>">
-                                        <?php echo esc_html($review['post_title']); ?>
-                                    </a>
-                                </td>
-                                <td><code><?php echo esc_html($review['command']); ?></code></td>
-                                <td>
-                                    <span class="pqm-score-badge pqm-score-<?php echo esc_attr(self::score_class((int)$review['overall_score'])); ?>">
-                                        <?php echo esc_html($review['overall_score']); ?>
-                                    </span>
-                                </td>
-                                <td><?php echo esc_html(self::format_status($review['status'])); ?></td>
-                                <td><?php echo esc_html(self::format_date($review['reviewed_at'])); ?></td>
-                            </tr>
-                            <?php
-            endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php
-        endif; ?>
-            </div>
         </div>
         <?php
     }
