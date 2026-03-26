@@ -587,8 +587,10 @@ class PQM_Admin
             wp_send_json_error($response->get_error_message());
         }
 
-        $data = $response->get_data();
-        wp_send_json_success($data);
+        // If the REST API call was successful, record a 'processing' status immediately.
+        // The actual review results will come back via the webhook.
+        PQM_DB::save_review($post_id, $command, 0, 'processing', ['summary' => __('Running asynchronously in n8n...', 'post-quality-manager')]);
+        wp_send_json_success(['message' => __('Command triggered in n8n.', 'post-quality-manager')]);
     }
 
     /* ─── Helpers ─────────────────────────────────────────────────────── */
@@ -606,6 +608,9 @@ class PQM_Admin
 
     private static function format_status(string $status): string
     {
+        $status = strtolower($status);
+        if ($status === 'processing') return __('⚙️ Processing...', 'post-quality-manager');
+        
         return match ($status) {
                 'ship'           => '🟢 ' . __('Ready to Ship', 'post-quality-manager'),
                 'needs_revision' => '🟠 ' . __('Needs Revision', 'post-quality-manager'),

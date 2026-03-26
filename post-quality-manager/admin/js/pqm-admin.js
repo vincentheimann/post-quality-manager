@@ -14,7 +14,7 @@
      * ================================================================ */
     document.addEventListener('DOMContentLoaded', function () {
 
-        // Delegate clicks on toggle and action buttons (inside detail panel or table).
+        // Delegate clicks on dynamic buttons.
         document.addEventListener('click', function (e) {
             var toggleBtn = e.target.closest('.pqm-detail-toggle');
             if (toggleBtn) {
@@ -39,6 +39,14 @@
             var postId = btn.getAttribute('data-post-id');
             var command = btn.getAttribute('data-pqm-cmd');
             if (postId && command) triggerCommand(postId, command);
+        });
+
+        // Auto-resume background polling for processing items.
+        document.querySelectorAll('.pqm-cell-status').forEach(function(td) {
+            if (td.textContent.indexOf('Processing') !== -1) {
+                var row = td.closest('.pqm-post-row');
+                if (row) pollForResult(row.getAttribute('data-post-id'), 'review', null, 0);
+            }
         });
     });
 
@@ -249,6 +257,8 @@
                         toast('ok', (resp.data && resp.data.message) ? resp.data.message : label + ' successful.');
                         setTimeout(function () { window.location.reload(); }, 800);
                     } else {
+                        closeModal();
+                        toast('info', cap(command) + ' started asynchronously!');
                         pollForResult(postId, command, oldDate, 0);
                     }
                 } else {
@@ -312,7 +322,7 @@
                     }
                 }
 
-                if (latest && (!oldDate || latest.reviewed_at !== oldDate)) {
+                if (latest && latest.status !== 'processing' && (!oldDate || latest.reviewed_at !== oldDate)) {
                     setBusy(postId, false);
                     closeModal();
                     toast('ok', cap(command) + ' finished successfully!');
@@ -333,6 +343,9 @@
                         }
                     }
                 } else {
+                    if (latest && latest.status === 'processing') {
+                        updateTableRow(postId, reviews);
+                    }
                     setTimeout(function () { pollForResult(postId, command, oldDate, attempt + 1); }, 3000);
                 }
             })
