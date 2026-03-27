@@ -125,6 +125,8 @@ class PQM_Admin
         $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
         $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
         $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
+        $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
+        $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
         $clean['cron_enabled'] = !empty($input['cron_enabled']);
         $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
             ? $input['cron_frequency'] : 'daily';
@@ -429,6 +431,25 @@ class PQM_Admin
                                    value="<?php echo esc_attr($settings['notification_url']); ?>"
                                    class="regular-text" placeholder="https://your-chat.example.com/hooks/..." />
                             <p class="description"><?php esc_html_e('Optional. kChat/Slack/Teams webhook for formatted reports.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- AI Prompts & Context -->
+                <h2><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th><label for="pqm_brand_voice"><?php esc_html_e('Brand Voice & Tone', 'post-quality-manager'); ?></label></th>
+                        <td>
+                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text"><?php echo esc_textarea($settings['brand_voice'] ?? ''); ?></textarea>
+                            <p class="description"><?php esc_html_e('Instructions on how the AI should sound (e.g., "Professional yet accessible, active voice").', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="pqm_website_context"><?php esc_html_e('Website Context', 'post-quality-manager'); ?></label></th>
+                        <td>
+                            <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"><?php echo esc_textarea($settings['website_context'] ?? ''); ?></textarea>
+                            <p class="description"><?php esc_html_e('Context about the website and audience (e.g., "A blog for professional software developers").', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                 </table>

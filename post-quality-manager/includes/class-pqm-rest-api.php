@@ -327,6 +327,8 @@ class PQM_REST_API {
             'focus_keyphrase'  => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) : '',
             'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
             'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
+            'brand_voice'      => $settings['brand_voice'] ?? '',
+            'website_context'  => $settings['website_context'] ?? '',
         ];
 
         // Fire-and-forget request to n8n.
