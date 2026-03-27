@@ -329,6 +329,7 @@ class PQM_REST_API {
             'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
             'brand_voice'      => $settings['brand_voice'] ?? '',
             'website_context'  => $settings['website_context'] ?? '',
+            'agent_prompts'    => $settings['agent_prompts'] ?? [],
         ];
 
         // Fire-and-forget request to n8n.

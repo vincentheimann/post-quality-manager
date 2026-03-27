@@ -135,6 +135,17 @@ class PQM_Admin
         $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? 30);
         $clean['cron_command'] = 'review';
 
+        $clean['agent_prompts'] = [];
+        $agents = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
+        foreach ($agents as $agent) {
+            if (isset($input['agent_prompts'][$agent])) {
+                $clean['agent_prompts'][$agent] = [
+                    'instructions' => sanitize_textarea_field($input['agent_prompts'][$agent]['instructions'] ?? ''),
+                    'temperature'  => (float) ($input['agent_prompts'][$agent]['temperature'] ?? 0.0),
+                ];
+            }
+        }
+
         return $clean;
     }
 
@@ -453,6 +464,51 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+
+                <h3 style="margin-top: 2em;"><?php esc_html_e('Agent-Specific Overrides', 'post-quality-manager'); ?></h3>
+                <p class="description" style="margin-bottom: 1em;"><?php esc_html_e('Optionally override the temperature and provide additional system instructions for each AI agent.', 'post-quality-manager'); ?></p>
+                
+                <?php
+                $agents = [
+                    'review'    => __('Review Agent', 'post-quality-manager'),
+                    'takeaways' => __('Key Takeaways Agent', 'post-quality-manager'),
+                    'sources'   => __('Sources Agent', 'post-quality-manager'),
+                    'seo'       => __('SEO Agent', 'post-quality-manager'),
+                    'audit'     => __('Audit Agent', 'post-quality-manager'),
+                    'rewrite'   => __('Rewrite Agent', 'post-quality-manager'),
+                ];
+                foreach ($agents as $key => $label):
+                    $agent_data = $settings['agent_prompts'][$key] ?? ['instructions' => '', 'temperature' => 0.0];
+                ?>
+                    <details style="margin-bottom: 15px; border: 1px solid #ccd0d4; padding: 10px; background: #fff;">
+                        <summary style="font-weight: 600; cursor: pointer; outline: none;">
+                            <span class="dashicons dashicons-admin-generic" style="font-size:16px; margin-top:3px; margin-right:5px; color:#50575e;"></span>
+                            <?php echo esc_html($label); ?>
+                        </summary>
+                        <table class="form-table" style="margin-top: 10px;">
+                            <tr>
+                                <th><label for="pqm_agent_temp_<?php echo esc_attr($key); ?>"><?php esc_html_e('Temperature', 'post-quality-manager'); ?></label></th>
+                                <td>
+                                    <input type="number" step="0.1" min="0" max="1" 
+                                           id="pqm_agent_temp_<?php echo esc_attr($key); ?>" 
+                                           name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
+                                           value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
+                                           class="small-text" />
+                                    <p class="description"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative).', 'post-quality-manager'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="pqm_agent_inst_<?php echo esc_attr($key); ?>"><?php esc_html_e('Additional Instructions', 'post-quality-manager'); ?></label></th>
+                                <td>
+                                    <textarea id="pqm_agent_inst_<?php echo esc_attr($key); ?>" 
+                                              name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]" 
+                                              rows="4" class="large-text"><?php echo esc_textarea($agent_data['instructions']); ?></textarea>
+                                    <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
+                                </td>
+                            </tr>
+                        </table>
+                    </details>
+                <?php endforeach; ?>
 
                 <!-- Cron Settings -->
                 <h2><?php esc_html_e('Automated Reviews (Cron)', 'post-quality-manager'); ?></h2>
