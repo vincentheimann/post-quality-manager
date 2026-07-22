@@ -24,6 +24,7 @@
 - Never mark a task complete without proving it works.
 - **Definition of Done:**
   - Code follows the KISS principle.
+  - Every touched PHP file passes `php -l` (a local PHP CLI is available).
   - No WP debug errors or warnings in PHP logs.
   - REST API endpoints return 200 OK with correct JSON payload and permissions.
   - UI interactions (buttons, tabs) have been manually tested for loading/error states.
