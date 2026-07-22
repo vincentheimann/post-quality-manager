@@ -125,6 +125,7 @@ class PQM_Admin
         $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
         $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
         $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
+        $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? 'custom', ['professional', 'casual', 'direct', 'custom'], true) ? $input['brand_voice_preset'] : 'custom';
         $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
         $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
         $clean['cron_enabled'] = !empty($input['cron_enabled']);
@@ -447,13 +448,34 @@ class PQM_Admin
                 </table>
 
                 <!-- AI Prompts & Context -->
-                <h2><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
+                <h2 style="margin-top: 2em;"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
+                <div class="notice notice-info inline" style="margin-bottom: 20px;">
+                    <p><strong><?php esc_html_e('Agnostic Scoring Framework', 'post-quality-manager'); ?></strong></p>
+                    <p><?php esc_html_e('All posts are evaluated on 4 universal pillars: 1. Structure (flow & hierarchy), 2. Readability (accessibility), 3. Engagement (hook & actionable value), 4. Credibility (E-E-A-T and factual support).', 'post-quality-manager'); ?></p>
+                </div>
                 <table class="form-table">
                     <tr>
                         <th><label for="pqm_brand_voice"><?php esc_html_e('Brand Voice & Tone', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text"><?php echo esc_textarea($settings['brand_voice'] ?? ''); ?></textarea>
-                            <p class="description"><?php esc_html_e('Instructions on how the AI should sound (e.g., "Professional yet accessible, active voice").', 'post-quality-manager'); ?></p>
+                            <?php 
+                            $presets = [
+                                'professional' => __('Professional & Authoritative', 'post-quality-manager'),
+                                'casual'       => __('Casual & Conversational', 'post-quality-manager'),
+                                'direct'       => __('Direct & Action-Oriented', 'post-quality-manager'),
+                                'custom'       => __('Custom', 'post-quality-manager'),
+                            ];
+                            $current_preset = $settings['brand_voice_preset'] ?? 'custom';
+                            ?>
+                            <fieldset style="margin-bottom: 10px;">
+                                <?php foreach ($presets as $val => $lbl): ?>
+                                    <label style="margin-right: 15px;">
+                                        <input type="radio" name="pqm_settings[brand_voice_preset]" value="<?php echo esc_attr($val); ?>" <?php checked($current_preset, $val); ?> class="pqm-voice-preset" />
+                                        <?php echo esc_html($lbl); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </fieldset>
+                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text" <?php echo $current_preset !== 'custom' ? 'style="display:none;"' : ''; ?>><?php echo esc_textarea($settings['brand_voice'] ?? ''); ?></textarea>
+                            <p class="description pqm-voice-desc" <?php echo $current_preset !== 'custom' ? 'style="display:none;"' : ''; ?>><?php esc_html_e('Instructions on how the AI should sound (e.g., "Professional yet accessible, active voice").', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -489,12 +511,16 @@ class PQM_Admin
                             <tr>
                                 <th><label for="pqm_agent_temp_<?php echo esc_attr($key); ?>"><?php esc_html_e('Temperature', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <input type="number" step="0.1" min="0" max="1" 
-                                           id="pqm_agent_temp_<?php echo esc_attr($key); ?>" 
-                                           name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
-                                           value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
-                                           class="small-text" />
-                                    <p class="description"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative).', 'post-quality-manager'); ?></p>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="range" step="0.1" min="0" max="1" 
+                                               id="pqm_agent_temp_<?php echo esc_attr($key); ?>" 
+                                               name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
+                                               value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
+                                               style="width: 200px;" 
+                                               oninput="this.nextElementSibling.innerText = parseFloat(this.value).toFixed(1)" />
+                                        <span style="font-weight: bold; width: 30px;"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
+                                    </div>
+                                    <p class="description"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative & Loose).', 'post-quality-manager'); ?></p>
                                 </td>
                             </tr>
                             <tr>
@@ -504,6 +530,15 @@ class PQM_Admin
                                               name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]" 
                                               rows="4" class="large-text"><?php echo esc_textarea($agent_data['instructions']); ?></textarea>
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th></th>
+                                <td>
+                                    <?php $default_temp = ($key === 'takeaways' || $key === 'rewrite') ? '0.3' : '0.0'; ?>
+                                    <button type="button" class="button pqm-reset-agent" data-agent="<?php echo esc_attr($key); ?>" data-temp="<?php echo esc_attr($default_temp); ?>">
+                                        <?php esc_html_e('Reset to Defaults', 'post-quality-manager'); ?>
+                                    </button>
                                 </td>
                             </tr>
                         </table>
@@ -573,6 +608,39 @@ class PQM_Admin
                 <?php submit_button(); ?>
             </form>
         </div>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const presets = document.querySelectorAll('.pqm-voice-preset');
+            const customArea = document.getElementById('pqm_brand_voice');
+            const customDesc = document.querySelector('.pqm-voice-desc');
+
+            presets.forEach(preset => {
+                preset.addEventListener('change', function() {
+                    if (this.value === 'custom') {
+                        customArea.style.display = 'block';
+                        customDesc.style.display = 'block';
+                    } else {
+                        customArea.style.display = 'none';
+                        customDesc.style.display = 'none';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.pqm-reset-agent').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (!confirm("<?php esc_attr_e('Are you sure you want to reset this agent to default settings?', 'post-quality-manager'); ?>")) return;
+                    const key = this.dataset.agent;
+                    const temp = this.dataset.temp;
+                    document.getElementById('pqm_agent_inst_' + key).value = '';
+                    const tempInput = document.getElementById('pqm_agent_temp_' + key);
+                    tempInput.value = parseFloat(temp).toFixed(1);
+                    tempInput.nextElementSibling.innerText = parseFloat(temp).toFixed(1);
+                });
+            });
+        });
+        </script>
         <?php
     }
 

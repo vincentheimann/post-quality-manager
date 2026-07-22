@@ -308,6 +308,18 @@ class PQM_REST_API {
             ? wp_strip_all_tags( get_the_excerpt( $post_id ) )
             : wp_trim_words( $content_plain, 55, '...' );
 
+        // Resolve brand voice based on preset
+        $preset = $settings['brand_voice_preset'] ?? 'custom';
+        $resolved_voice = $settings['brand_voice'] ?? '';
+        if ( $preset !== 'custom' ) {
+            $presets = [
+                'professional' => 'Professional & Authoritative',
+                'casual'       => 'Casual & Conversational',
+                'direct'       => 'Direct & Action-Oriented',
+            ];
+            $resolved_voice = $presets[$preset] ?? '';
+        }
+
         // Build payload for n8n.
         $payload = [
             'callback_url'     => rest_url( PQM_REST_NAMESPACE . '/save-review' ),
@@ -327,7 +339,7 @@ class PQM_REST_API {
             'focus_keyphrase'  => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) : '',
             'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
             'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
-            'brand_voice'      => $settings['brand_voice'] ?? '',
+            'brand_voice'      => $resolved_voice,
             'website_context'  => $settings['website_context'] ?? '',
             'agent_prompts'    => $settings['agent_prompts'] ?? [],
         ];

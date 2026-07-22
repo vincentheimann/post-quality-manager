@@ -7,7 +7,7 @@
 (function () {
     'use strict';
 
-    var DIMS = ['structure', 'readability', 'neuroscience', 'marketing', 'attractivity'];
+    var DIMS = ['structure', 'readability', 'engagement', 'credibility'];
 
     /* ================================================================
      *  BOOT
