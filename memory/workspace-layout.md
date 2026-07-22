@@ -11,4 +11,4 @@ metadata:
 
 `_archives\turbo-drill\` inside the manager repo contains unrelated leftover files from a finished PSPO quiz-app project (Turbo Drill), including its old CHANGELOG — ignore them.
 
-Reorg of 2026-07-22 was staged with `git mv`/`git rm` but left uncommitted per [[agent-conventions]] (never commit without asking).
+Reorg of 2026-07-22 was committed on branch `chore/claude-workspace-reorg` (history preserved via `git mv`), together with a fix aligning the plugin header version to `PQM_VERSION` 3.0.0.
