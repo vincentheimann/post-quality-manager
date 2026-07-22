@@ -45,6 +45,7 @@ if (is_admin()) {
     add_action('admin_enqueue_scripts', ['PQM_Admin', 'enqueue_assets']);
     add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
     add_action('wp_ajax_pqm_trigger_command', ['PQM_Admin', 'ajax_trigger_command']);
+    add_action('wp_ajax_pqm_test_connection', ['PQM_Admin', 'ajax_test_connection']);
     add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);
 }
 
@@ -52,10 +53,10 @@ if (is_admin()) {
 add_action('pqm_cron_review_posts', ['PQM_Cron', 'run_scheduled_review']);
 add_filter('cron_schedules', ['PQM_Cron', 'add_custom_schedules']);
 
-/* ─── Helper: Get plugin settings with defaults ──────────────────────── */
-function pqm_get_settings(): array
+/* ─── Helper: Settings defaults (single source of truth) ─────────────── */
+function pqm_default_settings(): array
 {
-    $defaults = [
+    return [
         'n8n_webhook_url' => '',
         'webhook_token' => wp_generate_uuid4(),
         'notification_url' => '',
@@ -78,6 +79,12 @@ function pqm_get_settings(): array
             'rewrite' => ['instructions' => '', 'temperature' => 0.3],
         ],
     ];
+}
+
+/* ─── Helper: Get plugin settings with defaults ──────────────────────── */
+function pqm_get_settings(): array
+{
+    $defaults = pqm_default_settings();
 
     $saved = get_option('pqm_settings', []);
 

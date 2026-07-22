@@ -14,6 +14,8 @@
      * ================================================================ */
     document.addEventListener('DOMContentLoaded', function () {
 
+        initSettingsPage();
+
         // Delegate clicks on dynamic buttons.
         document.addEventListener('click', function (e) {
             var toggleBtn = e.target.closest('.pqm-detail-toggle');
@@ -22,8 +24,8 @@
                 var dRow = document.getElementById('pqm-detail-' + togglePostId);
                 if (!dRow) return;
 
-                var hidden = dRow.style.display === 'none';
-                dRow.style.display = hidden ? 'table-row' : 'none';
+                var hidden = dRow.classList.contains('pqm-hidden');
+                dRow.classList.toggle('pqm-hidden', !hidden);
                 toggleBtn.textContent = hidden ? 'Hide' : 'Details';
 
                 var dEl = dRow.querySelector('.pqm-detail-content');
@@ -49,6 +51,137 @@
             }
         });
     });
+
+    /* ================================================================
+     *  SETTINGS PAGE (wizard, presets, test connection)
+     * ================================================================ */
+    function initSettingsPage() {
+        var webhookField = document.getElementById('pqm_n8n_webhook_url');
+        if (!webhookField) return; // Not on the settings page.
+
+        var i18n = pqmAdmin.i18n || {};
+
+        /* ─── Blog profile presets: pre-fill context + voice ──────── */
+        var contextArea = document.getElementById('pqm_website_context');
+        var customArea = document.getElementById('pqm_brand_voice');
+        var customDesc = document.querySelector('.pqm-voice-desc');
+
+        document.querySelectorAll('.pqm-blog-profile').forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var profile = (pqmAdmin.blogProfiles || {})[this.value];
+                if (!profile || this.value === 'custom') return;
+
+                if (contextArea.value.trim() !== '' && contextArea.value !== profile.website_context) {
+                    if (!confirm(i18n.replaceContext)) return;
+                }
+                contextArea.value = profile.website_context;
+
+                var voiceRadio = document.querySelector('.pqm-voice-preset[value="' + profile.brand_voice_preset + '"]');
+                if (voiceRadio && !voiceRadio.checked) {
+                    voiceRadio.checked = true;
+                    voiceRadio.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+
+        /* ─── Voice preset: toggle custom textarea ─────────────────── */
+        document.querySelectorAll('.pqm-voice-preset').forEach(function (preset) {
+            preset.addEventListener('change', function () {
+                var custom = this.value === 'custom';
+                customArea.classList.toggle('pqm-hidden', !custom);
+                if (customDesc) customDesc.classList.toggle('pqm-hidden', !custom);
+            });
+        });
+
+        /* ─── Agent overrides: temperature sliders + reset ─────────── */
+        document.querySelectorAll('.pqm-temp-range').forEach(function (range) {
+            range.addEventListener('input', function () {
+                this.nextElementSibling.textContent = parseFloat(this.value).toFixed(1);
+            });
+        });
+
+        document.querySelectorAll('.pqm-reset-agent').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (!confirm(i18n.resetAgent)) return;
+                var key = this.dataset.agent;
+                var temp = parseFloat(this.dataset.temp).toFixed(1);
+                document.getElementById('pqm_agent_inst_' + key).value = '';
+                var tempInput = document.getElementById('pqm_agent_temp_' + key);
+                tempInput.value = temp;
+                tempInput.nextElementSibling.textContent = temp;
+            });
+        });
+
+        /* ─── Test connection ──────────────────────────────────────── */
+        document.querySelectorAll('.pqm-test-connection').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var result = btn.parentElement.querySelector('.pqm-test-result');
+                var url = webhookField.value.trim();
+
+                if (!url) {
+                    showTestResult(result, false, i18n.enterWebhookUrl);
+                    webhookField.focus();
+                    return;
+                }
+
+                btn.disabled = true;
+                showTestResult(result, null, i18n.testing);
+
+                var form = new FormData();
+                form.append('action', 'pqm_test_connection');
+                form.append('webhook_url', url);
+                form.append('_wpnonce', pqmAdmin.pageNonce);
+
+                fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (resp) {
+                        showTestResult(result, !!resp.success, typeof resp.data === 'string' ? resp.data : i18n.networkError);
+                    })
+                    .catch(function () {
+                        showTestResult(result, false, i18n.networkError);
+                    })
+                    .finally(function () {
+                        btn.disabled = false;
+                    });
+            });
+        });
+
+        function showTestResult(el, ok, msg) {
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.toggle('is-success', ok === true);
+            el.classList.toggle('is-error', ok === false);
+        }
+
+        /* ─── Setup wizard navigation ──────────────────────────────── */
+        var wizard = document.getElementById('pqm-wizard');
+        if (wizard) {
+            var steps = wizard.querySelectorAll('.pqm-wizard-step');
+            var dots = wizard.querySelectorAll('.pqm-wizard-dot');
+            var backBtn = wizard.querySelector('.pqm-wizard-back');
+            var nextBtn = wizard.querySelector('.pqm-wizard-next');
+            var current = 1;
+
+            function goTo(step) {
+                current = Math.min(Math.max(step, 1), steps.length);
+                steps.forEach(function (s) { s.classList.toggle('is-active', parseInt(s.dataset.step, 10) === current); });
+                dots.forEach(function (d) {
+                    var n = parseInt(d.dataset.step, 10);
+                    d.classList.toggle('is-active', n === current);
+                    d.classList.toggle('is-done', n < current);
+                });
+                backBtn.disabled = current === 1;
+                nextBtn.classList.toggle('pqm-hidden', current === steps.length);
+            }
+
+            backBtn.addEventListener('click', function () { goTo(current - 1); });
+            nextBtn.addEventListener('click', function () { goTo(current + 1); });
+            dots.forEach(function (d) {
+                d.addEventListener('click', function () { goTo(parseInt(d.dataset.step, 10)); });
+            });
+        }
+    }
 
     /* ================================================================
      *  LOAD DETAIL
@@ -339,8 +472,8 @@
                         loadDetail(postId, el);
                         
                         var dRow = document.getElementById('pqm-detail-' + postId);
-                        if (dRow && dRow.style.display === 'none') {
-                            dRow.style.display = 'table-row';
+                        if (dRow && dRow.classList.contains('pqm-hidden')) {
+                            dRow.classList.remove('pqm-hidden');
                             // Note: toggle button might be created dynamically by updateTableRow inside loadDetail,
                             // so we delay changing its text slightly to ensure it exists.
                             setTimeout(function() {

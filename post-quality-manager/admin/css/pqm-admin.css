@@ -258,6 +258,75 @@
 /* ─── Settings ────────────────────────────────────────────── */
 .pqm-wrap .form-table th { width: 220px; }
 
+.pqm-hidden { display: none; }
+.pqm-section-gap { margin-top: 2em; }
+.pqm-inline-notice { margin-bottom: 20px; }
+.pqm-radio-label { margin-right: 15px; }
+.pqm-voice-fieldset { margin-bottom: 10px; }
+.pqm-agents-intro { margin-bottom: 1em; }
+.pqm-help-icon {
+    font-size: 14px; line-height: 1.5;
+    color: #a7a7a7; cursor: help;
+}
+.pqm-post-state { font-weight: normal; color: #50575e; }
+
+/* Agent override boxes */
+.pqm-agent-box {
+    margin-bottom: 15px; border: 1px solid #ccd0d4;
+    padding: 10px; background: #fff;
+}
+.pqm-agent-box summary { font-weight: 600; cursor: pointer; outline: none; }
+.pqm-agent-box .form-table { margin-top: 10px; }
+.pqm-agent-icon {
+    font-size: 16px; margin-top: 3px; margin-right: 5px; color: #50575e;
+}
+.pqm-temp-row { display: flex; align-items: center; gap: 10px; }
+.pqm-temp-range { width: 200px; }
+.pqm-temp-value { font-weight: bold; width: 30px; }
+
+/* Test connection feedback */
+.pqm-test-result { font-size: 13px; margin: 8px 0 0; }
+.pqm-test-result.is-success { color: #166534; font-weight: 500; }
+.pqm-test-result.is-error { color: #991b1b; font-weight: 500; }
+td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
+
+/* ─── Setup Wizard ────────────────────────────────────────── */
+.pqm-wizard {
+    background: #fff; border: 1px solid #c3c4c7; border-radius: 6px;
+    padding: 24px; margin: 15px 0; max-width: 720px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.pqm-wizard-title { margin: 0 0 16px; font-size: 16px; }
+.pqm-wizard-steps {
+    display: flex; gap: 24px; list-style: none;
+    margin: 0 0 20px; padding: 0 0 16px;
+    border-bottom: 1px solid #f0f0f1;
+}
+.pqm-wizard-dot {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0; font-size: 13px; font-weight: 500;
+    color: #646970; cursor: pointer;
+}
+.pqm-wizard-dot span {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #f0f0f1; color: #646970;
+    font-size: 12px; font-weight: 600;
+}
+.pqm-wizard-dot.is-active { color: #1d2327; font-weight: 600; }
+.pqm-wizard-dot.is-active span { background: #2271b1; color: #fff; }
+.pqm-wizard-dot.is-done span { background: #dcfce7; color: #166534; }
+.pqm-wizard-step { display: none; }
+.pqm-wizard-step.is-active { display: block; animation: pqmFade .15s ease; }
+.pqm-wizard-step p { font-size: 13px; line-height: 1.6; }
+.pqm-wizard-list {
+    list-style: disc; margin: 8px 0 8px 20px; font-size: 13px; line-height: 1.6;
+}
+.pqm-wizard-nav {
+    display: flex; justify-content: space-between;
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid #f0f0f1;
+}
+
 /* ─── Responsive ──────────────────────────────────────────── */
 @media (max-width: 782px) {
     .pqm-tabs-nav { flex-wrap: wrap; padding: 0 8px; }

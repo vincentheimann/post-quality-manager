@@ -18,7 +18,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Required fields\nconst command = (body.command || '').toLowerCase().trim();\nconst postId = body.post_id;\nconst callbackUrl = body.callback_url || '';\nconst authToken = body.auth_token || '';\nconst notificationUrl = body.notification_url || '';\n\nif (!command || !postId) {\n  return [{ json: { error: true, message: 'Missing required fields: command, post_id' } }];\n}\n\nconst validCommands = ['score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply'];\nif (!validCommands.includes(command)) {\n  return [{ json: { error: true, message: 'Unknown command: ' + command } }];\n}\n\nreturn [{ json: {\n  command,\n  callback_url: callbackUrl,\n  auth_token: authToken,\n  notification_url: notificationUrl,\n  post_id: postId,\n  slug: body.slug || '',\n  post_type: body.post_type || 'post',\n  title: body.title || '',\n  link: body.link || '',\n  excerpt: body.excerpt || '',\n  content: body.content || '',\n  content_html: body.content_html || '',\n  seo_score: body.seo_score || 0,\n  readability_score: body.readability_score || 0,\n  focus_keyphrase: body.focus_keyphrase || '',\n  meta_description: body.meta_description || '',\n  seo_title: body.seo_title || '',\n  brand_voice: body.brand_voice || '',\n  website_context: body.website_context || '',\n  agent_prompts: body.agent_prompts || {},\n  error: false\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Required fields\nconst command = (body.command || '').toLowerCase().trim();\nconst postId = body.post_id;\nconst callbackUrl = body.callback_url || '';\nconst authToken = body.auth_token || '';\nconst notificationUrl = body.notification_url || '';\n\n// Lightweight connectivity test sent by the plugin's \"Send test ping\" button.\nif (command === 'ping') {\n  return [{ json: { command: 'ping', ping: true, error: false } }];\n}\n\nif (!command || !postId) {\n  return [{ json: { error: true, message: 'Missing required fields: command, post_id' } }];\n}\n\nconst validCommands = ['score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply'];\nif (!validCommands.includes(command)) {\n  return [{ json: { error: true, message: 'Unknown command: ' + command } }];\n}\n\nreturn [{ json: {\n  command,\n  callback_url: callbackUrl,\n  auth_token: authToken,\n  notification_url: notificationUrl,\n  post_id: postId,\n  slug: body.slug || '',\n  post_type: body.post_type || 'post',\n  title: body.title || '',\n  link: body.link || '',\n  excerpt: body.excerpt || '',\n  content: body.content || '',\n  content_html: body.content_html || '',\n  seo_score: body.seo_score || 0,\n  readability_score: body.readability_score || 0,\n  focus_keyphrase: body.focus_keyphrase || '',\n  meta_description: body.meta_description || '',\n  seo_title: body.seo_title || '',\n  brand_voice: body.brand_voice || '',\n  website_context: body.website_context || '',\n  agent_prompts: body.agent_prompts || {},\n  error: false\n}}];"
       },
       "id": "pqm-node-002",
       "name": "Parse Input",
@@ -55,10 +55,13 @@
             },
             {
               "value2": "rewrite"
+            },
+            {
+              "value2": "ping"
             }
           ]
         },
-        "fallbackOutput": 7
+        "fallbackOutput": 8
       },
       "id": "pqm-node-003",
       "name": "Route Command",
@@ -548,6 +551,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// Connectivity test: acknowledge and stop. The webhook already responded 200 on receipt.\nreturn [{ json: { ok: true, message: 'pong' } }];"
+      },
+      "id": "pqm-node-098",
+      "name": "Ping OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        1950
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "// Error fallback\nconst d = $input.first().json;\nreturn [{ json: { ...d, error: true, overall_score: 0, status: '', result: '{}', chat_message: '❌ Unknown command.' } }];"
       },
       "id": "pqm-node-099",
@@ -729,6 +745,13 @@
         [
           {
             "node": "Build Rewrite Body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ping OK",
             "type": "main",
             "index": 0
           }

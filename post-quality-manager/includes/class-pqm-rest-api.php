@@ -68,7 +68,7 @@ class PQM_REST_API {
         }
 
         $settings       = pqm_get_settings();
-        $expected_token  = $settings['webhook_token'] ?? '';
+        $expected_token  = $settings['webhook_token'];
         $provided_token  = $request->get_header( 'X-PQM-Token' ) ?? '';
 
         if ( empty( $expected_token ) || empty( $provided_token ) ) {
@@ -309,8 +309,8 @@ class PQM_REST_API {
             : wp_trim_words( $content_plain, 55, '...' );
 
         // Resolve brand voice based on preset
-        $preset = $settings['brand_voice_preset'] ?? 'custom';
-        $resolved_voice = $settings['brand_voice'] ?? '';
+        $preset = $settings['brand_voice_preset'];
+        $resolved_voice = $settings['brand_voice'];
         if ( $preset !== 'custom' ) {
             $presets = [
                 'professional' => 'Professional & Authoritative',
@@ -324,7 +324,7 @@ class PQM_REST_API {
         $payload = [
             'callback_url'     => rest_url( PQM_REST_NAMESPACE . '/save-review' ),
             'auth_token'       => $settings['webhook_token'],
-            'notification_url' => $settings['notification_url'] ?? '',
+            'notification_url' => $settings['notification_url'],
             'command'          => $command,
             'post_id'          => $post_id,
             'slug'             => $post->post_name,
@@ -340,8 +340,8 @@ class PQM_REST_API {
             'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
             'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
             'brand_voice'      => $resolved_voice,
-            'website_context'  => $settings['website_context'] ?? '',
-            'agent_prompts'    => $settings['agent_prompts'] ?? [],
+            'website_context'  => $settings['website_context'],
+            'agent_prompts'    => $settings['agent_prompts'],
         ];
 
         // Fire-and-forget request to n8n.

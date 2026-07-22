@@ -105,6 +105,18 @@ class PQM_Admin
             'nonce' => wp_create_nonce('wp_rest'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'pageNonce' => wp_create_nonce('pqm_admin_action'),
+            'blogProfiles' => array_map(
+                static fn($p) => ['website_context' => $p['website_context'], 'brand_voice_preset' => $p['brand_voice_preset']],
+                self::blog_profiles()
+            ),
+            'agentDefaults' => pqm_default_settings()['agent_prompts'],
+            'i18n' => [
+                'replaceContext' => __('Replace the current Website Context with the profile default? Your existing text will be overwritten.', 'post-quality-manager'),
+                'resetAgent' => __('Are you sure you want to reset this agent to default settings?', 'post-quality-manager'),
+                'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
+                'testing' => __('Sending test ping…', 'post-quality-manager'),
+                'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
+            ],
         ]);
     }
 
@@ -152,30 +164,30 @@ class PQM_Admin
 
     public static function sanitize_settings(array $input): array
     {
+        $defaults = pqm_default_settings();
         $clean = [];
 
         $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
         $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
         $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
-        $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? 'custom', self::blog_profiles()) ? $input['blog_profile'] : 'custom';
-        $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? 'custom', ['professional', 'casual', 'direct', 'custom'], true) ? $input['brand_voice_preset'] : 'custom';
+        $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
+        $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? '', ['professional', 'casual', 'direct', 'custom'], true) ? $input['brand_voice_preset'] : $defaults['brand_voice_preset'];
         $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
         $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
         $clean['cron_enabled'] = !empty($input['cron_enabled']);
         $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
-            ? $input['cron_frequency'] : 'daily';
-        $clean['cron_batch_size'] = absint($input['cron_batch_size'] ?? 5);
-        $clean['cron_min_score'] = absint($input['cron_min_score'] ?? 60);
-        $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? 30);
-        $clean['cron_command'] = 'review';
+            ? $input['cron_frequency'] : $defaults['cron_frequency'];
+        $clean['cron_batch_size'] = absint($input['cron_batch_size'] ?? $defaults['cron_batch_size']);
+        $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
+        $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
+        $clean['cron_command'] = $defaults['cron_command'];
 
         $clean['agent_prompts'] = [];
-        $agents = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
-        foreach ($agents as $agent) {
+        foreach (array_keys($defaults['agent_prompts']) as $agent) {
             if (isset($input['agent_prompts'][$agent])) {
                 $clean['agent_prompts'][$agent] = [
                     'instructions' => sanitize_textarea_field($input['agent_prompts'][$agent]['instructions'] ?? ''),
-                    'temperature'  => (float) ($input['agent_prompts'][$agent]['temperature'] ?? 0.0),
+                    'temperature'  => (float) ($input['agent_prompts'][$agent]['temperature'] ?? $defaults['agent_prompts'][$agent]['temperature']),
                 ];
             }
         }
@@ -211,25 +223,25 @@ class PQM_Admin
                 <div class="pqm-stat-card">
                     <span class="pqm-stat-number"><?php echo esc_html($stats['avg_score']); ?></span>
                     <span class="pqm-stat-label" title="<?php esc_attr_e('The overall average quality score across all analyzed posts.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Average Score', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                        <?php esc_html_e('Average Score', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
                     </span>
                 </div>
                 <div class="pqm-stat-card">
                     <span class="pqm-stat-number"><?php echo esc_html($stats['reviewed']); ?></span>
                     <span class="pqm-stat-label" title="<?php esc_attr_e('Total posts that have been processed by the quality manager at least once.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Analyzed Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                        <?php esc_html_e('Analyzed Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
                     </span>
                 </div>
                 <div class="pqm-stat-card">
                     <span class="pqm-stat-number"><?php echo esc_html($needs_attention); ?></span>
                     <span class="pqm-stat-label" title="<?php esc_attr_e('Posts requiring manual intervention or major revisions to meet quality standards.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Needs Attention', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                        <?php esc_html_e('Needs Attention', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
                     </span>
                 </div>
                 <div class="pqm-stat-card">
                     <span class="pqm-stat-number"><?php echo esc_html($stats['total_posts']); ?></span>
                     <span class="pqm-stat-label" title="<?php esc_attr_e('Total published and pending posts on your site.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Total Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help" style="font-size: 14px; line-height: 1.5; color: #a7a7a7; cursor: help;"></span>
+                        <?php esc_html_e('Total Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
                     </span>
                 </div>
             </div>
@@ -349,7 +361,7 @@ class PQM_Admin
                                         <?php echo esc_html($item['title']); ?>
                                     </a>
                                     <?php if (($item['wp_post_status'] ?? '') === 'pending'): ?>
-                                        — <span class="post-state" style="font-weight: normal; color: #50575e;"><?php esc_html_e('Pending', 'post-quality-manager'); ?></span>
+                                        — <span class="post-state pqm-post-state"><?php esc_html_e('Pending', 'post-quality-manager'); ?></span>
                                     <?php endif; ?>
                                 </strong>
                             </td>
@@ -402,7 +414,7 @@ class PQM_Admin
                             </td>
                         </tr>
                         <!-- Expandable detail row -->
-                        <tr class="pqm-detail-row" id="pqm-detail-<?php echo esc_attr($item['post_id']); ?>" style="display:none">
+                        <tr class="pqm-detail-row pqm-hidden" id="pqm-detail-<?php echo esc_attr($item['post_id']); ?>">
                             <td colspan="6">
                                 <div class="pqm-detail-content" data-post-id="<?php echo esc_attr($item['post_id']); ?>">
                                     <p class="description"><?php esc_html_e('Loading...', 'post-quality-manager'); ?></p>
@@ -447,19 +459,43 @@ class PQM_Admin
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
 
             <?php if (empty($settings['n8n_webhook_url'])): ?>
-            <!-- Lean onboarding: shown only until the connection is configured. -->
-            <div class="notice notice-info inline" style="margin: 15px 0; padding: 12px 15px;">
-                <p><strong><?php esc_html_e('Get started in 3 steps', 'post-quality-manager'); ?></strong></p>
-                <ol style="margin: 8px 0 4px 20px;">
-                    <li>
-                        <a href="<?php echo esc_url($download_url); ?>" class="button button-secondary" style="margin-right: 6px;">
-                            <?php esc_html_e('Download your n8n workflow', 'post-quality-manager'); ?>
-                        </a>
-                        <?php esc_html_e('— pre-configured for this site.', 'post-quality-manager'); ?>
-                    </li>
-                    <li><?php esc_html_e('Import the file into your n8n instance and connect two credentials: WordPress (Application Password) and your Claude API key.', 'post-quality-manager'); ?></li>
-                    <li><?php esc_html_e('Activate the workflow in n8n, then paste its production webhook URL below and save.', 'post-quality-manager'); ?></li>
+            <!-- Setup wizard: shown only until the connection is configured. -->
+            <div class="pqm-wizard" id="pqm-wizard">
+                <h2 class="pqm-wizard-title"><?php esc_html_e('Set up your n8n connection', 'post-quality-manager'); ?></h2>
+                <ol class="pqm-wizard-steps">
+                    <li class="pqm-wizard-dot is-active" data-step="1"><span>1</span> <?php esc_html_e('Download', 'post-quality-manager'); ?></li>
+                    <li class="pqm-wizard-dot" data-step="2"><span>2</span> <?php esc_html_e('Import', 'post-quality-manager'); ?></li>
+                    <li class="pqm-wizard-dot" data-step="3"><span>3</span> <?php esc_html_e('Connect & test', 'post-quality-manager'); ?></li>
                 </ol>
+
+                <div class="pqm-wizard-step is-active" data-step="1">
+                    <p><?php esc_html_e('Download the review workflow pre-configured for this site.', 'post-quality-manager'); ?></p>
+                    <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
+                        <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
+                    </a>
+                </div>
+
+                <div class="pqm-wizard-step" data-step="2">
+                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect two credentials:', 'post-quality-manager'); ?></p>
+                    <ul class="pqm-wizard-list">
+                        <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts.', 'post-quality-manager'); ?></li>
+                        <li><?php esc_html_e('Claude — your Anthropic API key.', 'post-quality-manager'); ?></li>
+                    </ul>
+                    <p><?php esc_html_e('Then activate the workflow in n8n.', 'post-quality-manager'); ?></p>
+                </div>
+
+                <div class="pqm-wizard-step" data-step="3">
+                    <p><?php esc_html_e('Paste the workflow\'s production webhook URL into the field below, then send a test ping to verify the connection. Save the settings when the test passes.', 'post-quality-manager'); ?></p>
+                    <button type="button" class="button button-primary pqm-test-connection">
+                        <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
+                    </button>
+                    <span class="pqm-test-result" aria-live="polite"></span>
+                </div>
+
+                <div class="pqm-wizard-nav">
+                    <button type="button" class="button pqm-wizard-back" disabled><?php esc_html_e('Back', 'post-quality-manager'); ?></button>
+                    <button type="button" class="button button-primary pqm-wizard-next"><?php esc_html_e('Next', 'post-quality-manager'); ?></button>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -484,7 +520,11 @@ class PQM_Admin
                             <input type="url" id="pqm_n8n_webhook_url" name="pqm_settings[n8n_webhook_url]"
                                    value="<?php echo esc_attr($settings['n8n_webhook_url']); ?>"
                                    class="regular-text" placeholder="https://your-n8n.example.com/webhook/pqm-execute" />
+                            <button type="button" class="button pqm-test-connection">
+                                <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
+                            </button>
                             <p class="description"><?php esc_html_e('The webhook URL of your n8n workflow.', 'post-quality-manager'); ?></p>
+                            <p class="pqm-test-result" aria-live="polite"></p>
                         </td>
                     </tr>
                     <tr>
@@ -508,8 +548,8 @@ class PQM_Admin
                 </table>
 
                 <!-- AI Prompts & Context -->
-                <h2 style="margin-top: 2em;"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
-                <div class="notice notice-info inline" style="margin-bottom: 20px;">
+                <h2 class="pqm-section-gap"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
+                <div class="notice notice-info inline pqm-inline-notice">
                     <p><strong><?php esc_html_e('Agnostic Scoring Framework', 'post-quality-manager'); ?></strong></p>
                     <p><?php esc_html_e('All posts are evaluated on 4 universal pillars: 1. Structure (flow & hierarchy), 2. Readability (accessibility), 3. Engagement (hook & actionable value), 4. Credibility (E-E-A-T and factual support).', 'post-quality-manager'); ?></p>
                 </div>
@@ -519,11 +559,11 @@ class PQM_Admin
                         <td>
                             <?php
                             $profiles = self::blog_profiles();
-                            $current_profile = $settings['blog_profile'] ?? 'custom';
+                            $current_profile = $settings['blog_profile'];
                             ?>
                             <fieldset>
                                 <?php foreach ($profiles as $val => $profile): ?>
-                                    <label style="margin-right: 15px;">
+                                    <label class="pqm-radio-label">
                                         <input type="radio" name="pqm_settings[blog_profile]" value="<?php echo esc_attr($val); ?>" <?php checked($current_profile, $val); ?> class="pqm-blog-profile" />
                                         <?php echo esc_html($profile['label']); ?>
                                     </label>
@@ -542,33 +582,34 @@ class PQM_Admin
                                 'direct'       => __('Direct & Action-Oriented', 'post-quality-manager'),
                                 'custom'       => __('Custom', 'post-quality-manager'),
                             ];
-                            $current_preset = $settings['brand_voice_preset'] ?? 'custom';
+                            $current_preset = $settings['brand_voice_preset'];
                             ?>
-                            <fieldset style="margin-bottom: 10px;">
+                            <fieldset class="pqm-voice-fieldset">
                                 <?php foreach ($presets as $val => $lbl): ?>
-                                    <label style="margin-right: 15px;">
+                                    <label class="pqm-radio-label">
                                         <input type="radio" name="pqm_settings[brand_voice_preset]" value="<?php echo esc_attr($val); ?>" <?php checked($current_preset, $val); ?> class="pqm-voice-preset" />
                                         <?php echo esc_html($lbl); ?>
                                     </label>
                                 <?php endforeach; ?>
                             </fieldset>
-                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text" <?php echo $current_preset !== 'custom' ? 'style="display:none;"' : ''; ?>><?php echo esc_textarea($settings['brand_voice'] ?? ''); ?></textarea>
-                            <p class="description pqm-voice-desc" <?php echo $current_preset !== 'custom' ? 'style="display:none;"' : ''; ?>><?php esc_html_e('Instructions on how the AI should sound (e.g., "Professional yet accessible, active voice").', 'post-quality-manager'); ?></p>
+                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text<?php echo $current_preset !== 'custom' ? ' pqm-hidden' : ''; ?>"><?php echo esc_textarea($settings['brand_voice']); ?></textarea>
+                            <p class="description pqm-voice-desc<?php echo $current_preset !== 'custom' ? ' pqm-hidden' : ''; ?>"><?php esc_html_e('Instructions on how the AI should sound (e.g., "Professional yet accessible, active voice").', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="pqm_website_context"><?php esc_html_e('Website Context', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"><?php echo esc_textarea($settings['website_context'] ?? ''); ?></textarea>
+                            <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"><?php echo esc_textarea($settings['website_context']); ?></textarea>
                             <p class="description"><?php esc_html_e('Context about the website and audience (e.g., "A blog for professional software developers").', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                 </table>
 
-                <h3 style="margin-top: 2em;"><?php esc_html_e('Agent-Specific Overrides', 'post-quality-manager'); ?></h3>
-                <p class="description" style="margin-bottom: 1em;"><?php esc_html_e('Optionally override the temperature and provide additional system instructions for each AI agent.', 'post-quality-manager'); ?></p>
-                
+                <h3 class="pqm-section-gap"><?php esc_html_e('Agent-Specific Overrides', 'post-quality-manager'); ?></h3>
+                <p class="description pqm-agents-intro"><?php esc_html_e('Optionally override the temperature and provide additional system instructions for each AI agent.', 'post-quality-manager'); ?></p>
+
                 <?php
+                $agent_defaults = pqm_default_settings()['agent_prompts'];
                 $agents = [
                     'review'    => __('Review Agent', 'post-quality-manager'),
                     'takeaways' => __('Key Takeaways Agent', 'post-quality-manager'),
@@ -578,25 +619,24 @@ class PQM_Admin
                     'rewrite'   => __('Rewrite Agent', 'post-quality-manager'),
                 ];
                 foreach ($agents as $key => $label):
-                    $agent_data = $settings['agent_prompts'][$key] ?? ['instructions' => '', 'temperature' => 0.0];
+                    $agent_data = $settings['agent_prompts'][$key];
                 ?>
-                    <details style="margin-bottom: 15px; border: 1px solid #ccd0d4; padding: 10px; background: #fff;">
-                        <summary style="font-weight: 600; cursor: pointer; outline: none;">
-                            <span class="dashicons dashicons-admin-generic" style="font-size:16px; margin-top:3px; margin-right:5px; color:#50575e;"></span>
+                    <details class="pqm-agent-box">
+                        <summary>
+                            <span class="dashicons dashicons-admin-generic pqm-agent-icon"></span>
                             <?php echo esc_html($label); ?>
                         </summary>
-                        <table class="form-table" style="margin-top: 10px;">
+                        <table class="form-table">
                             <tr>
                                 <th><label for="pqm_agent_temp_<?php echo esc_attr($key); ?>"><?php esc_html_e('Temperature', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                        <input type="range" step="0.1" min="0" max="1" 
-                                               id="pqm_agent_temp_<?php echo esc_attr($key); ?>" 
+                                    <div class="pqm-temp-row">
+                                        <input type="range" step="0.1" min="0" max="1"
+                                               id="pqm_agent_temp_<?php echo esc_attr($key); ?>"
                                                name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
                                                value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
-                                               style="width: 200px;" 
-                                               oninput="this.nextElementSibling.innerText = parseFloat(this.value).toFixed(1)" />
-                                        <span style="font-weight: bold; width: 30px;"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
+                                               class="pqm-temp-range" />
+                                        <span class="pqm-temp-value"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
                                     </div>
                                     <p class="description"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative & Loose).', 'post-quality-manager'); ?></p>
                                 </td>
@@ -613,8 +653,7 @@ class PQM_Admin
                             <tr>
                                 <th></th>
                                 <td>
-                                    <?php $default_temp = ($key === 'takeaways' || $key === 'rewrite') ? '0.3' : '0.0'; ?>
-                                    <button type="button" class="button pqm-reset-agent" data-agent="<?php echo esc_attr($key); ?>" data-temp="<?php echo esc_attr($default_temp); ?>">
+                                    <button type="button" class="button pqm-reset-agent" data-agent="<?php echo esc_attr($key); ?>" data-temp="<?php echo esc_attr(number_format((float)$agent_defaults[$key]['temperature'], 1)); ?>">
                                         <?php esc_html_e('Reset to Defaults', 'post-quality-manager'); ?>
                                     </button>
                                 </td>
@@ -686,66 +725,6 @@ class PQM_Admin
                 <?php submit_button(); ?>
             </form>
         </div>
-
-        <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const presets = document.querySelectorAll('.pqm-voice-preset');
-            const customArea = document.getElementById('pqm_brand_voice');
-            const customDesc = document.querySelector('.pqm-voice-desc');
-
-            // Blog profile presets: pre-fill context + voice, keep everything editable.
-            const blogProfiles = <?php echo wp_json_encode(array_map(
-                static fn($p) => ['website_context' => $p['website_context'], 'brand_voice_preset' => $p['brand_voice_preset']],
-                self::blog_profiles()
-            )); ?>;
-            const contextArea = document.getElementById('pqm_website_context');
-
-            document.querySelectorAll('.pqm-blog-profile').forEach(radio => {
-                radio.addEventListener('change', function() {
-                    const profile = blogProfiles[this.value];
-                    if (!profile || this.value === 'custom') return;
-
-                    if (contextArea.value.trim() !== '' && contextArea.value !== profile.website_context) {
-                        if (!confirm("<?php esc_attr_e('Replace the current Website Context with the profile default? Your existing text will be overwritten.', 'post-quality-manager'); ?>")) {
-                            return;
-                        }
-                    }
-                    contextArea.value = profile.website_context;
-
-                    const voiceRadio = document.querySelector('.pqm-voice-preset[value="' + profile.brand_voice_preset + '"]');
-                    if (voiceRadio && !voiceRadio.checked) {
-                        voiceRadio.checked = true;
-                        voiceRadio.dispatchEvent(new Event('change'));
-                    }
-                });
-            });
-
-            presets.forEach(preset => {
-                preset.addEventListener('change', function() {
-                    if (this.value === 'custom') {
-                        customArea.style.display = 'block';
-                        customDesc.style.display = 'block';
-                    } else {
-                        customArea.style.display = 'none';
-                        customDesc.style.display = 'none';
-                    }
-                });
-            });
-
-            document.querySelectorAll('.pqm-reset-agent').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    if (!confirm("<?php esc_attr_e('Are you sure you want to reset this agent to default settings?', 'post-quality-manager'); ?>")) return;
-                    const key = this.dataset.agent;
-                    const temp = this.dataset.temp;
-                    document.getElementById('pqm_agent_inst_' + key).value = '';
-                    const tempInput = document.getElementById('pqm_agent_temp_' + key);
-                    tempInput.value = parseFloat(temp).toFixed(1);
-                    tempInput.nextElementSibling.innerText = parseFloat(temp).toFixed(1);
-                });
-            });
-        });
-        </script>
         <?php
     }
 
@@ -774,6 +753,59 @@ class PQM_Admin
         header('Content-Disposition: attachment; filename="post-quality-workflow-' . sanitize_file_name($host) . '.json"');
         echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file download, not HTML.
         exit;
+    }
+
+    /* ─── AJAX: Test Connection ──────────────────────────────────────── */
+
+    /**
+     * Send a lightweight "ping" command to the n8n webhook and report the outcome.
+     * Tests the URL from the settings field so it works before saving.
+     */
+    public static function ajax_test_connection(): void
+    {
+        check_ajax_referer('pqm_admin_action');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
+        }
+
+        $url = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
+        if (empty($url)) {
+            $url = pqm_get_settings()['n8n_webhook_url'];
+        }
+        if (empty($url)) {
+            wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
+        }
+
+        $response = wp_remote_post($url, [
+            'headers' => ['Content-Type' => 'application/json'],
+            'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
+            'timeout' => 10,
+        ]);
+
+        if (is_wp_error($response)) {
+            wp_send_json_error(sprintf(
+                /* translators: %s: connection error message */
+                __('Could not connect to n8n: %s', 'post-quality-manager'),
+                $response->get_error_message()
+            ));
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+
+        if ($code >= 200 && $code < 300) {
+            wp_send_json_success(__('Connection successful — n8n received the test ping.', 'post-quality-manager'));
+        }
+
+        if ($code === 404) {
+            wp_send_json_error(__('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager'));
+        }
+
+        wp_send_json_error(sprintf(
+            /* translators: %d: HTTP status code */
+            __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
+            $code
+        ));
     }
 
     /* ─── AJAX: Trigger Command ──────────────────────────────────────── */

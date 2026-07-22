@@ -2,20 +2,24 @@
 
 _Improvements identified during development, deliberately kept out of the current MVP. Reviewed when planning the next iteration._
 
+_Last groomed: 2026-07-22 — shipped on `feat/settings-wizard-polish`: test connection button, wizard-style setup flow, inline CSS/JS extraction, settings defaults hygiene._
+
 ## Product
 
-- **Test connection button** — a "Send test ping" next to the webhook URL that round-trips a lightweight command through n8n and reports success/failure inline. Deferred from the agnostic MVP (checklist step 3 currently relies on running a real review).
+- **Full round-trip connection test** — the "Send test ping" button verifies WP → n8n (reachability + workflow active). It does not verify the reverse path (n8n → WP callback with the `X-PQM-Token`). A `ping` command that calls back to a dedicated endpoint would validate the whole loop, including the token.
 - **Cron command choice** — `cron_command` is locked to `review`; allow scheduling other commands (audit, seo) once their result storage is on par.
 - **Chat-provider contract doc** — document the webhook in/out JSON contract so any chat tool (Slack, kChat, Teams bot) can drive the workflow without reading the n8n nodes.
-- **Wizard-style workflow builder** — pick commands/agents and assemble the workflow graph from blocks. Explicitly out of MVP scope (KISS); revisit only on real demand.
+- **Wizard-style workflow builder** — pick commands/agents and assemble the workflow graph from blocks. Still deferred (KISS; config-injected export is the locked MVP approach). Note: a wizard-style *setup flow* (download → import → connect & test) now exists on the settings page — this item is only about the graph builder.
 - **WordPress.org distribution** — readme.txt, screenshots, i18n completeness, GPL asset review. Deferred; GitHub Releases is the current channel.
 
 ## Technical debt / code quality
 
 - **Duplicate REST route with the standalone API plugin** — both plugins register `post-quality/v1/post-score`. Decide the coexistence story: detect the API plugin and skip registration, or namespace differently. Currently undefined behavior if both are active.
-- **Move inline CSS/JS out of `class-pqm-admin.php`** — the settings page carries inline `style=""` attributes and an inline `<script>` block (voice presets, blog profiles, reset buttons). Move to `pqm-admin.css` / `pqm-admin.js` for CSP-friendliness and maintainability.
+- **Inline styles in JS-generated markup** — `pqm-admin.js` still builds HTML strings with `style=""` attributes (rewrite confirmation card, action buttons, summary paragraph). The PHP templates are clean now; sweep the JS render helpers into `pqm-admin.css` classes for full CSP-friendliness.
+- **Webhook token before first save** — `pqm_default_settings()` calls `wp_generate_uuid4()`, so until the settings are saved once, every request sees a *different* token and `check_webhook_token()` can never match. Harmless in practice (n8n is unusable before setup anyway), but generating and persisting the token on activation would be cleaner.
+- **Brand-voice preset duplication** — the preset labels live in `PQM_Admin::render_settings()` (translated) and the resolved English strings again in `PQM_REST_API::trigger_review_callback()`. Consolidate into one preset map (label + AI-facing string).
+- **Ping only in the new template** — workflows imported before 2026-07-22 route `ping` to the Error Fallback: the test still passes (the webhook answers 200 on receipt), but n8n logs a junk execution and may POST an empty result to an empty callback URL. Re-downloading the workflow fixes it; consider a "template version" marker to detect stale imports.
 - **release-please CI is referenced but absent** — the `/release` skill and README mention a release-please GitHub Action, but the repo has no `.github/workflows/`. Add the action (release-please + zip artifact of `post-quality-manager/` incl. `templates/`).
-- **Settings defaults hygiene** — several render paths still use `?? ''` fallbacks that duplicate `pqm_get_settings()` defaults; rely on the defaults array as the single source of truth.
 - **i18n loading** — verify `load_plugin_textdomain()` is wired so the `post-quality-manager` text domain actually loads translations.
 
 ## n8n workflow
