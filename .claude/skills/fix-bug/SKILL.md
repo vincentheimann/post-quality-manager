@@ -1,3 +1,8 @@
+---
+name: fix-bug
+description: Bug fix workflow for the Post Quality Manager plugin — root-cause analysis, fix branch, manual verification in WP Admin, lessons capture. Use when the user reports a bug, an error log, or a failing endpoint/UI behavior.
+---
+
 # Bug Fix Checklist
 
 1. Read the full bug report or error log before doing anything

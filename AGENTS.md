@@ -19,9 +19,12 @@ The plugin follows a standard, KISS (Keep It Simple and Stupid) WordPress archit
   - `includes/` — Core functionality (DB, REST API, Cron)
   - `post-quality-manager.php` — Main plugin entry point
   - `uninstall.php` — Cleanup on deletion
+- `n8n/` — n8n workflow exports (v2 is current), Mermaid workflow diagram, and node debug snippets
 - `docs/brand.md` — Brand guidelines, copy rules, and tone (read before UI work)
 - `tasks/` — `todo.md` (active task plan) and `lessons.md` (self-correction log)
-- `.agent/commands/` — Reusable prompt templates for recurring tasks
+- `memory/` — Canonical project memory (`MEMORY.md` index + one file per durable fact); read at session start, update when facts change
+- `.claude/skills/` — Reusable workflows for recurring tasks (`/fix-bug`, `/new-feature`, `/release`)
+- `_archives/turbo-drill/` — Unrelated legacy quiz-app files; ignore
 
 ## Guidelines
 
@@ -64,6 +67,7 @@ The plugin follows a standard, KISS (Keep It Simple and Stupid) WordPress archit
 - REST API: Always check permissions via `permission_callback`.
 - Admin UI: Use native WordPress UI components and classes (e.g., `.wrap`, `.notice`, `.button-primary`) where possible.
 - Error states: Always handle loading and error states explicitly in UI and AJAX responses.
+- AI Prompts (Agnostic): Ensure all AI prompts rely on universal content pillars (e.g., Structure, Readability, Engagement, Credibility) rather than niche-specific metrics, keeping the plugin agnostic.
 
 ## When Stuck
 - Ask a clarifying question rather than making a large speculative change.

@@ -1,0 +1,18 @@
+---
+name: agent-conventions
+description: How agents must work in this workspace — KISS, plan-first, lessons log, never commit to main or without asking
+metadata:
+  type: feedback
+---
+
+The project owner runs a disciplined agentic setup defined in `AGENTS.md` and `WORKFLOW.md`.
+
+**Why:** Agent guidelines are first-class project artifacts and must be followed, including the self-improvement loop.
+
+**How to apply:**
+- KISS principle everywhere; proven WordPress patterns only; prefix `PQM_`/`pqm_` (manager) and `PQA_`/`pqa_` (API plugin).
+- Plan non-trivial work in `tasks\todo.md` first and validate with the user; log every user correction in `tasks\lessons.md`; review that file at session start.
+- Never commit to `main` directly; feature branches `feat/`/`fix/`/`chore/`; Conventional Commits; git commits/pushes and file deletions/renames require asking first.
+- AI prompts in the n8n workflow must stay niche-agnostic (universal pillars: Structure, Readability, Engagement, Credibility) — see [[workspace-layout]].
+- Read `docs\brand.md` before writing any admin UI copy.
+- Project memory lives in-repo under `memory\` (canonical); any agent-local memory store is a redundant mirror — when a durable fact changes, update the repo copy first.
