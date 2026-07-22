@@ -1,23 +1,24 @@
 # Post Quality Manager
 
-WordPress content quality dashboard for professional bloggers. It stores AI review results produced by an n8n workflow, schedules automated reviews, and gives a global overview of your blog's content quality — scores, issues, and suggested edits — right in the WP admin.
+WordPress content quality dashboard for professional bloggers — in any niche. It stores AI review results produced by an n8n workflow, schedules automated reviews, and gives a global overview of your blog's content quality — scores, issues, and suggested edits — right in the WP admin. A built-in generator downloads the n8n workflow pre-configured for your site.
 
 ## How it works
 
 ```
-kChat command ──► n8n workflow ──► Claude agents (review / rewrite / takeaways /
-                      │             sources / seo / audit)
-                      ▼
-        WordPress REST API (this plugin)
-        stores reviews · updates posts · renders the dashboard
+WP admin (dashboard button / WP-Cron) ──► n8n workflow ──► Claude agents
+        any chat tool (optional webhook) ──┘   (review / rewrite / takeaways /
+                      ▲                         sources / seo / audit)
+                      │                              │
+                      └── stores reviews ◄── WordPress REST API (this plugin)
 ```
 
-The plugin can also trigger the n8n workflow itself (from the dashboard or on a WP-Cron schedule) and receives results back on a token-protected callback endpoint. AI prompts are niche-agnostic, built on universal content pillars (Structure, Readability, Engagement, Credibility); per-agent instruction overrides and temperatures are configurable in Settings.
+Content is scored on four universal pillars — **Structure, Readability, Engagement, Credibility** — so the same workflow serves a marketing blog, a technical IT blog, or a lifestyle site. Niche tailoring happens through **Blog Profiles** and editable prompts, never hardcoded.
 
 ## Features
 
 - **Quality dashboard** — per-post scores, statuses, and top edits with loading/error states
-- **Review storage** — results from n8n persisted in a dedicated table
+- **n8n workflow generator** — download the bundled workflow pre-configured for your site from Settings; import, connect credentials, done
+- **Blog profiles** — Marketing, Technical/IT, Lifestyle, or Custom presets that pre-fill voice and context (everything stays editable)
 - **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (AJAX, async so the UI never blocks)
 - **Scheduled reviews** — WP-Cron batches with configurable frequency, batch size, minimum score, and post age
 - **Agent prompt settings** — per-agent custom instructions and temperature overrides
@@ -25,14 +26,14 @@ The plugin can also trigger the n8n workflow itself (from the dashboard or on a 
 ## Requirements
 
 - WordPress 6.0+, PHP 8.0+
-- An n8n instance running the workflow from [n8n/](n8n/) (uses the Claude API)
-- The companion [Post Quality API](https://github.com/vincentheimann/post-quality-api) plugin (exposes Yoast SEO scores to the workflow)
+- An n8n instance (self-hosted or cloud) and a Claude API key
+- Yoast SEO (optional — SEO metadata enriches the review payload when present)
 
 ## Installation
 
 1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it.
-2. Import [n8n/post_quality_workflow_v2.json](n8n/post_quality_workflow_v2.json) into your n8n instance and set its credentials (WordPress Application Password, Claude API key, kChat webhook).
-3. In **Settings → Post Quality**, set the n8n webhook URL; the plugin generates the webhook token used to authenticate the n8n → WordPress callback.
+2. In **Content Quality → Settings**, follow the 3-step checklist: download your pre-configured workflow, import it into n8n and connect the two credentials (WordPress Application Password + Claude API key), then paste the workflow's production webhook URL back into Settings.
+3. Pick your **Blog Profile** (e.g., Technical/IT for a developer blog), adjust the pre-filled context if needed, and save. Run your first review from the **Post Reviews** page.
 
 ## REST API (`post-quality/v1`)
 
@@ -45,14 +46,14 @@ The plugin can also trigger the n8n workflow itself (from the dashboard or on a 
 
 ## Repository layout
 
-- `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, entry point, uninstall)
-- `n8n/` — workflow exports (v2 current), a Mermaid diagram of the flow, node debug snippets
+- `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, `templates/` with the n8n workflow template, entry point, uninstall)
+- `n8n/` — Mermaid diagram of the workflow
 - `docs/brand.md` — brand voice and copy rules for admin UI text
 - `_archives/` — legacy material kept for history; not part of the plugin
 
 ## Development
 
-Development follows an agent-assisted workflow: [CLAUDE.md](CLAUDE.md) is the entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes), [WORKFLOW.md](WORKFLOW.md) the task workflow, `memory/` the versioned project memory, and `tasks/` the active plan and lessons log. Reusable workflows live in `.claude/skills/` (`/fix-bug`, `/new-feature`, `/release`).
+Development follows an agent-assisted workflow: [CLAUDE.md](CLAUDE.md) is the entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes), [WORKFLOW.md](WORKFLOW.md) the task workflow, `memory/` the versioned project memory, and `tasks/` the active plan, lessons log, and enhancements backlog. Reusable workflows live in `.claude/skills/` (`/fix-bug`, `/new-feature`, `/release`).
 
 Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branches; releases are cut by `release-please`.
 

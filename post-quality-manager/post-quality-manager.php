@@ -45,6 +45,7 @@ if (is_admin()) {
     add_action('admin_enqueue_scripts', ['PQM_Admin', 'enqueue_assets']);
     add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
     add_action('wp_ajax_pqm_trigger_command', ['PQM_Admin', 'ajax_trigger_command']);
+    add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);
 }
 
 /* ─── Cron ───────────────────────────────────────────────────────────── */
@@ -58,6 +59,10 @@ function pqm_get_settings(): array
         'n8n_webhook_url' => '',
         'webhook_token' => wp_generate_uuid4(),
         'notification_url' => '',
+        'blog_profile' => 'custom',
+        'brand_voice_preset' => 'custom',
+        'brand_voice' => '',
+        'website_context' => '',
         'cron_enabled' => false,
         'cron_frequency' => 'daily',
         'cron_batch_size' => 5,
