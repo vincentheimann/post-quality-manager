@@ -105,6 +105,24 @@ function pqm_voice_presets(): array
     ];
 }
 
+/* ─── Helper: n8n workflow JSON with site values injected ────────────── */
+/**
+ * Bundled workflow template with this site's values injected. Shared by the
+ * settings-page download and the REST import-from-URL endpoint.
+ * Returns null when the template file is missing.
+ */
+function pqm_workflow_json(): ?string
+{
+    $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow.json';
+    if (!file_exists($template_path)) {
+        return null;
+    }
+
+    $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
+
+    return str_replace('__PQM_SITE_HOST__', $host, file_get_contents($template_path));
+}
+
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */
 function pqm_get_settings(): array
 {

@@ -487,6 +487,7 @@ class PQM_Admin
     {
         $settings = pqm_get_settings();
         $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
+        $import_url = add_query_arg('token', rawurlencode($settings['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
@@ -506,6 +507,7 @@ class PQM_Admin
                     <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
                         <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
                     </a>
+                    <?php self::render_import_url($import_url); ?>
                 </div>
 
                 <div class="pqm-wizard-step" data-step="2">
@@ -545,6 +547,7 @@ class PQM_Admin
                                 <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
                             </a>
                             <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect your WordPress and Claude credentials.', 'post-quality-manager'); ?></p>
+                            <?php self::render_import_url($import_url); ?>
                         </td>
                     </tr>
                     <tr>
@@ -768,6 +771,27 @@ class PQM_Admin
     /* ─── Workflow Generator (admin-post download) ───────────────────── */
 
     /**
+     * "Or import from URL" block shown under each workflow download button.
+     * Rendered twice on the settings page, so classes only — no IDs.
+     */
+    private static function render_import_url(string $import_url): void
+    {
+?>
+        <div class="pqm-import-url">
+            <p class="pqm-import-url-intro"><?php esc_html_e('Or import from URL — no file needed:', 'post-quality-manager'); ?></p>
+            <div class="pqm-import-url-row">
+                <input type="text" class="regular-text code pqm-import-url-field"
+                       value="<?php echo esc_attr($import_url); ?>" readonly
+                       aria-label="<?php esc_attr_e('Workflow import URL', 'post-quality-manager'); ?>" />
+                <button type="button" class="button pqm-copy-import-url"><?php esc_html_e('Copy', 'post-quality-manager'); ?></button>
+            </div>
+            <p class="pqm-copy-feedback" aria-live="polite"></p>
+            <p class="description"><?php esc_html_e('In n8n, open the workflow menu, choose "Import from URL…" and paste this link. It includes your webhook token — keep it private.', 'post-quality-manager'); ?></p>
+        </div>
+<?php
+    }
+
+    /**
      * Serve the bundled n8n workflow template with this site's values injected.
      */
     public static function download_workflow(): void
@@ -777,13 +801,12 @@ class PQM_Admin
         }
         check_admin_referer('pqm_download_workflow');
 
-        $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow.json';
-        if (!file_exists($template_path)) {
+        $json = pqm_workflow_json();
+        if ($json === null) {
             wp_die(esc_html__('Workflow template not found. Please reinstall the plugin.', 'post-quality-manager'));
         }
 
         $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
-        $json = str_replace('__PQM_SITE_HOST__', $host, file_get_contents($template_path));
 
         nocache_headers();
         header('Content-Type: application/json; charset=utf-8');

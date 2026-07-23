@@ -7,6 +7,7 @@
  *  POST /post-quality/v1/save-review      — n8n posts review results here
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
+ *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -49,6 +50,21 @@ class PQM_REST_API {
             'permission_callback' => [ __CLASS__, 'check_edit_posts' ],
             'args'                => self::trigger_review_args(),
         ] );
+
+        // New: serve the site-configured workflow for n8n "Import from URL".
+        register_rest_route( PQM_REST_NAMESPACE, '/workflow', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ __CLASS__, 'workflow_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_workflow_token' ],
+            'args'                => [
+                'token' => [
+                    'required'          => false,
+                    'type'              => 'string',
+                    'description'       => 'Webhook token authorizing the export.',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -76,6 +92,26 @@ class PQM_REST_API {
         }
 
         return hash_equals( $expected_token, $provided_token );
+    }
+
+    /**
+     * Token-based auth for the workflow export. n8n's "Import from URL"
+     * fetches without WP cookies, so the shared secret travels as a query
+     * arg instead of a header. Logged-in admins pass too.
+     */
+    public static function check_workflow_token( WP_REST_Request $request ): bool {
+        if ( current_user_can( 'manage_options' ) ) {
+            return true;
+        }
+
+        $expected = pqm_get_settings()['webhook_token'];
+        $provided = (string) $request->get_param( 'token' );
+
+        if ( empty( $expected ) || empty( $provided ) ) {
+            return false;
+        }
+
+        return hash_equals( $expected, $provided );
     }
 
     /* ─── 1. GET /post-score (existing logic, moved here) ────────────── */
@@ -362,5 +398,25 @@ class PQM_REST_API {
             'message'     => sprintf( 'Review triggered for "%s" (command: %s).', $post->post_title, $command ),
             'n8n_status'  => $status_code,
         ], 200 );
+    }
+
+    /* ─── 5. GET /workflow (n8n "Import from URL") ───────────────────── */
+
+    public static function workflow_callback() {
+        $json = pqm_workflow_json();
+
+        if ( $json === null ) {
+            return new WP_Error(
+                'pqm_template_missing',
+                __( 'Workflow template not found. Please reinstall the plugin.', 'post-quality-manager' ),
+                [ 'status' => 500 ]
+            );
+        }
+
+        $response = new WP_REST_Response( json_decode( $json ) );
+        // Older n8n versions fetch import URLs from the browser, not the server.
+        $response->header( 'Access-Control-Allow-Origin', '*' );
+
+        return $response;
     }
 }

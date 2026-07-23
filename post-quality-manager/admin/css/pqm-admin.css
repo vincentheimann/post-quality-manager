@@ -294,10 +294,18 @@
 .pqm-temp-value { font-weight: bold; width: 30px; }
 
 /* Test connection feedback */
-.pqm-test-result { font-size: 13px; margin: 8px 0 0; }
-.pqm-test-result.is-success { color: #166534; font-weight: 500; }
-.pqm-test-result.is-error { color: #991b1b; font-weight: 500; }
+.pqm-test-result, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }
+.pqm-test-result.is-success, .pqm-copy-feedback.is-success { color: #166534; font-weight: 500; }
+.pqm-test-result.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
 td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
+
+/* ─── Workflow import-from-URL block ──────────────────────── */
+.pqm-import-url { margin-top: 12px; }
+.pqm-import-url-intro { font-size: 13px; margin: 0 0 4px; }
+.pqm-import-url-row { display: flex; align-items: center; gap: 6px; max-width: 480px; }
+.pqm-import-url-field { flex: 1; }
+.pqm-copy-feedback { min-height: 0; }
+.pqm-copy-feedback:empty { display: none; }
 
 /* ─── Setup Wizard ────────────────────────────────────────── */
 .pqm-wizard {

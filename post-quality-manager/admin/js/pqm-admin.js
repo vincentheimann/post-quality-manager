@@ -162,6 +162,35 @@
             el.classList.toggle('is-error', ok === false);
         }
 
+        /* ─── Copy workflow import URL ─────────────────────────────── */
+        document.querySelectorAll('.pqm-import-url').forEach(function (wrap) {
+            var field = wrap.querySelector('.pqm-import-url-field');
+            var copyBtn = wrap.querySelector('.pqm-copy-import-url');
+            var feedback = wrap.querySelector('.pqm-copy-feedback');
+            if (!field || !copyBtn) return;
+
+            field.addEventListener('focus', function () { this.select(); });
+
+            copyBtn.addEventListener('click', function () {
+                function report(ok) {
+                    showTestResult(feedback, ok, ok ? i18n.copied : i18n.copyFailed);
+                    if (feedback.pqmTimer) clearTimeout(feedback.pqmTimer);
+                    feedback.pqmTimer = setTimeout(function () { showTestResult(feedback, null, ''); }, 4000);
+                }
+                function fallbackCopy() {
+                    field.select();
+                    var ok = false;
+                    try { ok = document.execCommand('copy'); } catch (e) { /* keep selection */ }
+                    report(ok);
+                }
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(field.value).then(function () { report(true); }, fallbackCopy);
+                } else {
+                    fallbackCopy();
+                }
+            });
+        });
+
         /* ─── Setup wizard navigation ──────────────────────────────── */
         var wizard = document.getElementById('pqm-wizard');
         if (wizard) {
