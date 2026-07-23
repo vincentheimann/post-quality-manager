@@ -2,7 +2,7 @@
 
 _Improvements identified during development, deliberately kept out of the current MVP. Reviewed when planning the next iteration._
 
-_Last groomed: 2026-07-23 — shipped on `feat/settings-context-ux`: AI Prompts & Context UX rework (6 profiles + Custom, WYSIWYG brand voice, shared preset source — closes the brand-voice preset duplication item)._
+_Last groomed: 2026-07-23 — shipped on `feat/settings-context-ux`: AI Prompts & Context UX rework (6 profiles + Custom, WYSIWYG brand voice, shared preset source — closes the brand-voice preset duplication item). Same day: the standalone Post Quality API plugin was retired (repo archived on GitHub), closing the duplicate `post-score` route item — the manager's endpoint is canonical._
 
 ## Product
 
@@ -16,7 +16,6 @@ _Last groomed: 2026-07-23 — shipped on `feat/settings-context-ux`: AI Prompts 
 
 ## Technical debt / code quality
 
-- **Duplicate REST route with the standalone API plugin** — both plugins register `post-quality/v1/post-score`. Decide the coexistence story: detect the API plugin and skip registration, or namespace differently. Currently undefined behavior if both are active.
 - **Inline styles in JS-generated markup** — `pqm-admin.js` still builds HTML strings with `style=""` attributes (rewrite confirmation card, action buttons, summary paragraph). The PHP templates are clean now; sweep the JS render helpers into `pqm-admin.css` classes for full CSP-friendliness.
 - **Webhook token before first save** — `pqm_default_settings()` calls `wp_generate_uuid4()`, so until the settings are saved once, every request sees a *different* token and `check_webhook_token()` can never match. Harmless in practice (n8n is unusable before setup anyway), but generating and persisting the token on activation would be cleaner.
 - **Ping only in the new template** — workflows imported before 2026-07-22 route `ping` to the Error Fallback: the test still passes (the webhook answers 200 on receipt), but n8n logs a junk execution and may POST an empty result to an empty callback URL. Re-downloading the workflow fixes it; consider a "template version" marker to detect stale imports.

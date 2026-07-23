@@ -18,7 +18,7 @@ After any user correction, append the pattern to `tasks/lessons.md` (format is d
 - `n8n/workflow-diagram.md` — Mermaid overview of the webhook → n8n → Claude → WordPress flow.
 - `.claude/skills/` — project skills: `/fix-bug`, `/new-feature`, `/release`. Use them for those recurring tasks.
 - `_archives/turbo-drill/` — leftovers from an unrelated quiz-app project (old CHANGELOG included). Ignore entirely.
-- The companion "Post Quality API" plugin lives in the sibling repo `../post-quality-api/` — do not copy it into this repo.
+- The former companion "Post Quality API" plugin was retired 2026-07-23 (GitHub repo archived); this plugin's `post-quality/v1/post-score` endpoint is the canonical one. Do not re-create the standalone plugin.
 
 ## n8n workflow notes
 
