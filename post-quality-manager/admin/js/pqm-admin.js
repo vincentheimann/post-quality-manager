@@ -61,36 +61,44 @@
 
         var i18n = pqmAdmin.i18n || {};
 
-        /* ─── Blog profile presets: pre-fill context + voice ──────── */
+        /* ─── Blog profile & voice presets ──────────────────────────
+         * Presets are one-shot fills of the two editable fields; the
+         * textareas are always the source of truth for what the AI
+         * receives. No confirmation dialogs — nothing takes effect
+         * until the settings are saved. Manual edits flip the
+         * selection back to Custom so a preset never claims text it
+         * no longer matches. */
         var contextArea = document.getElementById('pqm_website_context');
-        var customArea = document.getElementById('pqm_brand_voice');
-        var customDesc = document.querySelector('.pqm-voice-desc');
+        var voiceArea = document.getElementById('pqm_brand_voice');
+        var voicePresets = pqmAdmin.voicePresets || {};
+
+        function checkRadio(selector, value) {
+            var radio = document.querySelector(selector + '[value="' + value + '"]');
+            if (radio) radio.checked = true;
+        }
 
         document.querySelectorAll('.pqm-blog-profile').forEach(function (radio) {
             radio.addEventListener('change', function () {
                 var profile = (pqmAdmin.blogProfiles || {})[this.value];
-                if (!profile || this.value === 'custom') return;
-
-                if (contextArea.value.trim() !== '' && contextArea.value !== profile.website_context) {
-                    if (!confirm(i18n.replaceContext)) return;
-                }
+                if (!profile || this.value === 'custom') return; // Custom overwrites nothing.
                 contextArea.value = profile.website_context;
-
-                var voiceRadio = document.querySelector('.pqm-voice-preset[value="' + profile.brand_voice_preset + '"]');
-                if (voiceRadio && !voiceRadio.checked) {
-                    voiceRadio.checked = true;
-                    voiceRadio.dispatchEvent(new Event('change'));
-                }
+                voiceArea.value = voicePresets[profile.brand_voice_preset] || '';
+                checkRadio('.pqm-voice-preset', profile.brand_voice_preset);
             });
         });
 
-        /* ─── Voice preset: toggle custom textarea ─────────────────── */
         document.querySelectorAll('.pqm-voice-preset').forEach(function (preset) {
             preset.addEventListener('change', function () {
-                var custom = this.value === 'custom';
-                customArea.classList.toggle('pqm-hidden', !custom);
-                if (customDesc) customDesc.classList.toggle('pqm-hidden', !custom);
+                if (this.value === 'custom') return; // Keep whatever text is in the box.
+                voiceArea.value = voicePresets[this.value] || '';
             });
+        });
+
+        contextArea.addEventListener('input', function () {
+            checkRadio('.pqm-blog-profile', 'custom');
+        });
+        voiceArea.addEventListener('input', function () {
+            checkRadio('.pqm-voice-preset', 'custom');
         });
 
         /* ─── Agent overrides: temperature sliders + reset ─────────── */

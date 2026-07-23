@@ -308,17 +308,13 @@ class PQM_REST_API {
             ? wp_strip_all_tags( get_the_excerpt( $post_id ) )
             : wp_trim_words( $content_plain, 55, '...' );
 
-        // Resolve brand voice based on preset
-        $preset = $settings['brand_voice_preset'];
-        $resolved_voice = $settings['brand_voice'];
-        if ( $preset !== 'custom' ) {
-            $presets = [
-                'professional' => 'Professional & Authoritative',
-                'casual'       => 'Casual & Conversational',
-                'direct'       => 'Direct & Action-Oriented',
-            ];
-            $resolved_voice = $presets[$preset] ?? '';
-        }
+        // Resolve brand voice: a selected preset always means its instruction
+        // (also covers settings saved before the WYSIWYG voice field existed).
+        $voice_presets  = pqm_voice_presets();
+        $preset         = $settings['brand_voice_preset'];
+        $resolved_voice = isset( $voice_presets[ $preset ] )
+            ? $voice_presets[ $preset ]['instruction']
+            : $settings['brand_voice'];
 
         // Build payload for n8n.
         $payload = [

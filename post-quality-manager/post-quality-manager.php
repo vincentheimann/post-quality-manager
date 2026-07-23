@@ -81,6 +81,30 @@ function pqm_default_settings(): array
     ];
 }
 
+/* ─── Helper: Brand voice presets (single source of truth) ───────────── */
+/**
+ * Preset voice instructions shared by the settings UI (labels + pre-fill)
+ * and the n8n payload builder (legacy resolution). 'custom' is a UI state,
+ * not a preset, so it is not listed here.
+ */
+function pqm_voice_presets(): array
+{
+    return [
+        'professional' => [
+            'label'       => __('Professional & Authoritative', 'post-quality-manager'),
+            'instruction' => __('Professional and authoritative: precise, confident wording; active voice; back claims with evidence; no hype or filler.', 'post-quality-manager'),
+        ],
+        'casual' => [
+            'label'       => __('Casual & Conversational', 'post-quality-manager'),
+            'instruction' => __('Casual and conversational: warm, first-person tone; everyday words; short sentences; reads like advice from a knowledgeable friend.', 'post-quality-manager'),
+        ],
+        'direct' => [
+            'label'       => __('Direct & Action-Oriented', 'post-quality-manager'),
+            'instruction' => __('Direct and action-oriented: lead with the point; concrete next steps; cut anything that does not help the reader act.', 'post-quality-manager'),
+        ],
+    ];
+}
+
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */
 function pqm_get_settings(): array
 {
