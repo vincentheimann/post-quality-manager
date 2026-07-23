@@ -15,6 +15,7 @@ $wpdb->query( "DROP TABLE IF EXISTS {$table_name}" ); // phpcs:ignore WordPress.
 
 delete_option( 'pqm_settings' );
 delete_option( 'pqm_db_version' );
+delete_option( 'pqm_workflow_version_seen' );
 
 // Clear any scheduled cron events.
 wp_clear_scheduled_hook( 'pqm_cron_review_posts' );

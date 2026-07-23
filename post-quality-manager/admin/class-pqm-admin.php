@@ -49,6 +49,15 @@ class PQM_Admin
 
         add_submenu_page(
             'pqm-dashboard',
+            __('n8n Workflow', 'post-quality-manager'),
+            __('n8n Workflow', 'post-quality-manager'),
+            'manage_options',
+            'pqm-workflow',
+        [__CLASS__, 'render_workflow']
+        );
+
+        add_submenu_page(
+            'pqm-dashboard',
             __('Settings', 'post-quality-manager'),
             __('Settings', 'post-quality-manager'),
             'manage_options',
@@ -111,6 +120,10 @@ class PQM_Admin
             ),
             'agentDefaults' => pqm_default_settings()['agent_prompts'],
             'voicePresets' => array_map(static fn($p) => $p['instruction'], pqm_voice_presets()),
+            'modelRegistry' => array_map(
+                static fn($m) => ['temperature' => $m['supports_temperature'], 'effortLevels' => $m['effort_levels']],
+                pqm_model_registry()
+            ),
             'i18n' => [
                 'resetAgent' => __('Are you sure you want to reset this agent to default settings?', 'post-quality-manager'),
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
@@ -200,12 +213,23 @@ class PQM_Admin
         $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
         $clean['cron_command'] = $defaults['cron_command'];
 
+        $registry_keys = array_keys(pqm_model_registry());
+        $clean['default_model'] = in_array($input['default_model'] ?? '', array_merge($registry_keys, ['custom']), true)
+            ? $input['default_model'] : $defaults['default_model'];
+        // Model IDs are plain slugs (letters, digits, dot, dash, underscore, colon).
+        $clean['custom_model'] = (string) preg_replace('/[^A-Za-z0-9._:-]/', '', $input['custom_model'] ?? '');
+
+        $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
         $clean['agent_prompts'] = [];
         foreach (array_keys($defaults['agent_prompts']) as $agent) {
             if (isset($input['agent_prompts'][$agent])) {
+                $agent_input = $input['agent_prompts'][$agent];
                 $clean['agent_prompts'][$agent] = [
-                    'instructions' => sanitize_textarea_field($input['agent_prompts'][$agent]['instructions'] ?? ''),
-                    'temperature'  => (float) ($input['agent_prompts'][$agent]['temperature'] ?? $defaults['agent_prompts'][$agent]['temperature']),
+                    'instructions' => sanitize_textarea_field($agent_input['instructions'] ?? ''),
+                    'temperature'  => (float) ($agent_input['temperature'] ?? $defaults['agent_prompts'][$agent]['temperature']),
+                    'model'        => in_array($agent_input['model'] ?? '', $registry_keys, true) ? $agent_input['model'] : '',
+                    'effort'       => in_array($agent_input['effort'] ?? '', $effort_levels, true)
+                        ? $agent_input['effort'] : $defaults['agent_prompts'][$agent]['effort'],
                 ];
             }
         }
@@ -486,51 +510,17 @@ class PQM_Admin
     public static function render_settings(): void
     {
         $settings = pqm_get_settings();
-        $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
-        $import_url = add_query_arg('token', rawurlencode($settings['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
+        $workflow_page_url = admin_url('admin.php?page=pqm-workflow');
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
 
             <?php if (empty($settings['n8n_webhook_url'])): ?>
-            <!-- Setup wizard: shown only until the connection is configured. -->
-            <div class="pqm-wizard" id="pqm-wizard">
-                <h2 class="pqm-wizard-title"><?php esc_html_e('Set up your n8n connection', 'post-quality-manager'); ?></h2>
-                <ol class="pqm-wizard-steps">
-                    <li class="pqm-wizard-dot is-active" data-step="1"><span>1</span> <?php esc_html_e('Download', 'post-quality-manager'); ?></li>
-                    <li class="pqm-wizard-dot" data-step="2"><span>2</span> <?php esc_html_e('Import', 'post-quality-manager'); ?></li>
-                    <li class="pqm-wizard-dot" data-step="3"><span>3</span> <?php esc_html_e('Connect & test', 'post-quality-manager'); ?></li>
-                </ol>
-
-                <div class="pqm-wizard-step is-active" data-step="1">
-                    <p><?php esc_html_e('Download the review workflow pre-configured for this site.', 'post-quality-manager'); ?></p>
-                    <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
-                        <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
-                    </a>
-                    <?php self::render_import_url($import_url); ?>
-                </div>
-
-                <div class="pqm-wizard-step" data-step="2">
-                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect two credentials:', 'post-quality-manager'); ?></p>
-                    <ul class="pqm-wizard-list">
-                        <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts.', 'post-quality-manager'); ?></li>
-                        <li><?php esc_html_e('Claude — your Anthropic API key.', 'post-quality-manager'); ?></li>
-                    </ul>
-                    <p><?php esc_html_e('Then activate the workflow in n8n.', 'post-quality-manager'); ?></p>
-                </div>
-
-                <div class="pqm-wizard-step" data-step="3">
-                    <p><?php esc_html_e('Paste the workflow\'s production webhook URL into the field below, then send a test ping to verify the connection. Save the settings when the test passes.', 'post-quality-manager'); ?></p>
-                    <button type="button" class="button button-primary pqm-test-connection">
-                        <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
-                    </button>
-                    <span class="pqm-test-result" aria-live="polite"></span>
-                </div>
-
-                <div class="pqm-wizard-nav">
-                    <button type="button" class="button pqm-wizard-back" disabled><?php esc_html_e('Back', 'post-quality-manager'); ?></button>
-                    <button type="button" class="button button-primary pqm-wizard-next"><?php esc_html_e('Next', 'post-quality-manager'); ?></button>
-                </div>
+            <div class="notice notice-info inline pqm-inline-notice">
+                <p>
+                    <?php esc_html_e('New here? Generate and import the review workflow first, then come back to paste its webhook URL.', 'post-quality-manager'); ?>
+                    <a href="<?php echo esc_url($workflow_page_url); ?>"><?php esc_html_e('Open the n8n Workflow page', 'post-quality-manager'); ?></a>
+                </p>
             </div>
             <?php endif; ?>
 
@@ -539,17 +529,14 @@ class PQM_Admin
 
                 <!-- n8n Connection -->
                 <h2><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>
+                <p class="description"><?php
+                    printf(
+                        /* translators: %s: link to the n8n Workflow page */
+                        esc_html__('The workflow itself — download, import URL, and what each agent sends to Claude — lives on the %s page.', 'post-quality-manager'),
+                        '<a href="' . esc_url($workflow_page_url) . '">' . esc_html__('n8n Workflow', 'post-quality-manager') . '</a>'
+                    );
+                ?></p>
                 <table class="form-table">
-                    <tr>
-                        <th><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></th>
-                        <td>
-                            <a href="<?php echo esc_url($download_url); ?>" class="button button-secondary">
-                                <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
-                            </a>
-                            <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect your WordPress and Claude credentials.', 'post-quality-manager'); ?></p>
-                            <?php self::render_import_url($import_url); ?>
-                        </td>
-                    </tr>
                     <tr>
                         <th><label for="pqm_n8n_webhook_url"><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></label></th>
                         <td>
@@ -591,6 +578,32 @@ class PQM_Admin
                     <p><?php esc_html_e('All posts are evaluated on 4 universal pillars: 1. Structure (flow & hierarchy), 2. Readability (accessibility), 3. Engagement (hook & actionable value), 4. Credibility (E-E-A-T and factual support).', 'post-quality-manager'); ?></p>
                 </div>
                 <table class="form-table">
+                    <tr>
+                        <th><label for="pqm_default_model"><?php esc_html_e('AI Model', 'post-quality-manager'); ?></label></th>
+                        <td>
+                            <?php $registry = pqm_model_registry(); ?>
+                            <select id="pqm_default_model" name="pqm_settings[default_model]">
+                                <?php foreach ($registry as $model_id => $model): ?>
+                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($settings['default_model'], $model_id); ?>>
+                                        <?php
+                                        echo esc_html($model['label']);
+                                        if ($model['pricing']) {
+                                            /* translators: %s: price per million tokens, input / output */
+                                            echo esc_html(sprintf(__(' (%s per MTok)', 'post-quality-manager'), $model['pricing']));
+                                        }
+                                        ?>
+                                    </option>
+                                <?php endforeach; ?>
+                                <option value="custom" <?php selected($settings['default_model'], 'custom'); ?>><?php esc_html_e('Custom model ID…', 'post-quality-manager'); ?></option>
+                            </select>
+                            <input type="text" id="pqm_custom_model" name="pqm_settings[custom_model]"
+                                   value="<?php echo esc_attr($settings['custom_model']); ?>"
+                                   class="regular-text code<?php echo $settings['default_model'] === 'custom' ? '' : ' pqm-hidden'; ?>"
+                                   placeholder="claude-…"
+                                   aria-label="<?php esc_attr_e('Custom Claude model ID', 'post-quality-manager'); ?>" />
+                            <p class="description"><?php esc_html_e('The Claude model every agent uses unless it sets its own below. Prices are per million tokens (input / output). For a custom model ID, temperature and effort are not sent — the model runs with its own defaults.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
                     <tr>
                         <th><?php esc_html_e('Blog Profile', 'post-quality-manager'); ?></th>
                         <td>
@@ -646,31 +659,64 @@ class PQM_Admin
                 </table>
 
                 <h3 class="pqm-section-gap"><?php esc_html_e('Agent-Specific Overrides', 'post-quality-manager'); ?></h3>
-                <p class="description pqm-agents-intro"><?php esc_html_e('Optionally override the temperature and provide additional system instructions for each AI agent.', 'post-quality-manager'); ?></p>
+                <p class="description pqm-agents-intro"><?php esc_html_e('Optionally pick a different model, adjust how it works, and add instructions per agent. Only the controls the selected model supports are shown.', 'post-quality-manager'); ?></p>
 
                 <?php
-                $agent_defaults = pqm_default_settings()['agent_prompts'];
-                $agents = [
-                    'review'    => __('Review Agent', 'post-quality-manager'),
-                    'takeaways' => __('Key Takeaways Agent', 'post-quality-manager'),
-                    'sources'   => __('Sources Agent', 'post-quality-manager'),
-                    'seo'       => __('SEO Agent', 'post-quality-manager'),
-                    'audit'     => __('Audit Agent', 'post-quality-manager'),
-                    'rewrite'   => __('Rewrite Agent', 'post-quality-manager'),
+                $effort_labels = [
+                    'low'    => __('Low — fastest', 'post-quality-manager'),
+                    'medium' => __('Medium — balanced', 'post-quality-manager'),
+                    'high'   => __('High — thorough', 'post-quality-manager'),
+                    'xhigh'  => __('Extra high — most thorough', 'post-quality-manager'),
+                    'max'    => __('Max — no limits', 'post-quality-manager'),
                 ];
-                foreach ($agents as $key => $label):
+                foreach (self::agent_labels() as $key => $label):
                     $agent_data = $settings['agent_prompts'][$key];
+                    $caps       = pqm_model_caps(pqm_effective_model($key, $settings));
+                    $has_effort = !empty($caps['effort_levels']);
                 ?>
-                    <details class="pqm-agent-box">
+                    <details class="pqm-agent-box" data-agent="<?php echo esc_attr($key); ?>">
                         <summary>
                             <span class="dashicons dashicons-admin-generic pqm-agent-icon"></span>
                             <?php echo esc_html($label); ?>
                         </summary>
                         <table class="form-table">
                             <tr>
+                                <th><label for="pqm_agent_model_<?php echo esc_attr($key); ?>"><?php esc_html_e('Model', 'post-quality-manager'); ?></label></th>
+                                <td>
+                                    <select id="pqm_agent_model_<?php echo esc_attr($key); ?>"
+                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][model]"
+                                            class="pqm-agent-model">
+                                        <option value=""><?php esc_html_e('Default (use the AI Model above)', 'post-quality-manager'); ?></option>
+                                        <?php foreach ($registry as $model_id => $model): ?>
+                                            <option value="<?php echo esc_attr($model_id); ?>" <?php selected($agent_data['model'], $model_id); ?>>
+                                                <?php echo esc_html($model['label']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="pqm_agent_effort_<?php echo esc_attr($key); ?>"><?php esc_html_e('Reasoning Effort', 'post-quality-manager'); ?></label></th>
+                                <td>
+                                    <select id="pqm_agent_effort_<?php echo esc_attr($key); ?>"
+                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][effort]"
+                                            class="pqm-agent-effort<?php echo $has_effort ? '' : ' pqm-hidden'; ?>">
+                                        <?php foreach ($effort_labels as $level => $level_label): ?>
+                                            <option value="<?php echo esc_attr($level); ?>"
+                                                    <?php selected($agent_data['effort'], $level); ?>
+                                                    <?php disabled(!in_array($level, $caps['effort_levels'], true)); ?>>
+                                                <?php echo esc_html($level_label); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description pqm-effort-desc<?php echo $has_effort ? '' : ' pqm-hidden'; ?>"><?php esc_html_e('How much the model reasons before answering — higher means smarter but slower and more tokens.', 'post-quality-manager'); ?></p>
+                                    <p class="description pqm-effort-hint<?php echo $has_effort ? ' pqm-hidden' : ''; ?>"><?php esc_html_e('Not available for the selected model — use Temperature instead.', 'post-quality-manager'); ?></p>
+                                </td>
+                            </tr>
+                            <tr>
                                 <th><label for="pqm_agent_temp_<?php echo esc_attr($key); ?>"><?php esc_html_e('Temperature', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <div class="pqm-temp-row">
+                                    <div class="pqm-temp-row<?php echo $caps['supports_temperature'] ? '' : ' pqm-hidden'; ?>">
                                         <input type="range" step="0.1" min="0" max="1"
                                                id="pqm_agent_temp_<?php echo esc_attr($key); ?>"
                                                name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
@@ -678,14 +724,15 @@ class PQM_Admin
                                                class="pqm-temp-range" />
                                         <span class="pqm-temp-value"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
                                     </div>
-                                    <p class="description"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative & Loose).', 'post-quality-manager'); ?></p>
+                                    <p class="description pqm-temp-desc<?php echo $caps['supports_temperature'] ? '' : ' pqm-hidden'; ?>"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative & Loose).', 'post-quality-manager'); ?></p>
+                                    <p class="description pqm-temp-hint<?php echo $caps['supports_temperature'] ? ' pqm-hidden' : ''; ?>"><?php esc_html_e('Not supported by the selected model — use Reasoning Effort instead.', 'post-quality-manager'); ?></p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="pqm_agent_inst_<?php echo esc_attr($key); ?>"><?php esc_html_e('Additional Instructions', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <textarea id="pqm_agent_inst_<?php echo esc_attr($key); ?>" 
-                                              name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]" 
+                                    <textarea id="pqm_agent_inst_<?php echo esc_attr($key); ?>"
+                                              name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]"
                                               rows="4" class="large-text"><?php echo esc_textarea($agent_data['instructions']); ?></textarea>
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
                                 </td>
@@ -693,7 +740,7 @@ class PQM_Admin
                             <tr>
                                 <th></th>
                                 <td>
-                                    <button type="button" class="button pqm-reset-agent" data-agent="<?php echo esc_attr($key); ?>" data-temp="<?php echo esc_attr(number_format((float)$agent_defaults[$key]['temperature'], 1)); ?>">
+                                    <button type="button" class="button pqm-reset-agent" data-agent="<?php echo esc_attr($key); ?>">
                                         <?php esc_html_e('Reset to Defaults', 'post-quality-manager'); ?>
                                     </button>
                                 </td>
@@ -766,6 +813,164 @@ class PQM_Admin
             </form>
         </div>
         <?php
+    }
+
+    /* ─── Page: n8n Workflow ─────────────────────────────────────────── */
+
+    /**
+     * Agent keys => human labels, shared by the settings page and the
+     * workflow configuration preview.
+     */
+    private static function agent_labels(): array
+    {
+        return [
+            'review'    => __('Review Agent', 'post-quality-manager'),
+            'takeaways' => __('Key Takeaways Agent', 'post-quality-manager'),
+            'sources'   => __('Sources Agent', 'post-quality-manager'),
+            'seo'       => __('SEO Agent', 'post-quality-manager'),
+            'audit'     => __('Audit Agent', 'post-quality-manager'),
+            'rewrite'   => __('Rewrite Agent', 'post-quality-manager'),
+        ];
+    }
+
+    /**
+     * Everything about generating and connecting the n8n workflow:
+     * download / import URL, per-agent request preview, template version
+     * status, and the connection test.
+     */
+    public static function render_workflow(): void
+    {
+        $settings     = pqm_get_settings();
+        $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
+        $import_url   = add_query_arg('token', rawurlencode($settings['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
+        $settings_url = admin_url('admin.php?page=pqm-settings');
+        $seen_version = (int) get_option('pqm_workflow_version_seen', 0);
+        $registry     = pqm_model_registry();
+?>
+        <div class="wrap pqm-wrap">
+            <h1><?php esc_html_e('n8n Workflow', 'post-quality-manager'); ?></h1>
+
+            <?php if (empty($settings['n8n_webhook_url'])): ?>
+            <!-- Setup wizard: shown only until the connection is configured. -->
+            <div class="pqm-wizard" id="pqm-wizard">
+                <h2 class="pqm-wizard-title"><?php esc_html_e('Set up your n8n connection', 'post-quality-manager'); ?></h2>
+                <ol class="pqm-wizard-steps">
+                    <li class="pqm-wizard-dot is-active" data-step="1"><span>1</span> <?php esc_html_e('Download', 'post-quality-manager'); ?></li>
+                    <li class="pqm-wizard-dot" data-step="2"><span>2</span> <?php esc_html_e('Import', 'post-quality-manager'); ?></li>
+                    <li class="pqm-wizard-dot" data-step="3"><span>3</span> <?php esc_html_e('Connect & test', 'post-quality-manager'); ?></li>
+                </ol>
+
+                <div class="pqm-wizard-step is-active" data-step="1">
+                    <p><?php esc_html_e('Download the review workflow pre-configured for this site.', 'post-quality-manager'); ?></p>
+                    <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
+                        <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
+                    </a>
+                    <?php self::render_import_url($import_url); ?>
+                </div>
+
+                <div class="pqm-wizard-step" data-step="2">
+                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect two credentials:', 'post-quality-manager'); ?></p>
+                    <ul class="pqm-wizard-list">
+                        <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts.', 'post-quality-manager'); ?></li>
+                        <li><?php esc_html_e('Claude — your Anthropic API key.', 'post-quality-manager'); ?></li>
+                    </ul>
+                    <p><?php esc_html_e('Then activate the workflow in n8n.', 'post-quality-manager'); ?></p>
+                </div>
+
+                <div class="pqm-wizard-step" data-step="3">
+                    <p><?php
+                        printf(
+                            /* translators: %s: link to the Settings page */
+                            esc_html__('Paste the workflow\'s production webhook URL into %s, save, then send a test ping to verify the connection.', 'post-quality-manager'),
+                            '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings → n8n Connection', 'post-quality-manager') . '</a>'
+                        );
+                    ?></p>
+                    <button type="button" class="button button-primary pqm-test-connection">
+                        <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
+                    </button>
+                    <span class="pqm-test-result" aria-live="polite"></span>
+                </div>
+
+                <div class="pqm-wizard-nav">
+                    <button type="button" class="button pqm-wizard-back" disabled><?php esc_html_e('Back', 'post-quality-manager'); ?></button>
+                    <button type="button" class="button button-primary pqm-wizard-next"><?php esc_html_e('Next', 'post-quality-manager'); ?></button>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($seen_version > 0 && $seen_version < PQM_WORKFLOW_VERSION): ?>
+            <div class="notice notice-warning inline pqm-inline-notice">
+                <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
+                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your settings and credentials are untouched.', 'post-quality-manager'); ?></p>
+            </div>
+            <?php endif; ?>
+
+            <!-- Workflow file -->
+            <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect your WordPress and Claude credentials.', 'post-quality-manager'); ?></p>
+            <p>
+                <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
+                    <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
+                </a>
+            </p>
+            <?php self::render_import_url($import_url); ?>
+            <p class="description">
+                <?php
+                printf(
+                    /* translators: 1: bundled template version, 2: version last reported by n8n or a dash */
+                    esc_html__('Template version: %1$s · Your n8n instance last reported: %2$s', 'post-quality-manager'),
+                    esc_html((string) PQM_WORKFLOW_VERSION),
+                    $seen_version > 0 ? esc_html((string) $seen_version) : esc_html__('— (runs a review to report its version)', 'post-quality-manager')
+                );
+                ?>
+            </p>
+
+            <!-- Per-agent request preview -->
+            <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
+            <p class="description"><?php
+                printf(
+                    /* translators: %s: link to the Settings page */
+                    esc_html__('These values travel with every command, so model changes in %s apply instantly — no re-import needed. Only plugin updates that change the workflow itself require a re-import.', 'post-quality-manager'),
+                    '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'post-quality-manager') . '</a>'
+                );
+            ?></p>
+            <table class="widefat striped pqm-llm-preview">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Agent', 'post-quality-manager'); ?></th>
+                        <th><?php esc_html_e('Model', 'post-quality-manager'); ?></th>
+                        <th><?php esc_html_e('Reasoning Effort', 'post-quality-manager'); ?></th>
+                        <th><?php esc_html_e('Temperature', 'post-quality-manager'); ?></th>
+                        <th><?php esc_html_e('Max Output Tokens', 'post-quality-manager'); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach (self::agent_labels() as $key => $label):
+                        $params = pqm_llm_params($key, $settings);
+                        $model_label = isset($registry[$params['model']]) ? $registry[$params['model']]['label'] : $params['model'];
+                    ?>
+                    <tr>
+                        <td><?php echo esc_html($label); ?></td>
+                        <td><?php echo esc_html($model_label); ?> <code><?php echo esc_html($params['model']); ?></code></td>
+                        <td><?php echo esc_html($params['output_config']['effort'] ?? '—'); ?></td>
+                        <td><?php echo isset($params['temperature']) ? esc_html(number_format($params['temperature'], 1)) : '—'; ?></td>
+                        <td><?php echo esc_html((string) $params['max_tokens']); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <!-- Connection test -->
+            <h2 class="pqm-section-gap"><?php esc_html_e('Connection Test', 'post-quality-manager'); ?></h2>
+            <p class="description"><?php esc_html_e('Sends a lightweight ping to the saved n8n webhook URL.', 'post-quality-manager'); ?></p>
+            <p>
+                <button type="button" class="button pqm-test-connection">
+                    <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
+                </button>
+                <span class="pqm-test-result" aria-live="polite"></span>
+            </p>
+        </div>
+<?php
     }
 
     /* ─── Workflow Generator (admin-post download) ───────────────────── */

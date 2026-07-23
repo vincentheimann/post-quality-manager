@@ -4,7 +4,7 @@ _The agent writes and updates this file for each active task._
 
 ---
 
-# Planned: Pivot to modern LLM options — model + effort registry, payload-driven params, dedicated Workflow page (2026-07-23)
+# Active: Pivot to modern LLM options — model + effort registry, payload-driven params, dedicated Workflow page (2026-07-23)
 
 **Goal (user):** temperature — our per-agent knob everywhere — is being removed from modern Claude models (Opus 4.7/4.8 reject it with HTTP 400; Sonnet 5 rejects non-default values). Pivot the plugin and the n8n workflow generation to the options that matter in modern LLMs (model choice, reasoning effort, thinking), in a way that stays scalable, plus a dedicated page to generate the workflow with the useful options.
 
@@ -32,17 +32,30 @@ _The agent writes and updates this file for each active task._
 
 ## Steps
 
-- [ ] `pqm_model_registry()` + `pqm_llm_params()` in `post-quality-manager.php`; unit-sanity via `php -l` + a quick param-matrix dump
-- [ ] Settings: global default model dropdown + custom field; per-agent model + effort selects alongside the kept temperature slider; sanitizer + defaults + migration; JS (`agentDefaults`, registry capabilities localized, live knob toggling per selected model)
-- [ ] Webhook payload: add `llm` map in `class-pqm-rest-api.php` (both the command path and cron path if separate)
-- [ ] Template rework: six Build-Body nodes spread `d.llm[agent]`; six parse nodes use `find(type==='text')`; add `workflow_version`; strip now-dead hardcoded params
-- [ ] New "n8n Workflow" admin page: download + import URL + config preview + version notice + test ping; settings page cleanup; wizard step update
-- [ ] Callback handler: store `workflow_version` from n8n callbacks for the outdated-workflow notice
-- [ ] Docs: README + workflow-diagram.md + brand.md-compliant copy
-- [ ] Verify: `php -l` all touched files; `node --check` each extracted jsCode; template JSON valid pre/post injection; settings migration from old `temperature` shape; **USER:** round-trip per model (sonnet-4-6, sonnet-5, opus-4-8, haiku) incl. one thinking model proving the parse fix
-- [ ] Commit after user approval
+- [x] `pqm_model_registry()` + `pqm_model_caps()` + `pqm_effective_model()` + `pqm_llm_params()` + `pqm_llm_map()` in `post-quality-manager.php`; `PQM_WORKFLOW_VERSION` constant; smoke-tested with a stubbed-WP param-matrix harness (24 checks green)
+- [x] Settings: global default model dropdown + custom field; per-agent model + effort selects alongside the kept temperature slider (capability-aware initial state rendered server-side); sanitizer + defaults; migration is automatic via `pqm_get_settings()` deep-merge
+- [x] Webhook payload: `pqm_n8n_payload()` shared builder in the main plugin file — REST trigger **and** cron now ship identical payloads incl. the `llm` map (cron also gains brand voice/context/agent prompts it was silently missing)
+- [x] Template rework (v2): six Build-Body nodes spread `d.llm[agent]` (with per-agent hardcoded fallback for robustness); six parse nodes use `find(b => b.type === 'text')`; Parse Input stamps `workflow_version: 2` and forwards `llm`; callback echoes the version
+- [x] New "n8n Workflow" admin page (`pqm-workflow`): wizard (moved from Settings), download + import URL, per-agent request preview table, template-version status + outdated notice, test ping; Settings page slimmed to persisted options with pointers
+- [x] Callback handler stores `workflow_version` → option `pqm_workflow_version_seen` (cleaned up in uninstall.php)
+- [x] JS: split page-agnostic init (test ping, copy URL, wizard) from settings-only init; `modelRegistry` localized; live knob toggling per selected model; reset buttons restore model/effort/temperature from `agentDefaults`
+- [x] Docs: README (features, installation), n8n/workflow-diagram.md (payload contract + version handshake), memory/llm-options-architecture.md (+ index)
+- [x] Verify: `php -l` clean on all 5 touched PHP files; `node --check` clean on pqm-admin.js; template JSON valid pre/post injection with all 17 Code nodes syntax-checked; pivot invariants asserted (no leftover hardcoded temperature/model, 6 llm spreads, version stamps)
+- [ ] **USER:** manual pass — settings knobs toggle per model, preview table matches, wizard on the new page; round-trip per model (sonnet-4-6, sonnet-5, opus-4-8, haiku) incl. one thinking-capable model proving the parse fix; outdated-notice appears after a v2 import reports back
+- [x] Commit on `feat/llm-options-pivot` (user asked to commit ahead of the manual pass, 2026-07-23 — validation checklist above stays open)
 
-**Branch note:** the working tree on `feat/settings-context-ux` carries three uncommitted tasks pending user validation (Import-from-URL, Settings UX, Yoast column). This pivot touches the same files (admin class, REST API, main file, JS/CSS, template) — it must start on a fresh branch **after** those are validated and committed.
+## Review
+
+Implemented 2026-07-23 on `feat/llm-options-pivot` (9 files: main plugin file, REST API, cron, uninstall, admin class, admin JS, admin CSS, workflow template, README + diagram + memory). Notes:
+
+1. **The scalability core landed as planned:** registry → param builder → payload `llm` map → workflow spreads it. After this one re-import (template v2), model/effort/temperature changes apply on the next command with no n8n touch. The preview table on the new page renders from `pqm_llm_params()` itself, so it can't drift from reality.
+2. **Migration is non-destructive and automatic:** old settings blobs keep `instructions` and `temperature`; missing `model`/`effort` keys fall back to defaults through the existing deep-merge in `pqm_get_settings()`. No upgrade routine needed.
+3. **Sonnet 5 gets `thinking: {type: "disabled"}`** — with adaptive thinking on by default, thinking tokens would eat the agents' small `max_tokens` budgets (1000–8000) and the pipeline wants deterministic JSON. Parse nodes are still thinking-proof (`find(type==='text')`) so a custom thinking-always-on model (e.g. Fable) also works.
+4. **Effort clamp:** an unsupported stored level (e.g. `xhigh` after switching an agent to Sonnet 4.6) clamps to `high` server-side; the JS mirrors this by disabling unsupported options.
+5. **Custom model IDs are conservative by design:** only `model` + `max_tokens` are sent (every current Claude model accepts that shape). Documented in the settings description.
+6. **Behavior change (intended): cron payloads now include brand voice, website context, agent prompts, and the `llm` map** — previously cron reviews silently ran without customization because the payload was a diverged copy. Both paths now share `pqm_n8n_payload()`.
+7. **Settings form integrity:** all persisted `pqm_settings` fields stay on the single Settings form because `sanitize_settings()` rebuilds the whole array — the n8n Workflow page is deliberately form-free (download/preview/test only).
+8. **Old imported workflows keep working** during the transition: build nodes fall back to the previous hardcoded sonnet-4-6 params when `d.llm` is absent, and the version handshake surfaces the "update available" notice once any post-v2 result comes back.
 
 ---
 

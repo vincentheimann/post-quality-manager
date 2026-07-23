@@ -292,6 +292,11 @@
 .pqm-temp-row { display: flex; align-items: center; gap: 10px; }
 .pqm-temp-range { width: 200px; }
 .pqm-temp-value { font-weight: bold; width: 30px; }
+#pqm_custom_model { margin-left: 6px; vertical-align: middle; }
+
+/* ─── n8n Workflow page: per-agent request preview ─────────── */
+.pqm-llm-preview { max-width: 900px; margin-top: 8px; }
+.pqm-llm-preview code { font-size: 11px; color: #50575e; }
 
 /* Test connection feedback */
 .pqm-test-result, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }

@@ -2,10 +2,21 @@
 
 The canonical workflow template ships with the plugin at
 `post-quality-manager/templates/n8n-workflow.json` and is downloaded pre-configured
-from **Settings → Workflow File**. Triggers are agnostic: the WordPress plugin
-(dashboard button or WP-Cron) POSTs to the webhook; any chat tool or automation can
-call the same contract. Results go back to the WordPress callback endpoint
+from the **Content Quality → n8n Workflow** page. Triggers are agnostic: the WordPress
+plugin (dashboard button or WP-Cron) POSTs to the webhook; any chat tool or automation
+can call the same contract. Results go back to the WordPress callback endpoint
 (`/save-review`) and, optionally, to a notification webhook (Slack, kChat, Teams, …).
+
+Two contract details introduced with workflow version 2:
+
+- **LLM request params ride the payload.** The plugin sends a per-agent `llm` map
+  (`model`, `max_tokens`, and — only where the chosen model supports them —
+  `temperature`, `output_config.effort`, `thinking`). The "Build … Body" Code nodes
+  spread that fragment into the Claude request as-is, so model/effort changes in
+  WP settings apply on the next command without re-importing the workflow.
+- **Version handshake.** `Parse Input` stamps the template's `workflow_version` and
+  the `/save-review` callback echoes it; the plugin flags an outdated import on the
+  n8n Workflow page when the bundled template is newer.
 
 ```mermaid
 flowchart TD

@@ -240,6 +240,12 @@ class PQM_REST_API {
             'result' => [
                 'required' => false,
             ],
+            'workflow_version' => [
+                'required'    => false,
+                'type'        => 'integer',
+                'default'     => 0,
+                'description' => 'Template version echoed by the n8n workflow, used to flag outdated imports.',
+            ],
         ];
     }
 
@@ -262,6 +268,13 @@ class PQM_REST_API {
         if ( $status === 'error' || ! empty( $error ) ) {
             $status = $status ?: 'error';
             $result = [ 'error' => $error ?: 'An unknown error occurred in n8n.' ];
+        }
+
+        // Remember which template version the running workflow was imported
+        // from — the n8n Workflow page compares it against PQM_WORKFLOW_VERSION.
+        $wf_version = absint( $request->get_param( 'workflow_version' ) );
+        if ( $wf_version > 0 && $wf_version !== (int) get_option( 'pqm_workflow_version_seen', 0 ) ) {
+            update_option( 'pqm_workflow_version_seen', $wf_version, false );
         }
 
         $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
@@ -335,46 +348,8 @@ class PQM_REST_API {
             );
         }
 
-        // Collect post data (same as post-score endpoint).
-        $content_html  = get_post_field( 'post_content', $post_id );
-        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) );
-        $yoast_active  = defined( 'WPSEO_VERSION' );
-
-        $excerpt = has_excerpt( $post_id )
-            ? wp_strip_all_tags( get_the_excerpt( $post_id ) )
-            : wp_trim_words( $content_plain, 55, '...' );
-
-        // Resolve brand voice: a selected preset always means its instruction
-        // (also covers settings saved before the WYSIWYG voice field existed).
-        $voice_presets  = pqm_voice_presets();
-        $preset         = $settings['brand_voice_preset'];
-        $resolved_voice = isset( $voice_presets[ $preset ] )
-            ? $voice_presets[ $preset ]['instruction']
-            : $settings['brand_voice'];
-
-        // Build payload for n8n.
-        $payload = [
-            'callback_url'     => rest_url( PQM_REST_NAMESPACE . '/save-review' ),
-            'auth_token'       => $settings['webhook_token'],
-            'notification_url' => $settings['notification_url'],
-            'command'          => $command,
-            'post_id'          => $post_id,
-            'slug'             => $post->post_name,
-            'post_type'        => $post->post_type,
-            'title'            => html_entity_decode( get_the_title( $post_id ), ENT_QUOTES, 'UTF-8' ),
-            'link'             => get_permalink( $post_id ),
-            'excerpt'          => $excerpt,
-            'content'          => mb_substr( $content_plain, 0, 15000 ),
-            'content_html'     => mb_substr( $content_html, 0, 20000 ),
-            'seo_score'        => $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_linkdex', true ) : null,
-            'readability_score'=> $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_content_score', true ) : null,
-            'focus_keyphrase'  => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) : '',
-            'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
-            'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
-            'brand_voice'      => $resolved_voice,
-            'website_context'  => $settings['website_context'],
-            'agent_prompts'    => $settings['agent_prompts'],
-        ];
+        // Build payload for n8n (shared with the cron batch).
+        $payload = pqm_n8n_payload( $post, $command, $settings );
 
         // Fire-and-forget request to n8n.
         $response = wp_remote_post( $settings['n8n_webhook_url'], [

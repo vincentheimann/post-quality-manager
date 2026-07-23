@@ -25,11 +25,12 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 ## Features
 
 - **Quality dashboard** — per-post scores, statuses, and top edits with loading/error states
-- **n8n workflow generator** — download the bundled workflow pre-configured for your site from Settings; import, connect credentials, done
+- **n8n workflow generator** — a dedicated **n8n Workflow** page with the pre-configured download, an "Import from URL" link, a live preview of what each agent sends to Claude, and an update notice when the bundled workflow changes
+- **Claude model choice** — pick the model globally (Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5, or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
 - **Blog profiles** — Marketing, Technical/IT, Lifestyle, or Custom presets that pre-fill voice and context (everything stays editable)
 - **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (AJAX, async so the UI never blocks)
 - **Scheduled reviews** — WP-Cron batches with configurable frequency, batch size, minimum score, and post age
-- **Agent prompt settings** — per-agent custom instructions and temperature overrides
+- **Agent settings** — per-agent model, reasoning effort, temperature (where the model supports it), and custom instructions; changes apply on the next command with no workflow re-import
 
 ## Requirements
 
@@ -40,7 +41,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 ## Installation
 
 1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it.
-2. In **Content Quality → Settings**, follow the 3-step checklist: download your pre-configured workflow, import it into n8n and connect the two credentials (WordPress Application Password + Claude API key), then paste the workflow's production webhook URL back into Settings.
+2. In **Content Quality → n8n Workflow**, follow the 3-step checklist: download (or import by URL) your pre-configured workflow, connect the two credentials in n8n (WordPress Application Password + Claude API key), then paste the workflow's production webhook URL into **Content Quality → Settings**.
 3. Pick your **Blog Profile** (e.g., Technical/IT for a developer blog), adjust the pre-filled context if needed, and save. Run your first review from the **Post Reviews** page.
 
 ## REST API (`post-quality/v1`)

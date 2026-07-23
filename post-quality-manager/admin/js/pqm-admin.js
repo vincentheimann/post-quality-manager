@@ -15,6 +15,10 @@
     document.addEventListener('DOMContentLoaded', function () {
 
         initSettingsPage();
+        initModelControls();
+        initTestConnection();
+        initImportUrlCopy();
+        initWizard();
 
         // Delegate clicks on dynamic buttons.
         document.addEventListener('click', function (e) {
@@ -53,11 +57,11 @@
     });
 
     /* ================================================================
-     *  SETTINGS PAGE (wizard, presets, test connection)
+     *  SETTINGS PAGE (presets, agent overrides)
      * ================================================================ */
     function initSettingsPage() {
-        var webhookField = document.getElementById('pqm_n8n_webhook_url');
-        if (!webhookField) return; // Not on the settings page.
+        var contextArea = document.getElementById('pqm_website_context');
+        if (!contextArea) return; // Not on the settings page.
 
         var i18n = pqmAdmin.i18n || {};
 
@@ -68,7 +72,6 @@
          * until the settings are saved. Manual edits flip the
          * selection back to Custom so a preset never claims text it
          * no longer matches. */
-        var contextArea = document.getElementById('pqm_website_context');
         var voiceArea = document.getElementById('pqm_brand_voice');
         var voicePresets = pqmAdmin.voicePresets || {};
 
@@ -113,21 +116,97 @@
                 e.preventDefault();
                 if (!confirm(i18n.resetAgent)) return;
                 var key = this.dataset.agent;
-                var temp = parseFloat(this.dataset.temp).toFixed(1);
+                var defs = (pqmAdmin.agentDefaults || {})[key] || {};
                 document.getElementById('pqm_agent_inst_' + key).value = '';
                 var tempInput = document.getElementById('pqm_agent_temp_' + key);
+                var temp = parseFloat(defs.temperature || 0).toFixed(1);
                 tempInput.value = temp;
                 tempInput.nextElementSibling.textContent = temp;
+                var modelSelect = document.getElementById('pqm_agent_model_' + key);
+                var effortSelect = document.getElementById('pqm_agent_effort_' + key);
+                if (effortSelect) effortSelect.value = defs.effort || 'high';
+                if (modelSelect) {
+                    modelSelect.value = defs.model || '';
+                    modelSelect.dispatchEvent(new Event('change')); // re-sync visible knobs
+                }
+            });
+        });
+    }
+
+    /* ================================================================
+     *  MODEL CAPABILITIES (settings page)
+     *  The registry (localized from PHP) says which knobs each model
+     *  accepts; selects live-toggle temperature/effort per agent.
+     * ================================================================ */
+    function initModelControls() {
+        var globalSelect = document.getElementById('pqm_default_model');
+        if (!globalSelect) return;
+
+        var customField = document.getElementById('pqm_custom_model');
+        var registry = pqmAdmin.modelRegistry || {};
+
+        function caps(model) {
+            // Unknown IDs (Custom) get the conservative profile: no knobs.
+            return registry[model] || { temperature: false, effortLevels: [] };
+        }
+
+        function refreshAgentBox(box) {
+            var modelSelect = box.querySelector('.pqm-agent-model');
+            if (!modelSelect) return;
+            var model = modelSelect.value;
+            if (!model) {
+                model = globalSelect.value === 'custom' ? customField.value.trim() : globalSelect.value;
+            }
+            var c = caps(model);
+
+            box.querySelector('.pqm-temp-row').classList.toggle('pqm-hidden', !c.temperature);
+            box.querySelector('.pqm-temp-desc').classList.toggle('pqm-hidden', !c.temperature);
+            box.querySelector('.pqm-temp-hint').classList.toggle('pqm-hidden', c.temperature);
+
+            var effortSelect = box.querySelector('.pqm-agent-effort');
+            var hasEffort = c.effortLevels.length > 0;
+            effortSelect.classList.toggle('pqm-hidden', !hasEffort);
+            box.querySelector('.pqm-effort-desc').classList.toggle('pqm-hidden', !hasEffort);
+            box.querySelector('.pqm-effort-hint').classList.toggle('pqm-hidden', hasEffort);
+            Array.prototype.forEach.call(effortSelect.options, function (opt) {
+                opt.disabled = c.effortLevels.indexOf(opt.value) === -1;
+            });
+            if (hasEffort && effortSelect.options[effortSelect.selectedIndex] && effortSelect.options[effortSelect.selectedIndex].disabled) {
+                effortSelect.value = 'high'; // every effort-capable model supports 'high'
+            }
+        }
+
+        function refreshAll() {
+            customField.classList.toggle('pqm-hidden', globalSelect.value !== 'custom');
+            document.querySelectorAll('.pqm-agent-box').forEach(refreshAgentBox);
+        }
+
+        globalSelect.addEventListener('change', refreshAll);
+        customField.addEventListener('input', refreshAll);
+        document.querySelectorAll('.pqm-agent-model').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                refreshAgentBox(sel.closest('.pqm-agent-box'));
             });
         });
 
-        /* ─── Test connection ──────────────────────────────────────── */
+        refreshAll(); // sync JS state with the server-rendered initial state
+    }
+
+    /* ================================================================
+     *  TEST CONNECTION (settings + workflow pages)
+     * ================================================================ */
+    function initTestConnection() {
+        var i18n = pqmAdmin.i18n || {};
+        var webhookField = document.getElementById('pqm_n8n_webhook_url');
+
         document.querySelectorAll('.pqm-test-connection').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var result = btn.parentElement.querySelector('.pqm-test-result');
-                var url = webhookField.value.trim();
+                // No field on the workflow page: send empty, the server
+                // falls back to the saved webhook URL.
+                var url = webhookField ? webhookField.value.trim() : '';
 
-                if (!url) {
+                if (webhookField && !url) {
                     showTestResult(result, false, i18n.enterWebhookUrl);
                     webhookField.focus();
                     return;
@@ -154,15 +233,21 @@
                     });
             });
         });
+    }
 
-        function showTestResult(el, ok, msg) {
-            if (!el) return;
-            el.textContent = msg;
-            el.classList.toggle('is-success', ok === true);
-            el.classList.toggle('is-error', ok === false);
-        }
+    function showTestResult(el, ok, msg) {
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.toggle('is-success', ok === true);
+        el.classList.toggle('is-error', ok === false);
+    }
 
-        /* ─── Copy workflow import URL ─────────────────────────────── */
+    /* ================================================================
+     *  COPY WORKFLOW IMPORT URL (workflow page)
+     * ================================================================ */
+    function initImportUrlCopy() {
+        var i18n = pqmAdmin.i18n || {};
+
         document.querySelectorAll('.pqm-import-url').forEach(function (wrap) {
             var field = wrap.querySelector('.pqm-import-url-field');
             var copyBtn = wrap.querySelector('.pqm-copy-import-url');
@@ -190,34 +275,38 @@
                 }
             });
         });
+    }
 
-        /* ─── Setup wizard navigation ──────────────────────────────── */
+    /* ================================================================
+     *  SETUP WIZARD (workflow page)
+     * ================================================================ */
+    function initWizard() {
         var wizard = document.getElementById('pqm-wizard');
-        if (wizard) {
-            var steps = wizard.querySelectorAll('.pqm-wizard-step');
-            var dots = wizard.querySelectorAll('.pqm-wizard-dot');
-            var backBtn = wizard.querySelector('.pqm-wizard-back');
-            var nextBtn = wizard.querySelector('.pqm-wizard-next');
-            var current = 1;
+        if (!wizard) return;
 
-            function goTo(step) {
-                current = Math.min(Math.max(step, 1), steps.length);
-                steps.forEach(function (s) { s.classList.toggle('is-active', parseInt(s.dataset.step, 10) === current); });
-                dots.forEach(function (d) {
-                    var n = parseInt(d.dataset.step, 10);
-                    d.classList.toggle('is-active', n === current);
-                    d.classList.toggle('is-done', n < current);
-                });
-                backBtn.disabled = current === 1;
-                nextBtn.classList.toggle('pqm-hidden', current === steps.length);
-            }
+        var steps = wizard.querySelectorAll('.pqm-wizard-step');
+        var dots = wizard.querySelectorAll('.pqm-wizard-dot');
+        var backBtn = wizard.querySelector('.pqm-wizard-back');
+        var nextBtn = wizard.querySelector('.pqm-wizard-next');
+        var current = 1;
 
-            backBtn.addEventListener('click', function () { goTo(current - 1); });
-            nextBtn.addEventListener('click', function () { goTo(current + 1); });
+        function goTo(step) {
+            current = Math.min(Math.max(step, 1), steps.length);
+            steps.forEach(function (s) { s.classList.toggle('is-active', parseInt(s.dataset.step, 10) === current); });
             dots.forEach(function (d) {
-                d.addEventListener('click', function () { goTo(parseInt(d.dataset.step, 10)); });
+                var n = parseInt(d.dataset.step, 10);
+                d.classList.toggle('is-active', n === current);
+                d.classList.toggle('is-done', n < current);
             });
+            backBtn.disabled = current === 1;
+            nextBtn.classList.toggle('pqm-hidden', current === steps.length);
         }
+
+        backBtn.addEventListener('click', function () { goTo(current - 1); });
+        nextBtn.addEventListener('click', function () { goTo(current + 1); });
+        dots.forEach(function (d) {
+            d.addEventListener('click', function () { goTo(parseInt(d.dataset.step, 10)); });
+        });
     }
 
     /* ================================================================
