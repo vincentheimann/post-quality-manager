@@ -333,6 +333,13 @@ class PQM_Admin
         $post_ids = array_column($items, 'post_id');
         $commands = PQM_DB::get_commands_for_posts($post_ids);
 
+        // Yoast column only exists while Yoast SEO is active.
+        $yoast_active = defined('WPSEO_VERSION');
+        if ($yoast_active && !empty($post_ids)) {
+            update_postmeta_cache($post_ids); // one query for all rows instead of one per badge
+        }
+        $colspan = $yoast_active ? 7 : 6;
+
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Post Reviews', 'post-quality-manager'); ?></h1>
@@ -358,6 +365,9 @@ class PQM_Admin
                         <th class="pqm-col-score">
                             <?php echo self::sortable_header('score', __('Score', 'post-quality-manager'), $orderby, $order); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                         </th>
+                        <?php if ($yoast_active): ?>
+                        <th class="pqm-col-yoast"><?php esc_html_e('Yoast SEO', 'post-quality-manager'); ?></th>
+                        <?php endif; ?>
                         <th class="pqm-col-status"><?php esc_html_e('Status', 'post-quality-manager'); ?></th>
                         <th class="pqm-col-progress"><?php esc_html_e('Progress', 'post-quality-manager'); ?></th>
                         <th class="pqm-col-date">
@@ -368,7 +378,7 @@ class PQM_Admin
                 </thead>
                 <tbody>
                     <?php if (empty($items)): ?>
-                        <tr><td colspan="6"><?php esc_html_e('No posts found.', 'post-quality-manager'); ?></td></tr>
+                        <tr><td colspan="<?php echo esc_attr($colspan); ?>"><?php esc_html_e('No posts found.', 'post-quality-manager'); ?></td></tr>
                     <?php
         else: ?>
                         <?php foreach ($items as $item): ?>
@@ -394,6 +404,11 @@ class PQM_Admin
                                 <?php
                 endif; ?>
                             </td>
+                            <?php if ($yoast_active): ?>
+                            <td class="pqm-cell-yoast">
+                                <?php self::render_yoast_badges((int)$item['post_id']); ?>
+                            </td>
+                            <?php endif; ?>
                             <td class="pqm-cell-status">
                                 <?php echo esc_html(self::format_status($item['latest_status'] ?? '')); ?>
                             </td>
@@ -433,7 +448,7 @@ class PQM_Admin
                         </tr>
                         <!-- Expandable detail row -->
                         <tr class="pqm-detail-row pqm-hidden" id="pqm-detail-<?php echo esc_attr($item['post_id']); ?>">
-                            <td colspan="6">
+                            <td colspan="<?php echo esc_attr($colspan); ?>">
                                 <div class="pqm-detail-content" data-post-id="<?php echo esc_attr($item['post_id']); ?>">
                                     <p class="description"><?php esc_html_e('Loading...', 'post-quality-manager'); ?></p>
                                 </div>
@@ -863,6 +878,39 @@ class PQM_Admin
     }
 
     /* ─── Helpers ─────────────────────────────────────────────────────── */
+
+    /**
+     * Yoast SEO + readability badges for one Post Reviews row.
+     * Yoast's own quality buckets (>70 good, >40 ok) line up with
+     * score_class(), so the badges reuse the existing score colors.
+     */
+    private static function render_yoast_badges(int $post_id): void
+    {
+        $seo  = get_post_meta($post_id, '_yoast_wpseo_linkdex', true);
+        $read = get_post_meta($post_id, '_yoast_wpseo_content_score', true);
+
+        if ($seo === '' && $read === '') {
+            echo '<span class="pqm-score-badge pqm-score-none" title="'
+                . esc_attr__('No Yoast analysis yet. Open the post in the editor to generate one.', 'post-quality-manager')
+                . '">—</span>';
+            return;
+        }
+
+        self::yoast_badge(__('SEO', 'post-quality-manager'), $seo, __('Yoast SEO score', 'post-quality-manager'));
+        self::yoast_badge(__('Readability', 'post-quality-manager'), $read, __('Yoast readability score', 'post-quality-manager'));
+    }
+
+    private static function yoast_badge(string $label, string $value, string $title): void
+    {
+        $class = $value === '' ? 'none' : self::score_class((int)$value);
+        printf(
+            '<span class="pqm-yoast-badge pqm-score-%s" title="%s">%s %s</span>',
+            esc_attr($class),
+            esc_attr($title),
+            esc_html($label),
+            esc_html($value === '' ? '—' : $value)
+        );
+    }
 
     private static function score_class(int $score): string
     {

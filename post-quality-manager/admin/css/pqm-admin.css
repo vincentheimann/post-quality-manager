@@ -63,6 +63,13 @@
 /* ─── Posts Table ─────────────────────────────────────────── */
 .pqm-posts-table .pqm-col-score,
 .pqm-posts-table .pqm-col-status { width: 100px; }
+.pqm-posts-table .pqm-col-yoast { width: 130px; }
+.pqm-cell-yoast .pqm-yoast-badge { display: block; width: max-content; margin: 2px 0; }
+.pqm-yoast-badge {
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; line-height: 1.5;
+    white-space: nowrap;
+}
 .pqm-posts-table .pqm-col-progress { width: 220px; }
 .pqm-posts-table .pqm-col-date { width: 160px; }
 .pqm-posts-table .pqm-col-actions { width: 180px; white-space: nowrap; }
