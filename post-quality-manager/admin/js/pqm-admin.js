@@ -63,8 +63,6 @@
         var contextArea = document.getElementById('pqm_website_context');
         if (!contextArea) return; // Not on the settings page.
 
-        var i18n = pqmAdmin.i18n || {};
-
         /* ─── Blog profile & voice presets ──────────────────────────
          * Presets are one-shot fills of the two editable fields; the
          * textareas are always the source of truth for what the AI
@@ -114,7 +112,7 @@
         document.querySelectorAll('.pqm-reset-agent').forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                if (!confirm(i18n.resetAgent)) return;
+                // No confirm(): the fill only touches unsaved form fields — Save is the commit point.
                 var key = this.dataset.agent;
                 var defs = (pqmAdmin.agentDefaults || {})[key] || {};
                 document.getElementById('pqm_agent_inst_' + key).value = '';

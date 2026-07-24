@@ -4,6 +4,69 @@ _The agent writes and updates this file for each active task._
 
 ---
 
+# Active: Lean UX pass — menu, n8n Workflow page, Settings page (2026-07-24)
+
+**Goal (user):** PO/Lean-UX analysis of the menu architecture + customer actions against the two user paths (`docs/user-paths.md`), then the n8n Workflow page, then the Settings page; turn findings into an implementation plan. Branch: `feat/lean-ux-pass` (off `feat/llm-options-pivot`). **Phase 1 implemented 2026-07-24.**
+
+**Decisions (user, 2026-07-24):** Phase 3 exposes all four missing agents · Progress pills demote Rewrite to "runs on demand" · wizard inline save (Phase 2) via dedicated AJAX merge-save (best practice: preserves the Settings-API single-form contract and the form-free Workflow page).
+
+## Findings (mapped to user-path stages / ranked UV)
+
+**Menu & actions**
+- **F1 — Dashboard is a dead end (A5, B2).** `render_dashboard()` shows four stat cards only — nothing is clickable, no recent reviews (docblock promises them), no next action. Before the first review it shows silent zeros, exactly the A5 gap. "Needs Attention" doesn't route to the posts it counts.
+- **F2 — Welcome notice points to the wrong page (A3, UV#4).** `admin_notices()` sends new users to **Settings**, but the journey starts with the wizard on the **n8n Workflow** page. The plugin's own guidance contradicts its setup flow. Same stale copy in the Post Reviews "not configured" error.
+- **F3 — 4 of 6 agents are invisible in the UI (B1–B3, biggest mismatch).** Path B evidence: user #1 uses review, takeaways/sources, seo/audit; rewrite goes unused. Yet the UI exposes only Run Review + rewrite (detail tabs Review/Rewrite/History); takeaways/sources/seo/audit have no trigger button and their results render only as one-line history entries. The Progress pills (Review ✓ / Rewrite —) advertise the *designed* funnel, not validated usage — every row permanently shames an agent the user doesn't use.
+- **F4 — Menu order is reverse of the new-user journey.** Setup lives in items 3–4, value in 1–2. Right order for the recurring user (Path B) — keep it, compensate with state-aware guidance (F1/F2) instead of reordering.
+
+**n8n Workflow page**
+- **F5 — Wizard step 3 forces a page hop (A4).** The webhook URL field lives on Settings; the wizard says "paste it there and save", breaking the one-page setup at its most fragile moment (two-system context switch already in progress). Note: the page is deliberately form-free because `sanitize_settings()` rebuilds the whole array — an inline save must go through a dedicated AJAX merge-save, not the Settings form.
+- **F6 — Wizard ends at "test ping", not at first value (A5).** user-paths wizard notes: the last step should be "run your first review" and land on a populated screen. Today setup "completes" into silence.
+- **F7 — Ping copy overclaims (A4, UV#5).** "Connection successful" reads as *everything works*, but only WP → n8n is verified; the return path (n8n → `/save-review` + token) stays unproven until a real review. Copy must say what was and wasn't tested (full round-trip test stays in backlog).
+- **F8 — Duplication while wizard is visible.** Download + import-URL appear in wizard step 1 *and* the permanent "Workflow File" section on the same screen. Hide the permanent sections while the wizard is active.
+
+**Settings page**
+- **F9 — The cheapest UV in the product: no "no re-import needed" confirmation on save (B5, UV#2).** Saving shows WP's generic "Settings saved." — the exact moment user #1 wrongly assumes a workflow re-import is needed. One custom notice converts already-built value into perceived value.
+- **F10 — "AI Model" is filed under "AI Prompts & Context".** The model dropdown is an LLM option, not prompt/context; the section intro ("these fields are sent to tailor reviews to this site") doesn't cover it. Give the model row its own heading.
+- **F11 — Agent "Reset to Defaults" uses `confirm()` on an unpersisted form fill** — violates the house rule (lessons.md 2026-07-23: Save is the commit point). Remove it.
+- **F12 — Cron enablement has no prompt at the moment of motivation (A6, UV#3).** Habit-forming knobs sit at the bottom of Settings; nothing suggests them after the first successful review.
+- **F13 — Backlog hygiene.** The "webhook token before first save" item is stale: `PQM_Activator::activate()` persists the token since activation. Verify + update `tasks/enhancements.md`.
+
+## Plan
+
+### Phase 1 — Perception & guidance quick wins (copy + links, no schema/JS-arch changes) — DONE 2026-07-24
+- [x] Settings save notice: "Settings saved — they apply on the next command. No n8n re-import needed." (rendered on `settings-updated=true`; custom pages get no core notice) + reassurance line under the Agent Overrides intro and the AI Model section (F9, UV#2)
+- [x] Welcome notice → links to the n8n Workflow page, suppressed on that page (wizard is there); Post Reviews "not configured" message now links there too (F2)
+- [x] Dashboard state-aware: no webhook → "Set up the n8n workflow" hero CTA (stat grid hidden — zeros are noise); configured + zero reviews → "Run your first review" CTA; stat cards are links ("Needs Attention" → `pqm-posts&filter=needs_review`, others → Post Reviews) (F1)
+- [x] Ping-result copy: "Ping OK — WordPress can reach n8n. Your first review confirms the return path." + section description states the one-way scope (F7)
+- [x] Removed `confirm()` from the agent reset buttons; dropped the now-unused `resetAgent` i18n string and an orphaned `i18n` var (F11)
+- [x] "AI Model" is its own section (Default Model row) before "AI Prompts & Context"; both sections keep accurate intros (F10)
+- [x] Workflow page: wizard OR maintenance sections (Workflow File / preview / Connection Test) — no more duplication during setup; version line copy fixed ("reports after the first command") (F8)
+- [x] enhancements.md: stale "webhook token before first save" item closed (activator persists the token); class docblock now lists all four pages accurately (F13)
+
+**Phase 1 review:** 3 plugin files touched (admin class, admin JS, admin CSS) + 2 task files. `php -l` and `node --check` clean. Not committed — awaiting user manual pass: dashboard CTAs in all three states, clickable cards, save notice on Settings, wizard-only Workflow page on a fresh install, ping copy, reset without confirm. `docs/user-paths.md` B5/A3 updates to follow once the manual pass confirms perception.
+
+### Phase 2 — Activation flow (A4–A5, UV#4)
+- [ ] Wizard step 3: inline webhook URL field + AJAX merge-save (read settings, update only `n8n_webhook_url`, keep form-free page contract) so setup completes on one page (F5)
+- [ ] Wizard step 4 "Run your first review": link/button into Post Reviews (existing toast + polling already celebrate the result) (F6)
+- [ ] Post-first-review nudge: dashboard notice "Reviews run themselves — enable scheduled reviews" when ≥1 review stored and cron disabled (F12)
+
+### Phase 3 — Align UI with validated usage (B1–B3, UV#1 adjacent) — needs user decisions first
+- [ ] Detail panel: trigger buttons + generic result card for takeaways / sources / seo / audit (render `result_data` summary; per-command "Run" actions)
+- [ ] Rethink Progress pills: proposal — replace the fixed Review/Rewrite pair with chips for commands actually run (decision needed: is rewrite still a first-class action?)
+- [ ] "Open in editor" button in the Review tab actions (smallest insight → action step; edit-tracking itself stays backlog UV#1)
+
+## Open questions for the user
+1. Phase 3 scope: expose all four missing agents in the detail panel, or start with the two used most (seo/audit)?
+2. Progress pills: keep Rewrite as a promoted action, or demote it to "runs on demand" until usage proves it?
+3. Wizard step 3 inline save (Phase 2) adds one AJAX endpoint — acceptable vs. the strict "form-free page" stance?
+
+## Verification (per WORKFLOW.md DoD)
+- `php -l` on every touched PHP file; `node --check` on pqm-admin.js
+- Manual pass per phase: notice targets, dashboard CTAs per state, save notice, wizard flow end-to-end on a clean install, agent triggers + result cards
+- `docs/user-paths.md`: move converted items UV → CV (at minimum B5 perception once Phase 1 ships)
+
+---
+
 # Done: Institutionalize ADR / skill / living-memory practices (2026-07-24)
 
 **Goal (user):** make ADRs, skills, and living memory explicit first-class practices of the agentic workspace (correction of the user-paths placement decision, see lessons.md 2026-07-24); also add the missing telemetry idea to the enhancements backlog.

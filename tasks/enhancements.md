@@ -2,7 +2,7 @@
 
 _Improvements identified during development, deliberately kept out of the current MVP. Reviewed when planning the next iteration._
 
-_Last groomed: 2026-07-23 — shipped on `feat/llm-options-pivot`: LLM options pivot (model registry, per-agent model/effort, payload-driven request params, n8n Workflow page, template v2 with version handshake). Closes the "Version pinning & model choice" item and the "template version marker" half of the stale-ping item. Earlier same day on `feat/settings-context-ux`: AI Prompts & Context UX rework (closes the brand-voice preset duplication item); the standalone Post Quality API plugin was retired (closes the duplicate `post-score` route item)._
+_Last groomed: 2026-07-24 — Lean UX pass Phase 1 shipped on `feat/lean-ux-pass` (state-aware dashboard with clickable cards, welcome notice → n8n Workflow page, "no re-import" save notice, AI Model section split, honest ping copy, wizard-page de-duplication, reset-confirm removal). Closes the "webhook token before first save" item below: `PQM_Activator::activate()` already persists the token at activation, so the concern was stale. Previously 2026-07-23 — shipped on `feat/llm-options-pivot`: LLM options pivot (model registry, per-agent model/effort, payload-driven request params, n8n Workflow page, template v2 with version handshake). Closes the "Version pinning & model choice" item and the "template version marker" half of the stale-ping item. Earlier same day on `feat/settings-context-ux`: AI Prompts & Context UX rework (closes the brand-voice preset duplication item); the standalone Post Quality API plugin was retired (closes the duplicate `post-score` route item)._
 
 ## Product
 
@@ -19,7 +19,6 @@ _Last groomed: 2026-07-23 — shipped on `feat/llm-options-pivot`: LLM options p
 ## Technical debt / code quality
 
 - **Inline styles in JS-generated markup** — `pqm-admin.js` still builds HTML strings with `style=""` attributes (rewrite confirmation card, action buttons, summary paragraph). The PHP templates are clean now; sweep the JS render helpers into `pqm-admin.css` classes for full CSP-friendliness.
-- **Webhook token before first save** — `pqm_default_settings()` calls `wp_generate_uuid4()`, so until the settings are saved once, every request sees a *different* token and `check_webhook_token()` can never match. Harmless in practice (n8n is unusable before setup anyway), but generating and persisting the token on activation would be cleaner.
 - **Ping only in the new template** — workflows imported before 2026-07-22 route `ping` to the Error Fallback: the test still passes (the webhook answers 200 on receipt), but n8n logs a junk execution and may POST an empty result to an empty callback URL. Re-downloading the workflow fixes it. The template-version marker requested here shipped 2026-07-23 (v2 handshake on the n8n Workflow page); note the version only reports after a real command, since ping short-circuits before the callback.
 - **release-please CI is referenced but absent** — the `/release` skill and README mention a release-please GitHub Action, but the repo has no `.github/workflows/`. Add the action (release-please + zip artifact of `post-quality-manager/` incl. `templates/`).
 - **i18n loading** — verify `load_plugin_textdomain()` is wired so the `post-quality-manager` text domain actually loads translations.

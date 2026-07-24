@@ -15,12 +15,34 @@
     margin: 20px 0;
 }
 .pqm-stat-card {
+    display: block;
     background: #fff;
     border: 1px solid #c3c4c7;
     border-radius: 4px;
     padding: 20px;
     text-align: center;
     box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    text-decoration: none;
+}
+a.pqm-stat-card:hover,
+a.pqm-stat-card:focus {
+    border-color: #2271b1;
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+}
+
+/* ─── Dashboard CTA (setup / first review) ────────────────── */
+.pqm-dashboard-cta {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 40px 24px;
+    margin: 20px 0;
+    text-align: center;
+}
+.pqm-dashboard-cta p {
+    color: #646970;
+    max-width: 480px;
+    margin: 8px auto 20px;
 }
 .pqm-stat-number {
     display: block; font-size: 32px; font-weight: 600;
