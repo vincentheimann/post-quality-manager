@@ -370,6 +370,11 @@ td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
     display: flex; justify-content: space-between;
     margin-top: 20px; padding-top: 16px; border-top: 1px solid #f0f0f1;
 }
+.pqm-wizard-connect {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin: 8px 0;
+}
+.pqm-wizard-connect input { flex: 1; min-width: 260px; }
 
 /* ─── Responsive ──────────────────────────────────────────── */
 @media (max-width: 782px) {

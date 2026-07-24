@@ -133,6 +133,8 @@ class PQM_Admin
             'i18n' => [
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
+                'saving' => __('Saving…', 'post-quality-manager'),
+                'savedPingFailed' => __('URL saved, but the ping did not get through.', 'post-quality-manager'),
                 'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
                 'copied' => __('Copied! Paste it in n8n via "Import from URL…".', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The URL is selected — press Ctrl+C.', 'post-quality-manager'),
@@ -259,6 +261,14 @@ class PQM_Admin
         $settings  = pqm_get_settings();
         $stats     = PQM_DB::get_dashboard_stats();
         $posts_url = admin_url('admin.php?page=pqm-posts');
+
+        // One-click dismissal of the scheduled-reviews nudge (persisted).
+        if (isset($_GET['pqm_dismiss_cron_nudge'])
+            && wp_verify_nonce($_GET['_wpnonce'] ?? '', 'pqm_dismiss_cron_nudge')
+            && current_user_can('manage_options')
+        ) {
+            update_option('pqm_cron_nudge_dismissed', 1, false);
+        }
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Dashboard', 'post-quality-manager'); ?></h1>
@@ -319,6 +329,27 @@ class PQM_Admin
                     </span>
                 </a>
             </div>
+
+            <?php
+            // Nudge toward the habit loop: first result is in, cron still off.
+            $show_cron_nudge = (int) $stats['reviewed'] > 0
+                && empty($settings['cron_enabled'])
+                && !get_option('pqm_cron_nudge_dismissed')
+                && current_user_can('manage_options');
+            if ($show_cron_nudge):
+                $cron_url    = admin_url('admin.php?page=pqm-settings#pqm-cron-settings');
+                $dismiss_url = wp_nonce_url(add_query_arg('pqm_dismiss_cron_nudge', '1'), 'pqm_dismiss_cron_nudge');
+            ?>
+            <div class="notice notice-info inline pqm-inline-notice">
+                <p>
+                    <strong><?php esc_html_e('Let reviews run themselves.', 'post-quality-manager'); ?></strong>
+                    <?php esc_html_e('Scheduled reviews keep scoring your back catalog automatically — you pick the frequency and batch size.', 'post-quality-manager'); ?>
+                    <a href="<?php echo esc_url($cron_url); ?>"><?php esc_html_e('Enable scheduled reviews', 'post-quality-manager'); ?></a>
+                    &nbsp;·&nbsp;
+                    <a href="<?php echo esc_url($dismiss_url); ?>"><?php esc_html_e('Dismiss', 'post-quality-manager'); ?></a>
+                </p>
+            </div>
+            <?php endif; ?>
 
         </div>
         <?php
@@ -799,7 +830,7 @@ class PQM_Admin
                 <?php endforeach; ?>
 
                 <!-- Cron Settings -->
-                <h2><?php esc_html_e('Automated Reviews (Cron)', 'post-quality-manager'); ?></h2>
+                <h2 id="pqm-cron-settings"><?php esc_html_e('Automated Reviews (Cron)', 'post-quality-manager'); ?></h2>
                 <table class="form-table">
                     <tr>
                         <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
@@ -907,6 +938,7 @@ class PQM_Admin
                     <li class="pqm-wizard-dot is-active" data-step="1"><span>1</span> <?php esc_html_e('Download', 'post-quality-manager'); ?></li>
                     <li class="pqm-wizard-dot" data-step="2"><span>2</span> <?php esc_html_e('Import', 'post-quality-manager'); ?></li>
                     <li class="pqm-wizard-dot" data-step="3"><span>3</span> <?php esc_html_e('Connect & test', 'post-quality-manager'); ?></li>
+                    <li class="pqm-wizard-dot" data-step="4"><span>4</span> <?php esc_html_e('First review', 'post-quality-manager'); ?></li>
                 </ol>
 
                 <div class="pqm-wizard-step is-active" data-step="1">
@@ -927,17 +959,24 @@ class PQM_Admin
                 </div>
 
                 <div class="pqm-wizard-step" data-step="3">
-                    <p><?php
-                        printf(
-                            /* translators: %s: link to the Settings page */
-                            esc_html__('Paste the workflow\'s production webhook URL into %s, save, then send a test ping to verify the connection.', 'post-quality-manager'),
-                            '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings → n8n Connection', 'post-quality-manager') . '</a>'
-                        );
-                    ?></p>
-                    <button type="button" class="button button-primary pqm-test-connection">
-                        <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
-                    </button>
+                    <p><?php esc_html_e('In n8n, copy the workflow\'s production webhook URL and paste it here:', 'post-quality-manager'); ?></p>
+                    <div class="pqm-wizard-connect">
+                        <input type="url" id="pqm_wizard_webhook_url" class="regular-text"
+                               placeholder="https://your-n8n.example.com/webhook/pqm-execute"
+                               aria-label="<?php esc_attr_e('n8n webhook URL', 'post-quality-manager'); ?>" />
+                        <button type="button" class="button button-primary pqm-wizard-save-test">
+                            <?php esc_html_e('Save & test', 'post-quality-manager'); ?>
+                        </button>
+                    </div>
+                    <p class="description"><?php esc_html_e('Saves the URL and sends a test ping. The ping verifies WordPress → n8n; your first review confirms the return path.', 'post-quality-manager'); ?></p>
                     <span class="pqm-test-result" aria-live="polite"></span>
+                </div>
+
+                <div class="pqm-wizard-step" data-step="4">
+                    <p><?php esc_html_e('Setup complete. Run your first review on a real post — the score, issues, and suggested edits land right in the list.', 'post-quality-manager'); ?></p>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=pqm-posts')); ?>" class="button button-primary">
+                        <?php esc_html_e('Run your first review', 'post-quality-manager'); ?>
+                    </a>
                 </div>
 
                 <div class="pqm-wizard-nav">
@@ -1068,6 +1107,33 @@ class PQM_Admin
         header('Content-Disposition: attachment; filename="post-quality-workflow-' . sanitize_file_name($host) . '.json"');
         echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file download, not HTML.
         exit;
+    }
+
+    /* ─── AJAX: Save Webhook URL (wizard) ────────────────────────────── */
+
+    /**
+     * Merge-save only the webhook URL so wizard step 3 completes on one page.
+     * Reads the stored option and updates a single key — the Settings form's
+     * full-array sanitize contract and the form-free Workflow page both stay intact.
+     */
+    public static function ajax_save_webhook_url(): void
+    {
+        check_ajax_referer('pqm_admin_action');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
+        }
+
+        $url = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
+        if (empty($url)) {
+            wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
+        }
+
+        $settings = get_option('pqm_settings', []);
+        $settings['n8n_webhook_url'] = $url;
+        update_option('pqm_settings', $settings); // updated_option hook reschedules cron.
+
+        wp_send_json_success();
     }
 
     /* ─── AJAX: Test Connection ──────────────────────────────────────── */

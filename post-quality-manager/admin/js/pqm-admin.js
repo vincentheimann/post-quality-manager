@@ -305,6 +305,56 @@
         dots.forEach(function (d) {
             d.addEventListener('click', function () { goTo(parseInt(d.dataset.step, 10)); });
         });
+
+        /* ─── Step 3: save the webhook URL + ping, all on this page ── */
+        var i18n = pqmAdmin.i18n || {};
+        var saveBtn = wizard.querySelector('.pqm-wizard-save-test');
+        if (!saveBtn) return;
+        var urlField = wizard.querySelector('#pqm_wizard_webhook_url');
+        var result = saveBtn.closest('.pqm-wizard-step').querySelector('.pqm-test-result');
+
+        function ajaxPost(action, url) {
+            var form = new FormData();
+            form.append('action', action);
+            form.append('webhook_url', url);
+            form.append('_wpnonce', pqmAdmin.pageNonce);
+            return fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); });
+        }
+
+        saveBtn.addEventListener('click', function () {
+            var url = (urlField.value || '').trim();
+            if (!url) {
+                showTestResult(result, false, i18n.enterWebhookUrl);
+                return;
+            }
+            saveBtn.disabled = true;
+            showTestResult(result, null, i18n.saving);
+
+            ajaxPost('pqm_save_webhook_url', url)
+                .then(function (resp) {
+                    if (!resp.success) {
+                        throw new Error(typeof resp.data === 'string' ? resp.data : i18n.networkError);
+                    }
+                    showTestResult(result, null, i18n.testing);
+                    return ajaxPost('pqm_test_connection', url);
+                })
+                .then(function (resp) {
+                    saveBtn.disabled = false;
+                    if (resp.success) {
+                        showTestResult(result, true, typeof resp.data === 'string' ? resp.data : '');
+                        goTo(4); // Connected — straight to the first-review step.
+                    } else {
+                        // URL is saved; only the ping failed — say both.
+                        var msg = typeof resp.data === 'string' ? resp.data : i18n.networkError;
+                        showTestResult(result, false, i18n.savedPingFailed + ' ' + msg);
+                    }
+                })
+                .catch(function (err) {
+                    saveBtn.disabled = false;
+                    showTestResult(result, false, (err && err.message) ? err.message : i18n.networkError);
+                });
+        });
     }
 
     /* ================================================================

@@ -45,10 +45,12 @@ _The agent writes and updates this file for each active task._
 
 **Phase 1 review:** 3 plugin files touched (admin class, admin JS, admin CSS) + 2 task files. `php -l` and `node --check` clean. Not committed — awaiting user manual pass: dashboard CTAs in all three states, clickable cards, save notice on Settings, wizard-only Workflow page on a fresh install, ping copy, reset without confirm. `docs/user-paths.md` B5/A3 updates to follow once the manual pass confirms perception.
 
-### Phase 2 — Activation flow (A4–A5, UV#4)
-- [ ] Wizard step 3: inline webhook URL field + AJAX merge-save (read settings, update only `n8n_webhook_url`, keep form-free page contract) so setup completes on one page (F5)
-- [ ] Wizard step 4 "Run your first review": link/button into Post Reviews (existing toast + polling already celebrate the result) (F6)
-- [ ] Post-first-review nudge: dashboard notice "Reviews run themselves — enable scheduled reviews" when ≥1 review stored and cron disabled (F12)
+### Phase 2 — Activation flow (A4–A5, UV#4) — DONE 2026-07-24
+- [x] Wizard step 3: inline webhook URL field + "Save & test" — new `ajax_save_webhook_url()` merge-saves only that key (Settings-form sanitize contract and form-free page both intact), then chains the existing ping; on success auto-advances; if only the ping fails it says "URL saved, but the ping did not get through." (F5)
+- [x] Wizard step 4 "First review": new dot + panel, "Run your first review" button into Post Reviews (existing toast + polling celebrate the result) (F6)
+- [x] Post-first-review nudge: dashboard inline notice ("Let reviews run themselves…") when ≥1 review stored, cron disabled, and user can manage options; links to the anchored Automated Reviews section (`#pqm-cron-settings`); one-click nonce-protected Dismiss persists `pqm_cron_nudge_dismissed` (cleaned up in uninstall.php) (F12)
+
+**Phase 2 review:** 5 plugin files touched (admin class, main file hook, admin JS, admin CSS, uninstall). `php -l` clean ×3, `node --check` clean. Wizard JS reuses `showTestResult` + the existing ping endpoint — no new feedback patterns. Manual pass needed: fresh install → wizard steps 1-4 end-to-end (save & test with a live n8n, ping-fail path shows "saved but…"), cron nudge appears after first review / dismisses / hides once cron is on.
 
 ### Phase 3 — Align UI with validated usage (B1–B3, UV#1 adjacent) — needs user decisions first
 - [ ] Detail panel: trigger buttons + generic result card for takeaways / sources / seo / audit (render `result_data` summary; per-command "Run" actions)
