@@ -31,6 +31,7 @@ The plugin follows a standard, KISS (Keep It Simple and Stupid) WordPress archit
 
 ### Do
 - Read `docs/brand.md` before writing any admin UI text, labels, or copy.
+- Read `docs/user-paths.md` before any product or UX decision (features, wizard, dashboard, prioritization) — the user paths and their EBM Current/Unrealized Value say where effort goes.
 - Follow the KISS principle (Keep It Simple and Stupid).
 - Apply WordPress best practices.
 - Use WordPress core functions for database operations (`$wpdb` abstractions when necessary, `get_option`, `update_option`).

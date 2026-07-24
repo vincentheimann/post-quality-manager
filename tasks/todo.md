@@ -4,6 +4,25 @@ _The agent writes and updates this file for each active task._
 
 ---
 
+# Done: User paths + EBM value map as a PO tool (2026-07-24)
+
+**Goal (user):** draft the user paths for the new user and the existing user to guide plugin design (and the future wizard), annotated with EBM Current Value / Unrealized Value so the Product Owner knows where to put effort; reference them in the README and the agent files.
+
+**Decisions (user, 2026-07-24):** single persona (solo pro blogger, any niche) · CV + UV per stage with candidate signals (no full four-KVA treatment) · existing-user path grounded in real usage (cron + ad-hoc triggers; review/takeaways/sources/seo/audit used, rewrite not; post-review action "too early to say") · new-user path starts at discovery. Key finding: the perceived "settings change ⇒ full workflow re-import" pain was already removed by the 2026-07-23 payload pivot — making that *perceived* is itself top-3 Unrealized Value.
+
+## Steps
+
+- [x] `docs/user-paths.md` — Path A (discovery → habit, 6 stages) + Path B (quality loop, 5 stages), CV/UV/signal per stage, ranked UV table, wizard notes
+- [x] README: `docs/user-paths.md` in repository layout + Development pointer
+- [x] AGENTS.md: "Do" rule — read user-paths before product/UX decisions (chosen over ADR/skill: repo has no ADR practice, skills are workflows; AGENTS.md + memory are what agents actually load)
+- [x] `memory/user-paths.md` + MEMORY.md index line (agent-local mirror updated too)
+
+## Review
+
+Doc is a living artifact: move items UV → CV when friction is removed, update when real usage contradicts a claim. No code touched; no telemetry exists, so all signals are candidates — evidence today is user #1's self-observation.
+
+---
+
 # Active: Pivot to modern LLM options — model + effort registry, payload-driven params, dedicated Workflow page (2026-07-23)
 
 **Goal (user):** temperature — our per-agent knob everywhere — is being removed from modern Claude models (Opus 4.7/4.8 reject it with HTTP 400; Sonnet 5 rejects non-default values). Pivot the plugin and the n8n workflow generation to the options that matter in modern LLMs (model choice, reasoning effort, thinking), in a way that stays scalable, plus a dedicated page to generate the workflow with the useful options.

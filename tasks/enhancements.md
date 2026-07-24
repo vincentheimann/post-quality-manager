@@ -6,6 +6,7 @@ _Last groomed: 2026-07-23 — shipped on `feat/llm-options-pivot`: LLM options p
 
 ## Product
 
+- **Usage telemetry for the EBM signals** — `docs/user-paths.md` defines candidate signals per journey stage (time-to-first-review, % of reviewed posts edited within 14 days, cron vs. manual share, re-review rate, dashboard visits…) but nothing measures them; today's evidence is user #1's self-observation. Start locally and privacy-first: store counters/events in the plugin's own DB (no external calls), surface them on a small "Insights" box, so Current vs. Unrealized Value claims become evidence-based.
 - **Yoast scores as SEO/Audit agent context** — user-approved 2026-07-23: append the numeric Yoast scores (already in the n8n payload) to the `Build SEO Body` and `Build Audit Body` user messages, framed as algorithmic signals, not ground truth. The Review agent stays Yoast-free by design (side-by-side decision, avoids score anchoring).
 - **Yoast score snapshot per review** — store `{seo_score, readability_score}` from post meta into `result_data` at save-review time, so past reviews keep the Yoast standing they were compared against (the Post Reviews column shows live values only).
 - **Full round-trip connection test** — the "Send test ping" button verifies WP → n8n (reachability + workflow active). It does not verify the reverse path (n8n → WP callback with the `X-PQM-Token`). A `ping` command that calls back to a dedicated endpoint would validate the whole loop, including the token.

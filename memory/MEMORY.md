@@ -5,4 +5,5 @@ _Canonical, git-versioned memory for the Post Quality project. Agents: read this
 - [Workspace layout](workspace-layout.md) — single repo since the API-plugin retirement 2026-07-23; n8n/ folder, turbo-drill archives
 - [Agnostic pivot](pivot-agnostic.md) — niche-agnostic plugin + n8n workflow generator; MVP decisions locked 2026-07-22
 - [LLM options architecture](llm-options-architecture.md) — model registry + payload-driven request params + workflow version handshake; decisions locked 2026-07-23
+- [User paths](user-paths.md) — docs/user-paths.md is the EBM prioritization tool (CV/UV per journey stage); read before product/UX decisions
 - [Agent conventions](agent-conventions.md) — KISS, plan-first via tasks/todo.md, lessons.md loop, never commit without asking
