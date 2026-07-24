@@ -57,13 +57,14 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 - `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, `templates/` with the n8n workflow template, entry point, uninstall)
 - `n8n/` — Mermaid diagram of the workflow
+- `docs/adr/` — Architecture Decision Records (why significant decisions were made)
 - `docs/brand.md` — brand voice and copy rules for admin UI text
 - `docs/user-paths.md` — new-user and existing-user journeys with their EBM Current/Unrealized Value; the Product Owner's guide to where effort goes next
 - `_archives/` — legacy material kept for history; not part of the plugin
 
 ## Development
 
-Development follows an agent-assisted workflow: [CLAUDE.md](CLAUDE.md) is the entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes), [WORKFLOW.md](WORKFLOW.md) the task workflow, `memory/` the versioned project memory, and `tasks/` the active plan, lessons log, and enhancements backlog. Product and UX decisions are guided by the user paths and their EBM value analysis in [docs/user-paths.md](docs/user-paths.md). Reusable workflows live in `.claude/skills/` (`/fix-bug`, `/new-feature`, `/release`).
+Development follows an agent-assisted workflow: [CLAUDE.md](CLAUDE.md) is the entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes), [WORKFLOW.md](WORKFLOW.md) the task workflow, `memory/` the versioned project memory, and `tasks/` the active plan, lessons log, and enhancements backlog. Product and UX decisions are guided by the user paths and their EBM value analysis in [docs/user-paths.md](docs/user-paths.md). Reusable workflows live in `.claude/skills/` (`/fix-bug`, `/new-feature`, `/release`, `/adr`, `/prioritize`); significant decisions are recorded in [docs/adr/](docs/adr/).
 
 Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branches; releases are cut by `release-please`.
 

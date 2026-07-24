@@ -28,6 +28,7 @@
   - No WP debug errors or warnings in PHP logs.
   - REST API endpoints return 200 OK with correct JSON payload and permissions.
   - UI interactions (buttons, tabs) have been manually tested for loading/error states.
+  - Knowledge is up to date: significant decisions recorded via `/adr`, changed durable facts updated in `memory/`, and `docs/user-paths.md` adjusted if the change moved Unrealized Value to Current Value.
 - Diff behavior between main and your changes when relevant.
 - Ask yourself: "Would a staff engineer approve this?"
 

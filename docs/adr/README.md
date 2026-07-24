@@ -1,0 +1,36 @@
+# Architecture Decision Records
+
+Significant decisions in this repo are recorded as lightweight ADRs — one file per decision, numbered sequentially, never rewritten (supersede with a new ADR instead).
+
+**Write an ADR when a decision is** hard to reverse, shapes product direction, changes the data schema or an external contract (REST routes, webhook payload, workflow template), or picks between real alternatives. Routine implementation choices don't need one. When in doubt, use the `/adr` skill.
+
+**How the three knowledge stores relate** (don't duplicate content between them):
+
+- `docs/adr/` — **why** we decided: immutable records with context and alternatives.
+- `memory/` — **what is true now**: current-state facts, updated in place, linking to the ADRs behind them.
+- `.claude/skills/` — **how** we do recurring work: executable checklists.
+
+## Format
+
+`NNNN-short-slug.md`, kept short (aim for one screen):
+
+```markdown
+# NNNN. Title (a decision, not a topic)
+
+- Status: accepted | superseded by [NNNN](NNNN-slug.md)
+- Date: YYYY-MM-DD
+
+## Context
+What forced the decision — the problem, constraints, and real alternatives.
+
+## Decision
+What we chose, in one or two sentences. Bullet the key points.
+
+## Consequences
+What becomes easier, what becomes harder, what we committed to.
+```
+
+## Index
+
+- [0001 — Record significant decisions as lightweight ADRs](0001-record-decisions-as-adrs.md)
+- [0002 — User paths with EBM value mapping as the product prioritization tool](0002-user-paths-ebm-po-tool.md)

@@ -16,3 +16,4 @@ The project owner runs a disciplined agentic setup defined in `AGENTS.md` and `W
 - AI prompts in the n8n workflow must stay niche-agnostic (universal pillars: Structure, Readability, Engagement, Credibility) — see [[workspace-layout]].
 - Read `docs\brand.md` before writing any admin UI copy.
 - Project memory lives in-repo under `memory\` (canonical); any agent-local memory store is a redundant mirror — when a durable fact changes, update the repo copy first.
+- Three knowledge stores, no duplication (since 2026-07-24, see AGENTS.md "Documentation & Decision Practices" and `docs\adr\0001`): ADRs in `docs\adr\` = why we decided (draft via `/adr`, supersede never rewrite); `memory\` = what is true now (links its ADRs); skills in `.claude\skills\` = recurring how (capture a workflow once it's happened twice). `/prioritize` runs EBM grooming against [[user-paths]].

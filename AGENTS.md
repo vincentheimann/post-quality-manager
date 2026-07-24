@@ -65,6 +65,14 @@ The plugin follows a standard, KISS (Keep It Simple and Stupid) WordPress archit
 - Deleting or renaming existing files.
 - Git commits or pushes.
 
+## Documentation & Decision Practices
+
+Three complementary stores keep project knowledge alive — use each for what it's for, never duplicate between them:
+
+- **ADRs (`docs/adr/`) — why we decided.** Immutable records for significant decisions (hard to reverse, product direction, schema or external-contract changes, real alternatives weighed). Draft via the `/adr` skill; supersede, never rewrite. Bar and format: `docs/adr/README.md`.
+- **Living memory (`memory/`) — what is true now.** Canonical, git-versioned facts read at session start (`memory/MEMORY.md` index, one file per fact). Update in place when a durable fact changes — in the same change that makes it true, not later; link the ADR behind it. Agent-local memory is only a mirror of this.
+- **Skills (`.claude/skills/`) — how we do recurring work.** When a workflow proves recurring (done twice, will happen again), capture or update a skill instead of re-explaining it. Current: `/fix-bug`, `/new-feature`, `/release`, `/adr`, `/prioritize`.
+
 ## Patterns to Follow
 - REST API: Always check permissions via `permission_callback`.
 - Admin UI: Use native WordPress UI components and classes (e.g., `.wrap`, `.notice`, `.button-primary`) where possible.

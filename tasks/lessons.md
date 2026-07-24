@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-07-24] — Dismissing ADR/skill as vehicles because the practice "didn't exist yet"
+**What happened:** When placing the user-paths doc, the agent reasoned "the repo has no ADR practice, skills are workflows" and wired references only into AGENTS.md + memory. The user corrected: ADRs, skills, and living memory are practices that *should* be applied in this repo — the absence of a practice was the gap to fix, not a constraint to design around.
+**Root cause:** Treating the current state of the workspace as fixed. The agentic workspace is itself a product the user actively invests in; "we don't do X here" is an invitation to propose adopting X, not a reason to route around it.
+**Rule going forward:** When a decision reveals a missing practice (decision records, telemetry, a recurring workflow without a skill), surface it as an adoption proposal instead of silently choosing the existing structure. For knowledge placement use the triad: ADR = why, memory = what is true now, skill = recurring how.
+
 ## [2026-07-23] — Removing a user-facing "Custom" option during a UX redesign
 **What happened:** A settings-UX plan proposed replacing the Blog Profile radios (which include "Custom") with preset-only one-shot buttons, dropping the explicit Custom option. The user rejected it: presets are useful, but the custom possibility is *more* important than the presets.
 **Root cause:** Optimizing for control-model purity (action vs. state) over the user's actual priority — full ownership of the AI prompt inputs. Presets are onboarding aids; custom input is the product.

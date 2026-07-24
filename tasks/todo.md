@@ -4,6 +4,26 @@ _The agent writes and updates this file for each active task._
 
 ---
 
+# Done: Institutionalize ADR / skill / living-memory practices (2026-07-24)
+
+**Goal (user):** make ADRs, skills, and living memory explicit first-class practices of the agentic workspace (correction of the user-paths placement decision, see lessons.md 2026-07-24); also add the missing telemetry idea to the enhancements backlog.
+
+## Steps
+
+- [x] Telemetry backlog item (privacy-first, local-only EBM signals) in `tasks/enhancements.md`
+- [x] Commit user paths on `feat/llm-options-pivot` (`e065fe2`, user-requested)
+- [x] `docs/adr/` — practice guide (README with bar, format, store triad) + ADR-0001 (adopt ADRs) + ADR-0002 (user paths + EBM as PO tool)
+- [x] New skills: `/adr` (record a decision) and `/prioritize` (EBM grooming from user-paths UV + backlog)
+- [x] AGENTS.md "Documentation & Decision Practices" section (ADR = why, memory = what, skills = how); WORKFLOW.md Definition of Done gains a knowledge-freshness check; CLAUDE.md layout updated
+- [x] Memory: agent-conventions fact extended + MEMORY.md index (mirror updated); README references (`docs/adr/`, new skills)
+- [x] Lesson captured in `tasks/lessons.md` (don't treat a missing practice as a design constraint)
+
+## Review
+
+Uncommitted (commit not yet requested for this batch). Past major decisions (agnostic pivot, LLM options) intentionally NOT backfilled as ADRs — they stay in `memory/` and get an ADR only if revisited (ADR-0001).
+
+---
+
 # Done: User paths + EBM value map as a PO tool (2026-07-24)
 
 **Goal (user):** draft the user paths for the new user and the existing user to guide plugin design (and the future wizard), annotated with EBM Current Value / Unrealized Value so the Product Owner knows where to put effort; reference them in the README and the agent files.

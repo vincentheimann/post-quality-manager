@@ -16,7 +16,8 @@ After any user correction, append the pattern to `tasks/lessons.md` (format is d
 
 - `post-quality-manager/templates/n8n-workflow.json` — the canonical n8n workflow, kept as a distributable template with `__PQM_*__` placeholders; the settings page serves it with site values injected ("Download n8n workflow").
 - `n8n/workflow-diagram.md` — Mermaid overview of the webhook → n8n → Claude → WordPress flow.
-- `.claude/skills/` — project skills: `/fix-bug`, `/new-feature`, `/release`. Use them for those recurring tasks.
+- `docs/adr/` — Architecture Decision Records (the *why* behind significant decisions); `docs/user-paths.md` — the EBM prioritization tool. See "Documentation & Decision Practices" in AGENTS.md.
+- `.claude/skills/` — project skills: `/fix-bug`, `/new-feature`, `/release`, `/adr` (record a decision), `/prioritize` (EBM grooming). Use them for those recurring tasks.
 - `_archives/turbo-drill/` — leftovers from an unrelated quiz-app project (old CHANGELOG included). Ignore entirely.
 - The former companion "Post Quality API" plugin was retired 2026-07-23 (GitHub repo archived); this plugin's `post-quality/v1/post-score` endpoint is the canonical one. Do not re-create the standalone plugin.
 
