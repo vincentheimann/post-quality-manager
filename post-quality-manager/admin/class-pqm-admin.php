@@ -227,16 +227,20 @@ class PQM_Admin
         $clean['custom_model'] = (string) preg_replace('/[^A-Za-z0-9._:-]/', '', $input['custom_model'] ?? '');
 
         $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
+        // Locked knobs (model doesn't support them) render disabled and are absent
+        // from the POST — fall back to the stored value, not the default.
+        $existing = pqm_get_settings();
         $clean['agent_prompts'] = [];
         foreach (array_keys($defaults['agent_prompts']) as $agent) {
             if (isset($input['agent_prompts'][$agent])) {
                 $agent_input = $input['agent_prompts'][$agent];
+                $stored      = $existing['agent_prompts'][$agent] ?? $defaults['agent_prompts'][$agent];
                 $clean['agent_prompts'][$agent] = [
                     'instructions' => sanitize_textarea_field($agent_input['instructions'] ?? ''),
-                    'temperature'  => (float) ($agent_input['temperature'] ?? $defaults['agent_prompts'][$agent]['temperature']),
+                    'temperature'  => (float) ($agent_input['temperature'] ?? $stored['temperature']),
                     'model'        => in_array($agent_input['model'] ?? '', $registry_keys, true) ? $agent_input['model'] : '',
                     'effort'       => in_array($agent_input['effort'] ?? '', $effort_levels, true)
-                        ? $agent_input['effort'] : $defaults['agent_prompts'][$agent]['effort'],
+                        ? $agent_input['effort'] : $stored['effort'],
                 ];
             }
         }
@@ -794,7 +798,7 @@ class PQM_Admin
                                 <td>
                                     <select id="pqm_agent_effort_<?php echo esc_attr($key); ?>"
                                             name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][effort]"
-                                            class="pqm-agent-effort<?php echo $has_effort ? '' : ' pqm-hidden'; ?>">
+                                            class="pqm-agent-effort"<?php disabled(!$has_effort); ?>>
                                         <?php foreach ($effort_labels as $level => $level_label): ?>
                                             <option value="<?php echo esc_attr($level); ?>"
                                                     <?php selected($agent_data['effort'], $level); ?>
@@ -810,12 +814,12 @@ class PQM_Admin
                             <tr>
                                 <th><label for="pqm_agent_temp_<?php echo esc_attr($key); ?>"><?php esc_html_e('Temperature', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <div class="pqm-temp-row<?php echo $caps['supports_temperature'] ? '' : ' pqm-hidden'; ?>">
+                                    <div class="pqm-temp-row<?php echo $caps['supports_temperature'] ? '' : ' pqm-locked'; ?>">
                                         <input type="range" step="0.1" min="0" max="1"
                                                id="pqm_agent_temp_<?php echo esc_attr($key); ?>"
                                                name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
                                                value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
-                                               class="pqm-temp-range" />
+                                               class="pqm-temp-range"<?php disabled(!$caps['supports_temperature']); ?> />
                                         <span class="pqm-temp-value"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
                                     </div>
                                     <p class="description pqm-temp-desc<?php echo $caps['supports_temperature'] ? '' : ' pqm-hidden'; ?>"><?php esc_html_e('0.0 (Strict/Analytical) to 1.0 (Creative & Loose).', 'post-quality-manager'); ?></p>

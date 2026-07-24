@@ -158,13 +158,15 @@
             }
             var c = caps(model);
 
-            box.querySelector('.pqm-temp-row').classList.toggle('pqm-hidden', !c.temperature);
+            var tempRow = box.querySelector('.pqm-temp-row');
+            tempRow.classList.toggle('pqm-locked', !c.temperature);
+            tempRow.querySelector('.pqm-temp-range').disabled = !c.temperature;
             box.querySelector('.pqm-temp-desc').classList.toggle('pqm-hidden', !c.temperature);
             box.querySelector('.pqm-temp-hint').classList.toggle('pqm-hidden', c.temperature);
 
             var effortSelect = box.querySelector('.pqm-agent-effort');
             var hasEffort = c.effortLevels.length > 0;
-            effortSelect.classList.toggle('pqm-hidden', !hasEffort);
+            effortSelect.disabled = !hasEffort;
             box.querySelector('.pqm-effort-desc').classList.toggle('pqm-hidden', !hasEffort);
             box.querySelector('.pqm-effort-hint').classList.toggle('pqm-hidden', hasEffort);
             Array.prototype.forEach.call(effortSelect.options, function (opt) {

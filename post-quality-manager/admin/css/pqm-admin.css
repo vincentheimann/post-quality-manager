@@ -314,6 +314,7 @@ a.pqm-stat-card:focus {
 .pqm-temp-row { display: flex; align-items: center; gap: 10px; }
 .pqm-temp-range { width: 200px; }
 .pqm-temp-value { font-weight: bold; width: 30px; }
+.pqm-temp-row.pqm-locked { opacity: .55; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
 
 /* ─── n8n Workflow page: per-agent request preview ─────────── */

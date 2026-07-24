@@ -71,6 +71,20 @@ _The agent writes and updates this file for each active task._
 
 ---
 
+# Done: Lock unsupported LLM knobs instead of hiding them (2026-07-24)
+
+**Goal (user):** In the Agent settings, when the selected model doesn't support temperature, lock the Temperature slider rather than hiding it — best UX practice. Revises the 2026-07-23 "hidden with a hint" decision (memory/llm-options-architecture.md updated).
+
+- [x] Settings template: temperature slider + Reasoning Effort select stay visible and get `disabled` (+ dimmed `pqm-locked` row) when the effective model lacks the knob; the explanatory hints are unchanged
+- [x] `sanitize_settings()`: disabled controls don't POST — temperature/effort now fall back to the *stored* value instead of the default (prevents silent resets on save)
+- [x] JS `refreshAgentBox()`: toggles `disabled`/`pqm-locked` live on model change instead of `pqm-hidden`
+- [x] Verify: `php -l` + `node --check` clean
+- [ ] **USER:** manual pass — pick Opus 4.8 for an agent: slider greys out but keeps its value; save; switch back to Sonnet 4.6: previous temperature intact
+
+**Review:** 3 plugin files (admin class, admin JS, admin CSS) + memory. Kept desc/hint swap as-is; no copy changes. Not committed.
+
+---
+
 # Done: Institutionalize ADR / skill / living-memory practices (2026-07-24)
 
 **Goal (user):** make ADRs, skills, and living memory explicit first-class practices of the agentic workspace (correction of the user-paths placement decision, see lessons.md 2026-07-24); also add the missing telemetry idea to the enhancements backlog.
