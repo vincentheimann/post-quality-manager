@@ -431,6 +431,17 @@ class PQM_Admin
         }
         $colspan = $yoast_active ? 7 : 6;
 
+        // Progress chips: canonical order + labels; only commands that ran get a chip.
+        $cmd_order  = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
+        $cmd_labels = [
+            'review'    => __('Review', 'post-quality-manager'),
+            'takeaways' => __('Takeaways', 'post-quality-manager'),
+            'sources'   => __('Sources', 'post-quality-manager'),
+            'seo'       => __('SEO', 'post-quality-manager'),
+            'audit'     => __('Audit', 'post-quality-manager'),
+            'rewrite'   => __('Rewrite', 'post-quality-manager'),
+        ];
+
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Post Reviews', 'post-quality-manager'); ?></h1>
@@ -507,15 +518,18 @@ class PQM_Admin
                                 <?php
                 $cmds = $commands[$item['post_id']] ?? [];
                 $has_rev = in_array('review', $cmds, true);
-                $has_rew = in_array('rewrite', $cmds, true);
+                // Chips show what actually ran (canonical order, unknown commands appended).
+                $ran = array_merge(array_values(array_intersect($cmd_order, $cmds)), array_values(array_diff($cmds, $cmd_order)));
 ?>
                                 <div class="pqm-pills">
-                                    <span class="pqm-pill <?php echo $has_rev ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
-                                        <?php echo $has_rev ? '✓ ' : '— '; ?><?php esc_html_e('Review', 'post-quality-manager'); ?>
-                                    </span>
-                                    <span class="pqm-pill <?php echo $has_rew ? 'pqm-pill-done' : 'pqm-pill-pending'; ?>">
-                                        <?php echo $has_rew ? '✓ ' : '— '; ?><?php esc_html_e('Rewrite', 'post-quality-manager'); ?>
-                                    </span>
+                                    <?php if (empty($ran)): ?>
+                                        <span class="pqm-pill pqm-pill-pending">— <?php esc_html_e('Not analyzed', 'post-quality-manager'); ?></span>
+                                    <?php
+                else: foreach ($ran as $cmd): ?>
+                                        <span class="pqm-pill pqm-pill-done">✓ <?php echo esc_html($cmd_labels[$cmd] ?? ucfirst($cmd)); ?></span>
+                                    <?php
+                    endforeach;
+                endif; ?>
                                 </div>
                             </td>
                             <td class="pqm-cell-date">

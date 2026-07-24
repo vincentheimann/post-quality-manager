@@ -8,6 +8,7 @@
     'use strict';
 
     var DIMS = ['structure', 'readability', 'engagement', 'credibility'];
+    var CMD_ORDER = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
 
     /* ================================================================
      *  BOOT
@@ -390,6 +391,10 @@
 
         var tabs = [
             { id: 'review', label: 'Review' },
+            { id: 'takeaways', label: 'Takeaways' },
+            { id: 'sources', label: 'Sources' },
+            { id: 'seo', label: 'SEO' },
+            { id: 'audit', label: 'Audit' },
             { id: 'rewrite', label: 'Rewrite' },
             { id: 'history', label: 'History' },
         ];
@@ -411,6 +416,9 @@
 
         // Tab panels.
         html += panelWrap('review-' + postId, true, renderReview(latest, postId));
+        ['takeaways', 'sources', 'seo', 'audit'].forEach(function (c) {
+            html += panelWrap(c + '-' + postId, false, renderAgent(c, latest[c], postId));
+        });
         html += panelWrap('rewrite-' + postId, false, renderRewrite(latest.rewrite, postId));
         html += panelWrap('history-' + postId, false, renderHistory(reviews));
 
@@ -470,11 +478,72 @@
                 + '<p style="font-size:13px;line-height:1.6;margin:0">' + esc(summary) + '</p></div>';
         }
 
-        h += '<div class="pqm-detail-actions">'
-            + actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
+        h += '<div class="pqm-detail-actions">';
+        var lnk = editLink(postId);
+        if (lnk) h += '<a href="' + lnk + '" class="button button-primary">Open in Editor</a> ';
+        h += actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
             + '</div>';
 
         return h;
+    }
+
+    /* ─── Agent Tabs (takeaways / sources / seo / audit) ──── */
+    var AGENTS = {
+        takeaways: { icon: 'dashicons-list-view',   label: 'Takeaways', run: 'Check Takeaways', emptyMsg: 'No takeaways check yet.' },
+        sources:   { icon: 'dashicons-admin-links', label: 'Sources',   run: 'Check Sources',   emptyMsg: 'No sources check yet.' },
+        seo:       { icon: 'dashicons-search',      label: 'SEO',       run: 'Check SEO',       emptyMsg: 'No SEO check yet.' },
+        audit:     { icon: 'dashicons-clipboard',   label: 'Audit',     run: 'Run Full Audit',  emptyMsg: 'No audit yet.' }
+    };
+
+    function renderAgent(cmd, r, postId) {
+        var a = AGENTS[cmd];
+        if (!r) return empty(a.icon, a.emptyMsg, postId, cmd, a.run);
+
+        var h = '<div class="pqm-card"><h4><span class="dashicons ' + a.icon + '"></span> ' + esc(a.label) + ' Result';
+        if (r.overall_score > 0) h += ' ' + badge(r.overall_score);
+        h += '</h4>';
+        h += renderData(r.result_data || {}) || '<p class="pqm-data-none">No data returned.</p>';
+        h += '</div>';
+        h += '<div class="pqm-detail-actions">'
+            + actionBtn(postId, cmd, 'Re-run ' + a.label, 'dashicons-update', '')
+            + '</div>';
+        return h;
+    }
+
+    /* Generic, prompt-agnostic renderer for stored result_data. */
+    function humanKey(k) { return cap(String(k).replace(/_/g, ' ')); }
+
+    function renderData(v) {
+        if (v === null || v === undefined || v === '') return '';
+        if (typeof v === 'boolean') {
+            return v ? '<span class="pqm-bool-yes">✓</span>' : '<span class="pqm-bool-no">✗</span>';
+        }
+        if (typeof v === 'number' || typeof v === 'string') return esc(String(v));
+        if (Array.isArray(v)) {
+            if (!v.length) return '';
+            return '<ul class="pqm-data-list">' + v.map(function (it) {
+                return '<li>' + (typeof it === 'object' && it !== null ? renderData(it) : esc(String(it))) + '</li>';
+            }).join('') + '</ul>';
+        }
+        // Object → key/value rows; nested objects and arrays get a sub-heading.
+        var rows = '';
+        Object.keys(v).forEach(function (k) {
+            var val = v[k];
+            if (val === null || val === undefined || val === '' || (Array.isArray(val) && !val.length)) return;
+            if (typeof val === 'object') {
+                rows += '<div class="pqm-data-sub"><h5>' + esc(humanKey(k)) + '</h5>' + renderData(val) + '</div>';
+            } else {
+                rows += '<div class="pqm-data-row"><span class="pqm-data-key">' + esc(humanKey(k)) + '</span>'
+                    + '<span class="pqm-data-val">' + renderData(val) + '</span></div>';
+            }
+        });
+        return rows;
+    }
+
+    function editLink(postId) {
+        var row = document.querySelector('.pqm-post-row[data-post-id="' + postId + '"]');
+        var a = row ? row.querySelector('strong a') : null;
+        return a ? a.getAttribute('href') : '';
     }
 
     /* ─── Rewrite Tab ─────────────────────────────────────── */
@@ -485,9 +554,7 @@
         
         // n8n returns { rewrite_applied: true } when it successfully patches the DB directly.
         if (d.rewrite_applied) {
-            var row = document.querySelector('.pqm-post-row[data-post-id="' + postId + '"]');
-            var titleA = row ? row.querySelector('strong a') : null;
-            var editLnk = titleA ? titleA.getAttribute('href') : '#';
+            var editLnk = editLink(postId) || '#';
 
             var h = '<div class="pqm-card" style="text-align: center; padding: 40px 20px;">';
             h += '<div style="color: #2e7d32; margin-bottom: 16px;"><span class="dashicons dashicons-yes-alt" style="font-size: 48px; width: 48px; height: 48px;"></span></div>';
@@ -683,13 +750,12 @@
         if (!row) return;
 
         var latestReview = null;
-        var hasRewrite = false;
-        var hasReview = false;
+        var done = {};
         reviews.forEach(function (r) {
             if (r.command === 'review' && !latestReview) latestReview = r;
-            if (r.command === 'review') hasReview = true;
-            if (r.command === 'rewrite') hasRewrite = true;
+            if (r.command) done[r.command] = true;
         });
+        var hasReview = !!done.review;
 
         if (latestReview) {
             var scoreTd = row.querySelector('.pqm-cell-score');
@@ -712,13 +778,19 @@
             }
         }
 
+        // Chips reflect what actually ran — no permanent placeholders for unused agents.
         var progressTd = row.querySelector('.pqm-cell-progress');
         if (progressTd) {
+            var chips = CMD_ORDER.filter(function (c) { return done[c]; });
+            Object.keys(done).forEach(function (c) {
+                if (CMD_ORDER.indexOf(c) === -1) chips.push(c);
+            });
             progressTd.innerHTML = '<div class="pqm-pills">'
-                + '<span class="pqm-pill ' + (hasReview ? 'pqm-pill-done' : 'pqm-pill-pending') + '">'
-                + (hasReview ? '✓ ' : '— ') + 'Review</span>'
-                + '<span class="pqm-pill ' + (hasRewrite ? 'pqm-pill-done' : 'pqm-pill-pending') + '">'
-                + (hasRewrite ? '✓ ' : '— ') + 'Rewrite</span>'
+                + (chips.length
+                    ? chips.map(function (c) {
+                        return '<span class="pqm-pill pqm-pill-done">✓ ' + esc(cmdLabel(c)) + '</span>';
+                    }).join('')
+                    : '<span class="pqm-pill pqm-pill-pending">— Not analyzed</span>')
                 + '</div>';
         }
 
@@ -765,6 +837,8 @@
     }
 
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function cmdLabel(c) { return c === 'seo' ? 'SEO' : cap(c); }
 
     function esc(s) {
         if (!s) return '';

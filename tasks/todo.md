@@ -52,10 +52,12 @@ _The agent writes and updates this file for each active task._
 
 **Phase 2 review:** 5 plugin files touched (admin class, main file hook, admin JS, admin CSS, uninstall). `php -l` clean ×3, `node --check` clean. Wizard JS reuses `showTestResult` + the existing ping endpoint — no new feedback patterns. Manual pass needed: fresh install → wizard steps 1-4 end-to-end (save & test with a live n8n, ping-fail path shows "saved but…"), cron nudge appears after first review / dismisses / hides once cron is on.
 
-### Phase 3 — Align UI with validated usage (B1–B3, UV#1 adjacent) — needs user decisions first
-- [ ] Detail panel: trigger buttons + generic result card for takeaways / sources / seo / audit (render `result_data` summary; per-command "Run" actions)
-- [ ] Rethink Progress pills: proposal — replace the fixed Review/Rewrite pair with chips for commands actually run (decision needed: is rewrite still a first-class action?)
-- [ ] "Open in editor" button in the Review tab actions (smallest insight → action step; edit-tracking itself stays backlog UV#1)
+### Phase 3 — Align UI with validated usage (B1–B3, UV#1 adjacent) — DONE 2026-07-24
+- [x] Detail panel: four new tabs (Takeaways / Sources / SEO / Audit) with a generic, prompt-agnostic `result_data` renderer (booleans → ✓/✗, arrays → lists, nested objects → sub-sections) + per-command Run / Re-run actions. Generic by design: survives custom agent prompts and template changes (all four agents per user decision)
+- [x] Progress pills → chips of commands actually run (canonical order, unknown commands appended; "— Not analyzed" when none). Rewrite demoted per user decision: no permanent "Rewrite —" placeholder; the tab stays for on-demand use. Reworked in both PHP render and JS `updateTableRow`
+- [x] "Open in Editor" is now the primary action on the Review tab (shared `editLink()` helper, also reused by the rewrite card); edit-tracking itself stays backlog UV#1
+
+**Phase 3 review:** 3 plugin files (admin class, admin JS, admin CSS). `php -l` + `node --check` clean. REST/AJAX needed no changes — the command enum already covered all six agents; the UI was the only gap. `docs/user-paths.md` annotated (A3, A4, A5, A6, B2, B3, B5) with dated ship-notes marked *pending validation* — claims move UV → CV only after real usage confirms; the stale A4 token-persistence claim was corrected. Manual pass: run each of the four agents on a post, check chips/tabs/result cards, Open in Editor, and that old two-pill rows updated correctly.
 
 ## Open questions for the user
 1. Phase 3 scope: expose all four missing agents in the detail panel, or start with the two used most (seo/audit)?

@@ -136,7 +136,7 @@ a.pqm-stat-card:focus {
 
 /* ─── Tabs ────────────────────────────────────────────────── */
 .pqm-tabs-nav {
-    display: flex; gap: 16px; border-bottom: 1px solid #c3c4c7;
+    display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid #c3c4c7;
     background: transparent; padding: 0 16px; margin-bottom: 24px;
 }
 .pqm-tab-btn {
@@ -375,6 +375,28 @@ td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
     margin: 8px 0;
 }
 .pqm-wizard-connect input { flex: 1; min-width: 260px; }
+
+/* ─── Agent result cards (generic result_data rendering) ──── */
+.pqm-data-row {
+    display: flex; gap: 12px; padding: 4px 0;
+    font-size: 13px; line-height: 1.6;
+    border-bottom: 1px solid #f0f0f1;
+}
+.pqm-data-row:last-child { border-bottom: none; }
+.pqm-data-key { flex: 0 0 180px; color: #646970; }
+.pqm-data-val { flex: 1; }
+.pqm-data-sub { margin: 12px 0 4px; }
+.pqm-data-sub h5 {
+    margin: 0 0 4px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: .5px; color: #646970;
+}
+.pqm-data-list {
+    list-style: disc; margin: 4px 0 4px 20px;
+    font-size: 13px; line-height: 1.6;
+}
+.pqm-data-none { font-size: 13px; color: #646970; }
+.pqm-bool-yes { color: #00a32a; font-weight: 600; }
+.pqm-bool-no { color: #d63638; font-weight: 600; }
 
 /* ─── Responsive ──────────────────────────────────────────── */
 @media (max-width: 782px) {
