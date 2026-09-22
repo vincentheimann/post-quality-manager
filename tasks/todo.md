@@ -4,6 +4,18 @@ _The agent writes and updates this file for each active task._
 
 ---
 
+# Queued (not started), HIGH PRIORITY: adopt create-agentic-workspace (2026-09-22)
+
+Owner request. Convert this repo to https://github.com/vincentheimann/create-agentic-workspace (scaffold into scratch, merge by hand; the tool refuses to run over an existing `AGENTS.md`). Full migration map and definition of done in `tasks/enhancements.md` → "Workspace & process". Do this before the freemium/roles work so that work is planned as a sprint in the new structure.
+
+---
+
+# Queued (not started): Freemium plan + role-based access (2026-09-22)
+
+Direction locked in ADR [0003](../docs/adr/0003-freemium-plan-and-role-based-access.md); backlog entries in `tasks/enhancements.md` (Product). Must go through `/prioritize` against `docs/user-paths.md` before any plan is written here.
+
+---
+
 # Active: Lean UX pass — menu, n8n Workflow page, Settings page (2026-07-24)
 
 **Goal (user):** PO/Lean-UX analysis of the menu architecture + customer actions against the two user paths (`docs/user-paths.md`), then the n8n Workflow page, then the Settings page; turn findings into an implementation plan. Branch: `feat/lean-ux-pass` (off `feat/llm-options-pivot`). **Phase 1 implemented 2026-07-24.**

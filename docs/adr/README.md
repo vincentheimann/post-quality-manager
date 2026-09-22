@@ -34,3 +34,4 @@ What becomes easier, what becomes harder, what we committed to.
 
 - [0001 — Record significant decisions as lightweight ADRs](0001-record-decisions-as-adrs.md)
 - [0002 — User paths with EBM value mapping as the product prioritization tool](0002-user-paths-ebm-po-tool.md)
+- [0003 — Freemium plan and role-based access share one feature gate](0003-freemium-plan-and-role-based-access.md)

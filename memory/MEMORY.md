@@ -7,3 +7,4 @@ _Canonical, git-versioned memory for the Post Quality project. Agents: read this
 - [LLM options architecture](llm-options-architecture.md) — model registry + payload-driven request params + workflow version handshake; decisions locked 2026-07-23
 - [User paths](user-paths.md) — docs/user-paths.md is the EBM prioritization tool (CV/UV per journey stage); read before product/UX decisions
 - [Agent conventions](agent-conventions.md) — KISS, plan-first via tasks/todo.md, lessons.md loop, never commit without asking; three knowledge stores: ADRs (why) / memory (what) / skills (how)
+- [Freemium & roles](freemium-and-roles.md) — free (Review+Takeaways) vs paid, WP role mapping, one feature gate; decided 2026-09-22 via ADR 0003, not built, not ranked
