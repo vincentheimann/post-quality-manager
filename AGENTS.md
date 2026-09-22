@@ -17,9 +17,10 @@ The plugin follows a standard, KISS (Keep It Simple and Stupid) WordPress archit
 - `post-quality-manager/` — The main plugin folder
   - `admin/` — Admin-facing functionality (dashboard UI, settings, AJAX callbacks)
   - `includes/` — Core functionality (DB, REST API, Cron)
+  - `templates/n8n-workflow.json` — Canonical n8n workflow template (placeholders `__PQM_*__`, filled by the settings-page download)
   - `post-quality-manager.php` — Main plugin entry point
   - `uninstall.php` — Cleanup on deletion
-- `n8n/` — n8n workflow exports (v2 is current), Mermaid workflow diagram, and node debug snippets
+- `n8n/` — Mermaid diagram of the workflow (the workflow JSON itself is the plugin template above)
 - `docs/brand.md` — Brand guidelines, copy rules, and tone (read before UI work)
 - `tasks/` — `todo.md` (active task plan) and `lessons.md` (self-correction log)
 - `memory/` — Canonical project memory (`MEMORY.md` index + one file per durable fact); read at session start, update when facts change

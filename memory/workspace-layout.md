@@ -6,7 +6,7 @@ metadata:
 ---
 
 `c:\Git\Post Quality\` holds two independent git repos (the root itself is not a repo):
-- `post-quality-manager\` — main WP plugin + n8n workflow exports in `n8n\` (v2 is current). Entry docs: CLAUDE.md → AGENTS.md + WORKFLOW.md. Living memory: `memory\`, `tasks\lessons.md`, and `tasks\todo.md`. Skills in `.claude\skills\` (fix-bug, new-feature, release).
+- `post-quality-manager\` — main WP plugin; the canonical n8n workflow is the plugin template `post-quality-manager\templates\n8n-workflow.json` (placeholders `__PQM_*__`, served pre-filled by the settings download); `n8n\` holds only the Mermaid diagram. Entry docs: CLAUDE.md → AGENTS.md + WORKFLOW.md. Living memory: `memory\`, `tasks\lessons.md`, and `tasks\todo.md`. Skills in `.claude\skills\` (fix-bug, new-feature, release).
 - `post-quality-api\` — single-file plugin `post_quality_api.php`, canonical source (a stale copy in the manager repo was removed 2026-07-22).
 
 `_archives\turbo-drill\` inside the manager repo contains unrelated leftover files from a finished PSPO quiz-app project (Turbo Drill), including its old CHANGELOG — ignore them.

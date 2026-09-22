@@ -14,7 +14,8 @@ After any user correction, append the pattern to `tasks/lessons.md` (format is d
 
 ## Repository layout (beyond AGENTS.md)
 
-- `n8n/` — n8n workflow exports (`post_quality_workflow_v2.json` is current, v1 kept for reference), `workflow-diagram.md` (Mermaid overview of the kChat → n8n → Claude → WordPress flow), and node debug snippets.
+- `post-quality-manager/templates/n8n-workflow.json` — the canonical n8n workflow, kept as a distributable template with `__PQM_*__` placeholders; the settings page serves it with site values injected ("Download n8n workflow").
+- `n8n/workflow-diagram.md` — Mermaid overview of the webhook → n8n → Claude → WordPress flow.
 - `.claude/skills/` — project skills: `/fix-bug`, `/new-feature`, `/release`. Use them for those recurring tasks.
 - `_archives/turbo-drill/` — leftovers from an unrelated quiz-app project (old CHANGELOG included). Ignore entirely.
 - The companion "Post Quality API" plugin lives in the sibling repo `../post-quality-api/` — do not copy it into this repo.
@@ -22,4 +23,4 @@ After any user correction, append the pattern to `tasks/lessons.md` (format is d
 ## n8n workflow notes
 
 - The n8n workflow calls the Claude API directly from Code/HTTP nodes; AI prompts must stay niche-agnostic (universal pillars: Structure, Readability, Engagement, Credibility) — see `tasks/lessons.md`.
-- When plugin REST routes change, check whether `n8n/post_quality_workflow_v2.json` needs a matching update, and vice versa.
+- When plugin REST routes change, check whether `post-quality-manager/templates/n8n-workflow.json` needs a matching update, and vice versa. Never put site-specific values in the template — use `__PQM_*__` placeholders resolved in `PQM_Admin::download_workflow()`.

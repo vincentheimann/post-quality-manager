@@ -108,6 +108,38 @@ class PQM_Admin
         ]);
     }
 
+    /* ─── Blog Profiles (single source of truth) ─────────────────────── */
+
+    /**
+     * Niche presets that pre-fill the editable context fields below.
+     * Values are suggestions only — the user can edit everything after applying.
+     */
+    public static function blog_profiles(): array
+    {
+        return [
+            'marketing' => [
+                'label' => __('Marketing Blog', 'post-quality-manager'),
+                'website_context' => __('A marketing blog for business professionals. Readers want proven tactics, data-backed claims, and clear next steps they can apply to their own campaigns. Case studies and concrete numbers beat theory.', 'post-quality-manager'),
+                'brand_voice_preset' => 'direct',
+            ],
+            'technical' => [
+                'label' => __('Technical / IT Blog', 'post-quality-manager'),
+                'website_context' => __('A technical blog for software developers and IT professionals. Readers expect accurate, in-depth content: working code examples, references to official documentation, and honest trade-off discussions. Domain jargon is fine; marketing fluff is not.', 'post-quality-manager'),
+                'brand_voice_preset' => 'professional',
+            ],
+            'lifestyle' => [
+                'label' => __('Lifestyle Blog', 'post-quality-manager'),
+                'website_context' => __('A lifestyle blog for a general audience. Readers look for relatable stories, practical tips they can apply right away, and an authentic personal perspective.', 'post-quality-manager'),
+                'brand_voice_preset' => 'casual',
+            ],
+            'custom' => [
+                'label' => __('Custom', 'post-quality-manager'),
+                'website_context' => '',
+                'brand_voice_preset' => 'custom',
+            ],
+        ];
+    }
+
     /* ─── Settings Registration (Settings API) ───────────────────────── */
 
     public static function register_settings(): void
@@ -125,6 +157,7 @@ class PQM_Admin
         $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
         $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
         $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
+        $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? 'custom', self::blog_profiles()) ? $input['blog_profile'] : 'custom';
         $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? 'custom', ['professional', 'casual', 'direct', 'custom'], true) ? $input['brand_voice_preset'] : 'custom';
         $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
         $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
@@ -408,9 +441,27 @@ class PQM_Admin
     public static function render_settings(): void
     {
         $settings = pqm_get_settings();
+        $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
+
+            <?php if (empty($settings['n8n_webhook_url'])): ?>
+            <!-- Lean onboarding: shown only until the connection is configured. -->
+            <div class="notice notice-info inline" style="margin: 15px 0; padding: 12px 15px;">
+                <p><strong><?php esc_html_e('Get started in 3 steps', 'post-quality-manager'); ?></strong></p>
+                <ol style="margin: 8px 0 4px 20px;">
+                    <li>
+                        <a href="<?php echo esc_url($download_url); ?>" class="button button-secondary" style="margin-right: 6px;">
+                            <?php esc_html_e('Download your n8n workflow', 'post-quality-manager'); ?>
+                        </a>
+                        <?php esc_html_e('— pre-configured for this site.', 'post-quality-manager'); ?>
+                    </li>
+                    <li><?php esc_html_e('Import the file into your n8n instance and connect two credentials: WordPress (Application Password) and your Claude API key.', 'post-quality-manager'); ?></li>
+                    <li><?php esc_html_e('Activate the workflow in n8n, then paste its production webhook URL below and save.', 'post-quality-manager'); ?></li>
+                </ol>
+            </div>
+            <?php endif; ?>
 
             <form method="post" action="options.php">
                 <?php settings_fields('pqm_settings_group'); ?>
@@ -418,6 +469,15 @@ class PQM_Admin
                 <!-- n8n Connection -->
                 <h2><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>
                 <table class="form-table">
+                    <tr>
+                        <th><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></th>
+                        <td>
+                            <a href="<?php echo esc_url($download_url); ?>" class="button button-secondary">
+                                <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
+                            </a>
+                            <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect your WordPress and Claude credentials.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
                     <tr>
                         <th><label for="pqm_n8n_webhook_url"><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></label></th>
                         <td>
@@ -454,6 +514,24 @@ class PQM_Admin
                     <p><?php esc_html_e('All posts are evaluated on 4 universal pillars: 1. Structure (flow & hierarchy), 2. Readability (accessibility), 3. Engagement (hook & actionable value), 4. Credibility (E-E-A-T and factual support).', 'post-quality-manager'); ?></p>
                 </div>
                 <table class="form-table">
+                    <tr>
+                        <th><?php esc_html_e('Blog Profile', 'post-quality-manager'); ?></th>
+                        <td>
+                            <?php
+                            $profiles = self::blog_profiles();
+                            $current_profile = $settings['blog_profile'] ?? 'custom';
+                            ?>
+                            <fieldset>
+                                <?php foreach ($profiles as $val => $profile): ?>
+                                    <label style="margin-right: 15px;">
+                                        <input type="radio" name="pqm_settings[blog_profile]" value="<?php echo esc_attr($val); ?>" <?php checked($current_profile, $val); ?> class="pqm-blog-profile" />
+                                        <?php echo esc_html($profile['label']); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </fieldset>
+                            <p class="description"><?php esc_html_e('Picking a profile pre-fills the voice and context fields below with sensible defaults for your niche. Everything stays editable.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
                     <tr>
                         <th><label for="pqm_brand_voice"><?php esc_html_e('Brand Voice & Tone', 'post-quality-manager'); ?></label></th>
                         <td>
@@ -615,6 +693,33 @@ class PQM_Admin
             const customArea = document.getElementById('pqm_brand_voice');
             const customDesc = document.querySelector('.pqm-voice-desc');
 
+            // Blog profile presets: pre-fill context + voice, keep everything editable.
+            const blogProfiles = <?php echo wp_json_encode(array_map(
+                static fn($p) => ['website_context' => $p['website_context'], 'brand_voice_preset' => $p['brand_voice_preset']],
+                self::blog_profiles()
+            )); ?>;
+            const contextArea = document.getElementById('pqm_website_context');
+
+            document.querySelectorAll('.pqm-blog-profile').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const profile = blogProfiles[this.value];
+                    if (!profile || this.value === 'custom') return;
+
+                    if (contextArea.value.trim() !== '' && contextArea.value !== profile.website_context) {
+                        if (!confirm("<?php esc_attr_e('Replace the current Website Context with the profile default? Your existing text will be overwritten.', 'post-quality-manager'); ?>")) {
+                            return;
+                        }
+                    }
+                    contextArea.value = profile.website_context;
+
+                    const voiceRadio = document.querySelector('.pqm-voice-preset[value="' + profile.brand_voice_preset + '"]');
+                    if (voiceRadio && !voiceRadio.checked) {
+                        voiceRadio.checked = true;
+                        voiceRadio.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+
             presets.forEach(preset => {
                 preset.addEventListener('change', function() {
                     if (this.value === 'custom') {
@@ -642,6 +747,33 @@ class PQM_Admin
         });
         </script>
         <?php
+    }
+
+    /* ─── Workflow Generator (admin-post download) ───────────────────── */
+
+    /**
+     * Serve the bundled n8n workflow template with this site's values injected.
+     */
+    public static function download_workflow(): void
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('Insufficient permissions.', 'post-quality-manager'));
+        }
+        check_admin_referer('pqm_download_workflow');
+
+        $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow.json';
+        if (!file_exists($template_path)) {
+            wp_die(esc_html__('Workflow template not found. Please reinstall the plugin.', 'post-quality-manager'));
+        }
+
+        $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
+        $json = str_replace('__PQM_SITE_HOST__', $host, file_get_contents($template_path));
+
+        nocache_headers();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="post-quality-workflow-' . sanitize_file_name($host) . '.json"');
+        echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file download, not HTML.
+        exit;
     }
 
     /* ─── AJAX: Trigger Command ──────────────────────────────────────── */
