@@ -8,7 +8,8 @@ Significant decisions in this repo are recorded as lightweight ADRs — one file
 
 - `docs/adr/` — **why** we decided: immutable records with context and alternatives.
 - `memory/` — **what is true now**: current-state facts, updated in place, linking to the ADRs behind them.
-- `.claude/skills/` — **how** we do recurring work: executable checklists.
+- `.claude/skills/` — **how** we do recurring work: the BMad skills plus project checklists (`/adr`, `/prioritize`, `/release`).
+- `_bmad-output/` — **what we are doing**: tickets, specs and build plans (ADR 0004); a ticket cites its ADR in References, never restates it.
 
 ## Format
 
@@ -35,3 +36,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0001 — Record significant decisions as lightweight ADRs](0001-record-decisions-as-adrs.md)
 - [0002 — User paths with EBM value mapping as the product prioritization tool](0002-user-paths-ebm-po-tool.md)
 - [0003 — Freemium plan and role-based access share one feature gate](0003-freemium-plan-and-role-based-access.md)
+- [0004 — Adopt the BMad Method as the delivery process](0004-adopt-bmad-method.md)

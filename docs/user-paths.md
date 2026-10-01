@@ -4,7 +4,7 @@ _A Product Owner tool: the two journeys a solo professional blogger takes throug
 
 - **Persona:** solo professional blogger, any niche (marketing, technical/IT, lifestyle). Self-hosts or controls their WordPress; comfortable following a setup guide; not necessarily an n8n or API expert.
 - **Evidence status:** grounded in real usage by user #1 (the project owner, 2026-07); no telemetry exists. Every "Signal" below is a *candidate* measure — today the evidence is self-observed. Treat CV claims as validated only where user #1's behavior confirms them.
-- **Maintenance:** update this file when a stage's friction is removed (move it from UV to CV) or when real usage contradicts a claim. Backlog references point to `tasks/enhancements.md`.
+- **Maintenance:** update this file when a stage's friction is removed (move it from UV to CV) or when real usage contradicts a claim. Backlog references point to the BMad ticket tree in `_bmad-output/` (the ranked UV table below is the initiative's requirement source, ids UV1–UV7; since 2026-10-01, ADR 0004).
 
 ---
 
@@ -92,7 +92,7 @@ Re-review an edited post; compare against history.
 Tune models, effort, prompts; keep the n8n workflow current.
 
 - **CV:** since the 2026-07-23 LLM-options pivot, model/effort/prompt changes ride the webhook payload — **no re-import needed**; the version handshake shows an "update available" notice when the template itself changes.
-- **UV:** a perception gap — user #1 still experiences settings changes as "export/import the whole workflow again", the exact pain the pivot removed. Either the manual validation pass (open in `tasks/todo.md`) hasn't yet built trust, or the UI doesn't say clearly enough *"saved — applies on the next command, no re-import"*. *(2026-07-24, pending validation: the UI now says it — custom save notice on Settings plus inline reassurance in the AI Model and Agent Overrides sections.)* Shipped value that isn't perceived is unrealized value. Genuine re-imports (template structure changes) also still mean manual n8n round-trips, and the handshake only reports after a real command runs.
+- **UV:** a perception gap — user #1 still experiences settings changes as "export/import the whole workflow again", the exact pain the pivot removed. Either the manual validation pass (open as `_bmad-output/backlog/story-manual-pass-lean-ux-and-locked-knobs.md`) hasn't yet built trust, or the UI doesn't say clearly enough *"saved — applies on the next command, no re-import"*. *(2026-07-24, pending validation: the UI now says it — custom save notice on Settings plus inline reassurance in the AI Model and Agent Overrides sections.)* Shipped value that isn't perceived is unrealized value. Genuine re-imports (template structure changes) also still mean manual n8n round-trips, and the handshake only reports after a real command runs.
 - **Signal:** re-imports performed per template version bump (should approach exactly 1).
 
 ---

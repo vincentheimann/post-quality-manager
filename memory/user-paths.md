@@ -9,4 +9,6 @@ Since 2026-07-24, `docs/user-paths.md` is the canonical product-prioritization d
 
 Top-ranked Unrealized Value (as of writing): (1) the insight→action loop B3–B4, (2) making the no-re-import pivot *perceived* (UI messaging + open validation pass), (3) a pull-back mechanism (digest/notifications), (4) the guided-activation wizard fed by Path A.
 
-Agents: read the doc before product/UX decisions; update it when a friction is removed (UV → CV) or real usage contradicts a claim. Related: [[pivot-agnostic]], [[llm-options-architecture]].
+Since 2026-10-01 the ranked UV table is also the requirement source of the BMad initiative (`UV1`–`UV7` in `_bmad-output/initiative-post-quality-manager/`); epics and tickets cite those ids in `covers`.
+
+Agents: read the doc before product/UX decisions; update it when a friction is removed (UV → CV) or real usage contradicts a claim. Related: [[pivot-agnostic]], [[llm-options-architecture]], [[bmad-setup]].

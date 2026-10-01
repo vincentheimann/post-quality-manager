@@ -60,11 +60,12 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 - `docs/adr/` — Architecture Decision Records (why significant decisions were made)
 - `docs/brand.md` — brand voice and copy rules for admin UI text
 - `docs/user-paths.md` — new-user and existing-user journeys with their EBM Current/Unrealized Value; the Product Owner's guide to where effort goes next
+- `_bmad-output/` — the product initiative, its epics, the backlog tickets and build plans (BMad Method, git-backed); `_bmad/` — BMad runtime and team overrides
 - `_archives/` — legacy material kept for history; not part of the plugin
 
 ## Development
 
-Development follows an agent-assisted workflow: [CLAUDE.md](CLAUDE.md) is the entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes), [WORKFLOW.md](WORKFLOW.md) the task workflow, `memory/` the versioned project memory, and `tasks/` the active plan, lessons log, and enhancements backlog. Product and UX decisions are guided by the user paths and their EBM value analysis in [docs/user-paths.md](docs/user-paths.md). Reusable workflows live in `.claude/skills/` (`/fix-bug`, `/new-feature`, `/release`, `/adr`, `/prioritize`); significant decisions are recorded in [docs/adr/](docs/adr/).
+Development follows the [BMad Method](https://github.com/bmad-code-org/BMAD-METHOD) (ADR 0004): [CLAUDE.md](CLAUDE.md) is the agent entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes, Definition of Done), `memory/` the versioned project memory and lessons log, and `_bmad-output/` the ticket tree — one initiative whose requirements are the EBM value analysis in [docs/user-paths.md](docs/user-paths.md). Changes go through `bmad-build` (plan → implement → review); larger work through `bmad-spec` and `bmad-ticket`. Project skills `/prioritize`, `/adr` and `/release` live in `.claude/skills/`; significant decisions are recorded in [docs/adr/](docs/adr/). Agent prerequisites: `uv` and Node (for `npx skills`).
 
 Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branches; releases are cut by `release-please`.
 

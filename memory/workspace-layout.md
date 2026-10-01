@@ -6,7 +6,7 @@ metadata:
 ---
 
 `c:\Git\Post Quality\` holds one git repo (the root itself is not a repo):
-- `post-quality-manager\` — main WP plugin; the canonical n8n workflow is the plugin template `post-quality-manager\templates\n8n-workflow.json` (placeholders `__PQM_*__`, served pre-filled by the settings download); `n8n\` holds only the Mermaid diagram. Entry docs: CLAUDE.md → AGENTS.md + WORKFLOW.md. Living memory: `memory\`, `tasks\lessons.md`, and `tasks\todo.md`. Skills in `.claude\skills\` (fix-bug, new-feature, release).
+- `post-quality-manager\` — main WP plugin; the canonical n8n workflow is the plugin template `post-quality-manager\templates\n8n-workflow.json` (placeholders `__PQM_*__`, served pre-filled by the settings download); `n8n\` holds only the Mermaid diagram. Entry docs: CLAUDE.md → AGENTS.md (WORKFLOW.md merged into it 2026-10-01). Living memory: `memory\` incl. `memory\lessons.md`. Work tracking: the BMad ticket tree in `_bmad-output\` (the `tasks\` folder was removed 2026-10-01, ADR 0004, see [[bmad-setup]]). Skills in `.claude\skills\`: BMad skills + `/adr`, `/prioritize`, `/release`.
 
 The former sibling repo `post-quality-api\` (single-file plugin `post_quality_api.php`) was retired 2026-07-23: local folder deleted, GitHub repo `vincentheimann/post-quality-api` archived by the user. The manager registers the same `post-quality/v1/post-score` endpoint and is the canonical source — do not re-create the standalone plugin.
 

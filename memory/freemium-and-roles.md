@@ -12,4 +12,4 @@ Decided 2026-09-22 (ADR [0003](../docs/adr/0003-freemium-plan-and-role-based-acc
 - **Gate:** single `PQM_Features::can()` combining plan + capability. One n8n template; the plugin refuses gated commands before the webhook.
 - **Distribution:** GitHub Releases first, WordPress.org later with the same gate (updates the "deferred" stance in [[pivot-agnostic]]).
 
-Backlog entries: `tasks/enhancements.md` → Product → "Role-based access to plugin features" and "Free vs. paid plan (freemium)". Related: [[pivot-agnostic]], [[user-paths]].
+Ticket: epic envelope `_bmad-output/initiative-post-quality-manager/epic-freemium-and-roles/` (requirements O1, O2; since 2026-10-01). Path to implementation: `/prioritize` → `bmad-spec` → `bmad-ticket` inception → one `bmad-build` per story. Related: [[pivot-agnostic]], [[user-paths]], [[bmad-setup]].

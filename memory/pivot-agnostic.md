@@ -12,4 +12,4 @@ Locked MVP decisions (user-validated):
 - **WP admin is the primary trigger** (dashboard + WP-Cron); chat entry stays possible only as a generic webhook. No kChat-specific nodes in core.
 - **Niche tailoring** via blog-profile presets (marketing / technical / lifestyle / custom) that pre-fill editable fields — same lean pattern as the brand-voice presets.
 - **Distribution**: GitHub Releases; WordPress.org deferred.
-- Guardrails: MVP-first, KISS, lean UX (progressive disclosure, presets over blank fields). See plan in `tasks/todo.md` and the niche-hardcoding lesson in `tasks/lessons.md`. Related: [[workspace-layout]], [[agent-conventions]].
+- Guardrails: MVP-first, KISS, lean UX (progressive disclosure, presets over blank fields). The original plan lived in the retired `tasks/todo.md` (git history before 2026-10-01); the niche-hardcoding lesson is in `memory/lessons.md`. Related: [[workspace-layout]], [[agent-conventions]].
