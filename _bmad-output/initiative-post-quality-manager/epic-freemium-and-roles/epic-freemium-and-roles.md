@@ -49,3 +49,4 @@ The plugin's PHP permission layer, settings UI and activation. Not the n8n templ
 - Decision: Editors get the four paid agents on a licensed site (user, 2026-10-01; spec OQ-1).
 - Decision: plan-gated features render visible but locked with upgrade copy, role-gated features stay hidden (user, 2026-10-01; spec OQ-2).
 - Decision: shipped default Author quota 20/month, Admin-configurable (user delegated to best practice, 2026-10-01; spec OQ-3).
+- Decision: third-party setup (Freemius) deferred to the end of the epic — story 3 moves after story 6, before the sweep; stories 5 and 6 verify plan state against the `pqm_is_pro` stub from story 1, their real prerequisite (user, 2026-10-01).
