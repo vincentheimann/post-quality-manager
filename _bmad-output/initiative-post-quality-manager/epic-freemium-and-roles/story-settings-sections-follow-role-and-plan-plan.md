@@ -3,7 +3,7 @@ title: 'Settings sections follow role and plan'
 type: 'feature'
 ticket: '5'
 created: '2026-10-01'
-status: 'built'
+status: done
 baseline_revision: 'cca876621ed8a5e2236ad0af47b537fd20dff4a4'
 route: 'full'
 route_source: 'auto'
