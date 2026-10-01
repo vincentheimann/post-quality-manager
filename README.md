@@ -48,10 +48,10 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 | Route | Method | Auth | Purpose |
 |---|---|---|---|
-| `/post-score` | GET | `edit_posts` | Post content, metadata, and SEO data for the workflow |
-| `/trigger-review` | POST | `edit_posts` | Fire the n8n workflow for a post |
+| `/post-score` | GET | `pqm_view_reviews` | Post content, metadata, and SEO data for the workflow |
+| `/trigger-review` | POST | any `pqm_run_*` capability (per-command gate inside) | Fire the n8n workflow for a post |
 | `/save-review` | POST | webhook token | Callback where n8n stores review results |
-| `/reviews/{post_id}` | GET | `edit_posts` | Stored review history for a post |
+| `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
 
 ## Repository layout
 

@@ -38,6 +38,8 @@ require_once PQM_PLUGIN_DIR . 'admin/class-pqm-admin.php';
 /* ─── Activation / Deactivation ──────────────────────────────────────── */
 register_activation_hook(__FILE__, ['PQM_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['PQM_Cron', 'clear_scheduled_events']);
+// Capability upgrade for installs updated without reactivation (REST and cron requests included).
+add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 
 /* ─── REST API ───────────────────────────────────────────────────────── */
 add_action('rest_api_init', ['PQM_REST_API', 'register_routes']);
