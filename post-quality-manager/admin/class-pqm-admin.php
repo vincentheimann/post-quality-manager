@@ -57,11 +57,16 @@ class PQM_Admin
         [__CLASS__, 'render_workflow']
         );
 
+        // Editors (pqm_manage_agents) reach the page for the overrides and
+        // Automated Reviews sections; the global sections inside stay
+        // pqm_manage_settings-only (CAP-3 access matrix). Either capability
+        // opens the page, so a role editor can grant access via one or the
+        // other with no code change.
         add_submenu_page(
             'pqm-dashboard',
             __('Settings', 'post-quality-manager'),
             __('Settings', 'post-quality-manager'),
-            'pqm_manage_settings',
+            self::settings_page_capability(),
             'pqm-settings',
         [__CLASS__, 'render_settings']
         );
@@ -76,6 +81,12 @@ class PQM_Admin
 
         // The n8n Workflow page hosts the setup wizard — no extra banner there.
         if (strpos($screen->id, 'pqm-workflow') !== false) {
+            return;
+        }
+
+        // The banner routes to the Admin-only Workflow page — only users who
+        // can act on it (pqm_manage_settings) should see it.
+        if (!current_user_can('pqm_manage_settings')) {
             return;
         }
 
@@ -115,11 +126,19 @@ class PQM_Admin
             true
         );
 
+        $settings = pqm_get_settings();
+
         wp_localize_script('pqm-admin', 'pqmAdmin', [
             'restUrl' => rest_url(PQM_REST_NAMESPACE),
             'nonce' => wp_create_nonce('wp_rest'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'pageNonce' => wp_create_nonce('pqm_admin_action'),
+            // Effective global default model (Custom resolved like
+            // pqm_effective_model()) — the model-caps JS falls back to it when
+            // the AI Model section is absent (Editor view of the Settings page).
+            'defaultModel' => $settings['default_model'] === 'custom'
+                ? ($settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-4-6')
+                : $settings['default_model'],
             'blogProfiles' => array_map(
                 static fn($p) => ['website_context' => $p['website_context'], 'brand_voice_preset' => $p['brand_voice_preset']],
                 self::blog_profiles()
@@ -206,55 +225,103 @@ class PQM_Admin
 
         // options.php guards the save with manage_options by default; align it
         // with the Settings menu so a remapped role can both open and save.
-        add_filter('option_page_capability_pqm_settings_group', static fn(): string => 'pqm_manage_settings');
+        // Per-section protection lives in sanitize_settings(): keys of sections
+        // the saver could not see carry their stored values.
+        add_filter('option_page_capability_pqm_settings_group', [__CLASS__, 'settings_page_capability']);
     }
 
-    public static function sanitize_settings(array $input): array
+    /**
+     * Capability that opens (and saves) the Settings page for the current
+     * user: either pqm_manage_settings or pqm_manage_agents grants access —
+     * the sections inside follow their own gates.
+     */
+    public static function settings_page_capability(): string
     {
+        return current_user_can('pqm_manage_settings') ? 'pqm_manage_settings' : 'pqm_manage_agents';
+    }
+
+    public static function sanitize_settings($input): array
+    {
+        // options.php passes null when a save posts no pqm_settings fields at
+        // all (e.g. the free-site Editor view, where every section is hidden
+        // or locked) — treat it as an empty POST, not a fatal.
+        $input = (array) $input;
+
         $defaults = pqm_default_settings();
+        // Sections the saving request could not have posted — hidden by role or
+        // locked by plan (disabled fieldset) — must carry their *stored* values,
+        // never the defaults: the disabled-controls pitfall, applied per section.
+        $existing = pqm_get_settings();
+        $registry_keys = array_keys(pqm_model_registry());
         $clean = [];
 
-        $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
-        $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
-        $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
-        $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
-        $voice_keys = array_merge(array_keys(pqm_voice_presets()), ['custom']);
-        $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? '', $voice_keys, true) ? $input['brand_voice_preset'] : $defaults['brand_voice_preset'];
-        $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
-        $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
-        $clean['cron_enabled'] = !empty($input['cron_enabled']);
-        $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
-            ? $input['cron_frequency'] : $defaults['cron_frequency'];
-        $clean['cron_batch_size'] = absint($input['cron_batch_size'] ?? $defaults['cron_batch_size']);
-        $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
-        $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
-        $clean['cron_command'] = $defaults['cron_command'];
-        // 0 = unlimited; absint also maps negative input to a sane value.
-        $clean['author_quota'] = absint($input['author_quota'] ?? $defaults['author_quota']);
-
-        $registry_keys = array_keys(pqm_model_registry());
-        $clean['default_model'] = in_array($input['default_model'] ?? '', array_merge($registry_keys, ['custom']), true)
-            ? $input['default_model'] : $defaults['default_model'];
-        // Model IDs are plain slugs (letters, digits, dot, dash, underscore, colon).
-        $clean['custom_model'] = (string) preg_replace('/[^A-Za-z0-9._:-]/', '', $input['custom_model'] ?? '');
-
-        $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
-        // Locked knobs (model doesn't support them) render disabled and are absent
-        // from the POST — fall back to the stored value, not the default.
-        $existing = pqm_get_settings();
-        $clean['agent_prompts'] = [];
-        foreach (array_keys($defaults['agent_prompts']) as $agent) {
-            if (isset($input['agent_prompts'][$agent])) {
-                $agent_input = $input['agent_prompts'][$agent];
-                $stored      = $existing['agent_prompts'][$agent] ?? $defaults['agent_prompts'][$agent];
-                $clean['agent_prompts'][$agent] = [
-                    'instructions' => sanitize_textarea_field($agent_input['instructions'] ?? ''),
-                    'temperature'  => (float) ($agent_input['temperature'] ?? $stored['temperature']),
-                    'model'        => in_array($agent_input['model'] ?? '', $registry_keys, true) ? $agent_input['model'] : '',
-                    'effort'       => in_array($agent_input['effort'] ?? '', $effort_levels, true)
-                        ? $agent_input['effort'] : $stored['effort'],
-                ];
+        if (current_user_can('pqm_manage_settings')) {
+            // Admin-only sections: n8n Connection, AI Model, AI Prompts &
+            // Context, Monthly Quota.
+            $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
+            $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
+            $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
+            $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
+            $voice_keys = array_merge(array_keys(pqm_voice_presets()), ['custom']);
+            $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? '', $voice_keys, true) ? $input['brand_voice_preset'] : $defaults['brand_voice_preset'];
+            $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
+            $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
+            // 0 = unlimited; absint also maps negative input to a sane value.
+            $clean['author_quota'] = absint($input['author_quota'] ?? $defaults['author_quota']);
+            $clean['default_model'] = in_array($input['default_model'] ?? '', array_merge($registry_keys, ['custom']), true)
+                ? $input['default_model'] : $defaults['default_model'];
+            // Model IDs are plain slugs (letters, digits, dot, dash, underscore, colon).
+            $clean['custom_model'] = (string) preg_replace('/[^A-Za-z0-9._:-]/', '', $input['custom_model'] ?? '');
+        }
+        else {
+            // The saver never saw these sections — keep what is stored.
+            $admin_only_keys = [
+                'n8n_webhook_url', 'webhook_token', 'notification_url',
+                'blog_profile', 'brand_voice_preset', 'brand_voice',
+                'website_context', 'author_quota', 'default_model', 'custom_model',
+            ];
+            foreach ($admin_only_keys as $key) {
+                $clean[$key] = $existing[$key];
             }
+        }
+
+        if (PQM_Features::is_pro()) {
+            // Plan-gated sections: Automated Reviews + Agent-Specific Overrides.
+            $clean['cron_enabled'] = !empty($input['cron_enabled']);
+            $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
+                ? $input['cron_frequency'] : $defaults['cron_frequency'];
+            $clean['cron_batch_size'] = absint($input['cron_batch_size'] ?? $defaults['cron_batch_size']);
+            $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
+            $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
+            $clean['cron_command'] = $defaults['cron_command'];
+
+            $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
+            // Locked knobs (model doesn't support them) render disabled and are absent
+            // from the POST — fall back to the stored value, not the default.
+            $clean['agent_prompts'] = [];
+            foreach (array_keys($defaults['agent_prompts']) as $agent) {
+                if (isset($input['agent_prompts'][$agent])) {
+                    $agent_input = $input['agent_prompts'][$agent];
+                    $stored      = $existing['agent_prompts'][$agent] ?? $defaults['agent_prompts'][$agent];
+                    $clean['agent_prompts'][$agent] = [
+                        'instructions' => sanitize_textarea_field($agent_input['instructions'] ?? ''),
+                        'temperature'  => (float) ($agent_input['temperature'] ?? $stored['temperature']),
+                        'model'        => in_array($agent_input['model'] ?? '', $registry_keys, true) ? $agent_input['model'] : '',
+                        'effort'       => in_array($agent_input['effort'] ?? '', $effort_levels, true)
+                            ? $agent_input['effort'] : $stored['effort'],
+                    ];
+                }
+            }
+        }
+        else {
+            // On a free site both sections render inside a disabled fieldset, so
+            // nothing of them POSTs — carry the stored values wholesale (never
+            // per field: an absent cron_enabled must not read as "unchecked").
+            $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
+            foreach ($cron_keys as $key) {
+                $clean[$key] = $existing[$key];
+            }
+            $clean['agent_prompts'] = $existing['agent_prompts'];
         }
 
         return $clean;
@@ -348,10 +415,12 @@ class PQM_Admin
 
             <?php
             // Nudge toward the habit loop: first result is in, cron still off.
+            // Pro only — on a free site the Automated Reviews section is locked.
             $show_cron_nudge = (int) $stats['reviewed'] > 0
                 && empty($settings['cron_enabled'])
                 && !get_option('pqm_cron_nudge_dismissed')
-                && current_user_can('pqm_manage_settings');
+                && current_user_can('pqm_manage_settings')
+                && PQM_Features::is_pro();
             if ($show_cron_nudge):
                 $cron_url    = admin_url('admin.php?page=pqm-settings#pqm-cron-settings');
                 $dismiss_url = wp_nonce_url(add_query_arg('pqm_dismiss_cron_nudge', '1'), 'pqm_dismiss_cron_nudge');
@@ -632,6 +701,13 @@ class PQM_Admin
     {
         $settings = pqm_get_settings();
         $workflow_page_url = admin_url('admin.php?page=pqm-workflow');
+        $registry = pqm_model_registry();
+        // Section gates (CAP-3 access matrix): the global sections are hidden
+        // without pqm_manage_settings; the paid sections (Agent-Specific
+        // Overrides, Automated Reviews) render visible but locked on a free
+        // site. Role-hidden beats plan-locked, mirroring PQM_Features::why_not().
+        $can_manage_settings = current_user_can('pqm_manage_settings');
+        $is_pro = PQM_Features::is_pro();
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
@@ -643,7 +719,7 @@ class PQM_Admin
             </div>
             <?php endif; ?>
 
-            <?php if (empty($settings['n8n_webhook_url'])): ?>
+            <?php if ($can_manage_settings && empty($settings['n8n_webhook_url'])): ?>
             <div class="notice notice-info inline pqm-inline-notice">
                 <p>
                     <?php esc_html_e('New here? Generate and import the review workflow first, then come back to paste its webhook URL.', 'post-quality-manager'); ?>
@@ -655,6 +731,7 @@ class PQM_Admin
             <form method="post" action="options.php">
                 <?php settings_fields('pqm_settings_group'); ?>
 
+                <?php if ($can_manage_settings): ?>
                 <!-- n8n Connection -->
                 <h2><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php
@@ -705,7 +782,6 @@ class PQM_Admin
                     <tr>
                         <th><label for="pqm_default_model"><?php esc_html_e('Default Model', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <?php $registry = pqm_model_registry(); ?>
                             <select id="pqm_default_model" name="pqm_settings[default_model]">
                                 <?php foreach ($registry as $model_id => $model): ?>
                                     <option value="<?php echo esc_attr($model_id); ?>" <?php selected($settings['default_model'], $model_id); ?>>
@@ -791,8 +867,20 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                <?php endif; // pqm_manage_settings ?>
 
-                <h3 class="pqm-section-gap"><?php esc_html_e('Agent-Specific Overrides', 'post-quality-manager'); ?></h3>
+                <!-- Agent-Specific Overrides (paid: locked, not hidden, on a free site) -->
+                <h2 class="pqm-section-gap"><?php
+                    esc_html_e('Agent-Specific Overrides', 'post-quality-manager');
+                    if (!$is_pro): ?> <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"></span><?php endif;
+                ?></h2>
+                <?php if (!$is_pro): ?>
+                <p class="description pqm-locked-note"><?php esc_html_e('Available with Pro. Upgrade to unlock per-agent overrides — Review and Takeaways stay free.', 'post-quality-manager'); ?></p>
+                <?php /* One disabled ancestor fieldset keeps every inner control
+                       inert and out of the POST, whatever the model-caps JS
+                       toggles on the controls themselves. */ ?>
+                <fieldset disabled class="pqm-locked-section">
+                <?php endif; ?>
                 <p class="description pqm-agents-intro"><?php esc_html_e('Optionally pick a different model, adjust how it works, and add instructions per agent. Only the controls the selected model supports are shown. Changes apply on the next command — no n8n re-import needed.', 'post-quality-manager'); ?></p>
 
                 <?php
@@ -820,7 +908,12 @@ class PQM_Admin
                                     <select id="pqm_agent_model_<?php echo esc_attr($key); ?>"
                                             name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][model]"
                                             class="pqm-agent-model">
-                                        <option value=""><?php esc_html_e('Default (use the AI Model above)', 'post-quality-manager'); ?></option>
+                                        <option value=""><?php
+                                        // The "above" wording only makes sense when the AI Model section is on the page.
+                                        echo esc_html($can_manage_settings
+                                            ? __('Default (use the AI Model above)', 'post-quality-manager')
+                                            : __('Default (site default model)', 'post-quality-manager'));
+                                        ?></option>
                                         <?php foreach ($registry as $model_id => $model): ?>
                                             <option value="<?php echo esc_attr($model_id); ?>" <?php selected($agent_data['model'], $model_id); ?>>
                                                 <?php echo esc_html($model['label']); ?>
@@ -882,9 +975,17 @@ class PQM_Admin
                         </table>
                     </details>
                 <?php endforeach; ?>
+                <?php if (!$is_pro): ?></fieldset><?php endif; ?>
 
-                <!-- Cron Settings -->
-                <h2 id="pqm-cron-settings"><?php esc_html_e('Automated Reviews (Cron)', 'post-quality-manager'); ?></h2>
+                <!-- Automated Reviews (paid: locked, not hidden, on a free site) -->
+                <h2 id="pqm-cron-settings" class="pqm-section-gap"><?php
+                    esc_html_e('Automated Reviews (Cron)', 'post-quality-manager');
+                    if (!$is_pro): ?> <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"></span><?php endif;
+                ?></h2>
+                <?php if (!$is_pro): ?>
+                <p class="description pqm-locked-note"><?php esc_html_e('Available with Pro. Upgrade to let reviews run on a schedule.', 'post-quality-manager'); ?></p>
+                <fieldset disabled class="pqm-locked-section">
+                <?php endif; ?>
                 <table class="form-table">
                     <tr>
                         <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
@@ -942,9 +1043,11 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                <?php if (!$is_pro): ?></fieldset><?php endif; ?>
 
+                <?php if ($can_manage_settings): ?>
                 <!-- Author Quota -->
-                <h2 id="pqm-quota-settings"><?php esc_html_e('Monthly Quota', 'post-quality-manager'); ?></h2>
+                <h2 id="pqm-quota-settings" class="pqm-section-gap"><?php esc_html_e('Monthly Quota', 'post-quality-manager'); ?></h2>
                 <table class="form-table">
                     <tr>
                         <th><label for="pqm_author_quota"><?php esc_html_e('AI Actions per User', 'post-quality-manager'); ?></label></th>
@@ -956,6 +1059,7 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                <?php endif; // pqm_manage_settings ?>
 
                 <?php submit_button(); ?>
             </form>
