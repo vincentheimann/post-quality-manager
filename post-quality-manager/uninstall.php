@@ -20,6 +20,9 @@ delete_option( 'pqm_workflow_version_seen' );
 delete_option( 'pqm_cron_nudge_dismissed' );
 delete_option( 'pqm_caps_version' );
 
+// Per-user monthly usage counters (author quota, CAP-4) — all users.
+delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );
+
 // WordPress loads this file on its own, so pull in the capability map directly.
 require_once __DIR__ . '/includes/class-pqm-features.php';
 PQM_Features::remove_capabilities();

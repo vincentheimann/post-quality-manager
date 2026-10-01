@@ -80,7 +80,16 @@ a.pqm-stat-card:focus {
 .pqm-score-none   { background: #f1f5f9; color: #64748b; }
 
 /* ─── Filters ─────────────────────────────────────────────── */
-.pqm-filters { margin: 16px 0; display: flex; gap: 8px; }
+.pqm-filters { margin: 16px 0; display: flex; gap: 8px; align-items: center; }
+
+/* ─── Quota counter (CAP-4) ───────────────────────────────── */
+.pqm-quota-note {
+    color: #646970; font-size: 12px;
+    align-self: center; margin-left: auto;
+}
+.pqm-detail-actions .pqm-quota-note,
+.pqm-empty .pqm-quota-note { margin-left: 0; }
+.pqm-empty .pqm-quota-note { display: block; margin-top: 8px; }
 
 /* ─── Posts Table ─────────────────────────────────────────── */
 .pqm-posts-table .pqm-col-score,

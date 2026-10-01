@@ -483,8 +483,8 @@
         h += '<div class="pqm-detail-actions">';
         var lnk = editLink(postId);
         if (lnk) h += '<a href="' + lnk + '" class="button button-primary">Open in Editor</a> ';
-        h += actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '')
-            + '</div>';
+        var btn = actionBtn(postId, 'review', 'Re-run Review', 'dashicons-update', '');
+        h += btn + (btn ? quotaNote() : '') + '</div>';
 
         return h;
     }
@@ -506,8 +506,9 @@
         h += '</h4>';
         h += renderData(r.result_data || {}) || '<p class="pqm-data-none">No data returned.</p>';
         h += '</div>';
+        var btn = actionBtn(postId, cmd, 'Re-run ' + a.label, 'dashicons-update', '');
         h += '<div class="pqm-detail-actions">'
-            + actionBtn(postId, cmd, 'Re-run ' + a.label, 'dashicons-update', '')
+            + btn + (btn ? quotaNote() : '')
             + '</div>';
         return h;
     }
@@ -566,7 +567,8 @@
             h += '</p>';
             h += '<div class="pqm-detail-actions" style="justify-content: center; border-top: none; margin-top: 0; padding-top: 0;">';
             h += '<a href="' + editLnk + '" target="_blank" class="button button-primary">Review in Editor</a> ';
-            h += actionBtn(postId, 'rewrite', 'Regenerate Rewrite', 'dashicons-update', '');
+            var btn = actionBtn(postId, 'rewrite', 'Regenerate Rewrite', 'dashicons-update', '');
+            h += btn + (btn ? quotaNote() : '');
             h += '</div>';
             h += '</div>';
             return h;
@@ -634,6 +636,12 @@
             .then(function (r) { return r.json(); })
             .then(function (resp) {
                 if (resp.success) {
+                    // Live quota decrement: the server reports the remaining
+                    // count after a successful trigger (null when exempt).
+                    if (pqmAdmin.quota && resp.data && typeof resp.data.quota_remaining === 'number') {
+                        pqmAdmin.quota.remaining = resp.data.quota_remaining;
+                        refreshQuotaNotes();
+                    }
                     if (isApply) {
                         setBusy(postId, false);
                         closeModal();
@@ -819,9 +827,34 @@
      *  HELPERS
      * ================================================================ */
     function empty(icon, msg, postId, cmd, label) {
+        // Note only next to a rendered button: hidden commands return '' from
+        // actionBtn(), and a counter with nothing to click is just confusing.
+        var btn = actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary');
         return '<div class="pqm-empty"><span class="dashicons ' + icon + '"></span><p>' + esc(msg) + '</p>'
-            + actionBtn(postId, cmd, label, 'dashicons-update', 'button-primary')
+            + btn + (btn ? quotaNote() : '')
             + '</div>';
+    }
+
+    /* Remaining-actions counter next to the trigger buttons (CAP-4).
+     * pqmAdmin.quota is null for exempt/unlimited users — then no note. */
+    function quotaNoteText() {
+        var q = pqmAdmin.quota;
+        return (pqmAdmin.i18n.quotaNote || '%1$d of %2$d AI actions left this month')
+            .replace('%1$d', q.remaining)
+            .replace('%2$d', q.limit);
+    }
+
+    function quotaNote() {
+        if (!pqmAdmin.quota) return '';
+        return '<span class="pqm-quota-note">' + esc(quotaNoteText()) + '</span>';
+    }
+
+    /* Re-text every rendered note (detail panels + the Post Reviews header). */
+    function refreshQuotaNotes() {
+        if (!pqmAdmin.quota) return;
+        document.querySelectorAll('.pqm-quota-note').forEach(function (n) {
+            n.textContent = quotaNoteText();
+        });
     }
     function actionBtn(postId, cmd, label, icon, cls) {
         // Commands the user's role cannot run are not rendered at all —
