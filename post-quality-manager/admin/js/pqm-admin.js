@@ -566,7 +566,7 @@
             h += '</p>';
             h += '<div class="pqm-detail-actions" style="justify-content: center; border-top: none; margin-top: 0; padding-top: 0;">';
             h += '<a href="' + editLnk + '" target="_blank" class="button button-primary">Review in Editor</a> ';
-            h += '<button type="button" class="button" data-post-id="' + postId + '" data-pqm-cmd="rewrite"><span class="dashicons dashicons-update" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>Regenerate Rewrite</button>';
+            h += actionBtn(postId, 'rewrite', 'Regenerate Rewrite', 'dashicons-update', '');
             h += '</div>';
             h += '</div>';
             return h;
@@ -824,6 +824,15 @@
             + '</div>';
     }
     function actionBtn(postId, cmd, label, icon, cls) {
+        // Paid commands the site can't run yet render visible-but-locked:
+        // disabled, lock icon, upgrade copy — and no data-pqm-cmd, so a
+        // click can never fire a request.
+        if ((pqmAdmin.gatedCommands || []).indexOf(cmd) !== -1) {
+            var title = esc(pqmAdmin.i18n.lockedTitle || '').replace(/"/g, '&quot;');
+            return '<button type="button" class="button pqm-locked" disabled title="' + title + '">'
+                + '<span class="dashicons dashicons-lock" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'
+                + esc(label) + '</button>';
+        }
         return '<button type="button" class="button ' + cls + '" data-post-id="' + postId + '" data-pqm-cmd="' + cmd + '">'
             + '<span class="dashicons ' + icon + '" style="font-size:14px;width:14px;height:14px;line-height:20px;margin-right:4px"></span>'
             + esc(label) + '</button>';

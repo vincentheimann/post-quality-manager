@@ -130,7 +130,9 @@ class PQM_Admin
                 static fn($m) => ['temperature' => $m['supports_temperature'], 'effortLevels' => $m['effort_levels']],
                 pqm_model_registry()
             ),
+            'gatedCommands' => PQM_Features::gated_commands(),
             'i18n' => [
+                'lockedTitle' => __('Available with Pro. Upgrade to unlock this agent.', 'post-quality-manager'),
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
                 'saving' => __('Saving…', 'post-quality-manager'),
@@ -1230,7 +1232,7 @@ class PQM_Admin
         $response = PQM_REST_API::trigger_review_callback($request);
 
         if (is_wp_error($response)) {
-            wp_send_json_error($response->get_error_message());
+            wp_send_json_error($response->get_error_message(), (int) ($response->get_error_data()['status'] ?? 400));
         }
 
         // If the REST API call was successful, record a 'processing' status immediately.

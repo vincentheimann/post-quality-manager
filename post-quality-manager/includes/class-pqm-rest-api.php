@@ -339,6 +339,20 @@ class PQM_REST_API {
         $post_id = (int) $request->get_param( 'post_id' );
         $command = sanitize_key( $request->get_param( 'command' ) );
 
+        // Feature gate (CAP-1): one check for REST, AJAX and the GET
+        // fallback — paid commands are refused here, before any webhook.
+        if ( ! PQM_Features::can( $command ) ) {
+            return new WP_Error(
+                'pqm_feature_gated',
+                sprintf(
+                    /* translators: %s: agent command label, e.g. "Rewrite" */
+                    __( '%s is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.', 'post-quality-manager' ),
+                    'seo' === $command ? 'SEO' : ucfirst( $command )
+                ),
+                [ 'status' => 403 ]
+            );
+        }
+
         $post = get_post( $post_id );
         if ( ! $post || ! in_array( $post->post_status, [ 'publish', 'pending' ], true ) ) {
             return new WP_Error(

@@ -30,6 +30,7 @@ define('PQM_WORKFLOW_VERSION', 2);
 /* ─── Includes ───────────────────────────────────────────────────────── */
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-db.php';
+require_once PQM_PLUGIN_DIR . 'includes/class-pqm-features.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-cron.php';
 require_once PQM_PLUGIN_DIR . 'admin/class-pqm-admin.php';
