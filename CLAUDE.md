@@ -7,7 +7,7 @@
 Before any work, always:
 1. Read `memory/MEMORY.md` — index of durable project facts; open the linked files that are relevant to the task.
 2. Read `memory/lessons.md` — self-correction log; its rules override your defaults.
-3. Find the active work in the BMad ticket tree: `uv run _bmad/method/scripts/tickets.py --project-root . next` (ready / in-progress tickets of the active initiative) and `status _bmad-output/backlog` for standalone tickets. Resume an `in-progress` plan rather than starting fresh; ask the `bmad` skill when unsure what comes next.
+3. Find the active work in the BMad ticket tree: `uv run _bmad/method/scripts/tickets.py --project-root . status _bmad-output/backlog` (standalone tickets — where all ready work lives until an epic is incepted) and `… next` (the active initiative's stories; empty while its epics are still envelopes). Resume an `in-progress` plan rather than starting fresh; ask the `bmad` skill when unsure what comes next.
 
 After any user correction, append the pattern to `memory/lessons.md` (format is documented in the file). When a durable project fact changes (structure, conventions, decisions), update `memory/` in the same change — it is the canonical memory store and travels with the repo; agent-local memory is only a mirror of it.
 

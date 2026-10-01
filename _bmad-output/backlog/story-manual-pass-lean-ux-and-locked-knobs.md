@@ -15,7 +15,7 @@ risk: low
 
 ## Description
 
-Four commits shipped on 2026-07-24 (`70ca1ee`, `d8b960b`, `05ecf82`, `ea41e78`) with `php -l` / `node --check` clean but no manual pass; `docs/user-paths.md` marks their claims *pending validation*. A person runs the plugin on a WordPress install and either confirms each claim or files a bug. Migrated from the open `USER:` items in the retired `tasks/todo.md`.
+Four commits shipped on 2026-07-24 (`70ca1ee`, `d8b960b`, `05ecf82`, `ea41e78`) with `php -l` / `node --check` clean but no manual pass; `docs/user-paths.md` marks their claims *pending validation*. A person runs the plugin on a WordPress install and either confirms each claim or files a bug. Migrated from the 2026-07-24 `USER:` items in the retired `tasks/todo.md`; the older 2026-07-22/23 items are story 6 (`story-manual-pass-agnostic-and-llm-pivots.md`) — run both in one sitting.
 
 ## Acceptance Criteria
 

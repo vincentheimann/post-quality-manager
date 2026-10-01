@@ -13,6 +13,14 @@ persistent_facts = [
   "Never commit or push: present the change and let the user decide. Branches: feat/, fix/, chore/; Conventional Commits.",
 ]
 
+# House rules the vendored steps contradict (step-05-present.md and
+# step-oneshot.md both end with an unconditional local commit; no step checks
+# the branch). These run at activation and bind every later step of the run.
+activation_steps_append = [
+  "Branch guard: run `git branch --show-current`. If it prints `main`, HALT before any file change and ask the user for a branch name (prefix feat/, fix/ or chore/, derived from the intent); create it only after they answer. Never work on main.",
+  "Commit rule for this project: the user commits, never the agent. Wherever a later step of this workflow says to commit (step 05 'Commit and Complete', the oneshot 'Commit' section), do NOT run `git commit`; leave the files in the working tree, list the files touched, propose a Conventional Commits message derived from the plan title, and let the user commit. Report 'no commit (house rule)' where the step asks for a commit hash.",
+]
+
 # House rule: a plan the user approves before code, except for small changes.
 # "full" writes the plan and halts at CHECKPOINT 1; "oneshot" implements directly.
 route_selection = """

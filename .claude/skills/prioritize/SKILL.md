@@ -10,5 +10,5 @@ description: EBM-based product grooming for the Post Quality Manager — rank wh
 3. Map each epic and backlog ticket to the journey stage and UV item it converts to Current Value (its `covers`); a candidate serving no stage is a scope-creep flag, not a priority
 4. Propose a shortlist (max 3) ranked by UV size × effort, each with: the stage it serves, the value it converts, and the signal that would prove it worked — recommend one
 5. Validate the pick with the user before planning anything
-6. Update the artifacts to match reality: move realized items UV → CV in `docs/user-paths.md`, reorder the epics in the initiative's `tickets.toml` (table order is build order), park or drop tickets in the initiative Notes, record any direction change via `/adr`
+6. Update the artifacts to match reality: move realized items UV → CV in `docs/user-paths.md`, reorder the epics in the initiative's `tickets.toml` (table order is build order); drop a ticket with `uv run _bmad/method/scripts/tickets.py --project-root . mark _bmad-output/backlog <id> dropped` (a Notes line alone leaves it listed as ready) and record *why* as a `Parked:`/`Decision:` line in the initiative Notes; record any direction change via `/adr`
 7. Hand off: an epic → `bmad-spec` (when the WHAT is not yet fixed) then `bmad-ticket` to incept it; a backlog ticket → `bmad-build`
