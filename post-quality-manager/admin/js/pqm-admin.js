@@ -61,8 +61,11 @@
      *  SETTINGS PAGE (presets, agent overrides)
      * ================================================================ */
     function initSettingsPage() {
+        /* Every block guards on its own elements: the Settings page renders
+         * only the sections the user's capability allows (e.g. Editors get
+         * the agent overrides without the AI Prompts & Context globals). */
         var contextArea = document.getElementById('pqm_website_context');
-        if (!contextArea) return; // Not on the settings page.
+        var voiceArea = document.getElementById('pqm_brand_voice');
 
         /* ─── Blog profile & voice presets ──────────────────────────
          * Presets are one-shot fills of the two editable fields; the
@@ -71,37 +74,38 @@
          * until the settings are saved. Manual edits flip the
          * selection back to Custom so a preset never claims text it
          * no longer matches. */
-        var voiceArea = document.getElementById('pqm_brand_voice');
-        var voicePresets = pqmAdmin.voicePresets || {};
+        if (contextArea && voiceArea) {
+            var voicePresets = pqmAdmin.voicePresets || {};
 
-        function checkRadio(selector, value) {
-            var radio = document.querySelector(selector + '[value="' + value + '"]');
-            if (radio) radio.checked = true;
+            var checkRadio = function (selector, value) {
+                var radio = document.querySelector(selector + '[value="' + value + '"]');
+                if (radio) radio.checked = true;
+            };
+
+            document.querySelectorAll('.pqm-blog-profile').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    var profile = (pqmAdmin.blogProfiles || {})[this.value];
+                    if (!profile || this.value === 'custom') return; // Custom overwrites nothing.
+                    contextArea.value = profile.website_context;
+                    voiceArea.value = voicePresets[profile.brand_voice_preset] || '';
+                    checkRadio('.pqm-voice-preset', profile.brand_voice_preset);
+                });
+            });
+
+            document.querySelectorAll('.pqm-voice-preset').forEach(function (preset) {
+                preset.addEventListener('change', function () {
+                    if (this.value === 'custom') return; // Keep whatever text is in the box.
+                    voiceArea.value = voicePresets[this.value] || '';
+                });
+            });
+
+            contextArea.addEventListener('input', function () {
+                checkRadio('.pqm-blog-profile', 'custom');
+            });
+            voiceArea.addEventListener('input', function () {
+                checkRadio('.pqm-voice-preset', 'custom');
+            });
         }
-
-        document.querySelectorAll('.pqm-blog-profile').forEach(function (radio) {
-            radio.addEventListener('change', function () {
-                var profile = (pqmAdmin.blogProfiles || {})[this.value];
-                if (!profile || this.value === 'custom') return; // Custom overwrites nothing.
-                contextArea.value = profile.website_context;
-                voiceArea.value = voicePresets[profile.brand_voice_preset] || '';
-                checkRadio('.pqm-voice-preset', profile.brand_voice_preset);
-            });
-        });
-
-        document.querySelectorAll('.pqm-voice-preset').forEach(function (preset) {
-            preset.addEventListener('change', function () {
-                if (this.value === 'custom') return; // Keep whatever text is in the box.
-                voiceArea.value = voicePresets[this.value] || '';
-            });
-        });
-
-        contextArea.addEventListener('input', function () {
-            checkRadio('.pqm-blog-profile', 'custom');
-        });
-        voiceArea.addEventListener('input', function () {
-            checkRadio('.pqm-voice-preset', 'custom');
-        });
 
         /* ─── Agent overrides: temperature sliders + reset ─────────── */
         document.querySelectorAll('.pqm-temp-range').forEach(function (range) {
@@ -138,9 +142,9 @@
      *  accepts; selects live-toggle temperature/effort per agent.
      * ================================================================ */
     function initModelControls() {
+        // Both controls belong to the AI Model section, absent on the reduced
+        // (Editor) view — the localized effective default fills in for them.
         var globalSelect = document.getElementById('pqm_default_model');
-        if (!globalSelect) return;
-
         var customField = document.getElementById('pqm_custom_model');
         var registry = pqmAdmin.modelRegistry || {};
 
@@ -149,13 +153,17 @@
             return registry[model] || { temperature: false, effortLevels: [] };
         }
 
+        function effectiveDefault() {
+            if (!globalSelect) return pqmAdmin.defaultModel || '';
+            return globalSelect.value === 'custom'
+                ? (customField ? customField.value.trim() : '')
+                : globalSelect.value;
+        }
+
         function refreshAgentBox(box) {
             var modelSelect = box.querySelector('.pqm-agent-model');
             if (!modelSelect) return;
-            var model = modelSelect.value;
-            if (!model) {
-                model = globalSelect.value === 'custom' ? customField.value.trim() : globalSelect.value;
-            }
+            var model = modelSelect.value || effectiveDefault();
             var c = caps(model);
 
             var tempRow = box.querySelector('.pqm-temp-row');
@@ -178,12 +186,14 @@
         }
 
         function refreshAll() {
-            customField.classList.toggle('pqm-hidden', globalSelect.value !== 'custom');
+            if (globalSelect && customField) {
+                customField.classList.toggle('pqm-hidden', globalSelect.value !== 'custom');
+            }
             document.querySelectorAll('.pqm-agent-box').forEach(refreshAgentBox);
         }
 
-        globalSelect.addEventListener('change', refreshAll);
-        customField.addEventListener('input', refreshAll);
+        if (globalSelect) globalSelect.addEventListener('change', refreshAll);
+        if (customField) customField.addEventListener('input', refreshAll);
         document.querySelectorAll('.pqm-agent-model').forEach(function (sel) {
             sel.addEventListener('change', function () {
                 refreshAgentBox(sel.closest('.pqm-agent-box'));

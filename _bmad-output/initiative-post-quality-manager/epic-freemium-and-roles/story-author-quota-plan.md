@@ -3,7 +3,7 @@ title: 'Author quota'
 type: 'feature'
 ticket: '4'
 created: '2026-10-01'
-status: 'built'
+status: done
 baseline_revision: 'a07bb90ced173e850484b83ac4da082691eebae8'
 route: 'full'
 route_source: 'auto'

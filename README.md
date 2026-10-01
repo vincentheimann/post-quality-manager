@@ -53,6 +53,16 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 | `/save-review` | POST | webhook token | Callback where n8n stores review results |
 | `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
 
+## Admin pages & capabilities
+
+Access is driven entirely by `pqm_*` capabilities (granted to Administrator/Editor/Author by default, remappable with any role editor — no code change needed):
+
+| Page | Capability |
+|---|---|
+| Dashboard, Post Reviews | `pqm_view_reviews` |
+| n8n Workflow | `pqm_manage_settings` |
+| Settings | `pqm_manage_agents` — the page shows only the sections the user may manage: n8n Connection, AI Model, AI Prompts & Context, and Monthly Quota additionally require `pqm_manage_settings`; Agent-Specific Overrides and Automated Reviews are visible to everyone on the page but locked until the site is on the Pro plan |
+
 ## Repository layout
 
 - `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, `templates/` with the n8n workflow template, entry point, uninstall)

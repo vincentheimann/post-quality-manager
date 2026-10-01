@@ -324,6 +324,14 @@ a.pqm-stat-card:focus {
 .pqm-temp-range { width: 200px; }
 .pqm-temp-value { font-weight: bold; width: 30px; }
 .pqm-temp-row.pqm-locked { opacity: .55; }
+
+/* Plan-locked settings sections: visible but inert (same tones as .pqm-locked) */
+.pqm-locked-section {
+    border: 0; margin: 0; padding: 0; min-inline-size: auto;
+    opacity: .55;
+}
+.pqm-section-lock { color: #787c82; vertical-align: text-bottom; }
+.pqm-locked-note { margin: 4px 0 12px; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
 
 /* ─── n8n Workflow page: per-agent request preview ─────────── */
