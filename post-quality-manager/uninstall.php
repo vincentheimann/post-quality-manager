@@ -1,7 +1,8 @@
 <?php
 /**
  * Fired when the plugin is uninstalled.
- * Drops the custom database table and removes plugin options.
+ * Drops the custom database table, removes plugin options and strips the
+ * pqm_* capabilities from every role.
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
@@ -17,6 +18,11 @@ delete_option( 'pqm_settings' );
 delete_option( 'pqm_db_version' );
 delete_option( 'pqm_workflow_version_seen' );
 delete_option( 'pqm_cron_nudge_dismissed' );
+delete_option( 'pqm_caps_version' );
+
+// WordPress loads this file on its own, so pull in the capability map directly.
+require_once __DIR__ . '/includes/class-pqm-features.php';
+PQM_Features::remove_capabilities();
 
 // Clear any scheduled cron events.
 wp_clear_scheduled_hook( 'pqm_cron_review_posts' );

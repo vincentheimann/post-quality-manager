@@ -1,6 +1,7 @@
 <?php
 /**
- * Plugin activation — creates the reviews database table.
+ * Plugin activation — creates the reviews database table and registers the
+ * plugin capabilities; maybe_upgrade() re-registers them on upgraded installs.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -14,6 +15,7 @@ class PQM_Activator {
      */
     public static function activate(): void {
         self::create_table();
+        self::register_capabilities();
 
         // Generate a default webhook token if none exists.
         $settings = get_option( 'pqm_settings', [] );
@@ -21,6 +23,25 @@ class PQM_Activator {
             $settings['webhook_token'] = wp_generate_uuid4();
             update_option( 'pqm_settings', $settings );
         }
+    }
+
+    /**
+     * Files replaced without reactivation never run activate(): hooked on
+     * `init` so the first request of an upgraded install registers any
+     * capability the stored version is behind on — Admins are never locked out.
+     */
+    public static function maybe_upgrade(): void {
+        if ( (int) get_option( 'pqm_caps_version', 0 ) < PQM_Features::CAPS_VERSION ) {
+            self::register_capabilities();
+        }
+    }
+
+    /**
+     * Grant the default pqm_* capability map and remember which version of it ran.
+     */
+    private static function register_capabilities(): void {
+        PQM_Features::register_capabilities();
+        update_option( 'pqm_caps_version', PQM_Features::CAPS_VERSION );
     }
 
     /**

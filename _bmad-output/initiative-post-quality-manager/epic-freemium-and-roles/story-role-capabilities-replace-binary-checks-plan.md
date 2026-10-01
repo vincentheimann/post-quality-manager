@@ -3,13 +3,13 @@ title: 'Role capabilities replace binary checks'
 type: 'feature'
 ticket: '2'
 created: '2026-10-01'
-status: 'in-progress'
+status: 'built'
 baseline_revision: 'e28c0bf8b42283ddfc42cfb5140997f60db298cf'
 route: 'full'
 route_source: 'pinned'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: ['{project-root}/docs/brand.md']
 ---
@@ -56,14 +56,14 @@ context: ['{project-root}/docs/brand.md']
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `post-quality-manager/includes/class-pqm-features.php` -- `CAPS_VERSION`, `capabilities()` (cap → default roles), `register_capabilities()`, `remove_capabilities()`, `why_not( $command ): ?string` (`'role'` | `'plan'` | null, role first), `can()` via it, `hidden_commands()`; registry values → `pqm_run_free_agents` / `pqm_run_paid_agents`; unknown-command fallback `pqm_run_free_agents` -- CAP-3 in one place.
-- [ ] `post-quality-manager/includes/class-pqm-activator.php` -- register caps + store version in `activate()`; `maybe_upgrade()` when behind -- no lock-out on upgrade.
-- [ ] `post-quality-manager/post-quality-manager.php` -- `init` hook -- upgrade runs for REST and cron requests too.
-- [ ] `post-quality-manager/includes/class-pqm-rest-api.php` -- permission callbacks, token-route fallbacks, role/plan gate copy -- REST enforcement.
-- [ ] `post-quality-manager/admin/class-pqm-admin.php` -- menu caps, options-page filter, AJAX/admin-post checks, Run Review button, `hiddenCommands` -- admin enforcement.
-- [ ] `post-quality-manager/admin/js/pqm-admin.js` -- hidden branch in `actionBtn()` -- role-gated buttons disappear.
-- [ ] `post-quality-manager/uninstall.php` -- remove caps + version option -- clean uninstall.
-- [ ] `memory/freemium-and-roles.md` -- cap names, default map, upgrade mechanism, hidden/locked split -- DoD.
+- [x] `post-quality-manager/includes/class-pqm-features.php` -- `CAPS_VERSION`, `capabilities()` (cap → default roles), `register_capabilities()`, `remove_capabilities()`, `why_not( $command ): ?string` (`'role'` | `'plan'` | null, role first), `can()` via it, `hidden_commands()`; registry values → `pqm_run_free_agents` / `pqm_run_paid_agents`; unknown-command fallback `pqm_run_free_agents` -- CAP-3 in one place.
+- [x] `post-quality-manager/includes/class-pqm-activator.php` -- register caps + store version in `activate()`; `maybe_upgrade()` when behind -- no lock-out on upgrade.
+- [x] `post-quality-manager/post-quality-manager.php` -- `init` hook -- upgrade runs for REST and cron requests too.
+- [x] `post-quality-manager/includes/class-pqm-rest-api.php` -- permission callbacks, token-route fallbacks, role/plan gate copy -- REST enforcement.
+- [x] `post-quality-manager/admin/class-pqm-admin.php` -- menu caps, options-page filter, AJAX/admin-post checks, Run Review button, `hiddenCommands` -- admin enforcement.
+- [x] `post-quality-manager/admin/js/pqm-admin.js` -- hidden branch in `actionBtn()` -- role-gated buttons disappear.
+- [x] `post-quality-manager/uninstall.php` -- remove caps + version option -- clean uninstall.
+- [x] `memory/freemium-and-roles.md` -- cap names, default map, upgrade mechanism, hidden/locked split -- DoD.
 
 **Acceptance Criteria:**
 - Given a fresh activation, when roles are inspected, then Admin holds all five caps, Editor all but `pqm_manage_settings`, Author `pqm_view_reviews` + `pqm_run_free_agents`, Contributor none.
@@ -72,9 +72,24 @@ context: ['{project-root}/docs/brand.md']
 
 ## Implementation Notes
 
+- 2026-10-01 — Implemented as planned. `PQM_Features` now owns `CAPS_VERSION = 1`, `capabilities()` (cap → default roles, exactly the access matrix), `register_capabilities()` (`get_role()->add_cap()`, skips roles missing on the site), `remove_capabilities()` (every role in `wp_roles()`), `why_not()` (role before plan; unknown commands fall back to `pqm_run_free_agents`), `can()` = `why_not() === null`, and `gated_commands()` / `hidden_commands()` built from one private `commands_refused_for( $reason )`, so they are disjoint by construction.
+- Activation/upgrade: `PQM_Activator::activate()` registers caps and stores `pqm_caps_version`; public `maybe_upgrade()` re-registers only when the stored version is behind `CAPS_VERSION`, hooked on `init` in the bootstrap (runs for REST and cron requests too). No `remove_cap` on deactivation. Reactivation re-grants the defaults (standard WP): grants a role editor added persist, removals from a default role come back on reactivate.
+- REST: `check_edit_posts()` replaced by `check_view_reviews()` (`/post-score`, `/reviews`) and public `check_can_trigger()` (any registry capability) for `/trigger-review`; `/save-review` WP-auth fallback → `pqm_run_free_agents`, `/workflow` → `pqm_manage_settings`; token paths untouched. Gate in `trigger_review_callback()` branches on `why_not()`: `'role'` → "%s is not available for your role. Ask an administrator to extend it.", `'plan'` → the existing upgrade copy; same `pqm_feature_gated` / 403 so the JS toast path is unchanged.
+- Admin: menus → `pqm_view_reviews` / `pqm_manage_settings`; `register_settings()` adds `option_page_capability_pqm_settings_group` → `pqm_manage_settings` (options.php otherwise guards the save with `manage_options`, which would 403 a remapped role on Save); cron nudge, `download_workflow()`, `ajax_save_webhook_url()`, `ajax_test_connection()` → `pqm_manage_settings`; `ajax_trigger_command()` → `PQM_REST_API::check_can_trigger()` (message now wrapped in `__()`). Post Reviews computes `$can_review = PQM_Features::can('review')` once before the loop and renders the Run Review button only when true. `wp_localize_script` ships `hiddenCommands` next to `gatedCommands`.
+- JS: `actionBtn()` returns `''` for `pqmAdmin.hiddenCommands` before the locked branch; the four callers concatenate, so nothing else changed.
+- Uninstall: `uninstall.php` requires `includes/class-pqm-features.php` directly (WordPress loads uninstall.php without the plugin bootstrap), calls `PQM_Features::remove_capabilities()` and deletes `pqm_caps_version`.
+- Verified: `php -l` clean on all six touched PHP files; `node --check` clean on `pqm-admin.js`; CLI harness with WP stubs (`WP_Role` / `wp_roles()` / `current_user_can` / `pqm_is_pro`) passed every check — `capabilities()` equals the access matrix; `maybe_upgrade()` registers the default map and stores the version, and is a no-op once current (a role editor's removal sticks); `why_not()` matrix for Admin / Editor / Author / Contributor × 8 commands × plan on/off; `hidden_commands()` ∩ `gated_commands()` = ∅ and hidden + gated + allowed = registry in every cell; `check_can_trigger()` / `check_view_reviews()` false only for Contributor; remapped Author (granted `pqm_run_paid_agents`) runs paid agents when licensed and is plan-locked (not hidden) when not; `remove_capabilities()` clears every role. Manual WP Admin pass (real roles, menus, role-editor remap, `pqm_caps_version` deletion) still pending — no WP install in this environment.
+
+- Review fixes 2026-10-01: `remove_capabilities()` strips caps unconditionally (explicit role-editor denies included); README REST table names the new capabilities. Lint + harness re-run clean after the patches.
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+### 2026-10-01 — quick lens, pass 1 (verdicts: 0 high, 1 medium, 1 low, 0 false, 0 maybe-false)
+
+- **low / patch** — `includes/class-pqm-features.php` `remove_capabilities()`: the `has_cap()` guard skips a cap a role editor stored as an explicit deny (`WP_Role::has_cap()` is `! empty()`, so a `false` entry reads as absent), leaving `pqm_* => false` keys in `wp_user_roles` after uninstall. Verified against WP core's `has_cap()` / `remove_cap()`; `remove_cap()` is safe on a missing key. Patch sent to the implementation agent: drop the guard.
+- **medium / patch** — `README.md` :51-54: the REST API table still names `edit_posts` as the Auth for `/post-score`, `/trigger-review` and `/reviews/{post_id}` while the diff swaps those permission callbacks; it is the one place a site owner learns which capability a route needs. Patch sent: `pqm_view_reviews` for the two GET routes, any `pqm_run_*` capability for `/trigger-review`.
 
 ## Design Notes
 

@@ -9,4 +9,4 @@ _Canonical, git-versioned memory for the Post Quality project. Agents: read this
 - [LLM options architecture](llm-options-architecture.md) — model registry + payload-driven request params + workflow version handshake; decisions locked 2026-07-23
 - [User paths](user-paths.md) — docs/user-paths.md is the EBM prioritization tool (CV/UV per journey stage) and the initiative's requirement source; read before product/UX decisions
 - [Agent conventions](agent-conventions.md) — KISS, BMad delivery (bmad-build plan checkpoint), lessons loop, never commit without asking; knowledge stores: ADRs (why) / memory (what) / tickets (doing) / skills (how)
-- [Freemium & roles](freemium-and-roles.md) — free (Review+Takeaways) vs paid, WP role mapping, one feature gate; decided 2026-09-22 via ADR 0003, epic envelope `epic-freemium-and-roles`, not ranked
+- [Freemium & roles](freemium-and-roles.md) — free (Review+Takeaways) vs paid, five `pqm_` capabilities with the default role map + versioned upgrade, one feature gate with hidden (role) vs locked (plan) split; decided 2026-09-22 via ADR 0003, epic `epic-freemium-and-roles` in progress (stories 1.1 and 2 built 2026-10-01)

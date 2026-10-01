@@ -24,7 +24,7 @@ class PQM_REST_API {
         register_rest_route( PQM_REST_NAMESPACE, '/post-score', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'post_score_callback' ],
-            'permission_callback' => [ __CLASS__, 'check_edit_posts' ],
+            'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
             'args'                => self::post_score_args(),
         ] );
 
@@ -40,14 +40,14 @@ class PQM_REST_API {
         register_rest_route( PQM_REST_NAMESPACE, '/reviews/(?P<post_id>\d+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'get_reviews_callback' ],
-            'permission_callback' => [ __CLASS__, 'check_edit_posts' ],
+            'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
         ] );
 
         // New: trigger a review via n8n.
         register_rest_route( PQM_REST_NAMESPACE, '/trigger-review', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'trigger_review_callback' ],
-            'permission_callback' => [ __CLASS__, 'check_edit_posts' ],
+            'permission_callback' => [ __CLASS__, 'check_can_trigger' ],
             'args'                => self::trigger_review_args(),
         ] );
 
@@ -69,8 +69,29 @@ class PQM_REST_API {
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
 
-    public static function check_edit_posts(): bool {
-        return current_user_can( 'edit_posts' );
+    /**
+     * Read access to scores and stored reviews (Dashboard / Post Reviews).
+     */
+    public static function check_view_reviews(): bool {
+        return current_user_can( 'pqm_view_reviews' );
+    }
+
+    /**
+     * May the current user trigger any agent at all? Holding any registry
+     * capability gets past the route; the per-command decision (tier and
+     * exact capability) is PQM_Features::can() inside the callback, which
+     * the AJAX handler and the GET fallback also reach.
+     */
+    public static function check_can_trigger(): bool {
+        $caps = array_unique( array_column( PQM_Features::registry(), 'capability' ) );
+
+        foreach ( $caps as $cap ) {
+            if ( current_user_can( $cap ) ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -79,7 +100,7 @@ class PQM_REST_API {
      */
     public static function check_webhook_token( WP_REST_Request $request ): bool {
         // Allow standard WP auth (Application Passwords).
-        if ( current_user_can( 'edit_posts' ) ) {
+        if ( current_user_can( 'pqm_run_free_agents' ) ) {
             return true;
         }
 
@@ -100,7 +121,7 @@ class PQM_REST_API {
      * arg instead of a header. Logged-in admins pass too.
      */
     public static function check_workflow_token( WP_REST_Request $request ): bool {
-        if ( current_user_can( 'manage_options' ) ) {
+        if ( current_user_can( 'pqm_manage_settings' ) ) {
             return true;
         }
 
@@ -339,16 +360,26 @@ class PQM_REST_API {
         $post_id = (int) $request->get_param( 'post_id' );
         $command = sanitize_key( $request->get_param( 'command' ) );
 
-        // Feature gate (CAP-1): one check for REST, AJAX and the GET
-        // fallback — paid commands are refused here, before any webhook.
-        if ( ! PQM_Features::can( $command ) ) {
+        // Feature gate (CAP-1 / CAP-3): one check for REST, AJAX and the GET
+        // fallback — gated commands are refused here, before any webhook.
+        // A role refusal gets role copy, a plan refusal the upgrade copy.
+        $refusal = PQM_Features::why_not( $command );
+        if ( $refusal !== null ) {
+            $label = 'seo' === $command ? 'SEO' : ucfirst( $command );
+
             return new WP_Error(
                 'pqm_feature_gated',
-                sprintf(
-                    /* translators: %s: agent command label, e.g. "Rewrite" */
-                    __( '%s is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.', 'post-quality-manager' ),
-                    'seo' === $command ? 'SEO' : ucfirst( $command )
-                ),
+                'role' === $refusal
+                    ? sprintf(
+                        /* translators: %s: agent command label, e.g. "Rewrite" */
+                        __( '%s is not available for your role. Ask an administrator to extend it.', 'post-quality-manager' ),
+                        $label
+                    )
+                    : sprintf(
+                        /* translators: %s: agent command label, e.g. "Rewrite" */
+                        __( '%s is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.', 'post-quality-manager' ),
+                        $label
+                    ),
                 [ 'status' => 403 ]
             );
         }

@@ -824,6 +824,11 @@
             + '</div>';
     }
     function actionBtn(postId, cmd, label, icon, cls) {
+        // Commands the user's role cannot run are not rendered at all —
+        // nothing to upsell. Every caller concatenates, so '' is safe.
+        if ((pqmAdmin.hiddenCommands || []).indexOf(cmd) !== -1) {
+            return '';
+        }
         // Paid commands the site can't run yet render visible-but-locked:
         // disabled, lock icon, upgrade copy — and no data-pqm-cmd, so a
         // click can never fire a request.

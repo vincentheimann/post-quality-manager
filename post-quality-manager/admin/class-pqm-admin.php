@@ -23,7 +23,7 @@ class PQM_Admin
         add_menu_page(
             __('Content Quality', 'post-quality-manager'),
             __('Content Quality', 'post-quality-manager'),
-            'edit_posts',
+            'pqm_view_reviews',
             'pqm-dashboard',
         [__CLASS__, 'render_dashboard'],
             'dashicons-chart-line',
@@ -34,7 +34,7 @@ class PQM_Admin
             'pqm-dashboard',
             __('Dashboard', 'post-quality-manager'),
             __('Dashboard', 'post-quality-manager'),
-            'edit_posts',
+            'pqm_view_reviews',
             'pqm-dashboard',
         [__CLASS__, 'render_dashboard']
         );
@@ -43,7 +43,7 @@ class PQM_Admin
             'pqm-dashboard',
             __('Post Reviews', 'post-quality-manager'),
             __('Post Reviews', 'post-quality-manager'),
-            'edit_posts',
+            'pqm_view_reviews',
             'pqm-posts',
         [__CLASS__, 'render_posts']
         );
@@ -52,7 +52,7 @@ class PQM_Admin
             'pqm-dashboard',
             __('n8n Workflow', 'post-quality-manager'),
             __('n8n Workflow', 'post-quality-manager'),
-            'manage_options',
+            'pqm_manage_settings',
             'pqm-workflow',
         [__CLASS__, 'render_workflow']
         );
@@ -61,7 +61,7 @@ class PQM_Admin
             'pqm-dashboard',
             __('Settings', 'post-quality-manager'),
             __('Settings', 'post-quality-manager'),
-            'manage_options',
+            'pqm_manage_settings',
             'pqm-settings',
         [__CLASS__, 'render_settings']
         );
@@ -131,6 +131,7 @@ class PQM_Admin
                 pqm_model_registry()
             ),
             'gatedCommands' => PQM_Features::gated_commands(),
+            'hiddenCommands' => PQM_Features::hidden_commands(),
             'i18n' => [
                 'lockedTitle' => __('Available with Pro. Upgrade to unlock this agent.', 'post-quality-manager'),
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
@@ -199,6 +200,10 @@ class PQM_Admin
             'type' => 'array',
             'sanitize_callback' => [__CLASS__, 'sanitize_settings'],
         ]);
+
+        // options.php guards the save with manage_options by default; align it
+        // with the Settings menu so a remapped role can both open and save.
+        add_filter('option_page_capability_pqm_settings_group', static fn(): string => 'pqm_manage_settings');
     }
 
     public static function sanitize_settings(array $input): array
@@ -271,7 +276,7 @@ class PQM_Admin
         // One-click dismissal of the scheduled-reviews nudge (persisted).
         if (isset($_GET['pqm_dismiss_cron_nudge'])
             && wp_verify_nonce($_GET['_wpnonce'] ?? '', 'pqm_dismiss_cron_nudge')
-            && current_user_can('manage_options')
+            && current_user_can('pqm_manage_settings')
         ) {
             update_option('pqm_cron_nudge_dismissed', 1, false);
         }
@@ -341,7 +346,7 @@ class PQM_Admin
             $show_cron_nudge = (int) $stats['reviewed'] > 0
                 && empty($settings['cron_enabled'])
                 && !get_option('pqm_cron_nudge_dismissed')
-                && current_user_can('manage_options');
+                && current_user_can('pqm_manage_settings');
             if ($show_cron_nudge):
                 $cron_url    = admin_url('admin.php?page=pqm-settings#pqm-cron-settings');
                 $dismiss_url = wp_nonce_url(add_query_arg('pqm_dismiss_cron_nudge', '1'), 'pqm_dismiss_cron_nudge');
@@ -436,6 +441,9 @@ class PQM_Admin
             update_postmeta_cache($post_ids); // one query for all rows instead of one per badge
         }
         $colspan = $yoast_active ? 7 : 6;
+
+        // Role-gated actions are hidden, not locked (review is free, so only the role can refuse it).
+        $can_review = PQM_Features::can('review');
 
         // Progress chips: canonical order + labels; only commands that ran get a chip.
         $cmd_order  = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
@@ -543,10 +551,12 @@ class PQM_Admin
                             </td>
                             <td class="pqm-cell-actions">
                                 <?php if (!$has_rev): ?>
+                                    <?php if ($can_review): ?>
                                     <button type="button" class="button button-primary button-small"
                                             data-post-id="<?php echo esc_attr($item['post_id']); ?>" data-pqm-cmd="review">
                                         <?php esc_html_e('Run Review', 'post-quality-manager'); ?>
                                     </button>
+                                    <?php endif; ?>
                                 <?php
                 else: ?>
                                     <button type="button" class="button button-small pqm-detail-toggle"
@@ -1110,7 +1120,7 @@ class PQM_Admin
      */
     public static function download_workflow(): void
     {
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('pqm_manage_settings')) {
             wp_die(esc_html__('Insufficient permissions.', 'post-quality-manager'));
         }
         check_admin_referer('pqm_download_workflow');
@@ -1140,7 +1150,7 @@ class PQM_Admin
     {
         check_ajax_referer('pqm_admin_action');
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('pqm_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
@@ -1166,7 +1176,7 @@ class PQM_Admin
     {
         check_ajax_referer('pqm_admin_action');
 
-        if (!current_user_can('manage_options')) {
+        if (!current_user_can('pqm_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
@@ -1215,8 +1225,10 @@ class PQM_Admin
     {
         check_ajax_referer('pqm_admin_action');
 
-        if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Insufficient permissions.', 403);
+        // Same route gate as POST /trigger-review; the per-command decision
+        // happens in trigger_review_callback() below.
+        if (!PQM_REST_API::check_can_trigger()) {
+            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
         $post_id = absint($_POST['post_id'] ?? 0);
