@@ -33,6 +33,7 @@ The plugin's PHP permission layer, settings UI and activation. Not the n8n templ
 
 ## References
 
+- requirements — _bmad-output/initiative-post-quality-manager/spec-freemium-and-roles/spec-freemium-and-roles.md (CAP-1…CAP-5, the ids `covers` maps to O1–O2) with companion access-matrix.md
 - decision — docs/adr/0003-freemium-plan-and-role-based-access.md
 - parent — _bmad-output/initiative-post-quality-manager/initiative-post-quality-manager.md, Requirements O1–O2
 - code — post-quality-manager/includes/ (REST permission callbacks) and post-quality-manager/admin/ (AJAX handlers, menus), the enforcement points
@@ -42,5 +43,9 @@ The plugin's PHP permission layer, settings UI and activation. Not the n8n templ
 
 - Decision: Author quota per user; paid license per site; cron runs are site-level and outside the per-user quota (user, 2026-09-22).
 - Open question: Freemius SDK size and revenue share vs alternatives — ADR 0003 accepts Freemius as default; re-open only if the spec finds a blocker.
-- Unknown: usage table vs per-month user meta for the quota; the spec decides, the DB schema grows either way.
-- Waits on `/prioritize` ranking against UV1–UV7 before inception (ADR 0003 consequence).
+- Unknown: usage table vs per-month user meta for the quota; carried on story 4, decided at its plan checkpoint, the DB schema grows either way.
+- Decision: ranked first by `/prioritize` and incepted into 8 stories from spec-freemium-and-roles (user, 2026-10-01).
+- Decision: tracer bullet is story 1 (feature gate tracer); single lane through admin/class-pqm-admin.php, build strictly in table order; no deferred scope (2026-10-01).
+- Decision: Editors get the four paid agents on a licensed site (user, 2026-10-01; spec OQ-1).
+- Decision: plan-gated features render visible but locked with upgrade copy, role-gated features stay hidden (user, 2026-10-01; spec OQ-2).
+- Decision: shipped default Author quota 20/month, Admin-configurable (user delegated to best practice, 2026-10-01; spec OQ-3).

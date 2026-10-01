@@ -1,8 +1,11 @@
 # Post Quality Manager — Agent Instructions
 
-## Orientation
+<!-- bmad:context -->
+<!-- Verified 2026-10-01 against a3781e6. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
-WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.0+ (REST API, Options API, WP-Cron), vanilla JS + jQuery in the admin. Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`. You are an expert WordPress plugin developer and UI/UX specialist writing secure, performant, maintainable code under KISS.
+## Post Quality Manager
+
+WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.0+ (REST API, Options API, WP-Cron), vanilla JS + jQuery in the admin. Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`.
 
 ## Policy
 
@@ -15,9 +18,9 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 
 ## Where things are
 
-- `post-quality-manager/` — the distributable plugin: `admin/` (dashboard, settings, AJAX), `includes/` (DB, REST API, cron), `templates/n8n-workflow.json` (canonical workflow template, `__PQM_*__` placeholders filled by `PQM_Admin::download_workflow()`), `post-quality-manager.php`, `uninstall.php`.
+- `post-quality-manager/` — the distributable plugin: `admin/` (dashboard, settings, AJAX), `includes/` (DB, REST API, cron), `templates/n8n-workflow.json` (canonical workflow template, `__PQM_*__` placeholders filled by `PQM_Admin::download_workflow()`), `post-quality-manager.php`, `uninstall.php`. The workflow calls the Claude API directly from n8n Code/HTTP nodes.
 - `n8n/workflow-diagram.md` — Mermaid overview of webhook → n8n → Claude → WordPress.
-- `_bmad-output/initiative-post-quality-manager/` — the product initiative: requirements (UV1–UV7 from `docs/user-paths.md`, O1–O4 owner requests), epic envelopes in `tickets.toml`; `_bmad-output/backlog/` — standalone tickets. `uv run _bmad/method/scripts/tickets.py status` / `next` read them.
+- `_bmad-output/initiative-post-quality-manager/` — the product initiative: requirements (UV1–UV7 from `docs/user-paths.md`, O1–O4 owner requests), epic envelopes in `tickets.toml`; `_bmad-output/backlog/` — standalone tickets. Git is the ticket store; `uv run _bmad/method/scripts/tickets.py status` / `next` read them.
 - `_bmad/` — BMad runtime and config; team overrides in `_bmad/custom/*.toml` (committed), personal ones in `*.user.toml` (ignored).
 - `docs/adr/` — why we decided (immutable, supersede never rewrite; `/adr`); `docs/user-paths.md` — the EBM prioritization tool (`/prioritize`); `docs/brand.md` — copy rules.
 - `memory/` — what is true now: `MEMORY.md` index, one file per durable fact, `lessons.md` the self-correction log whose rules override your defaults. Read at session start; update in the same change that makes a fact true.
@@ -46,3 +49,5 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 - Workflows imported before 2026-07-22 route `ping` to the Error Fallback; the template-version handshake on the n8n Workflow page is how users learn to re-download.
 - The former companion "Post Quality API" plugin was retired 2026-07-23; this plugin's `post-quality/v1/post-score` endpoint is canonical. Do not re-create the standalone plugin.
 - Prefer a clarifying question to a large speculative change; use subagents for research and exploration to keep the main context clean.
+
+<!-- /bmad:context -->

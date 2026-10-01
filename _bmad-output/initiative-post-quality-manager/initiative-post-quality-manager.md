@@ -63,6 +63,7 @@ The WordPress plugin, its REST contract and the n8n workflow template it ships. 
 
 - Decision: lightweight BMad — build/spec/ticket/review/retrospective only, no PRD or architecture layer (user, 2026-10-01, ADR 0004).
 - Decision: O1 and O2 are the first epic to be spec'd and incepted, but only after `/prioritize` ranks them against UV1–UV7 (ADR 0003 consequence; user, 2026-09-22).
+- Decision: `/prioritize` 2026-10-01 — `epic-freemium-and-roles` confirmed first (owner priority O1/O2 per ADR 0003; also the gate WordPress.org distribution waits on). EBM runner-up on pure UV size: `epic-ebm-telemetry` (UV1). The hitl manual passes (backlog stories 1 and 6, UV2/UV4 — the cheapest UV→CV conversions) stay with the owner in parallel; story 6 gates the first release.
 - Parked: wizard-style workflow *builder* (assemble the n8n graph from blocks) — KISS, the config-injected export is the locked MVP approach; the setup *flow* wizard already exists.
 - Parked: per-agent custom free-text model IDs — the global Custom ID exists; add per-agent only on a real need (six extra fields otherwise).
 - Parked: WordPress.org distribution (readme.txt, screenshots, i18n, GPL asset review) — UV7, after the freemium gate exists (ADR 0003: GitHub Releases first).
