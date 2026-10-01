@@ -5,4 +5,7 @@ __pycache__/
 # Transient answer file bmad setup writes and deletes
 .bmad-help-setup-modules.toml
 
+# bmad-build's rendered workflow snapshots (regenerated on every run)
+_bmad/render/
+
 # Personal BMad overrides are ignored by _bmad/custom/.gitignore (*.user.toml)
