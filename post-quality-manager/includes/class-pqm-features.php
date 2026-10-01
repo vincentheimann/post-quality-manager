@@ -121,6 +121,101 @@ class PQM_Features {
         return self::why_not( $command ) === null;
     }
 
+    /* ─── Author quota (spec CAP-4) ──────────────────────────────────── */
+
+    /**
+     * Per-user monthly usage lives in one self-resetting user-meta entry:
+     * [ 'month' => 'YYYY-MM', 'count' => N ]. A stored month that differs
+     * from the current one reads as zero and is overwritten on the next
+     * increment — no cron, no usage table.
+     */
+    const USAGE_META_KEY = 'pqm_monthly_usage';
+
+    /**
+     * Quota applies to users who cannot run paid agents. Granting a role
+     * (or user) pqm_run_paid_agents therefore lifts the quota too — no
+     * extra capability, CAPS_VERSION unchanged.
+     */
+    public static function is_quota_subject(): bool {
+        return ! current_user_can( 'pqm_run_paid_agents' );
+    }
+
+    /**
+     * Quota snapshot for the current user, or null when no quota applies
+     * (exempt user, or the Admin set the limit to 0 = unlimited).
+     *
+     * @return array{limit:int,used:int,remaining:int,resets:string}|null
+     */
+    public static function quota_state(): ?array {
+        if ( ! self::is_quota_subject() ) {
+            return null;
+        }
+
+        $limit = (int) ( pqm_get_settings()['author_quota'] ?? 0 );
+        if ( $limit < 1 ) {
+            return null;
+        }
+
+        $used = self::usage_this_month( get_current_user_id() );
+
+        return [
+            'limit'     => $limit,
+            'used'      => $used,
+            'remaining' => max( 0, $limit - $used ),
+            'resets'    => self::quota_reset_date(),
+        ];
+    }
+
+    /**
+     * Record one successful manual trigger for the current user. Called
+     * only after the n8n webhook answered 2xx — a refusal or an
+     * unreachable n8n never spends quota. No-op for exempt/unlimited.
+     */
+    public static function consume_quota(): void {
+        $state = self::quota_state();
+        if ( $state === null ) {
+            return;
+        }
+
+        update_user_meta( get_current_user_id(), self::USAGE_META_KEY, [
+            'month' => self::current_month(),
+            'count' => $state['used'] + 1,
+        ] );
+    }
+
+    /**
+     * Usage count for the current calendar month; a stale entry from an
+     * earlier month reads as zero (the self-reset).
+     */
+    private static function usage_this_month( int $user_id ): int {
+        $usage = get_user_meta( $user_id, self::USAGE_META_KEY, true );
+
+        if ( ! is_array( $usage ) || ( $usage['month'] ?? '' ) !== self::current_month() ) {
+            return 0;
+        }
+
+        return max( 0, (int) ( $usage['count'] ?? 0 ) );
+    }
+
+    /**
+     * Current calendar month in the site timezone, e.g. '2026-10'.
+     */
+    private static function current_month(): string {
+        return wp_date( 'Y-m' );
+    }
+
+    /**
+     * First day of the next month, formatted with the site's date format —
+     * the "resets on" date shown in quota copy.
+     */
+    private static function quota_reset_date(): string {
+        $first_of_next_month = ( new DateTimeImmutable( 'now', wp_timezone() ) )
+            ->modify( 'first day of next month' )
+            ->setTime( 0, 0 );
+
+        return wp_date( get_option( 'date_format', 'F j, Y' ), $first_of_next_month->getTimestamp() );
+    }
+
     /**
      * Registry commands locked by the plan only — shipped to the admin JS
      * so paid buttons render visible-but-locked with upgrade copy.

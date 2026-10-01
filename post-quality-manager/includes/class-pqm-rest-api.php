@@ -384,6 +384,23 @@ class PQM_REST_API {
             );
         }
 
+        // Author quota (CAP-4): checked after the gate — role/plan refusals
+        // keep priority — and before any webhook call. Cron posts to n8n
+        // directly and never enters this callback, so it stays quota-free.
+        $quota = PQM_Features::quota_state();
+        if ( $quota !== null && $quota['remaining'] < 1 ) {
+            return new WP_Error(
+                'pqm_quota_exceeded',
+                sprintf(
+                    /* translators: 1: monthly quota limit, 2: reset date, e.g. "November 1, 2026" */
+                    __( 'Monthly limit reached (%1$d of %1$d AI actions used). Your quota resets on %2$s — or ask an administrator to raise it.', 'post-quality-manager' ),
+                    $quota['limit'],
+                    $quota['resets']
+                ),
+                [ 'status' => 429 ]
+            );
+        }
+
         $post = get_post( $post_id );
         if ( ! $post || ! in_array( $post->post_status, [ 'publish', 'pending' ], true ) ) {
             return new WP_Error(
@@ -413,10 +430,19 @@ class PQM_REST_API {
 
         $status_code = wp_remote_retrieve_response_code( $response );
 
+        // Quota is spent only on success: n8n answered 2xx, so API money
+        // is being spent. A failed webhook never costs the user an action.
+        if ( $status_code >= 200 && $status_code < 300 ) {
+            PQM_Features::consume_quota();
+            $quota = PQM_Features::quota_state();
+        }
+
         return new WP_REST_Response( [
-            'success'     => $status_code >= 200 && $status_code < 300,
-            'message'     => sprintf( 'Review triggered for "%s" (command: %s).', $post->post_title, $command ),
-            'n8n_status'  => $status_code,
+            'success'         => $status_code >= 200 && $status_code < 300,
+            'message'         => sprintf( 'Review triggered for "%s" (command: %s).', $post->post_title, $command ),
+            'n8n_status'      => $status_code,
+            // Post-trigger remaining count; null for exempt/unlimited users.
+            'quota_remaining' => $quota !== null ? $quota['remaining'] : null,
         ], 200 );
     }
 

@@ -78,6 +78,8 @@ function pqm_default_settings(): array
         'cron_min_score' => 60,
         'cron_max_age_days' => 30,
         'cron_command' => 'review',
+        // Monthly manual-trigger limit per quota-subject user; 0 = unlimited (CAP-4).
+        'author_quota' => 20,
         'default_model' => 'claude-sonnet-4-6',
         'custom_model' => '',
         // Per-agent: 'model' => '' means "use the default model above".

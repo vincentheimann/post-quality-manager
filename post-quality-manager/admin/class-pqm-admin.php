@@ -132,8 +132,11 @@ class PQM_Admin
             ),
             'gatedCommands' => PQM_Features::gated_commands(),
             'hiddenCommands' => PQM_Features::hidden_commands(),
+            'quota' => PQM_Features::quota_state(),
             'i18n' => [
                 'lockedTitle' => __('Available with Pro. Upgrade to unlock this agent.', 'post-quality-manager'),
+                /* translators: 1: remaining AI actions, 2: monthly limit */
+                'quotaNote' => __('%1$d of %2$d AI actions left this month', 'post-quality-manager'),
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
                 'saving' => __('Saving…', 'post-quality-manager'),
@@ -226,6 +229,8 @@ class PQM_Admin
         $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
         $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
         $clean['cron_command'] = $defaults['cron_command'];
+        // 0 = unlimited; absint also maps negative input to a sane value.
+        $clean['author_quota'] = absint($input['author_quota'] ?? $defaults['author_quota']);
 
         $registry_keys = array_keys(pqm_model_registry());
         $clean['default_model'] = in_array($input['default_model'] ?? '', array_merge($registry_keys, ['custom']), true)
@@ -397,6 +402,16 @@ class PQM_Admin
                         __('Review triggered for "%s". Results will appear here shortly.', 'post-quality-manager'),
                         get_the_title($post_id)
                     );
+                    // The localized pqmAdmin.quota snapshot was captured on
+                    // admin_enqueue_scripts, before this trigger consumed an
+                    // action — refresh it so JS-rendered notes match the PHP
+                    // one (the script prints in the footer, so inline data
+                    // added here still lands).
+                    wp_add_inline_script(
+                        'pqm-admin',
+                        'pqmAdmin.quota = ' . wp_json_encode(PQM_Features::quota_state()) . ';',
+                        'after'
+                    );
                 }
             }
             else {
@@ -470,6 +485,15 @@ class PQM_Admin
                    class="button <?php echo $filter === 'needs_review' ? 'button-primary' : ''; ?>">
                     <?php esc_html_e('Needs Review', 'post-quality-manager'); ?>
                 </a>
+                <?php $quota = PQM_Features::quota_state(); ?>
+                <?php if ($quota !== null): ?>
+                    <span class="pqm-quota-note"><?php echo esc_html(sprintf(
+                        /* translators: 1: remaining AI actions, 2: monthly limit */
+                        __('%1$d of %2$d AI actions left this month', 'post-quality-manager'),
+                        $quota['remaining'],
+                        $quota['limit']
+                    )); ?></span>
+                <?php endif; ?>
             </div>
 
             <table class="widefat fixed striped pqm-posts-table">
@@ -919,6 +943,20 @@ class PQM_Admin
                     </tr>
                 </table>
 
+                <!-- Author Quota -->
+                <h2 id="pqm-quota-settings"><?php esc_html_e('Monthly Quota', 'post-quality-manager'); ?></h2>
+                <table class="form-table">
+                    <tr>
+                        <th><label for="pqm_author_quota"><?php esc_html_e('AI Actions per User', 'post-quality-manager'); ?></label></th>
+                        <td>
+                            <input type="number" id="pqm_author_quota" name="pqm_settings[author_quota]"
+                                   value="<?php echo esc_attr($settings['author_quota']); ?>"
+                                   min="0" step="1" class="small-text" />
+                            <p class="description"><?php esc_html_e('Monthly limit of manual AI actions for users without the paid-agents capability. Set 0 for unlimited. Scheduled reviews are not counted.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
                 <?php submit_button(); ?>
             </form>
         </div>
@@ -1250,7 +1288,11 @@ class PQM_Admin
         // If the REST API call was successful, record a 'processing' status immediately.
         // The actual review results will come back via the webhook.
         PQM_DB::save_review($post_id, $command, 0, 'processing', ['summary' => __('Running asynchronously in n8n...', 'post-quality-manager')]);
-        wp_send_json_success(['message' => __('Command triggered in n8n.', 'post-quality-manager')]);
+        wp_send_json_success([
+            'message' => __('Command triggered in n8n.', 'post-quality-manager'),
+            // Post-trigger remaining count from the REST callback; null for exempt/unlimited.
+            'quota_remaining' => $response->get_data()['quota_remaining'] ?? null,
+        ]);
     }
 
     /* ─── Helpers ─────────────────────────────────────────────────────── */
