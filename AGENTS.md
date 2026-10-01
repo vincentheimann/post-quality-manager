@@ -9,7 +9,7 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 
 ## Policy
 
-- Never commit to `main`; branches `feat/`, `fix/`, `chore/`; Conventional Commits (`feat(admin): add bulk action button`); draft PR for anything touching 3+ files.
+- Never commit to `main`; branches `feat/`, `fix/`, `chore/`; Conventional Commits (`feat(admin): add bulk action button`); draft PR for anything touching 3+ files. Sole exception (owner, 2026-10-01): right after a story PR merges, the one-line `chore(tickets)` status flip of that story's plan may be committed directly to main — nothing else ever is.
 - Never commit, push, delete or rename files, change the DB schema or file hierarchy, or add a Composer dependency without asking first. Reading, listing, and creating new classes, functions or admin pages need no permission.
 - Plans before code: anything beyond a small change goes through `bmad-build`'s plan checkpoint (`_bmad/custom/bmad-build.toml` routes >100 lines, >3 files, or any schema / REST / template change to the "full" route). If something goes sideways mid-build, stop and re-plan; don't keep pushing.
 - Bug reports: find the root cause and fix it without hand-holding; no symptom patches, no temporary fixes.
@@ -29,10 +29,11 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 
 ## Running and verifying
 
-- `php -l <file>` on every touched PHP file (PHP 8.3 CLI installed via winget; use the full path in a stale shell); `node --check` on every touched JS file. No automated test suite exists: verify manually in WP Admin (loading and error states included) and with REST calls (200, correct JSON, `permission_callback`).
+- `php -l <file>` on every touched PHP file (PHP 8.3 CLI installed via winget; use the full path in a stale shell); `node --check` on every touched JS file.
+- CLI regression harnesses live in `tests/harness/` (plain PHP + WP stubs, no WP install): run them all (`for f in tests/harness/*.php; do php "$f" || break; done`) after touching gate, quota, or settings code, and add or extend one whenever a story's plan carries an I/O & Edge-Case Matrix. Real WP Admin behavior is still verified manually (loading and error states included) and with REST calls (200, correct JSON, `permission_callback`).
 - When a REST route or the webhook payload changes, check `post-quality-manager/templates/n8n-workflow.json` for a matching change, and vice versa. Never put site-specific values in the template.
 - BMad scripts run with `uv run` (`uv` 0.11+ installed); never run a workflow source file directly — `bmad-build`'s `SKILL.md` renders it first.
-- Definition of Done: KISS; `php -l` / `node --check` clean; no WP debug errors or warnings; REST endpoints answer correctly with permissions; UI loading/error states handled; durable facts updated in `memory/`, significant decisions recorded via `/adr`, `docs/user-paths.md` adjusted when Unrealized Value became Current Value. Ask "would a staff engineer approve this?" before presenting.
+- Definition of Done: KISS; `php -l` / `node --check` clean; every harness in `tests/harness/` green; no WP debug errors or warnings; REST endpoints answer correctly with permissions; UI loading/error states handled; durable facts updated in `memory/`, significant decisions recorded via `/adr`, `docs/user-paths.md` adjusted when Unrealized Value became Current Value. Ask "would a staff engineer approve this?" before presenting.
 
 ## Conventions that differ from defaults
 
