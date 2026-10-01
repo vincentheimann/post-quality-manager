@@ -1,0 +1,5 @@
+# BMad's setup.py compares byte hashes of the vendored scripts in .claude/skills/*/scripts
+# against their copies in _bmad/; a CRLF rewrite on checkout makes it report "stale" with
+# no real change. Keep the BMad runtime files LF on every platform.
+*.py   text eol=lf
+*.toml text eol=lf

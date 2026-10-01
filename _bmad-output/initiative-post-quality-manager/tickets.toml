@@ -1,0 +1,27 @@
+# Epics of initiative-post-quality-manager, in build order (table order, not id).
+# Envelopes only: each epic is incepted (stories planned in its own tickets.toml) when selected.
+# Migrated 2026-10-01 from tasks/enhancements.md; ranking is /prioritize's job, not this file's.
+
+[[epic]]
+id = 1
+slug = "epic-freemium-and-roles"
+title = "Features follow plan and role through one gate"
+covers = ["O1", "O2"]
+
+[[epic]]
+id = 2
+slug = "epic-ebm-telemetry"
+title = "The EBM signals are measured, not self-observed"
+covers = ["UV1"]
+
+[[epic]]
+id = 3
+slug = "epic-yoast-context"
+title = "Yoast scores inform the SEO and Audit agents and are kept per review"
+covers = ["O3"]
+
+[[epic]]
+id = 4
+slug = "epic-delivery-pipeline"
+title = "Releases and the workflow template are built and checked by CI"
+covers = ["UV7"]

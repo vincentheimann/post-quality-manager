@@ -1,26 +1,19 @@
 # Post Quality Manager — Claude Code entry point
 
 @AGENTS.md
-@WORKFLOW.md
 
 ## Session start ritual (living memory)
 
 Before any work, always:
 1. Read `memory/MEMORY.md` — index of durable project facts; open the linked files that are relevant to the task.
-2. Read `tasks/lessons.md` — self-correction log; its rules override your defaults.
-3. Read `tasks/todo.md` — the active task plan; continue it rather than starting fresh.
+2. Read `memory/lessons.md` — self-correction log; its rules override your defaults.
+3. Find the active work in the BMad ticket tree: `uv run _bmad/method/scripts/tickets.py --project-root . status _bmad-output/backlog` (standalone tickets — where all ready work lives until an epic is incepted) and `… next` (the active initiative's stories; empty while its epics are still envelopes). Resume an `in-progress` plan rather than starting fresh; ask the `bmad` skill when unsure what comes next.
 
-After any user correction, append the pattern to `tasks/lessons.md` (format is documented in the file). Keep `tasks/todo.md` updated as you plan and complete work. When a durable project fact changes (structure, conventions, decisions), update `memory/` — it is the canonical memory store and travels with the repo; agent-local memory is only a mirror of it.
+After any user correction, append the pattern to `memory/lessons.md` (format is documented in the file). When a durable project fact changes (structure, conventions, decisions), update `memory/` in the same change — it is the canonical memory store and travels with the repo; agent-local memory is only a mirror of it.
 
-## Repository layout (beyond AGENTS.md)
+## How work flows (BMad, ADR 0004)
 
-- `post-quality-manager/templates/n8n-workflow.json` — the canonical n8n workflow, kept as a distributable template with `__PQM_*__` placeholders; the settings page serves it with site values injected ("Download n8n workflow").
-- `n8n/workflow-diagram.md` — Mermaid overview of the webhook → n8n → Claude → WordPress flow.
-- `.claude/skills/` — project skills: `/fix-bug`, `/new-feature`, `/release`. Use them for those recurring tasks.
-- `_archives/turbo-drill/` — leftovers from an unrelated quiz-app project (old CHANGELOG included). Ignore entirely.
-- The companion "Post Quality API" plugin lives in the sibling repo `../post-quality-api/` — do not copy it into this repo.
-
-## n8n workflow notes
-
-- The n8n workflow calls the Claude API directly from Code/HTTP nodes; AI prompts must stay niche-agnostic (universal pillars: Structure, Readability, Engagement, Credibility) — see `tasks/lessons.md`.
-- When plugin REST routes change, check whether `post-quality-manager/templates/n8n-workflow.json` needs a matching update, and vice versa. Never put site-specific values in the template — use `__PQM_*__` placeholders resolved in `PQM_Admin::download_workflow()`.
+- A small, clear change → `bmad-build` directly. It clarifies, plans, implements, reviews; the house overrides in `_bmad/custom/bmad-build.toml` route anything beyond a small change to a plan the user approves first.
+- A change bigger than one session → `bmad-spec` to fix the WHAT, `bmad-ticket` to incept the epic into stories, one `bmad-build` per story, `bmad-retrospective` when the epic is done.
+- `/prioritize` (EBM, `docs/user-paths.md`) decides which epic or backlog ticket is next; `/adr` records significant decisions; `/release` verifies a release.
+- Ask for a review only with `bmad-review` / `bmad-code-review`; they never run uninvited.

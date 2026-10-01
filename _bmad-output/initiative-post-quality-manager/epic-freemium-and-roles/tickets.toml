@@ -1,0 +1,95 @@
+# tickets.toml — agreed stories of epic-freemium-and-roles, in build order (table order).
+# Incepted 2026-10-01 from spec-freemium-and-roles (CAP-1…CAP-5). Single lane: nearly every
+# story touches admin/class-pqm-admin.php, so build strictly in table order.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Feature gate tracer"
+description = "Introduces PQM_Features::can() with the agent tier/capability registry and a stub is_pro(), gating one paid command end to end."
+verify = "On a fresh unlicensed install, Review runs and Rewrite is refused in UI, REST and AJAX before any webhook call."
+covers = ["CAP-1", "CAP-5"]
+after = []
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Role capabilities replace binary checks"
+description = "Registers pqm_ capabilities on activation with the default role map and replaces every edit_posts/manage_options check at the REST, AJAX, menu and settings enforcement points."
+verify = "A Contributor's direct REST call fails, and remapping a capability with a role editor changes access without code changes."
+covers = ["CAP-3"]
+after = [1]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Author quota"
+description = "Stores per-user monthly usage, enforces the Admin-configured quota (shipped default 20) on manual free-tier triggers, and shows the counter next to the buttons."
+verify = "An Author sees the remaining count and is refused with it once spent; cron leaves the counter unchanged."
+covers = ["CAP-4"]
+after = [2]
+hitl = false
+risk = "high"
+unknown = "Usage table vs per-month user meta; the schema change needs owner approval at the plan checkpoint."
+plan_checkpoint = true
+
+[[entry]]
+id = 5
+type = "story"
+title = "Settings sections follow role and plan"
+description = "Opens per-agent overrides and Automated Reviews to Editors, keeps webhook, token and API-key settings admin-only, and renders plan-gated sections visible but locked with upgrade copy while role-gated ones stay hidden."
+verify = "An Editor sees exactly the overrides and cron sections, an Author sees neither, and locked sections show upgrade copy on a free site."
+covers = ["CAP-3"]
+after = [2]
+hitl = false
+risk = "medium"
+references = ["docs/brand.md"]
+
+[[entry]]
+id = 6
+type = "story"
+title = "Cron under the gate"
+description = "Routes scheduled runs through the gate site-level: gated commands are skipped on a free site and no run consumes a per-user quota."
+verify = "A cron batch on a free site runs review only, and quota counters are unchanged afterwards."
+covers = ["CAP-1", "CAP-4"]
+after = [4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "story"
+title = "License provider behind is_pro()"
+description = "Integrates the Freemius SDK confined behind the single is_pro() source with an admin-only license-key setting; the owner creates the Freemius product."
+verify = "Entering a valid key on the same zip unlocks paid features; removing it reverts to free."
+covers = ["CAP-2"]
+after = [1]
+hitl = true
+risk = "medium"
+notes = ["For now I'll only focus on the plugin development, and set the third parties at the end."]
+
+[[entry]]
+id = 7
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up what the epic's build records and deferred review findings name; cleanup only, scope pushed out of another story is a new story."
+verify = "php -l and node --check stay clean and every prior story's verify still passes."
+covers = []
+after = [3, 5, 6]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 8
+type = "story"
+title = "Manual pass of the epic's Done when"
+description = "The owner walks Done when 1–4 on a real site, free then licensed, and records the result."
+verify = "Each Done when line is checked off, or a bug ticket exists for the failure."
+covers = ["CAP-1", "CAP-2", "CAP-3", "CAP-4", "CAP-5"]
+after = [7]
+hitl = true
+risk = "low"

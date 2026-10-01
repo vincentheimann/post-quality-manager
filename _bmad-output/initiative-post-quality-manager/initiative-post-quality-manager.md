@@ -1,0 +1,71 @@
+---
+type: initiative
+title: "Post Quality Manager — continuous content quality for any WordPress blog"
+parent: none
+covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4]
+after: []
+assignee: ""
+risk: medium
+---
+
+# Post Quality Manager — continuous content quality for any WordPress blog
+
+## Description
+
+The whole product is the initiative (solo developer, no larger goal above it). Bloggers trigger review, rewrite, takeaways, sources, SEO and audit commands from WP Admin or a chat tool; an n8n workflow routes them to Claude; results land back in the plugin's dashboard. The requirement source is the EBM user-paths analysis (`docs/user-paths.md`): its ranked Unrealized Value table says where effort goes, and owner requests recorded in ADRs add the rest. Migrated 2026-10-01 from `tasks/enhancements.md` (see ADR 0004).
+
+## Outcome
+
+For professional bloggers in any niche, the back-catalog stops silently aging: scores lead to edits, and the signal is the share of reviewed posts edited within 14 days (UV1), today unmeasured.
+
+## Requirements
+
+Unrealized Value, ranked (`docs/user-paths.md`, "EBM summary"):
+
+- UV1: Insight → action loop — edit tracking, deep-links, proof that reviews cause edits (B3–B4)
+- UV2: Perceived no-re-import — validate the pivot, say it in the UI (B5); shipped 2026-07-24, pending validation
+- UV3: Pull-back mechanism — digest / notifications (A6, B1)
+- UV4: Guided activation — welcome → checklist → first review (A3–A5); wizard shipped 2026-07-24, pending validation
+- UV5: Round-trip connection test — n8n → WP callback with the token verified (A4)
+- UV6: Cron for seo/audit commands (B1)
+- UV7: Distribution — WordPress.org, updater (A1–A2); deliberately post-MVP
+
+Owner requests:
+
+- O1: Role-based access to plugin features on WordPress core roles, per-user Author quota, Contributors excluded (ADR 0003, 2026-09-22)
+- O2: Free plan = Review + Key Takeaways; paid plan = everything else, one build, hosted licensing, per-site license (ADR 0003, 2026-09-22)
+- O3: Yoast scores as SEO/Audit agent context, framed as algorithmic signals, plus a per-review Yoast snapshot in `result_data`; the Review agent stays Yoast-free (user-approved 2026-07-23)
+- O4: Chat-provider contract — the webhook in/out JSON documented so any chat tool drives the workflow without reading n8n nodes
+
+## Done when
+
+1. A dashboard Insights box shows the EBM signals from local data: time-to-first-review, reviewed-posts-edited-within-14-days, cron vs manual share (UV1).
+2. A ping from the n8n Workflow page proves the full loop, callback and token included, and says so (UV5).
+3. Review + Key Takeaways work for every Author under a visible quota while gated commands are refused in PHP before the webhook call, with one zip for free and paid (O1, O2).
+4. A tagged GitHub Release carries a plugin zip built by CI from a template that passed the placeholder and `jsCode` checks (UV7 groundwork).
+5. Every claim marked *pending validation* in `docs/user-paths.md` is confirmed or reverted by real usage (UV2, UV4).
+
+## Boundaries
+
+The WordPress plugin, its REST contract and the n8n workflow template it ships. Not the blogger's n8n instance or Claude account (they bring both), not a custom chat client (the webhook contract is the boundary), not a graph-based workflow builder (parked).
+
+- Touch point: `post-quality-manager/templates/n8n-workflow.json` — every REST or payload change is mirrored here with `__PQM_*__` placeholders; owner: whichever epic changes the contract
+
+## References
+
+- requirements — docs/user-paths.md, section EBM summary (UV1–UV7) and per-stage CV/UV
+- decision — docs/adr/0003-freemium-plan-and-role-based-access.md (O1, O2)
+- decision — docs/adr/0002-user-paths-ebm-po-tool.md, why the UV table ranks the work
+- facts — memory/MEMORY.md, current-state facts (LLM options architecture, agnostic pivot)
+- brand — docs/brand.md, copy rules for any admin UI text
+
+## Notes
+
+- Decision: lightweight BMad — build/spec/ticket/review/retrospective only, no PRD or architecture layer (user, 2026-10-01, ADR 0004).
+- Decision: O1 and O2 are the first epic to be spec'd and incepted, but only after `/prioritize` ranks them against UV1–UV7 (ADR 0003 consequence; user, 2026-09-22).
+- Decision: `/prioritize` 2026-10-01 — `epic-freemium-and-roles` confirmed first (owner priority O1/O2 per ADR 0003; also the gate WordPress.org distribution waits on). EBM runner-up on pure UV size: `epic-ebm-telemetry` (UV1). The hitl manual passes (backlog stories 1 and 6, UV2/UV4 — the cheapest UV→CV conversions) stay with the owner in parallel; story 6 gates the first release.
+- Parked: wizard-style workflow *builder* (assemble the n8n graph from blocks) — KISS, the config-injected export is the locked MVP approach; the setup *flow* wizard already exists.
+- Parked: per-agent custom free-text model IDs — the global Custom ID exists; add per-agent only on a real need (six extra fields otherwise).
+- Parked: WordPress.org distribution (readme.txt, screenshots, i18n, GPL asset review) — UV7, after the freemium gate exists (ADR 0003: GitHub Releases first).
+- Known: workflows imported before 2026-07-22 route `ping` to the Error Fallback — the test passes but n8n logs a junk execution; re-downloading the template fixes it. Not a ticket; the template-version handshake (shipped 2026-07-23) is the mitigation.
+- Open question: UV3 (digest / notifications) has no owner epic yet; it waits for UV1 telemetry to show what to pull users back to.
