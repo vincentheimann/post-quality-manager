@@ -83,33 +83,10 @@ class PQM_Cron {
             return;
         }
 
-        $content_html  = get_post_field( 'post_content', $post_id );
-        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) );
-        $yoast_active  = defined( 'WPSEO_VERSION' );
-
-        $excerpt = has_excerpt( $post_id )
-            ? wp_strip_all_tags( get_the_excerpt( $post_id ) )
-            : wp_trim_words( $content_plain, 55, '...' );
-
-        $payload = [
-            'callback_url'     => rest_url( PQM_REST_NAMESPACE . '/save-review' ),
-            'auth_token'       => $settings['webhook_token'],
-            'notification_url' => $settings['notification_url'] ?? '',
-            'command'          => $command,
-            'post_id'          => $post_id,
-            'slug'             => $post->post_name,
-            'post_type'        => $post->post_type,
-            'title'            => html_entity_decode( get_the_title( $post_id ), ENT_QUOTES, 'UTF-8' ),
-            'link'             => get_permalink( $post_id ),
-            'excerpt'          => $excerpt,
-            'content'          => mb_substr( $content_plain, 0, 15000 ),
-            'content_html'     => mb_substr( $content_html, 0, 20000 ),
-            'seo_score'        => $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_linkdex', true ) : null,
-            'readability_score'=> $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_content_score', true ) : null,
-            'focus_keyphrase'  => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) : '',
-            'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
-            'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
-        ];
+        // Shared payload builder — cron batches now carry the same brand
+        // voice, website context, and per-agent 'llm' fragments as manual
+        // triggers, so scheduled reviews run with the configured models.
+        $payload = pqm_n8n_payload( $post, $command, $settings );
 
         wp_remote_post( $settings['n8n_webhook_url'], [
             'headers'  => [ 'Content-Type' => 'application/json' ],

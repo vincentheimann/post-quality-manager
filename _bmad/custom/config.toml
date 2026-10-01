@@ -1,0 +1,9 @@
+# Team-level BMad config (committed). Overrides _bmad/config.toml; a personal
+# _bmad/custom/config.user.toml (gitignored) overrides this file in turn.
+#
+# One product, one initiative: the whole plugin is the initiative, its epics are
+# the backlog themes. Kept here rather than in config.user.toml so every clone
+# starts with the tree resolved.
+
+[core]
+active_initiative = "initiative-post-quality-manager"

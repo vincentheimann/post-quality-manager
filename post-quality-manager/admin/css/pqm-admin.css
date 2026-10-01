@@ -15,12 +15,34 @@
     margin: 20px 0;
 }
 .pqm-stat-card {
+    display: block;
     background: #fff;
     border: 1px solid #c3c4c7;
     border-radius: 4px;
     padding: 20px;
     text-align: center;
     box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    text-decoration: none;
+}
+a.pqm-stat-card:hover,
+a.pqm-stat-card:focus {
+    border-color: #2271b1;
+    box-shadow: 0 2px 4px rgba(0,0,0,.08);
+}
+
+/* ─── Dashboard CTA (setup / first review) ────────────────── */
+.pqm-dashboard-cta {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 40px 24px;
+    margin: 20px 0;
+    text-align: center;
+}
+.pqm-dashboard-cta p {
+    color: #646970;
+    max-width: 480px;
+    margin: 8px auto 20px;
 }
 .pqm-stat-number {
     display: block; font-size: 32px; font-weight: 600;
@@ -63,6 +85,13 @@
 /* ─── Posts Table ─────────────────────────────────────────── */
 .pqm-posts-table .pqm-col-score,
 .pqm-posts-table .pqm-col-status { width: 100px; }
+.pqm-posts-table .pqm-col-yoast { width: 130px; }
+.pqm-cell-yoast .pqm-yoast-badge { display: block; width: max-content; margin: 2px 0; }
+.pqm-yoast-badge {
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; line-height: 1.5;
+    white-space: nowrap;
+}
 .pqm-posts-table .pqm-col-progress { width: 220px; }
 .pqm-posts-table .pqm-col-date { width: 160px; }
 .pqm-posts-table .pqm-col-actions { width: 180px; white-space: nowrap; }
@@ -107,7 +136,7 @@
 
 /* ─── Tabs ────────────────────────────────────────────────── */
 .pqm-tabs-nav {
-    display: flex; gap: 16px; border-bottom: 1px solid #c3c4c7;
+    display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid #c3c4c7;
     background: transparent; padding: 0 16px; margin-bottom: 24px;
 }
 .pqm-tab-btn {
@@ -257,6 +286,118 @@
 
 /* ─── Settings ────────────────────────────────────────────── */
 .pqm-wrap .form-table th { width: 220px; }
+
+.pqm-hidden { display: none; }
+.pqm-section-gap { margin-top: 2em; }
+.pqm-inline-notice { margin-bottom: 20px; }
+.pqm-radio-label { margin-right: 15px; }
+.pqm-context-intro { max-width: 720px; }
+.pqm-profile-fieldset .pqm-radio-label { display: inline-block; margin: 0 16px 6px 0; }
+.pqm-voice-fieldset { margin-bottom: 10px; }
+.pqm-agents-intro { margin-bottom: 1em; }
+.pqm-help-icon {
+    font-size: 14px; line-height: 1.5;
+    color: #a7a7a7; cursor: help;
+}
+.pqm-post-state { font-weight: normal; color: #50575e; }
+
+/* Agent override boxes */
+.pqm-agent-box {
+    margin-bottom: 15px; border: 1px solid #ccd0d4;
+    padding: 10px; background: #fff;
+}
+.pqm-agent-box summary { font-weight: 600; cursor: pointer; outline: none; }
+.pqm-agent-box .form-table { margin-top: 10px; }
+.pqm-agent-icon {
+    font-size: 16px; margin-top: 3px; margin-right: 5px; color: #50575e;
+}
+.pqm-temp-row { display: flex; align-items: center; gap: 10px; }
+.pqm-temp-range { width: 200px; }
+.pqm-temp-value { font-weight: bold; width: 30px; }
+.pqm-temp-row.pqm-locked { opacity: .55; }
+#pqm_custom_model { margin-left: 6px; vertical-align: middle; }
+
+/* ─── n8n Workflow page: per-agent request preview ─────────── */
+.pqm-llm-preview { max-width: 900px; margin-top: 8px; }
+.pqm-llm-preview code { font-size: 11px; color: #50575e; }
+
+/* Test connection feedback */
+.pqm-test-result, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }
+.pqm-test-result.is-success, .pqm-copy-feedback.is-success { color: #166534; font-weight: 500; }
+.pqm-test-result.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
+td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
+
+/* ─── Workflow import-from-URL block ──────────────────────── */
+.pqm-import-url { margin-top: 12px; }
+.pqm-import-url-intro { font-size: 13px; margin: 0 0 4px; }
+.pqm-import-url-row { display: flex; align-items: center; gap: 6px; max-width: 480px; }
+.pqm-import-url-field { flex: 1; }
+.pqm-copy-feedback { min-height: 0; }
+.pqm-copy-feedback:empty { display: none; }
+
+/* ─── Setup Wizard ────────────────────────────────────────── */
+.pqm-wizard {
+    background: #fff; border: 1px solid #c3c4c7; border-radius: 6px;
+    padding: 24px; margin: 15px 0; max-width: 720px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.pqm-wizard-title { margin: 0 0 16px; font-size: 16px; }
+.pqm-wizard-steps {
+    display: flex; gap: 24px; list-style: none;
+    margin: 0 0 20px; padding: 0 0 16px;
+    border-bottom: 1px solid #f0f0f1;
+}
+.pqm-wizard-dot {
+    display: flex; align-items: center; gap: 8px;
+    margin: 0; font-size: 13px; font-weight: 500;
+    color: #646970; cursor: pointer;
+}
+.pqm-wizard-dot span {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #f0f0f1; color: #646970;
+    font-size: 12px; font-weight: 600;
+}
+.pqm-wizard-dot.is-active { color: #1d2327; font-weight: 600; }
+.pqm-wizard-dot.is-active span { background: #2271b1; color: #fff; }
+.pqm-wizard-dot.is-done span { background: #dcfce7; color: #166534; }
+.pqm-wizard-step { display: none; }
+.pqm-wizard-step.is-active { display: block; animation: pqmFade .15s ease; }
+.pqm-wizard-step p { font-size: 13px; line-height: 1.6; }
+.pqm-wizard-list {
+    list-style: disc; margin: 8px 0 8px 20px; font-size: 13px; line-height: 1.6;
+}
+.pqm-wizard-nav {
+    display: flex; justify-content: space-between;
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid #f0f0f1;
+}
+.pqm-wizard-connect {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin: 8px 0;
+}
+.pqm-wizard-connect input { flex: 1; min-width: 260px; }
+
+/* ─── Agent result cards (generic result_data rendering) ──── */
+.pqm-data-row {
+    display: flex; gap: 12px; padding: 4px 0;
+    font-size: 13px; line-height: 1.6;
+    border-bottom: 1px solid #f0f0f1;
+}
+.pqm-data-row:last-child { border-bottom: none; }
+.pqm-data-key { flex: 0 0 180px; color: #646970; }
+.pqm-data-val { flex: 1; }
+.pqm-data-sub { margin: 12px 0 4px; }
+.pqm-data-sub h5 {
+    margin: 0 0 4px; font-size: 12px; text-transform: uppercase;
+    letter-spacing: .5px; color: #646970;
+}
+.pqm-data-list {
+    list-style: disc; margin: 4px 0 4px 20px;
+    font-size: 13px; line-height: 1.6;
+}
+.pqm-data-none { font-size: 13px; color: #646970; }
+.pqm-bool-yes { color: #00a32a; font-weight: 600; }
+.pqm-bool-no { color: #d63638; font-weight: 600; }
 
 /* ─── Responsive ──────────────────────────────────────────── */
 @media (max-width: 782px) {

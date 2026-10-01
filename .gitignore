@@ -1,0 +1,8 @@
+# Python caches left by the BMad scripts (`uv run _bmad/...`)
+__pycache__/
+*.pyc
+
+# Transient answer file bmad setup writes and deletes
+.bmad-help-setup-modules.toml
+
+# Personal BMad overrides are ignored by _bmad/custom/.gitignore (*.user.toml)

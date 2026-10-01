@@ -7,6 +7,7 @@
  *  POST /post-quality/v1/save-review      — n8n posts review results here
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
+ *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -49,6 +50,21 @@ class PQM_REST_API {
             'permission_callback' => [ __CLASS__, 'check_edit_posts' ],
             'args'                => self::trigger_review_args(),
         ] );
+
+        // New: serve the site-configured workflow for n8n "Import from URL".
+        register_rest_route( PQM_REST_NAMESPACE, '/workflow', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ __CLASS__, 'workflow_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_workflow_token' ],
+            'args'                => [
+                'token' => [
+                    'required'          => false,
+                    'type'              => 'string',
+                    'description'       => 'Webhook token authorizing the export.',
+                    'sanitize_callback' => 'sanitize_text_field',
+                ],
+            ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -68,7 +84,7 @@ class PQM_REST_API {
         }
 
         $settings       = pqm_get_settings();
-        $expected_token  = $settings['webhook_token'] ?? '';
+        $expected_token  = $settings['webhook_token'];
         $provided_token  = $request->get_header( 'X-PQM-Token' ) ?? '';
 
         if ( empty( $expected_token ) || empty( $provided_token ) ) {
@@ -76,6 +92,26 @@ class PQM_REST_API {
         }
 
         return hash_equals( $expected_token, $provided_token );
+    }
+
+    /**
+     * Token-based auth for the workflow export. n8n's "Import from URL"
+     * fetches without WP cookies, so the shared secret travels as a query
+     * arg instead of a header. Logged-in admins pass too.
+     */
+    public static function check_workflow_token( WP_REST_Request $request ): bool {
+        if ( current_user_can( 'manage_options' ) ) {
+            return true;
+        }
+
+        $expected = pqm_get_settings()['webhook_token'];
+        $provided = (string) $request->get_param( 'token' );
+
+        if ( empty( $expected ) || empty( $provided ) ) {
+            return false;
+        }
+
+        return hash_equals( $expected, $provided );
     }
 
     /* ─── 1. GET /post-score (existing logic, moved here) ────────────── */
@@ -204,6 +240,12 @@ class PQM_REST_API {
             'result' => [
                 'required' => false,
             ],
+            'workflow_version' => [
+                'required'    => false,
+                'type'        => 'integer',
+                'default'     => 0,
+                'description' => 'Template version echoed by the n8n workflow, used to flag outdated imports.',
+            ],
         ];
     }
 
@@ -226,6 +268,13 @@ class PQM_REST_API {
         if ( $status === 'error' || ! empty( $error ) ) {
             $status = $status ?: 'error';
             $result = [ 'error' => $error ?: 'An unknown error occurred in n8n.' ];
+        }
+
+        // Remember which template version the running workflow was imported
+        // from — the n8n Workflow page compares it against PQM_WORKFLOW_VERSION.
+        $wf_version = absint( $request->get_param( 'workflow_version' ) );
+        if ( $wf_version > 0 && $wf_version !== (int) get_option( 'pqm_workflow_version_seen', 0 ) ) {
+            update_option( 'pqm_workflow_version_seen', $wf_version, false );
         }
 
         $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
@@ -299,50 +348,8 @@ class PQM_REST_API {
             );
         }
 
-        // Collect post data (same as post-score endpoint).
-        $content_html  = get_post_field( 'post_content', $post_id );
-        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) );
-        $yoast_active  = defined( 'WPSEO_VERSION' );
-
-        $excerpt = has_excerpt( $post_id )
-            ? wp_strip_all_tags( get_the_excerpt( $post_id ) )
-            : wp_trim_words( $content_plain, 55, '...' );
-
-        // Resolve brand voice based on preset
-        $preset = $settings['brand_voice_preset'] ?? 'custom';
-        $resolved_voice = $settings['brand_voice'] ?? '';
-        if ( $preset !== 'custom' ) {
-            $presets = [
-                'professional' => 'Professional & Authoritative',
-                'casual'       => 'Casual & Conversational',
-                'direct'       => 'Direct & Action-Oriented',
-            ];
-            $resolved_voice = $presets[$preset] ?? '';
-        }
-
-        // Build payload for n8n.
-        $payload = [
-            'callback_url'     => rest_url( PQM_REST_NAMESPACE . '/save-review' ),
-            'auth_token'       => $settings['webhook_token'],
-            'notification_url' => $settings['notification_url'] ?? '',
-            'command'          => $command,
-            'post_id'          => $post_id,
-            'slug'             => $post->post_name,
-            'post_type'        => $post->post_type,
-            'title'            => html_entity_decode( get_the_title( $post_id ), ENT_QUOTES, 'UTF-8' ),
-            'link'             => get_permalink( $post_id ),
-            'excerpt'          => $excerpt,
-            'content'          => mb_substr( $content_plain, 0, 15000 ),
-            'content_html'     => mb_substr( $content_html, 0, 20000 ),
-            'seo_score'        => $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_linkdex', true ) : null,
-            'readability_score'=> $yoast_active ? (int) get_post_meta( $post_id, '_yoast_wpseo_content_score', true ) : null,
-            'focus_keyphrase'  => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) : '',
-            'meta_description' => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) : '',
-            'seo_title'        => $yoast_active ? (string) get_post_meta( $post_id, '_yoast_wpseo_title', true ) : '',
-            'brand_voice'      => $resolved_voice,
-            'website_context'  => $settings['website_context'] ?? '',
-            'agent_prompts'    => $settings['agent_prompts'] ?? [],
-        ];
+        // Build payload for n8n (shared with the cron batch).
+        $payload = pqm_n8n_payload( $post, $command, $settings );
 
         // Fire-and-forget request to n8n.
         $response = wp_remote_post( $settings['n8n_webhook_url'], [
@@ -366,5 +373,25 @@ class PQM_REST_API {
             'message'     => sprintf( 'Review triggered for "%s" (command: %s).', $post->post_title, $command ),
             'n8n_status'  => $status_code,
         ], 200 );
+    }
+
+    /* ─── 5. GET /workflow (n8n "Import from URL") ───────────────────── */
+
+    public static function workflow_callback() {
+        $json = pqm_workflow_json();
+
+        if ( $json === null ) {
+            return new WP_Error(
+                'pqm_template_missing',
+                __( 'Workflow template not found. Please reinstall the plugin.', 'post-quality-manager' ),
+                [ 'status' => 500 ]
+            );
+        }
+
+        $response = new WP_REST_Response( json_decode( $json ) );
+        // Older n8n versions fetch import URLs from the browser, not the server.
+        $response->header( 'Access-Control-Allow-Origin', '*' );
+
+        return $response;
     }
 }
