@@ -3,7 +3,7 @@ title: 'Role capabilities replace binary checks'
 type: 'feature'
 ticket: '2'
 created: '2026-10-01'
-status: 'built'
+status: done
 baseline_revision: 'e28c0bf8b42283ddfc42cfb5140997f60db298cf'
 route: 'full'
 route_source: 'pinned'
