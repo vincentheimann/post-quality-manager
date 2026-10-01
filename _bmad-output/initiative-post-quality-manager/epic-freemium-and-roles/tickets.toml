@@ -70,7 +70,10 @@ covers = ["CAP-2"]
 after = [1]
 hitl = true
 risk = "medium"
-notes = ["For now I'll only focus on the plugin development, and set the third parties at the end."]
+notes = [
+  "For now I'll only focus on the plugin development, and set the third parties at the end.",
+  "Story 5 locked the overrides and Automated Reviews sections on free sites: shipping real licensing flips existing installs to free and makes those sections read-only until a key is entered (stored cron settings keep running) — the plan must cover release notes/migration for current installs.",
+]
 
 [[entry]]
 id = 7

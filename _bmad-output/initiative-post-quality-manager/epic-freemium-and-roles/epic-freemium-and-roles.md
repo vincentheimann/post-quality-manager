@@ -50,3 +50,4 @@ The plugin's PHP permission layer, settings UI and activation. Not the n8n templ
 - Decision: plan-gated features render visible but locked with upgrade copy, role-gated features stay hidden (user, 2026-10-01; spec OQ-2).
 - Decision: shipped default Author quota 20/month, Admin-configurable (user delegated to best practice, 2026-10-01; spec OQ-3).
 - Decision: third-party setup (Freemius) deferred to the end of the epic — story 3 moves after story 6, before the sweep; stories 5 and 6 verify plan state against the `pqm_is_pro` stub from story 1, their real prerequisite (user, 2026-10-01).
+- Note (story 5 consequence, 2026-10-01): shipping real licensing (story 3) flips every existing install to free — paid agents refuse and the overrides + Automated Reviews sections become read-only (locked per story 5) until a key is entered, though stored cron settings keep running. Story 3's plan must cover release notes/migration for current installs.
