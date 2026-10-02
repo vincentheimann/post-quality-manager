@@ -9,6 +9,12 @@ title = "Features follow plan and role through one gate"
 covers = ["O1", "O2"]
 
 [[epic]]
+id = 5
+slug = "epic-ui-rebuild"
+title = "Dashboard and Post Reviews answer 'what next' on one render source"
+covers = ["UV1"]
+
+[[epic]]
 id = 2
 slug = "epic-ebm-telemetry"
 title = "The EBM signals are measured, not self-observed"

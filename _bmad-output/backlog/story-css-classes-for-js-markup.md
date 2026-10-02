@@ -13,6 +13,8 @@ risk: low
 
 # JS-generated admin markup carries CSS classes, not inline styles
 
+> **Dropped 2026-10-02:** subsumed by `epic-ui-rebuild` (spec CAP-3/CAP-6 — one render source on @wordpress/components deletes the string-built markup and inline styles wholesale; see its story 7 "PHP strip and dead weight").
+
 ## Description
 
 `pqm-admin.js` still builds HTML strings with `style=""` attributes (rewrite confirmation card, action buttons, summary paragraph). The PHP templates are clean; sweep the JS render helpers into `pqm-admin.css` classes for CSP-friendliness.

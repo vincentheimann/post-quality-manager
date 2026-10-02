@@ -1,0 +1,104 @@
+# tickets.toml — agreed stories of epic-ui-rebuild, in build order (table order).
+# Incepted 2026-10-02 from spec-ui-rebuild (CAP-1…CAP-6). Two lanes after story 2:
+# Post Reviews (3→4→5) and Dashboard (6) share only the component kit; story 7 joins them.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer bullet: build pipeline and React Post Reviews shell"
+description = "Introduces the @wordpress/scripts build (assets not committed; CI job builds them and runs the harness sweep), dependency-extraction enqueue, the PHP page shell, and the posts table rendering read-only from the existing REST — the thinnest path through every layer."
+verify = "On the real site the Post Reviews table renders from React with data from the existing REST route, and the CI job produces built assets plus a green harness sweep."
+covers = ["CAP-3"]
+after = []
+hitl = false
+risk = "high"
+unknown = "Dependency-extraction/enqueue config specifics; settled at the plan checkpoint."
+
+[[entry]]
+id = 2
+type = "story"
+title = "Status and copy component kit"
+description = "The shared contract both pages consume: status badge (icon + label + color, no emoji), progress pills, quota note with the can-trigger guard, one source for gate copy and command labels, @wordpress/i18n plumbing."
+verify = "Kit components render per the mockup's visual rules, every string flows through __(), and the quota note never renders for a user who cannot trigger."
+covers = ["CAP-5", "CAP-4"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Post Reviews: list, filters, sorting"
+description = "Status chips and a score-range filter, every column sortable, pagination — all REST-driven client-side rendering of the list."
+verify = "Filtering by any status or score band and sorting on any column re-renders the list correctly against the REST data."
+covers = ["CAP-2"]
+after = [2]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Post Reviews: detail panel and trigger flow"
+description = "Accessible TabPanels (Review with pillar meters, top edits and actions incl. locked/hidden semantics and quota; agent tabs; history), one shared 3-second polling hook with an aria-live region, and toasts."
+verify = "Tabs are keyboard-operable with correct ARIA, a trigger polls to completion updating the row in place, and auto-resume works on a translated site."
+covers = ["CAP-2", "CAP-4"]
+after = [3]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Bulk Review selected"
+description = "Row selection with one confirmation queuing sequential triggers, gate and quota enforced per post, refusals reported per post."
+verify = "Selecting N posts and confirming runs N sequential triggers whose individual refusals and successes are each visible."
+covers = ["CAP-2"]
+after = [4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Dashboard: queue, tiles, sparkline"
+description = "The Fix-next queue (top 5 by status severity, then score ascending, then staleness) with per-row actions, compact stat tiles each linking to the correspondingly filtered Post Reviews view, the average-score sparkline, and contextual nudges."
+verify = "Every tile lands on a filtered list and the queue order follows the v1 formula on known data."
+covers = ["CAP-1"]
+after = [2]
+hitl = false
+risk = "medium"
+unknown = "Whether the ranked queue extends an existing REST response or needs a small new read route; settled at the plan checkpoint."
+
+[[entry]]
+id = 7
+type = "story"
+title = "PHP strip and dead weight"
+description = "The replace-outright decision lands: old render paths and JS app code for both pages, the legacy GET trigger path, the apply_ branch, unused CSS and inline styles are deleted per brownfield-cleanup.md, and class-pqm-admin.php sheds the two pages and their JS bridge."
+verify = "Every brownfield-cleanup.md item is deleted, moved or re-deferred with a recorded reason, and class-pqm-admin.php no longer renders Post Reviews or the Dashboard."
+covers = ["CAP-3", "CAP-6"]
+after = [5, 6]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 8
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up what this epic's build records and deferred review findings name; cleanup only, scope pushed out of another story is a new story."
+verify = "php -l, node --check and the build stay clean and every prior story's verify still passes."
+covers = []
+after = [7]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 9
+type = "story"
+title = "Manual pass of the epic's Done when"
+description = "The owner walks Done when 1–5 on the real site, including a translated-site check, and records the result."
+verify = "Each Done when line is checked off, or a bug ticket exists for the failure."
+covers = ["CAP-1", "CAP-2", "CAP-3", "CAP-4", "CAP-5", "CAP-6"]
+after = [8]
+hitl = true
+risk = "low"
