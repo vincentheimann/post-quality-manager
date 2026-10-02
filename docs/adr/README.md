@@ -38,3 +38,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0003 — Freemium plan and role-based access share one feature gate](0003-freemium-plan-and-role-based-access.md)
 - [0004 — Adopt the BMad Method as the delivery process](0004-adopt-bmad-method.md)
 - [0005 — Rebuild Dashboard and Post Reviews on @wordpress/components](0005-wordpress-components-for-app-screens.md)
+- [0006 — The license provider ships as a stub until Freemius is set up](0006-license-provider-ships-as-stub.md)
