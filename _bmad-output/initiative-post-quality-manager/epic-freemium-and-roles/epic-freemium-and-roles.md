@@ -1,6 +1,7 @@
 ---
 type: epic
 title: "Features follow plan and role through one gate"
+status: done
 parent: initiative-post-quality-manager
 covers: [O1, O2]
 after: []
