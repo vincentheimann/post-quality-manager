@@ -16,6 +16,13 @@ if (!defined('ABSPATH')) {
 class PQM_Admin
 {
 
+    /**
+     * Hook suffix of the Post Reviews submenu page, captured at registration
+     * so the enqueue gate never depends on the translated menu title
+     * (e.g. 'content-quality_page_pqm-posts' on an English site).
+     */
+    private static ?string $posts_hook = null;
+
     /* ─── Menu Registration ──────────────────────────────────────────── */
 
     public static function register_pages(): void
@@ -39,14 +46,16 @@ class PQM_Admin
         [__CLASS__, 'render_dashboard']
         );
 
-        add_submenu_page(
+        // Story 5.1: the React shell renders this page; the legacy
+        // render_posts() stays in place but unreachable until story 5.7.
+        self::$posts_hook = add_submenu_page(
             'pqm-dashboard',
             __('Post Reviews', 'post-quality-manager'),
             __('Post Reviews', 'post-quality-manager'),
             'pqm_view_reviews',
             'pqm-posts',
-        [__CLASS__, 'render_posts']
-        );
+        [__CLASS__, 'render_posts_app']
+        ) ?: null;
 
         add_submenu_page(
             'pqm-dashboard',
@@ -118,6 +127,15 @@ class PQM_Admin
             filemtime(PQM_PLUGIN_DIR . 'admin/css/pqm-admin.css')
         );
 
+        // Post Reviews runs the React app (story 5.1): built bundle with
+        // core-served dependencies. The legacy pqm-admin JS stays off this
+        // hook so the old string-built render path cannot run; the shared
+        // CSS above still applies (badges, pills).
+        if ($hook === self::$posts_hook) {
+            self::enqueue_posts_app();
+            return;
+        }
+
         wp_enqueue_script(
             'pqm-admin',
             PQM_PLUGIN_URL . 'admin/js/pqm-admin.js',
@@ -165,6 +183,35 @@ class PQM_Admin
                 'copyFailed' => __('Could not copy automatically. The URL is selected — press Ctrl+C.', 'post-quality-manager'),
             ],
         ]);
+    }
+
+    /**
+     * Enqueue the built Post Reviews app. Dependencies and version come from
+     * the dependency-extraction manifest (build/index.asset.php): React,
+     * @wordpress/components, api-fetch and i18n all load from WordPress core
+     * — the bundle ships no runtime. Missing build output is handled by
+     * render_posts_app(), which shows the build instructions instead.
+     */
+    private static function enqueue_posts_app(): void
+    {
+        $asset_path = PQM_PLUGIN_DIR . 'admin/build/index.asset.php';
+        if (!file_exists($asset_path)) {
+            return;
+        }
+
+        $asset = require $asset_path;
+
+        wp_enqueue_script(
+            'pqm-post-reviews',
+            PQM_PLUGIN_URL . 'admin/build/index.js',
+            $asset['dependencies'] ?? [],
+            $asset['version'] ?? PQM_VERSION,
+            true
+        );
+        wp_set_script_translations('pqm-post-reviews', 'post-quality-manager', PQM_PLUGIN_DIR . 'languages');
+
+        // @wordpress/components styling is served by core, not the bundle.
+        wp_enqueue_style('wp-components');
     }
 
     /* ─── Blog Profiles (single source of truth) ─────────────────────── */
@@ -442,7 +489,48 @@ class PQM_Admin
         <?php
     }
 
-    /* ─── Page: Post Reviews ─────────────────────────────────────────── */
+    /* ─── Page: Post Reviews (React shell, story 5.1) ────────────────── */
+
+    /**
+     * PHP shell for the React Post Reviews app: heading + root div only —
+     * every row, badge and pill renders client-side from REST data
+     * (ADR 0005, one render source). On a fresh clone without built assets
+     * the page explains the build commands instead of staying blank.
+     */
+    public static function render_posts_app(): void
+    {
+        $built = file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
+        ?>
+        <div class="wrap pqm-wrap">
+            <h1><?php esc_html_e('Post Reviews', 'post-quality-manager'); ?></h1>
+            <?php if (!$built): ?>
+                <div class="notice notice-warning">
+                    <p><?php
+                    echo wp_kses(
+                        sprintf(
+                            /* translators: 1: npm install command, 2: npm run build command */
+                            __('The Post Reviews app has not been built yet. Run %1$s and then %2$s in the repository root, then reload this page.', 'post-quality-manager'),
+                            '<code>npm install</code>',
+                            '<code>npm run build</code>'
+                        ),
+                        ['code' => []]
+                    );
+                    ?></p>
+                </div>
+            <?php elseif (!wp_script_is('react-jsx-runtime', 'registered')): ?>
+                <?php // The bundle depends on core's react-jsx-runtime handle (WP 6.6+);
+                      // older cores silently drop the script, so explain instead of a blank div. ?>
+                <div class="notice notice-warning">
+                    <p><?php esc_html_e('Post Reviews needs WordPress 6.6 or newer to render. Update WordPress, then reload this page.', 'post-quality-manager'); ?></p>
+                </div>
+            <?php else: ?>
+                <div id="pqm-post-reviews-root"></div>
+            <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    /* ─── Page: Post Reviews (legacy, unreachable — removal is story 5.7) ── */
 
     public static function render_posts(): void
     {

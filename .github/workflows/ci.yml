@@ -1,0 +1,62 @@
+# CI for the Post Quality Manager repo (story 5.1 tracer bullet).
+#
+# Built assets never live in git: the node job builds them on every push/PR
+# and uploads the result as an artifact — the release pipeline (epic
+# epic-delivery-pipeline) later consumes it when zipping the
+# post-quality-manager/ subfolder. The php job lints every plugin PHP file
+# and runs the full tests/harness sweep.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Build admin app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert built assets exist
+        run: |
+          test -f post-quality-manager/admin/build/index.js
+          test -f post-quality-manager/admin/build/index.asset.php
+
+      - name: Upload built assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-build
+          path: post-quality-manager/admin/build/
+
+  php:
+    name: PHP lint and harness sweep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Lint plugin PHP
+        run: find post-quality-manager -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Harness sweep
+        run: |
+          for f in tests/harness/*.php; do
+            echo "== $f"
+            php "$f" || exit 1
+          done
