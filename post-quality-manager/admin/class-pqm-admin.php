@@ -200,18 +200,32 @@ class PQM_Admin
         }
 
         $asset = require $asset_path;
+        $version = $asset['version'] ?? PQM_VERSION;
 
         wp_enqueue_script(
             'pqm-post-reviews',
             PQM_PLUGIN_URL . 'admin/build/index.js',
             $asset['dependencies'] ?? [],
-            $asset['version'] ?? PQM_VERSION,
+            $version,
             true
         );
         wp_set_script_translations('pqm-post-reviews', 'post-quality-manager', PQM_PLUGIN_DIR . 'languages');
 
         // @wordpress/components styling is served by core, not the bundle.
         wp_enqueue_style('wp-components');
+
+        // Kit styles (story 5.2): wp-scripts extracts src/kit/style.css
+        // into the build. Versioned from the asset manifest, no filemtime.
+        if (file_exists(PQM_PLUGIN_DIR . 'admin/build/style-index.css')) {
+            wp_enqueue_style(
+                'pqm-post-reviews',
+                PQM_PLUGIN_URL . 'admin/build/style-index.css',
+                ['wp-components'],
+                $version
+            );
+            // wp-scripts also emits style-index-rtl.css; WP swaps it in on RTL locales.
+            wp_style_add_data('pqm-post-reviews', 'rtl', 'replace');
+        }
     }
 
     /* ─── Blog Profiles (single source of truth) ─────────────────────── */
