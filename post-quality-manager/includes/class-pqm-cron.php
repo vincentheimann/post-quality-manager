@@ -67,6 +67,14 @@ class PQM_Cron {
         $max_age_days = absint( $settings['cron_max_age_days'] ?? 30 );
         $command      = sanitize_key( $settings['cron_command'] ?? 'review' );
 
+        // Site-level plan gate: a stored paid-tier command (e.g. left
+        // behind after a license lapse) must never fire on a free site.
+        // Cron runs with no user, so only the plan half applies; skip the
+        // whole batch before querying any posts.
+        if ( ! PQM_Features::plan_allows( $command ) ) {
+            return;
+        }
+
         $posts = PQM_DB::get_posts_needing_review( $min_score, $max_age_days, $batch_size );
 
         foreach ( $posts as $post_data ) {

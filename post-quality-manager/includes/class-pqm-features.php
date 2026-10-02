@@ -94,6 +94,19 @@ class PQM_Features {
     }
 
     /**
+     * Plan half of the gate alone: may this site's plan run $command?
+     * The single source for the plan decision — why_not() delegates here,
+     * and site-level runs with no user (cron, per ADR 0003) call it
+     * directly. Unknown commands fall back to the free tier, mirroring
+     * why_not().
+     */
+    public static function plan_allows( string $command ): bool {
+        $entry = self::registry()[ $command ] ?? [ 'tier' => 'free' ];
+
+        return $entry['tier'] !== 'paid' || self::is_pro();
+    }
+
+    /**
      * Why the current user cannot run $command right now:
      * 'role' (lacks the capability — hidden in the UI), 'plan' (paid tier
      * on a free site — visible but locked), or null when allowed.
@@ -107,7 +120,7 @@ class PQM_Features {
             return 'role';
         }
 
-        if ( $entry['tier'] === 'paid' && ! self::is_pro() ) {
+        if ( ! self::plan_allows( $command ) ) {
             return 'plan';
         }
 
