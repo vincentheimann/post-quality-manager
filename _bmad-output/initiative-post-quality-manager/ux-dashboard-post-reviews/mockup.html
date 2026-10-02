@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PQM — UX mockup: Dashboard & Post Reviews (ticket 7, 2026-10-02)</title>
+<style>
+  /* ── WP admin look-alike (light scheme) ─────────────────────────── */
+  :root{
+    --bg:#f0f0f1; --card:#fff; --ink:#1d2327; --ink-2:#50575e; --ink-3:#646970;
+    --line:#dcdcde; --blue:#2271b1; --blue-d:#135e96;
+    --good:#00a32a; --warn:#dba617; --crit:#d63638; --neutral:#646970;
+    --good-bg:#edfaef; --warn-bg:#fcf9e8; --crit-bg:#fcf0f1; --neutral-bg:#f0f0f1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif}
+  .frame{max-width:1060px;margin:0 auto;padding:20px}
+  .mock-note{background:#fff8e5;border:1px solid var(--warn);border-radius:3px;padding:6px 12px;margin-bottom:16px;color:var(--ink-2)}
+  .mock-note strong{color:var(--ink)}
+  /* page switcher (simulates the two admin menu entries) */
+  .pages{display:flex;gap:8px;margin-bottom:18px}
+  .pages button{font:inherit;padding:6px 14px;border:1px solid var(--blue);background:#f6f7f7;color:var(--blue);border-radius:3px;cursor:pointer}
+  .pages button[aria-current="page"]{background:var(--blue);color:#fff}
+  h1{font-size:23px;font-weight:400;margin:0 0 4px}
+  .sub{color:var(--ink-3);margin:0 0 16px}
+  h2{font-size:15px;font-weight:600;margin:0 0 10px}
+  a{color:var(--blue)} a:hover{color:var(--blue-d)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:16px;margin-bottom:16px}
+  /* buttons */
+  .btn{display:inline-flex;align-items:center;gap:5px;font:inherit;padding:4px 12px;border-radius:3px;cursor:pointer;
+    border:1px solid var(--blue);background:#f6f7f7;color:var(--blue);text-decoration:none}
+  .btn:hover{background:#f0f6fc}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:var(--blue-d)}
+  .btn[disabled]{border-color:var(--line);color:var(--ink-3);background:#f6f7f7;cursor:default}
+  .btn:focus-visible,.chip:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--blue-d);outline-offset:1px}
+  /* stat tiles */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:12px 14px;text-decoration:none;color:inherit;display:block}
+  .tile:hover{border-color:var(--blue)}
+  .tile .k{color:var(--ink-3);font-size:12px}
+  .tile .v{font-size:26px;font-weight:600;line-height:1.2;margin:2px 0}
+  .tile .d{font-size:12px;color:var(--ink-3)}
+  .tile .d .up{color:var(--good);font-weight:600}
+  /* status badges: icon + label + color, never color alone */
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:9px;font-size:12px;font-weight:500;white-space:nowrap}
+  .badge svg{width:12px;height:12px;flex:none}
+  .b-good{background:var(--good-bg);color:#007a1f}
+  .b-warn{background:var(--warn-bg);color:#6e5600}
+  .b-crit{background:var(--crit-bg);color:#b32d2e}
+  .b-neutral{background:var(--neutral-bg);color:var(--ink-2)}
+  /* tables */
+  table{width:100%;border-collapse:collapse;background:var(--card)}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  th{font-weight:600}
+  th button.sort{font:inherit;font-weight:600;background:none;border:0;padding:0;cursor:pointer;color:var(--ink);display:inline-flex;align-items:center;gap:4px}
+  th button.sort .arr{color:var(--blue);font-size:11px}
+  tbody tr:hover{background:#f6f7f7}
+  .score{font-weight:600}
+  .muted{color:var(--ink-3)}
+  .pills span{display:inline-block;border:1px solid var(--line);border-radius:9px;padding:0 7px;font-size:11px;color:var(--ink-2);margin-right:3px;background:#f6f7f7}
+  .pills .ran{border-color:#9ec2e6;background:#f0f6fc;color:var(--blue-d)}
+  /* filters */
+  .filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{font:inherit;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:3px 12px;cursor:pointer;color:var(--ink-2)}
+  .chip[aria-pressed="true"]{border-color:var(--blue);background:#f0f6fc;color:var(--blue-d);font-weight:600}
+  .filters select{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:3px;background:var(--card)}
+  .filters .quota{margin-left:auto;color:var(--ink-3);font-size:12px}
+  /* fix-next queue */
+  .queue li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .queue li:last-child{border-bottom:0}
+  .queue{list-style:none;margin:0;padding:0}
+  .queue .why{color:var(--ink-3);font-size:12px}
+  .queue .t{flex:1;min-width:0}
+  .queue .t a{font-weight:600;text-decoration:none}
+  .queue .n{font-size:18px;font-weight:700;width:34px;text-align:center}
+  .n.s-crit{color:var(--crit)} .n.s-warn{color:#996800} .n.s-good{color:var(--good)}
+  /* detail panel */
+  .detail{background:#f6f7f7;border-bottom:1px solid var(--line)}
+  .detail-inner{padding:14px 16px}
+  [role=tablist]{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:12px}
+  [role=tab]{font:inherit;background:none;border:0;border-bottom:2px solid transparent;padding:6px 12px;cursor:pointer;color:var(--ink-2)}
+  [role=tab][aria-selected="true"]{border-bottom-color:var(--blue);color:var(--blue-d);font-weight:600}
+  [role=tab] .done{color:var(--good);font-weight:700}
+  .pillars{display:grid;grid-template-columns:110px 1fr 34px;gap:6px 10px;align-items:center;max-width:460px}
+  .meter{background:#e3e5e8;border-radius:3px;height:10px;overflow:hidden}
+  .meter i{display:block;height:100%;background:var(--blue);border-radius:3px}
+  .edits{margin:8px 0 0;padding-left:18px}
+  .edits li{margin-bottom:4px}
+  .actions{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .actions .quota{color:var(--ink-3);font-size:12px}
+  .lock svg{width:12px;height:12px}
+  /* toast + live region */
+  .toast-wrap{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:9}
+  .toast{background:#1d2327;color:#fff;padding:9px 14px;border-radius:4px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .toast.ok{border-left:4px solid var(--good)} .toast.info{border-left:4px solid var(--blue)}
+  /* sparkline */
+  .spark-wrap{position:relative}
+  .spark-tip{position:absolute;background:#1d2327;color:#fff;font-size:11px;padding:2px 7px;border-radius:3px;pointer-events:none;transform:translate(-50%,-130%);display:none;white-space:nowrap}
+  .srOnly{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .nudge{display:flex;align-items:center;gap:10px;justify-content:space-between}
+  .nudge p{margin:0;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="mock-note"><strong>Mockup — fake data.</strong> Ticket 7 UX proposal (decisions D2–D6 of DESIGN.md), rendered in the WP admin design language the rebuild would get from <code>@wordpress/components</code>. The two buttons below stand in for the admin menu.</p>
+
+  <nav class="pages" aria-label="Plugin pages">
+    <button type="button" data-page="dash" aria-current="page">Dashboard</button>
+    <button type="button" data-page="posts">Post Reviews</button>
+  </nav>
+
+  <!-- ════════ DASHBOARD — job: "what should I fix next?" ════════ -->
+  <section id="page-dash" aria-labelledby="dash-h">
+    <h1 id="dash-h">Content Quality</h1>
+    <p class="sub">Your back-catalog at a glance — and what to fix next.</p>
+
+    <div class="tiles">
+      <a class="tile" href="#" title="Open Post Reviews, sorted by score">
+        <span class="k">Average score</span>
+        <span class="v">71</span>
+        <span class="d"><span class="up">▲ +3</span> this month</span>
+      </a>
+      <a class="tile" href="#" title="Open Post Reviews filtered to Needs revision + Major revision">
+        <span class="k">Needs attention</span>
+        <span class="v">6</span>
+        <span class="d">of 42 analyzed — view them</span>
+      </a>
+      <a class="tile" href="#" title="Open Post Reviews filtered to Not analyzed">
+        <span class="k">Not analyzed</span>
+        <span class="v">16</span>
+        <span class="d">of 58 published posts</span>
+      </a>
+      <a class="tile" href="#" title="Open Post Reviews, last 30 days">
+        <span class="k">Reviews this month</span>
+        <span class="v">23</span>
+        <span class="d">18 scheduled · 5 manual</span>
+      </a>
+    </div>
+
+    <div class="card">
+      <h2>Fix next</h2>
+      <ol class="queue">
+        <li>
+          <span class="n s-crit">38</span>
+          <span class="t"><a href="#">Choosing a CRM in 2024</a><br>
+            <span class="why">Major revision · 94 days since review · outdated year in title</span></span>
+          <span class="badge b-crit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1L1 14h14L8 1zm0 4l.7 5h-1.4L8 5zm0 7.5a1 1 0 110-2 1 1 0 010 2z"/></svg>Major revision</span>
+          <button class="btn demo-review">Review</button>
+          <a class="btn" href="#">Open in Editor</a>
+        </li>
+        <li>
+          <span class="n s-crit">44</span>
+          <span class="t"><a href="#">Email deliverability basics</a><br>
+            <span class="why">Major revision · 61 days since review</span></span>
+          <span class="badge b-crit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1L1 14h14L8 1zm0 4l.7 5h-1.4L8 5zm0 7.5a1 1 0 110-2 1 1 0 010 2z"/></svg>Major revision</span>
+          <button class="btn demo-review">Review</button>
+          <a class="btn" href="#">Open in Editor</a>
+        </li>
+        <li>
+          <span class="n s-warn">58</span>
+          <span class="t"><a href="#">SEO for solo bloggers</a><br>
+            <span class="why">Needs revision · 47 days since review · credibility pillar lowest</span></span>
+          <span class="badge b-warn"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity=".25"/><path fill="currentColor" d="M7.3 4h1.4v5H7.3zM8 12.2a1 1 0 110-2 1 1 0 010 2z"/></svg>Needs revision</span>
+          <button class="btn demo-review">Review</button>
+          <a class="btn" href="#">Open in Editor</a>
+        </li>
+        <li>
+          <span class="n s-warn">59</span>
+          <span class="t"><a href="#">Newsletter growth tactics</a><br>
+            <span class="why">Needs revision · never re-reviewed after your edit</span></span>
+          <span class="badge b-warn"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity=".25"/><path fill="currentColor" d="M7.3 4h1.4v5H7.3zM8 12.2a1 1 0 110-2 1 1 0 010 2z"/></svg>Needs revision</span>
+          <button class="btn demo-review">Review</button>
+          <a class="btn" href="#">Open in Editor</a>
+        </li>
+        <li>
+          <span class="n muted">—</span>
+          <span class="t"><a href="#">Hosting comparison guide</a><br>
+            <span class="why">Not analyzed · your 3rd most-linked post</span></span>
+          <span class="badge b-neutral"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path fill="currentColor" d="M7.4 4.5h1.2V8l2.3 1.4-.6 1L7.4 8.6z"/></svg>Not analyzed</span>
+          <button class="btn demo-review">Review</button>
+          <a class="btn" href="#">Open in Editor</a>
+        </li>
+      </ol>
+      <p style="margin:10px 0 0"><a href="#">See all posts needing attention →</a></p>
+    </div>
+
+    <div class="card">
+      <h2>Average score — last 8 weeks</h2>
+      <div class="spark-wrap">
+        <svg id="spark" viewBox="0 0 560 90" width="560" height="90" role="img" aria-label="Average score trend over the last 8 weeks, from 63 to 71">
+          <g stroke="#e3e5e8" stroke-width="1">
+            <line x1="0" y1="20" x2="520" y2="20"/><line x1="0" y1="45" x2="520" y2="45"/><line x1="0" y1="70" x2="520" y2="70"/>
+          </g>
+          <polyline fill="none" stroke="#2271b1" stroke-width="2" points="10,62 80,58 150,60 220,52 290,54 360,44 430,40 500,34"/>
+          <g fill="#2271b1"><circle cx="500" cy="34" r="3.5"/></g>
+          <text x="512" y="38" font-size="12" font-weight="600" fill="#1d2327">71</text>
+        </svg>
+        <div class="spark-tip" id="spark-tip"></div>
+      </div>
+      <p class="muted" style="margin:6px 0 0">Scheduled reviews ran every night · <a href="#">adjust schedule</a></p>
+    </div>
+
+    <div class="card nudge">
+      <p><strong>Tip:</strong> 16 posts are not analyzed yet. Scheduled reviews would work through them at 5 posts per night.</p>
+      <span><a class="btn btn-primary" href="#">Enable scheduled reviews</a> <button class="btn" type="button">Dismiss</button></span>
+    </div>
+  </section>
+
+  <!-- ════════ POST REVIEWS — job: "what do I do about this post?" ════════ -->
+  <section id="page-posts" aria-labelledby="posts-h" hidden>
+    <h1 id="posts-h">Post Reviews</h1>
+    <p class="sub">Review, improve, verify — per post.</p>
+
+    <div class="filters" role="group" aria-label="Filter posts">
+      <button class="chip" aria-pressed="true" type="button">All <span class="muted">58</span></button>
+      <button class="chip" aria-pressed="false" type="button">Ready to ship <span class="muted">28</span></button>
+      <button class="chip" aria-pressed="false" type="button">Needs revision <span class="muted">9</span></button>
+      <button class="chip" aria-pressed="false" type="button">Major revision <span class="muted">6</span></button>
+      <button class="chip" aria-pressed="false" type="button">Not analyzed <span class="muted">15</span></button>
+      <label class="muted" for="f-score">Score</label>
+      <select id="f-score"><option>Any</option><option>Below 60</option><option>60–79</option><option>80+</option></select>
+      <span class="quota">14 of 20 AI actions left this month</span>
+    </div>
+
+    <div class="filters">
+      <button class="btn" type="button" id="bulk-btn" disabled>Review selected</button>
+      <span class="muted" id="bulk-count">Select posts to review them in one go.</span>
+    </div>
+
+    <table aria-describedby="posts-h">
+      <thead>
+        <tr>
+          <th scope="col"><input type="checkbox" aria-label="Select all posts" id="sel-all"></th>
+          <th scope="col" aria-sort="none"><button class="sort" type="button">Post</button></th>
+          <th scope="col" aria-sort="ascending"><button class="sort" type="button">Score <span class="arr" aria-hidden="true">▲</span></button></th>
+          <th scope="col" aria-sort="none"><button class="sort" type="button">Status</button></th>
+          <th scope="col">Analyzed</th>
+          <th scope="col" aria-sort="none"><button class="sort" type="button">Last reviewed</button></th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox" class="sel" aria-label="Select: Choosing a CRM in 2024"></td>
+          <td><a href="#"><strong>Choosing a CRM in 2024</strong></a></td>
+          <td class="score">38</td>
+          <td><span class="badge b-crit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1L1 14h14L8 1zm0 4l.7 5h-1.4L8 5zm0 7.5a1 1 0 110-2 1 1 0 010 2z"/></svg>Major revision</span></td>
+          <td class="pills"><span class="ran">✓ review</span><span class="ran">✓ seo</span><span>takeaways</span></td>
+          <td class="muted">Jun 30, 2026</td>
+          <td><button class="btn" type="button" id="toggle-demo" aria-expanded="true" aria-controls="detail-demo">Hide details</button></td>
+        </tr>
+        <tr class="detail" id="detail-demo">
+          <td colspan="7" class="detail-inner">
+            <div role="tablist" aria-label="Review results">
+              <button role="tab" aria-selected="true" aria-controls="tp-review" id="tab-review" type="button"><span class="done" aria-hidden="true">✓</span> Review</button>
+              <button role="tab" aria-selected="false" aria-controls="tp-takeaways" id="tab-takeaways" type="button">Takeaways</button>
+              <button role="tab" aria-selected="false" aria-controls="tp-sources" id="tab-sources" type="button">Sources</button>
+              <button role="tab" aria-selected="false" aria-controls="tp-seo" id="tab-seo" type="button"><span class="done" aria-hidden="true">✓</span> SEO</button>
+              <button role="tab" aria-selected="false" aria-controls="tp-audit" id="tab-audit" type="button">Audit</button>
+              <button role="tab" aria-selected="false" aria-controls="tp-history" id="tab-history" type="button">History (4)</button>
+            </div>
+            <div role="tabpanel" id="tp-review" aria-labelledby="tab-review" tabindex="0">
+              <div class="pillars">
+                <span>Structure</span><span class="meter"><i style="width:52%"></i></span><span class="score">52</span>
+                <span>Readability</span><span class="meter"><i style="width:61%"></i></span><span class="score">61</span>
+                <span>Engagement</span><span class="meter"><i style="width:34%"></i></span><span class="score">34</span>
+                <span>Credibility</span><span class="meter"><i style="width:28%"></i></span><span class="score">28</span>
+              </div>
+              <h2 style="margin-top:14px">Top edits</h2>
+              <ol class="edits">
+                <li>Update every 2024 reference — title, intro, pricing table (credibility).</li>
+                <li>Add sources for the three market-share claims in section 2 (credibility).</li>
+                <li>Break the 14-line comparison paragraph into a table (engagement).</li>
+              </ol>
+              <div class="actions">
+                <a class="btn btn-primary" href="#">Open in Editor</a>
+                <button class="btn demo-review" type="button">Re-run Review</button>
+                <button class="btn lock" type="button" disabled title="Available with Pro — Review and Takeaways stay free.">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M12 7V5a4 4 0 10-8 0v2H3v7h10V7h-1zM6 5a2 2 0 114 0v2H6V5z"/></svg>
+                  Rewrite <span class="srOnly">(available with Pro)</span>
+                </button>
+                <span class="quota">14 of 20 AI actions left this month</span>
+              </div>
+            </div>
+            <div role="tabpanel" id="tp-takeaways" aria-labelledby="tab-takeaways" tabindex="0" hidden><p class="muted">Not run yet — Takeaways is free on every plan.</p><button class="btn" type="button">Run Takeaways</button></div>
+            <div role="tabpanel" id="tp-sources" aria-labelledby="tab-sources" tabindex="0" hidden><p class="muted">Available with Pro.</p></div>
+            <div role="tabpanel" id="tp-seo" aria-labelledby="tab-seo" tabindex="0" hidden><p class="muted">SEO result from Jun 30 would render here (focus keyphrase, title, meta).</p></div>
+            <div role="tabpanel" id="tp-audit" aria-labelledby="tab-audit" tabindex="0" hidden><p class="muted">Available with Pro.</p></div>
+            <div role="tabpanel" id="tp-history" aria-labelledby="tab-history" tabindex="0" hidden><p class="muted">review · 38 · Jun 30, 2026 — seo · Jun 30, 2026 — review · 41 · Apr 2, 2026 — review · 46 · Jan 11, 2026</p></div>
+          </td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" class="sel" aria-label="Select: Email deliverability basics"></td>
+          <td><a href="#"><strong>Email deliverability basics</strong></a></td>
+          <td class="score">44</td>
+          <td><span class="badge b-crit"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1L1 14h14L8 1zm0 4l.7 5h-1.4L8 5zm0 7.5a1 1 0 110-2 1 1 0 010 2z"/></svg>Major revision</span></td>
+          <td class="pills"><span class="ran">✓ review</span></td>
+          <td class="muted">Aug 2, 2026</td>
+          <td><button class="btn" type="button" aria-expanded="false">Details</button></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" class="sel" aria-label="Select: SEO for solo bloggers"></td>
+          <td><a href="#"><strong>SEO for solo bloggers</strong></a></td>
+          <td class="score">58</td>
+          <td><span class="badge b-warn"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="currentColor" opacity=".25"/><path fill="currentColor" d="M7.3 4h1.4v5H7.3zM8 12.2a1 1 0 110-2 1 1 0 010 2z"/></svg>Needs revision</span></td>
+          <td class="pills"><span class="ran">✓ review</span><span class="ran">✓ takeaways</span><span class="ran">✓ seo</span></td>
+          <td class="muted">Aug 16, 2026</td>
+          <td><button class="btn" type="button" aria-expanded="false">Details</button></td>
+        </tr>
+        <tr id="row-processing" hidden>
+          <td><input type="checkbox" class="sel" aria-label="Select: Writing faster with outlines"></td>
+          <td><a href="#"><strong>Writing faster with outlines</strong></a></td>
+          <td class="score muted">…</td>
+          <td><span class="badge b-neutral"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path fill="currentColor" d="M7.4 4.5h1.2V8l2.3 1.4-.6 1L7.4 8.6z"/></svg>Processing</span></td>
+          <td class="pills"><span class="ran">✓ review</span></td>
+          <td class="muted">just now</td>
+          <td><button class="btn" type="button" disabled>Details</button></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" class="sel" aria-label="Select: My favorite writing tools"></td>
+          <td><a href="#"><strong>My favorite writing tools</strong></a></td>
+          <td class="score">84</td>
+          <td><span class="badge b-good"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 15A7 7 0 118 1a7 7 0 010 14zM6.9 11l5-5-1-1-4 4-1.8-1.8-1 1L6.9 11z"/></svg>Ready to ship</span></td>
+          <td class="pills"><span class="ran">✓ review</span><span class="ran">✓ takeaways</span></td>
+          <td class="muted">Sep 21, 2026</td>
+          <td><button class="btn" type="button" aria-expanded="false">Details</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:10px">58 posts · <a href="#">1</a> 2 3 ›</p>
+  </section>
+</div>
+
+<div class="toast-wrap" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+  // page switcher
+  document.querySelectorAll(".pages button").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll(".pages button").forEach(function(x){ x.removeAttribute("aria-current"); });
+      b.setAttribute("aria-current","page");
+      document.getElementById("page-dash").hidden = b.dataset.page !== "dash";
+      document.getElementById("page-posts").hidden = b.dataset.page !== "posts";
+    });
+  });
+  // filter chips (visual only in the mockup)
+  document.querySelectorAll(".chip").forEach(function(c){
+    c.addEventListener("click", function(){
+      document.querySelectorAll(".chip").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
+      c.setAttribute("aria-pressed","true");
+      toast("info","Filter applied — the rebuilt page re-queries the REST list here.");
+    });
+  });
+  // tabs (arrow keys + click, proper aria)
+  var tabs = Array.prototype.slice.call(document.querySelectorAll("[role=tab]"));
+  function selectTab(t){
+    tabs.forEach(function(x){
+      x.setAttribute("aria-selected", String(x===t));
+      document.getElementById(x.getAttribute("aria-controls")).hidden = x!==t;
+    });
+    t.focus();
+  }
+  tabs.forEach(function(t,i){
+    t.addEventListener("click", function(){ selectTab(t); });
+    t.addEventListener("keydown", function(e){
+      if(e.key==="ArrowRight"){ selectTab(tabs[(i+1)%tabs.length]); }
+      if(e.key==="ArrowLeft"){ selectTab(tabs[(i-1+tabs.length)%tabs.length]); }
+    });
+  });
+  // detail toggle
+  var tg = document.getElementById("toggle-demo");
+  tg.addEventListener("click", function(){
+    var open = tg.getAttribute("aria-expanded")==="true";
+    tg.setAttribute("aria-expanded", String(!open));
+    document.getElementById("detail-demo").hidden = open;
+    tg.textContent = open ? "Details" : "Hide details";
+  });
+  // bulk select
+  function refreshBulk(){
+    var n = document.querySelectorAll(".sel:checked").length;
+    var btn = document.getElementById("bulk-btn");
+    btn.disabled = n===0;
+    btn.textContent = n>0 ? "Review selected ("+n+")" : "Review selected";
+    document.getElementById("bulk-count").textContent =
+      n>0 ? n+" selected — one confirmation, then they queue one by one." : "Select posts to review them in one go.";
+  }
+  document.querySelectorAll(".sel").forEach(function(c){ c.addEventListener("change", refreshBulk); });
+  document.getElementById("sel-all").addEventListener("change", function(e){
+    document.querySelectorAll(".sel").forEach(function(c){ c.checked = e.target.checked; });
+    refreshBulk();
+  });
+  document.getElementById("bulk-btn").addEventListener("click", function(){
+    toast("info","Batch requested — gate and quota are checked per post, refusals reported per post.");
+  });
+  // demo trigger flow: toast → processing row appears → ok toast
+  document.querySelectorAll(".demo-review").forEach(function(b){
+    b.addEventListener("click", function(){
+      toast("info","Review requested — running in the background, this page stays usable.");
+      var row = document.getElementById("row-processing");
+      if(row){ row.hidden = false; }
+      setTimeout(function(){ toast("ok","Review complete — score 72, Ready to ship. Row updated in place."); }, 2500);
+    });
+  });
+  // toasts into the aria-live region
+  function toast(kind,msg){
+    var t = document.createElement("div");
+    t.className = "toast "+kind;
+    t.textContent = msg;
+    document.getElementById("toasts").appendChild(t);
+    setTimeout(function(){ t.remove(); }, 5000);
+  }
+  // sparkline hover tooltip
+  var pts = [[10,62,63],[80,58,64],[150,60,64],[220,52,66],[290,54,66],[360,44,68],[430,40,70],[500,34,71]];
+  var svg = document.getElementById("spark"), tip = document.getElementById("spark-tip");
+  svg.addEventListener("mousemove", function(e){
+    var r = svg.getBoundingClientRect(), x = (e.clientX - r.left) * (560 / r.width);
+    var best = pts[0]; pts.forEach(function(p){ if(Math.abs(p[0]-x) < Math.abs(best[0]-x)) best = p; });
+    tip.style.display = "block";
+    tip.style.left = (best[0] / 560 * r.width) + "px";
+    tip.style.top = (best[1] / 90 * r.height) + "px";
+    tip.textContent = "Week of Sep " + (1 + pts.indexOf(best)*7) + " — avg " + best[2];
+  });
+  svg.addEventListener("mouseleave", function(){ tip.style.display = "none"; });
+})();
+</script>
+</body>
+</html>

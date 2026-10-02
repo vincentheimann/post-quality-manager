@@ -1,0 +1,10 @@
+# Admin UI rebuild — Dashboard & Post Reviews
+
+Decided 2026-10-02 (ADR [0005](../docs/adr/0005-wordpress-components-for-app-screens.md), owner-approved ticket-7 UX review). **Not built yet** — spec and epic inception pending; this file records what is agreed.
+
+- **Framework:** the Dashboard and Post Reviews pages are rebuilt on `@wordpress/components` + `@wordpress/element` with an `@wordpress/scripts` build; React loads from WordPress itself (dependency extraction). **Settings and n8n Workflow stay on the PHP Settings API** — no rebuild there.
+- **One render source:** PHP renders only the page shell; every badge, pill, row and panel renders client-side from the existing REST API. This retires the duplicated PHP/JS markup (and subsumes backlog story 5, CSS classes for JS markup). i18n via `@wordpress/i18n` — fixes the hardcoded-English JS copy and the `indexOf('Processing')` auto-resume bug on translated sites.
+- **Design source of truth:** `_bmad-output/initiative-post-quality-manager/ux-dashboard-post-reviews/` — DESIGN.md (findings F1–F6, decisions D1–D7, owner decisions incl. queue length 5 and bulk "Review selected" in the first slice) + mockup.html (interactive reference of the target UX).
+- **Status language:** icon + label + color, never color alone; no emoji. The WP status colors fail deutan red↔green separation as a bare palette (validator run 2026-10-02) — the icon+label rule is load-bearing, not decoration.
+- **Sequencing:** own epic via `bmad-spec` + `bmad-ticket`, built after `epic-freemium-and-roles` closes (stories 1.7/1.8). Story 1.7 keeps only non-UI cleanup; UI-rendering cleanup (dead GET trigger path, `apply_` branch, unused CSS, inline styles) belongs to the rebuild epic.
+- **Unchanged by the rebuild:** the feature gate, quota, REST/webhook contracts, the n8n template — ADR 0005 changes rendering only.
