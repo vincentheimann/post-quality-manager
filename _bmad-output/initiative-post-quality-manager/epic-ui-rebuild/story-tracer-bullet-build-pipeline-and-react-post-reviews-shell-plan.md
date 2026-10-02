@@ -110,19 +110,21 @@ Ticket's declared unknown (dependency-extraction/enqueue specifics), settled: `w
 **Preconditions:** branch `feat/5-1-tracer-bullet-react-shell` deployed to the real site — run `npm install && npm run build` locally, then upload the `post-quality-manager/` subfolder (the built `admin/build/` rides inside it); WordPress ≥ 6.6; a user with `pqm_view_reviews`.
 
 ### CI (tick from GitHub, no site needed)
-- [ ] PR #20's checks are green: the build job uploaded the `admin-build` artifact, the php job's lint + harness sweep passed.
+- [x] PR #20's checks are green: the build job uploaded the `admin-build` artifact, the php job's lint + harness sweep passed.
 
 ### Page renders from React (story verify)
-- [ ] Content Quality → Post Reviews shows the table with real posts: Score badge, Status as icon + label + color (no emoji), Progress chips, Last Reviewed — values match what the old page showed for the same posts.
-- [ ] A short loading spinner appears on first load; the browser console stays free of errors and the page source ships only the `#pqm-post-reviews-root` shell (no PHP-rendered rows).
-- [ ] Post titles link to the editor for posts you can edit.
+- [x] Content Quality → Post Reviews shows the table with real posts: Score badge, Status as icon + label + color (no emoji), Progress chips, Last Reviewed — values match what the old page showed for the same posts.
+- [x] A short loading spinner appears on first load; the browser console stays free of errors and the page source ships only the `#pqm-post-reviews-root` shell (no PHP-rendered rows).
+- [x] Post titles link to the editor for posts you can edit.
 
 ### Volume and truncation
-- [ ] With more than 20 posts, more than 20 rows render (the old page capped at 20 per page); with more than 100, one line under the table reads "Showing the 100 most recently reviewed of N posts."
+- [x] With more than 20 posts, more than 20 rows render (the old page capped at 20 per page); with more than 100, one line under the table reads "Showing the 100 most recently reviewed of N posts."
 
 ### Failure states
-- [ ] Rename `admin/build/` away → the page shows the build-instructions notice, not a blank app; restore it afterwards.
+- [x] Rename `admin/build/` away → the page shows the build-instructions notice, not a blank app; restore it afterwards.
 - [ ] (Optional) With REST unreachable — e.g. DevTools offline after load-less reload — the gentle "Could not load your posts…" notice shows instead of a spinner forever.
 - [ ] (Optional, only if a WP 6.0–6.5 site is handy) the "needs WordPress 6.6 or newer" notice shows instead of a blank page.
 
 **Recording:** tick the boxes here; any failure becomes a bug ticket in `_bmad-output/backlog/` instead of a tick.
+
+**Result (2026-10-02):** the owner walked the checklist on the real site and reported it done — no failures, no bug tickets; CI green on GitHub (both jobs, `admin-build` artifact present). The two optional failure-state checks were not claimed and stay unticked. Story verify met end to end.
