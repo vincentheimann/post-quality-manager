@@ -37,3 +37,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0002 — User paths with EBM value mapping as the product prioritization tool](0002-user-paths-ebm-po-tool.md)
 - [0003 — Freemium plan and role-based access share one feature gate](0003-freemium-plan-and-role-based-access.md)
 - [0004 — Adopt the BMad Method as the delivery process](0004-adopt-bmad-method.md)
+- [0005 — Rebuild Dashboard and Post Reviews on @wordpress/components](0005-wordpress-components-for-app-screens.md)

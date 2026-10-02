@@ -23,6 +23,8 @@ Verify: a reviewed UX findings-and-decisions document exists for Dashboard and P
 
 ## References
 
+- design — `_bmad-output/initiative-post-quality-manager/ux-dashboard-post-reviews/` (DESIGN.md findings-and-decisions + mockup.html, owner-approved 2026-10-02)
+- decision — docs/adr/0005-wordpress-components-for-app-screens.md (accepted)
 - docs/user-paths.md — B2 (triage: "the dashboard reports, but doesn't prioritize"), A5–A6 (first review, habit formation)
 - docs/brand.md — copy rules any redesign must keep
 - code — post-quality-manager/admin/ (class-pqm-admin.php, js/pqm-admin.js, css)
