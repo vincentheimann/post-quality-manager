@@ -30,6 +30,7 @@ define('PQM_WORKFLOW_VERSION', 2);
 /* ─── Includes ───────────────────────────────────────────────────────── */
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-db.php';
+require_once PQM_PLUGIN_DIR . 'includes/class-pqm-license.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-features.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-cron.php';
@@ -65,6 +66,8 @@ add_filter('cron_schedules', ['PQM_Cron', 'add_custom_schedules']);
 function pqm_default_settings(): array
 {
     return [
+        // Stub licensing (CAP-2): any non-empty key = pro, via PQM_License.
+        'license_key' => '',
         'n8n_webhook_url' => '',
         'webhook_token' => wp_generate_uuid4(),
         'notification_url' => '',

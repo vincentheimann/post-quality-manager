@@ -7,7 +7,7 @@
  * the trigger chokepoint decides whether the current user on this site may
  * run it. The five pqm_* capabilities and their default role map live here
  * too, so activation, the versioned upgrade and uninstall share one list.
- * Licensing only replaces the body of is_pro().
+ * Licensing lives in PQM_License; is_pro() only delegates to it.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -85,12 +85,13 @@ class PQM_Features {
     }
 
     /**
-     * Whether this site is on a paid plan. Stub until licensing exists:
-     * filter `pqm_is_pro` to true (e.g. in a mu-plugin) to demo the
-     * paid path end to end.
+     * Whether this site is on a paid plan. Delegates to the confined
+     * license provider (PQM_License, spec CAP-2); the `pqm_is_pro`
+     * filter wraps it so a dev override (e.g. a mu-plugin returning
+     * true) always wins — same contract as the pre-licensing stub.
      */
     public static function is_pro(): bool {
-        return (bool) apply_filters( 'pqm_is_pro', false );
+        return (bool) apply_filters( 'pqm_is_pro', PQM_License::is_pro() );
     }
 
     /**
