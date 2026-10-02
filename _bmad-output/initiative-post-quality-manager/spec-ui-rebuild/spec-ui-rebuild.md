@@ -41,7 +41,9 @@ A pain to solve plus a decided direction: the owner-approved ticket-7 UX review 
 - Native WP admin design language per `docs/brand.md`; all copy follows its rules.
 - Queue priority v1 uses only plugin-known data (status, score, staleness) — no traffic/analytics source exists.
 - Polling stays 3-second REST (KISS), centralized in one hook; prefer extending existing REST responses over adding routes.
-- A Node build step enters the repo: the release zip and CI must build assets; contributors need basic React.
+- A Node build step enters the repo: built assets are **not committed** — CI builds them into the release zip (owner decision 2026-10-02); contributors need basic React.
+- The rebuilt pages **replace** the old ones outright in the same zip and the old render code is deleted in this epic — no toggle, no parallel beta (owner decision 2026-10-02).
+- Identity work (backlog ticket 10) does **not** gate this epic — it runs in parallel; copy follows `docs/brand.md` as of build time, and the product-name/heading resolution should land before the Dashboard story when available (owner decision 2026-10-02).
 
 ## Non-goals
 
@@ -55,12 +57,3 @@ A pain to solve plus a decided direction: the owner-approved ticket-7 UX review 
 
 The owner opens the Dashboard, sees the five posts most worth fixing, clicks into a filtered list, and acts — and a copy or status-language change afterwards touches exactly one component file. Same zip, translated sites fully functional, harness suite green throughout.
 
-## Assumptions
-
-- Rebuilt pages replace the old ones outright in the same zip — no feature flag or parallel beta page (not addressed by any source; see OQ-3).
-
-## Open Questions
-
-- **OQ-1:** Does plugin identity (backlog ticket 10 — wording/logo/imagery) land before or with this epic? (owner)
-- **OQ-2:** Are built assets committed to the repo, or built in CI for the release zip? (decides the release process)
-- **OQ-3:** Replace the pages outright on update, or ship the rebuilt pages behind a toggle during a transition period?

@@ -136,3 +136,10 @@ Process lessons (what would prevent the next ones): the strongest findings all s
 2. A8 — what tier do `score`/`apply*` get (free, paid-following-their-agent, or quota-only as today)?
 3. A9 — keep quota default 20 for existing installs, or default 0 when the stored option predates the key?
 4. A10 — paid Settings sections: align code to the README (`pqm_manage_agents` required) or README to the code (either cap)?
+
+**Answered (owner, 2026-10-02 — "go with default proposals"):**
+
+1. A7 → exempt the Enable toggle from the locked fieldset so a free-site Admin can switch leftover cron off; the "stored cron settings keep running" decision otherwise stands.
+2. A8 → `score` and `apply`/`apply_*` get explicit **free**-tier registry entries (they operate on already-stored output); quota keeps counting them (existing decision); the command whitelist is enforced at the chokepoint.
+3. A9 → keep default 20 for all installs; the release-notes pack announces it (no migration special-case — KISS at the current install base).
+4. A10 → align **code to the documented matrix**: the Overrides and Automated Reviews sections require `pqm_manage_agents` to render editable and to save; README gains the full capability table.
