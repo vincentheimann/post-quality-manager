@@ -256,8 +256,10 @@ class PQM_Admin
         $clean = [];
 
         if (current_user_can('pqm_manage_settings')) {
-            // Admin-only sections: n8n Connection, AI Model, AI Prompts &
-            // Context, Monthly Quota.
+            // Admin-only sections: License, n8n Connection, AI Model,
+            // AI Prompts & Context, Monthly Quota.
+            // Whitespace-only keys trim to empty — the site stays free.
+            $clean['license_key'] = trim(sanitize_text_field($input['license_key'] ?? ''));
             $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
             $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
             $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
@@ -276,7 +278,7 @@ class PQM_Admin
         else {
             // The saver never saw these sections — keep what is stored.
             $admin_only_keys = [
-                'n8n_webhook_url', 'webhook_token', 'notification_url',
+                'license_key', 'n8n_webhook_url', 'webhook_token', 'notification_url',
                 'blog_profile', 'brand_voice_preset', 'brand_voice',
                 'website_context', 'author_quota', 'default_model', 'custom_model',
             ];
@@ -732,8 +734,27 @@ class PQM_Admin
                 <?php settings_fields('pqm_settings_group'); ?>
 
                 <?php if ($can_manage_settings): ?>
+                <!-- License (CAP-2: the key is the only plan switch — same zip) -->
+                <h2><?php esc_html_e('License', 'post-quality-manager'); ?></h2>
+                <p class="description"><?php
+                    echo esc_html($is_pro
+                        ? __('Current plan: Pro — all agents, per-agent overrides, and scheduled reviews are unlocked.', 'post-quality-manager')
+                        : __('Current plan: Free — Review and Key Takeaways are included. Enter a license key to unlock the rest.', 'post-quality-manager'));
+                ?></p>
+                <table class="form-table">
+                    <tr>
+                        <th><label for="pqm_license_key"><?php esc_html_e('License Key', 'post-quality-manager'); ?></label></th>
+                        <td>
+                            <input type="text" id="pqm_license_key" name="pqm_settings[license_key]"
+                                   value="<?php echo esc_attr($settings['license_key']); ?>"
+                                   class="regular-text" autocomplete="off" />
+                            <p class="description"><?php esc_html_e('Your Post Quality Manager license key. It applies when you save — clear it to switch the site back to Free.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
                 <!-- n8n Connection -->
-                <h2><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>
+                <h2 class="pqm-section-gap"><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php
                     printf(
                         /* translators: %s: link to the n8n Workflow page */
