@@ -1,6 +1,6 @@
 # Admin UI rebuild — Dashboard & Post Reviews
 
-Decided 2026-10-02 (ADR [0005](../docs/adr/0005-wordpress-components-for-app-screens.md), owner-approved ticket-7 UX review). **Not built yet** — spec and epic inception pending; this file records what is agreed.
+Decided 2026-10-02 (ADR [0005](../docs/adr/0005-wordpress-components-for-app-screens.md), owner-approved ticket-7 UX review). **Tracer bullet built 2026-10-02** (epic-ui-rebuild story 5.1): repo-root `package.json` + `@wordpress/scripts` build (`src/` → `post-quality-manager/admin/build/`, assets git-ignored, CI builds them in `.github/workflows/ci.yml`), read-only `GET post-quality/v1/posts` route, and the React Post Reviews table shell. Legacy `render_posts()` + its GET trigger path are unreachable but still in the file — deletion is story 5.7. Component kit, filters/sorting/pagination/bulk/detail panel are stories 5.2–5.5.
 
 - **Framework:** the Dashboard and Post Reviews pages are rebuilt on `@wordpress/components` + `@wordpress/element` with an `@wordpress/scripts` build; React loads from WordPress itself (dependency extraction). **Settings and n8n Workflow stay on the PHP Settings API** — no rebuild there.
 - **One render source:** PHP renders only the page shell; every badge, pill, row and panel renders client-side from the existing REST API. This retires the duplicated PHP/JS markup (and subsumes backlog story 5, CSS classes for JS markup). i18n via `@wordpress/i18n` — fixes the hardcoded-English JS copy and the `indexOf('Processing')` auto-resume bug on translated sites.

@@ -9,3 +9,8 @@ __pycache__/
 _bmad/render/
 
 # Personal BMad overrides are ignored by _bmad/custom/.gitignore (*.user.toml)
+
+# JS build pipeline (@wordpress/scripts): dependencies and built assets stay
+# out of git — CI builds them and ships the artifact.
+node_modules/
+post-quality-manager/admin/build/

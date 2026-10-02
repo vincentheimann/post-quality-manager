@@ -8,6 +8,7 @@
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
  *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
+ *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -64,6 +65,14 @@ class PQM_REST_API {
                     'sanitize_callback' => 'sanitize_text_field',
                 ],
             ],
+        ] );
+
+        // New (story 5.1): read-only post list for the React Post Reviews app.
+        register_rest_route( PQM_REST_NAMESPACE, '/posts', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ __CLASS__, 'list_posts_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
+            'args'                => self::list_posts_args(),
         ] );
     }
 
@@ -464,5 +473,100 @@ class PQM_REST_API {
         $response->header( 'Access-Control-Allow-Origin', '*' );
 
         return $response;
+    }
+
+    /* ─── 6. GET /posts (read-only list for the Post Reviews app) ────────── */
+
+    private static function list_posts_args(): array {
+        return [
+            'per_page' => [
+                'required'          => false,
+                'type'              => 'integer',
+                'default'           => 20,
+                'sanitize_callback' => 'absint',
+            ],
+            'page' => [
+                'required'          => false,
+                'type'              => 'integer',
+                'default'           => 1,
+                'sanitize_callback' => 'absint',
+            ],
+            'orderby' => [
+                'required'          => false,
+                'type'              => 'string',
+                'default'           => 'reviewed_at',
+                'sanitize_callback' => 'sanitize_key',
+            ],
+            'order' => [
+                'required'          => false,
+                'type'              => 'string',
+                'default'           => 'desc',
+                'sanitize_callback' => 'sanitize_key',
+            ],
+            'filter' => [
+                'required'          => false,
+                'type'              => 'string',
+                'default'           => 'all',
+                'sanitize_callback' => 'sanitize_key',
+            ],
+        ];
+    }
+
+    /**
+     * Read-only list of posts with their latest review, for the React
+     * Post Reviews table. Wraps PQM_DB::get_all_posts_with_scores(); bad
+     * params are clamped to the DB method's accepted set, never an error.
+     */
+    public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
+        $per_page = absint( $request->get_param( 'per_page' ) );
+        $per_page = $per_page > 0 ? min( $per_page, 100 ) : 20;
+
+        $page = max( 1, absint( $request->get_param( 'page' ) ) );
+
+        $orderby = sanitize_key( (string) $request->get_param( 'orderby' ) );
+        if ( ! in_array( $orderby, [ 'score', 'reviewed_at', 'title' ], true ) ) {
+            $orderby = 'reviewed_at';
+        }
+
+        $order  = strtoupper( (string) $request->get_param( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
+        $filter = 'needs_review' === $request->get_param( 'filter' ) ? 'needs_review' : 'all';
+
+        $result = PQM_DB::get_all_posts_with_scores( [
+            'per_page' => $per_page,
+            'page'     => $page,
+            'orderby'  => $orderby,
+            'order'    => $order,
+            'filter'   => $filter,
+        ] );
+
+        $post_ids = array_map( 'intval', array_column( $result['items'], 'post_id' ) );
+        $commands = PQM_DB::get_commands_for_posts( $post_ids );
+
+        $date_format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+
+        $items = [];
+        foreach ( $result['items'] as $row ) {
+            $post_id  = (int) $row['post_id'];
+            $reviewed = (string) ( $row['latest_reviewed'] ?? '' );
+
+            $items[] = [
+                'post_id'                 => $post_id,
+                'title'                   => (string) $row['title'],
+                'edit_link'               => get_edit_post_link( $post_id, 'raw' ),
+                'latest_score'            => null !== $row['latest_score'] ? (int) $row['latest_score'] : null,
+                'latest_status'           => (string) ( $row['latest_status'] ?? '' ),
+                'latest_reviewed'         => $reviewed,
+                'latest_reviewed_display' => $reviewed && '0000-00-00 00:00:00' !== $reviewed
+                    ? date_i18n( $date_format, strtotime( $reviewed ) )
+                    : '',
+                'commands'                => $commands[ $post_id ] ?? [],
+            ];
+        }
+
+        return new WP_REST_Response( [
+            'items' => $items,
+            'total' => (int) $result['total'],
+            'pages' => (int) $result['pages'],
+        ], 200 );
     }
 }
