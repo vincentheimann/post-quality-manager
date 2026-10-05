@@ -11,6 +11,8 @@ import { VisuallyHidden } from '@wordpress/components';
 import { Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
+import { isEmpty, isObject } from '../kit/runs';
+
 /** The four universal pillars (memory/lessons.md 2026-03-27), in display order. */
 export const PILLARS = [
 	{ key: 'structure', label: __( 'Structure', 'post-quality-manager' ) },
@@ -18,21 +20,6 @@ export const PILLARS = [
 	{ key: 'engagement', label: __( 'Engagement', 'post-quality-manager' ) },
 	{ key: 'credibility', label: __( 'Credibility', 'post-quality-manager' ) },
 ];
-
-export function isObject( value ) {
-	return value !== null && typeof value === 'object' && ! Array.isArray( value );
-}
-
-/** Null, '', [] or {} — what a failed n8n run stores as its result. */
-export function isEmpty( value ) {
-	return (
-		value === null ||
-		value === undefined ||
-		value === '' ||
-		( Array.isArray( value ) && value.length === 0 ) ||
-		( isObject( value ) && Object.keys( value ).length === 0 )
-	);
-}
 
 /** A pillar score as the agents store it: `{ score: 72 }` or a bare number. */
 function pillarScore( value ) {

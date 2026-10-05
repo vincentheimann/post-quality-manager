@@ -29,7 +29,7 @@ function outcomeLine( result ) {
  * @param {Object}   props
  * @param {Array}    props.selection `[{ post_id, title }]` — selected, selectable rows of the current page.
  * @param {Object}   props.viewer    The list's `viewer` block (quota).
- * @param {Function} props.startRun  `( postId, command ) => Promise<{ ok, message }>`; never rejects.
+ * @param {Function} props.startRun  The table's `( postId, command ) => Promise<{ ok, message }>` — requestRun() from src/kit/runs.js plus polling re-arm; never rejects.
  * @param {Function} props.onStart   Called when a batch starts (clears the selection).
  */
 export default function BulkBar( { selection, viewer, startRun, onStart } ) {

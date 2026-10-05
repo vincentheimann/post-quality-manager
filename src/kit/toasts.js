@@ -1,5 +1,6 @@
 /**
- * Toasts (story 5.4) — local notice state rendered through the kit's
+ * Toasts (story 5.4; in the kit since 5.6, shared by Post Reviews and the
+ * Dashboard) — local notice state rendered through the
  * SnackbarList, so trigger confirmations and polling outcomes surface
  * without a `core/notices` store or any `wp-data` dependency. Each
  * Snackbar announces its own message through `speak()` on mount, so the

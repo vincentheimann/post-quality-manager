@@ -35,17 +35,23 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs, getQueryArgs, removeQueryArgs } from '@wordpress/url';
 
-import { STATUS_NONE, commandLabel, statusLabel } from './kit/copy';
+import { STATUS_NONE } from './kit/copy';
 import ProgressPills from './kit/progress-pills';
+import {
+	giveUpMessage,
+	requestRun,
+	requestedMessage,
+	settledToast,
+} from './kit/runs';
 import ScoreBadge from './kit/score-badge';
 import StatusBadge from './kit/status-badge';
+import Toasts, { useToasts } from './kit/toasts';
+import usePolling from './kit/use-polling';
 import BulkBar from './post-reviews/bulk-bar';
-import DetailPanel, { canRender, isFailedRow } from './post-reviews/detail-panel';
+import DetailPanel, { canRender } from './post-reviews/detail-panel';
 import FilterBar from './post-reviews/filter-bar';
 import Pagination from './post-reviews/pagination';
 import SortableHeader from './post-reviews/sortable-header';
-import Toasts, { useToasts } from './post-reviews/toasts';
-import usePolling from './post-reviews/use-polling';
 
 const PER_PAGE = 20;
 // No `processing`: placeholders never form a post's latest status (5.4), so that filter would be empty.
@@ -127,68 +133,6 @@ function hasActiveFilters( query ) {
 
 function inFlight( item, command ) {
 	return Array.isArray( item.in_flight ) && item.in_flight.includes( command );
-}
-
-/** Toast copy for a run that just left `in_flight`, from its stored row. */
-function outcomeToast( command, row ) {
-	const label = commandLabel( command );
-
-	if ( ! row ) {
-		return {
-			status: 'info',
-			content: sprintf(
-				/* translators: %s: agent command label, e.g. "Review" */
-				__( '%s finished — open Details to see the result.', 'post-quality-manager' ),
-				label
-			),
-		};
-	}
-
-	if ( isFailedRow( row ) ) {
-		return {
-			status: 'warning',
-			content: sprintf(
-				/* translators: %s: agent command label, e.g. "Review" */
-				__(
-					'%s could not complete. Check the n8n execution log, then try again.',
-					'post-quality-manager'
-				),
-				label
-			),
-		};
-	}
-
-	if ( command === 'rewrite' ) {
-		return {
-			status: 'success',
-			content: __(
-				'Rewrite complete — the post is saved as Pending Review.',
-				'post-quality-manager'
-			),
-		};
-	}
-
-	if ( row.overall_score > 0 ) {
-		return {
-			status: 'success',
-			content: sprintf(
-				/* translators: 1: agent command label, e.g. "Review"; 2: score 0–100; 3: status label, e.g. "Ready to ship" */
-				__( '%1$s complete — score %2$d, %3$s.', 'post-quality-manager' ),
-				label,
-				row.overall_score,
-				statusLabel( row.status )
-			),
-		};
-	}
-
-	return {
-		status: 'success',
-		content: sprintf(
-			/* translators: %s: agent command label, e.g. "Takeaways" */
-			__( '%s complete.', 'post-quality-manager' ),
-			label
-		),
-	};
 }
 
 function PostRow( { item, isOpen, isAwaited, onToggle, canSelect, isSelected, onSelect } ) {
@@ -374,36 +318,15 @@ export default function PostReviewsTable() {
 	const onSettled = useCallback(
 		( postId, command ) => {
 			setDetailVersion( ( v ) => v + 1 );
-			apiFetch( { path: `/post-quality/v1/reviews/${ postId }` } )
-				.then( ( rows ) => {
-					const row = ( Array.isArray( rows ) ? rows : [] ).find(
-						( r ) => r.command === command
-					);
-					const toast = outcomeToast( command, row );
-					addToast( toast.content, toast.status );
-				} )
-				.catch( () => {
-					const toast = outcomeToast( command, null );
-					addToast( toast.content, toast.status );
-				} );
+			settledToast( postId, command ).then(
+				( toast ) => toast && addToast( toast.content, toast.status )
+			);
 		},
 		[ addToast ]
 	);
 
 	const onGiveUp = useCallback(
-		( postId, command ) => {
-			addToast(
-				sprintf(
-					/* translators: %s: agent command label, e.g. "Review" */
-					__(
-						'%s is still running in n8n — results will appear when it finishes.',
-						'post-quality-manager'
-					),
-					commandLabel( command )
-				),
-				'info'
-			);
-		},
+		( postId, command ) => addToast( giveUpMessage( command ), 'info' ),
 		[ addToast ]
 	);
 
@@ -413,47 +336,20 @@ export default function PostReviewsTable() {
 		onGiveUp,
 	} );
 
-	// One trigger path for single and bulk runs (D4 / F6): the server
-	// writes the processing row on an n8n 2xx, so a success re-arms
-	// polling and refetches silently — rows switch to Processing. Resolves
-	// `{ ok, message }` with the server's refusal copy; never rejects.
+	// One trigger path for single and bulk runs (D4 / F6): requestRun()
+	// (src/kit/runs.js, shared with the Dashboard) asks the server, which
+	// writes the processing row on an n8n 2xx; a success re-arms polling
+	// and refetches silently — rows switch to Processing. Resolves
+	// `{ ok, message }`; never rejects.
 	const startRun = ( postId, command ) =>
-		apiFetch( {
-			path: '/post-quality/v1/trigger-review',
-			method: 'POST',
-			data: { post_id: postId, command },
-		} ).then(
-			( data ) => {
-				if ( data && data.success === false ) {
-					return {
-						ok: false,
-						message: sprintf(
-							/* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
-							__(
-								'%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.',
-								'post-quality-manager'
-							),
-							commandLabel( command ),
-							data.n8n_status || 0
-						),
-					};
-				}
+		requestRun( postId, command ).then( ( outcome ) => {
+			if ( outcome.ok ) {
 				restart( postId, command );
 				setDetailVersion( ( v ) => v + 1 );
 				refetch( true );
-				return { ok: true, message: '' };
-			},
-			// Gate / quota / not configured / n8n down: the server's message, gently.
-			( err ) => ( {
-				ok: false,
-				message:
-					( err && err.message ) ||
-					__(
-						'Could not reach the site REST API. Reload the page and try again.',
-						'post-quality-manager'
-					),
-			} )
-		);
+			}
+			return outcome;
+		} );
 
 	// Single run: no confirm; the post stays busy until the post-trigger
 	// refetch resolves.
@@ -466,17 +362,7 @@ export default function PostReviewsTable() {
 				setPendingPostId( null );
 				return;
 			}
-			addToast(
-				sprintf(
-					/* translators: %s: agent command label, e.g. "Review" */
-					__(
-						'%s requested — running in the background, this page stays usable.',
-						'post-quality-manager'
-					),
-					commandLabel( command )
-				),
-				'info'
-			);
+			addToast( requestedMessage( command ), 'info' );
 			pendingUntilKey.current = refreshCounter.current; // the refetch startRun just issued
 		} );
 	};

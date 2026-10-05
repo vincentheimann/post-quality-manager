@@ -1,17 +1,25 @@
 /**
- * Post Reviews admin app — entry point (tracer bullet, story 5.1).
+ * Admin app entry point (stories 5.1, 5.6).
  *
- * Mounts the read-only Post Reviews table on the root div rendered by
- * PQM_Admin::render_posts_app(). React and all @wordpress/* dependencies
+ * One bundle for the React pages: mounts the Post Reviews table or the
+ * Dashboard on whichever root div the PHP shell rendered
+ * (PQM_Admin::render_app_shell()). React and all @wordpress/* dependencies
  * are served by WordPress core via dependency extraction — nothing is
  * bundled beyond this app's own code.
  */
 import { createRoot } from '@wordpress/element';
 
+import Dashboard from './dashboard';
 import PostReviewsTable from './post-reviews-table';
 
-const root = document.getElementById( 'pqm-post-reviews-root' );
+const pages = [
+	[ 'pqm-post-reviews-root', PostReviewsTable ],
+	[ 'pqm-dashboard-root', Dashboard ],
+];
 
-if ( root ) {
-	createRoot( root ).render( <PostReviewsTable /> );
-}
+pages.forEach( ( [ id, Page ] ) => {
+	const root = document.getElementById( id );
+	if ( root ) {
+		createRoot( root ).render( <Page /> );
+	}
+} );
