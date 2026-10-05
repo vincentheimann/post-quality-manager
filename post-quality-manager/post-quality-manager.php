@@ -52,7 +52,6 @@ if (is_admin()) {
     add_action('admin_notices', ['PQM_Admin', 'admin_notices']);
     add_action('admin_enqueue_scripts', ['PQM_Admin', 'enqueue_assets']);
     add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
-    add_action('wp_ajax_pqm_trigger_command', ['PQM_Admin', 'ajax_trigger_command']);
     add_action('wp_ajax_pqm_test_connection', ['PQM_Admin', 'ajax_test_connection']);
     add_action('wp_ajax_pqm_save_webhook_url', ['PQM_Admin', 'ajax_save_webhook_url']);
     add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);

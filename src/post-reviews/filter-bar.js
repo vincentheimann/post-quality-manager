@@ -46,7 +46,6 @@ export default function FilterBar( {
 	maxScore,
 	counts,
 	viewer,
-	legacyFilter,
 	onStatusChange,
 	onBandChange,
 } ) {
@@ -60,9 +59,7 @@ export default function FilterBar( {
 				aria-label={ __( 'Filter by status', 'post-quality-manager' ) }
 			>
 				{ CHIP_STATUSES.map( ( chip ) => {
-					// The legacy ?filter=needs_review view (Dashboard card) is
-					// not a chip state: nothing is pressed until a chip is chosen.
-					const pressed = ! legacyFilter && chip === status;
+					const pressed = chip === status;
 					const count = counts ? counts[ chip || 'all' ] : undefined;
 
 					return (

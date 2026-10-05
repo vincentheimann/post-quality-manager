@@ -4,9 +4,12 @@
  *
  * Registers four sub-pages under a "Content Quality" top-level menu:
  * 1. Dashboard — React app: Fix-next queue, stat tiles, score sparkline, nudges
- * 2. Post Reviews — post table with scores, filters, per-post actions
+ * 2. Post Reviews — React app: post table with scores, filters, per-post actions
  * 3. n8n Workflow — setup wizard, download/import, request preview, ping
  * 4. Settings — connection, AI model, prompts & context, cron
+ *
+ * The two React pages (src/, ADR 0005) get only a PHP shell from here; the
+ * Settings and n8n Workflow pages render in PHP with pqm-admin.css/.js.
  */
 
 if (!defined('ABSPATH')) {
@@ -30,8 +33,7 @@ class PQM_Admin
 
     public static function register_pages(): void
     {
-        // Story 5.6: the React shell renders the Dashboard; the legacy
-        // render_dashboard() stays in place but unrouted until story 5.7.
+        // Story 5.6: the React shell renders the Dashboard.
         self::$dashboard_hook = add_menu_page(
             __('Content Quality', 'post-quality-manager'),
             __('Content Quality', 'post-quality-manager'),
@@ -51,8 +53,7 @@ class PQM_Admin
         [__CLASS__, 'render_dashboard_app']
         );
 
-        // Story 5.1: the React shell renders this page; the legacy
-        // render_posts() stays in place but unreachable until story 5.7.
+        // Story 5.1: the React shell renders this page.
         self::$posts_hook = add_submenu_page(
             'pqm-dashboard',
             __('Post Reviews', 'post-quality-manager'),
@@ -125,21 +126,21 @@ class PQM_Admin
             return;
         }
 
+        // Post Reviews (story 5.1) and the Dashboard (story 5.6) run the
+        // React app: built bundle with core-served dependencies, styled
+        // only by the kit CSS (story 5.7). pqm-admin.css/.js serve the
+        // Settings and n8n Workflow pages alone.
+        if ($hook === self::$posts_hook || $hook === self::$dashboard_hook) {
+            self::enqueue_app();
+            return;
+        }
+
         wp_enqueue_style(
             'pqm-admin',
             PQM_PLUGIN_URL . 'admin/css/pqm-admin.css',
         [],
             filemtime(PQM_PLUGIN_DIR . 'admin/css/pqm-admin.css')
         );
-
-        // Post Reviews (story 5.1) and the Dashboard (story 5.6) run the
-        // React app: built bundle with core-served dependencies. The legacy
-        // pqm-admin JS stays off these hooks so the old string-built render
-        // path cannot run; the shared CSS above still applies (badges, pills).
-        if ($hook === self::$posts_hook || $hook === self::$dashboard_hook) {
-            self::enqueue_app();
-            return;
-        }
 
         wp_enqueue_script(
             'pqm-admin',
@@ -152,8 +153,6 @@ class PQM_Admin
         $settings = pqm_get_settings();
 
         wp_localize_script('pqm-admin', 'pqmAdmin', [
-            'restUrl' => rest_url(PQM_REST_NAMESPACE),
-            'nonce' => wp_create_nonce('wp_rest'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'pageNonce' => wp_create_nonce('pqm_admin_action'),
             // Effective global default model (Custom resolved like
@@ -172,13 +171,7 @@ class PQM_Admin
                 static fn($m) => ['temperature' => $m['supports_temperature'], 'effortLevels' => $m['effort_levels']],
                 pqm_model_registry()
             ),
-            'gatedCommands' => PQM_Features::gated_commands(),
-            'hiddenCommands' => PQM_Features::hidden_commands(),
-            'quota' => PQM_Features::quota_state(),
             'i18n' => [
-                'lockedTitle' => __('Available with Pro. Upgrade to unlock this agent.', 'post-quality-manager'),
-                /* translators: 1: remaining AI actions, 2: monthly limit */
-                'quotaNote' => __('%1$d of %2$d AI actions left this month', 'post-quality-manager'),
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
                 'saving' => __('Saving…', 'post-quality-manager'),
@@ -406,109 +399,6 @@ class PQM_Admin
         }
     }
 
-    /* ─── Page: Dashboard (legacy, unrouted since story 5.6 — removal is story 5.7) ── */
-
-    public static function render_dashboard(): void
-    {
-        $settings  = pqm_get_settings();
-        $stats     = PQM_DB::get_dashboard_stats();
-        $posts_url = admin_url('admin.php?page=pqm-posts');
-
-        // One-click dismissal of the scheduled-reviews nudge (persisted).
-        if (isset($_GET['pqm_dismiss_cron_nudge'])
-            && wp_verify_nonce($_GET['_wpnonce'] ?? '', 'pqm_dismiss_cron_nudge')
-            && current_user_can('pqm_manage_settings')
-        ) {
-            update_option('pqm_cron_nudge_dismissed', 1, false);
-        }
-?>
-        <div class="wrap pqm-wrap">
-            <h1><?php esc_html_e('Content Quality Dashboard', 'post-quality-manager'); ?></h1>
-
-            <?php if (empty($settings['n8n_webhook_url'])): ?>
-            <!-- State: not connected yet — route to setup, hide meaningless zeros. -->
-            <div class="pqm-dashboard-cta">
-                <h2><?php esc_html_e('Connect n8n to start reviewing', 'post-quality-manager'); ?></h2>
-                <p><?php esc_html_e('Import the pre-configured workflow into n8n and connect it to this site — about 10 minutes, one time.', 'post-quality-manager'); ?></p>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=pqm-workflow')); ?>" class="button button-primary button-hero">
-                    <?php esc_html_e('Set up the n8n workflow', 'post-quality-manager'); ?>
-                </a>
-            </div>
-        </div>
-            <?php
-                return; // Stat cards would only show zeros.
-            endif;
-
-            $needs_attention = ($stats['distribution']['needs_revision'] ?? 0) + ($stats['distribution']['major_revision'] ?? 0);
-            $ready_to_ship   = $stats['distribution']['ship'] ?? 0;
-
-            if ((int) $stats['reviewed'] === 0):
-            ?>
-            <!-- State: connected, nothing reviewed yet — prompt the first review. -->
-            <div class="pqm-dashboard-cta">
-                <h2><?php esc_html_e('You are all set — run your first review', 'post-quality-manager'); ?></h2>
-                <p><?php esc_html_e('Pick a post and trigger a review. The score, issues, and suggested edits land back here in about a minute.', 'post-quality-manager'); ?></p>
-                <a href="<?php echo esc_url($posts_url); ?>" class="button button-primary button-hero">
-                    <?php esc_html_e('Run your first review', 'post-quality-manager'); ?>
-                </a>
-            </div>
-            <?php endif; ?>
-
-            <!-- Stat Cards — each links to the posts they count. -->
-            <div class="pqm-stats-grid">
-                <a class="pqm-stat-card" href="<?php echo esc_url($posts_url); ?>">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['avg_score']); ?></span>
-                    <span class="pqm-stat-label" title="<?php esc_attr_e('The overall average quality score across all analyzed posts.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Average Score', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
-                    </span>
-                </a>
-                <a class="pqm-stat-card" href="<?php echo esc_url($posts_url); ?>">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['reviewed']); ?></span>
-                    <span class="pqm-stat-label" title="<?php esc_attr_e('Total posts that have been processed by the quality manager at least once.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Analyzed Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
-                    </span>
-                </a>
-                <a class="pqm-stat-card" href="<?php echo esc_url(add_query_arg('filter', 'needs_review', $posts_url)); ?>">
-                    <span class="pqm-stat-number"><?php echo esc_html($needs_attention); ?></span>
-                    <span class="pqm-stat-label" title="<?php esc_attr_e('Posts requiring manual intervention or major revisions to meet quality standards.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Needs Attention', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
-                    </span>
-                </a>
-                <a class="pqm-stat-card" href="<?php echo esc_url($posts_url); ?>">
-                    <span class="pqm-stat-number"><?php echo esc_html($stats['total_posts']); ?></span>
-                    <span class="pqm-stat-label" title="<?php esc_attr_e('Total published and pending posts on your site.', 'post-quality-manager'); ?>">
-                        <?php esc_html_e('Total Posts', 'post-quality-manager'); ?> <span class="dashicons dashicons-editor-help pqm-help-icon"></span>
-                    </span>
-                </a>
-            </div>
-
-            <?php
-            // Nudge toward the habit loop: first result is in, cron still off.
-            // Pro only — on a free site the Automated Reviews section is locked.
-            $show_cron_nudge = (int) $stats['reviewed'] > 0
-                && empty($settings['cron_enabled'])
-                && !get_option('pqm_cron_nudge_dismissed')
-                && current_user_can('pqm_manage_settings')
-                && PQM_Features::is_pro();
-            if ($show_cron_nudge):
-                $cron_url    = admin_url('admin.php?page=pqm-settings#pqm-cron-settings');
-                $dismiss_url = wp_nonce_url(add_query_arg('pqm_dismiss_cron_nudge', '1'), 'pqm_dismiss_cron_nudge');
-            ?>
-            <div class="notice notice-info inline pqm-inline-notice">
-                <p>
-                    <strong><?php esc_html_e('Let reviews run themselves.', 'post-quality-manager'); ?></strong>
-                    <?php esc_html_e('Scheduled reviews keep scoring your back catalog automatically — you pick the frequency and batch size.', 'post-quality-manager'); ?>
-                    <a href="<?php echo esc_url($cron_url); ?>"><?php esc_html_e('Enable scheduled reviews', 'post-quality-manager'); ?></a>
-                    &nbsp;·&nbsp;
-                    <a href="<?php echo esc_url($dismiss_url); ?>"><?php esc_html_e('Dismiss', 'post-quality-manager'); ?></a>
-                </p>
-            </div>
-            <?php endif; ?>
-
-        </div>
-        <?php
-    }
-
     /* ─── React app pages (stories 5.1, 5.6) ─────────────────────────── */
 
     /**
@@ -569,261 +459,6 @@ class PQM_Admin
             <?php else: ?>
                 <div id="<?php echo esc_attr($root_id); ?>"></div>
             <?php endif; ?>
-        </div>
-        <?php
-    }
-
-    /* ─── Page: Post Reviews (legacy, unreachable — removal is story 5.7) ── */
-
-    public static function render_posts(): void
-    {
-        // Handle trigger-review action.
-        if (isset($_GET['pqm_action'], $_GET['post_id'], $_GET['_wpnonce'])
-        && $_GET['pqm_action'] === 'trigger'
-        && wp_verify_nonce($_GET['_wpnonce'], 'pqm_trigger_' . $_GET['post_id'])
-        ) {
-            $post_id = absint($_GET['post_id']);
-            $command = sanitize_key($_GET['command'] ?? 'review');
-            $settings = pqm_get_settings();
-
-            if (!empty($settings['n8n_webhook_url'])) {
-                // Re-use the REST trigger logic.
-                $request = new WP_REST_Request('POST', '/' . PQM_REST_NAMESPACE . '/trigger-review');
-                $request->set_param('post_id', $post_id);
-                $request->set_param('command', $command);
-                $response = PQM_REST_API::trigger_review_callback($request);
-
-                if (is_wp_error($response)) {
-                    $notice_class = 'notice-error';
-                    $notice_message = $response->get_error_message();
-                }
-                else {
-                    $notice_class = 'notice-success';
-                    $notice_message = sprintf(
-                        /* translators: %s: post title */
-                        __('Review triggered for "%s". Results will appear here shortly.', 'post-quality-manager'),
-                        get_the_title($post_id)
-                    );
-                    // The localized pqmAdmin.quota snapshot was captured on
-                    // admin_enqueue_scripts, before this trigger consumed an
-                    // action — refresh it so JS-rendered notes match the PHP
-                    // one (the script prints in the footer, so inline data
-                    // added here still lands).
-                    wp_add_inline_script(
-                        'pqm-admin',
-                        'pqmAdmin.quota = ' . wp_json_encode(PQM_Features::quota_state()) . ';',
-                        'after'
-                    );
-                }
-            }
-            else {
-                $notice_class = 'notice-error';
-                $notice_message = sprintf(
-                    /* translators: %s: link to the n8n Workflow page */
-                    __('n8n is not connected yet. Set it up on the %s page.', 'post-quality-manager'),
-                    '<a href="' . esc_url(admin_url('admin.php?page=pqm-workflow')) . '">' . esc_html__('n8n Workflow', 'post-quality-manager') . '</a>'
-                );
-            }
-
-            echo '<div class="notice ' . esc_attr($notice_class) . ' is-dismissible"><p>' . wp_kses_post($notice_message) . '</p></div>';
-        }
-
-        // Pagination & filters.
-        $current_page = absint($_GET['paged'] ?? 1);
-        $status_filter = sanitize_key($_GET['review_status'] ?? '');
-        $filter = sanitize_key($_GET['filter'] ?? 'all');
-        $orderby = sanitize_key($_GET['orderby'] ?? 'reviewed_at');
-        $order = strtoupper(sanitize_key($_GET['order'] ?? 'DESC'));
-
-        $result = PQM_DB::get_all_posts_with_scores([
-            'per_page' => 20,
-            'page' => $current_page,
-            'orderby' => $orderby,
-            'order' => $order,
-            'status' => $status_filter,
-            'filter' => $filter,
-        ]);
-
-        $items = $result['items'];
-        $total = $result['total'];
-        $pages = $result['pages'];
-
-        // Get command states for all posts on this page.
-        $post_ids = array_column($items, 'post_id');
-        $commands = PQM_DB::get_commands_for_posts($post_ids);
-
-        // Yoast column only exists while Yoast SEO is active.
-        $yoast_active = defined('WPSEO_VERSION');
-        if ($yoast_active && !empty($post_ids)) {
-            update_postmeta_cache($post_ids); // one query for all rows instead of one per badge
-        }
-        $colspan = $yoast_active ? 7 : 6;
-
-        // Role-gated actions are hidden, not locked (review is free, so only the role can refuse it).
-        $can_review = PQM_Features::can('review');
-
-        // Progress chips: canonical order + labels; only commands that ran get a chip.
-        $cmd_order  = ['review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite'];
-        $cmd_labels = [
-            'review'    => __('Review', 'post-quality-manager'),
-            'takeaways' => __('Takeaways', 'post-quality-manager'),
-            'sources'   => __('Sources', 'post-quality-manager'),
-            'seo'       => __('SEO', 'post-quality-manager'),
-            'audit'     => __('Audit', 'post-quality-manager'),
-            'rewrite'   => __('Rewrite', 'post-quality-manager'),
-        ];
-
-?>
-        <div class="wrap pqm-wrap">
-            <h1><?php esc_html_e('Post Reviews', 'post-quality-manager'); ?></h1>
-
-            <!-- Filters -->
-            <div class="pqm-filters">
-                <a href="<?php echo esc_url(admin_url('admin.php?page=pqm-posts&filter=all')); ?>"
-                   class="button <?php echo $filter !== 'needs_review' ? 'button-primary' : ''; ?>">
-                    <?php esc_html_e('All Posts', 'post-quality-manager'); ?>
-                </a>
-                <a href="<?php echo esc_url(admin_url('admin.php?page=pqm-posts&filter=needs_review')); ?>"
-                   class="button <?php echo $filter === 'needs_review' ? 'button-primary' : ''; ?>">
-                    <?php esc_html_e('Needs Review', 'post-quality-manager'); ?>
-                </a>
-                <?php $quota = PQM_Features::quota_state(); ?>
-                <?php if ($quota !== null): ?>
-                    <span class="pqm-quota-note"><?php echo esc_html(sprintf(
-                        /* translators: 1: remaining AI actions, 2: monthly limit */
-                        __('%1$d of %2$d AI actions left this month', 'post-quality-manager'),
-                        $quota['remaining'],
-                        $quota['limit']
-                    )); ?></span>
-                <?php endif; ?>
-            </div>
-
-            <table class="widefat fixed striped pqm-posts-table">
-                <thead>
-                    <tr>
-                        <th class="pqm-col-title">
-                            <?php echo self::sortable_header('title', __('Post', 'post-quality-manager'), $orderby, $order); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-                        </th>
-                        <th class="pqm-col-score">
-                            <?php echo self::sortable_header('score', __('Score', 'post-quality-manager'), $orderby, $order); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-                        </th>
-                        <?php if ($yoast_active): ?>
-                        <th class="pqm-col-yoast"><?php esc_html_e('Yoast SEO', 'post-quality-manager'); ?></th>
-                        <?php endif; ?>
-                        <th class="pqm-col-status"><?php esc_html_e('Status', 'post-quality-manager'); ?></th>
-                        <th class="pqm-col-progress"><?php esc_html_e('Progress', 'post-quality-manager'); ?></th>
-                        <th class="pqm-col-date">
-                            <?php echo self::sortable_header('reviewed_at', __('Last Reviewed', 'post-quality-manager'), $orderby, $order); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-                        </th>
-                        <th class="pqm-col-actions"><?php esc_html_e('Actions', 'post-quality-manager'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($items)): ?>
-                        <tr><td colspan="<?php echo esc_attr($colspan); ?>"><?php esc_html_e('No posts found.', 'post-quality-manager'); ?></td></tr>
-                    <?php
-        else: ?>
-                        <?php foreach ($items as $item): ?>
-                        <tr class="pqm-post-row" data-post-id="<?php echo esc_attr($item['post_id']); ?>">
-                            <td>
-                                <strong>
-                                    <a href="<?php echo esc_url(get_edit_post_link($item['post_id'])); ?>">
-                                        <?php echo esc_html($item['title']); ?>
-                                    </a>
-                                    <?php if (($item['wp_post_status'] ?? '') === 'pending'): ?>
-                                        — <span class="post-state pqm-post-state"><?php esc_html_e('Pending', 'post-quality-manager'); ?></span>
-                                    <?php endif; ?>
-                                </strong>
-                            </td>
-                            <td class="pqm-cell-score">
-                                <?php if ($item['latest_score'] !== null): ?>
-                                    <span class="pqm-score-badge pqm-score-<?php echo esc_attr(self::score_class((int)$item['latest_score'])); ?>">
-                                        <?php echo esc_html($item['latest_score']); ?>
-                                    </span>
-                                <?php
-                else: ?>
-                                    <span class="pqm-score-badge pqm-score-none">—</span>
-                                <?php
-                endif; ?>
-                            </td>
-                            <?php if ($yoast_active): ?>
-                            <td class="pqm-cell-yoast">
-                                <?php self::render_yoast_badges((int)$item['post_id']); ?>
-                            </td>
-                            <?php endif; ?>
-                            <td class="pqm-cell-status">
-                                <?php echo esc_html(self::format_status($item['latest_status'] ?? '')); ?>
-                            </td>
-                            <td class="pqm-cell-progress">
-                                <?php
-                $cmds = $commands[$item['post_id']] ?? [];
-                $has_rev = in_array('review', $cmds, true);
-                // Chips show what actually ran (canonical order, unknown commands appended).
-                $ran = array_merge(array_values(array_intersect($cmd_order, $cmds)), array_values(array_diff($cmds, $cmd_order)));
-?>
-                                <div class="pqm-pills">
-                                    <?php if (empty($ran)): ?>
-                                        <span class="pqm-pill pqm-pill-pending">— <?php esc_html_e('Not analyzed', 'post-quality-manager'); ?></span>
-                                    <?php
-                else: foreach ($ran as $cmd): ?>
-                                        <span class="pqm-pill pqm-pill-done">✓ <?php echo esc_html($cmd_labels[$cmd] ?? ucfirst($cmd)); ?></span>
-                                    <?php
-                    endforeach;
-                endif; ?>
-                                </div>
-                            </td>
-                            <td class="pqm-cell-date">
-                                <?php echo $item['latest_reviewed'] ? esc_html(self::format_date($item['latest_reviewed'])) : '<em>' . esc_html__('Never', 'post-quality-manager') . '</em>'; ?>
-                            </td>
-                            <td class="pqm-cell-actions">
-                                <?php if (!$has_rev): ?>
-                                    <?php if ($can_review): ?>
-                                    <button type="button" class="button button-primary button-small"
-                                            data-post-id="<?php echo esc_attr($item['post_id']); ?>" data-pqm-cmd="review">
-                                        <?php esc_html_e('Run Review', 'post-quality-manager'); ?>
-                                    </button>
-                                    <?php endif; ?>
-                                <?php
-                else: ?>
-                                    <button type="button" class="button button-small pqm-detail-toggle"
-                                            data-post-id="<?php echo esc_attr($item['post_id']); ?>">
-                                        <?php esc_html_e('Details', 'post-quality-manager'); ?>
-                                    </button>
-                                <?php
-                endif; ?>
-                            </td>
-                        </tr>
-                        <!-- Expandable detail row -->
-                        <tr class="pqm-detail-row pqm-hidden" id="pqm-detail-<?php echo esc_attr($item['post_id']); ?>">
-                            <td colspan="<?php echo esc_attr($colspan); ?>">
-                                <div class="pqm-detail-content" data-post-id="<?php echo esc_attr($item['post_id']); ?>">
-                                    <p class="description"><?php esc_html_e('Loading...', 'post-quality-manager'); ?></p>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php
-            endforeach; ?>
-                    <?php
-        endif; ?>
-                </tbody>
-            </table>
-
-            <!-- Pagination -->
-            <?php if ($pages > 1): ?>
-            <div class="tablenav bottom">
-                <div class="tablenav-pages">
-                    <?php
-            echo paginate_links([ // phpcs:ignore WordPress.Security.EscapeOutput
-                'base' => add_query_arg('paged', '%#%'),
-                'format' => '',
-                'total' => $pages,
-                'current' => $current_page,
-            ]);
-?>
-                </div>
-            </div>
-            <?php
-        endif; ?>
         </div>
         <?php
     }
@@ -1511,124 +1146,5 @@ class PQM_Admin
             __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
             $code
         ));
-    }
-
-    /* ─── AJAX: Trigger Command ──────────────────────────────────────── */
-
-    public static function ajax_trigger_command(): void
-    {
-        check_ajax_referer('pqm_admin_action');
-
-        // Same route gate as POST /trigger-review; the per-command decision
-        // happens in trigger_review_callback() below.
-        if (!PQM_REST_API::check_can_trigger()) {
-            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
-        }
-
-        $post_id = absint($_POST['post_id'] ?? 0);
-        $command = sanitize_key($_POST['command'] ?? 'review');
-
-        if (!$post_id) {
-            wp_send_json_error('Invalid post ID.');
-        }
-
-        $request = new WP_REST_Request('POST', '/' . PQM_REST_NAMESPACE . '/trigger-review');
-        $request->set_param('post_id', $post_id);
-        $request->set_param('command', $command);
-        $response = PQM_REST_API::trigger_review_callback($request);
-
-        if (is_wp_error($response)) {
-            wp_send_json_error($response->get_error_message(), (int) ($response->get_error_data()['status'] ?? 400));
-        }
-
-        // The 'processing' placeholder row is written by the REST callback
-        // itself on an n8n 2xx (story 5.4) — one write path for every caller.
-        wp_send_json_success([
-            'message' => __('Command triggered in n8n.', 'post-quality-manager'),
-            // Post-trigger remaining count from the REST callback; null for exempt/unlimited.
-            'quota_remaining' => $response->get_data()['quota_remaining'] ?? null,
-        ]);
-    }
-
-    /* ─── Helpers ─────────────────────────────────────────────────────── */
-
-    /**
-     * Yoast SEO + readability badges for one Post Reviews row.
-     * Yoast's own quality buckets (>70 good, >40 ok) line up with
-     * score_class(), so the badges reuse the existing score colors.
-     */
-    private static function render_yoast_badges(int $post_id): void
-    {
-        $seo  = get_post_meta($post_id, '_yoast_wpseo_linkdex', true);
-        $read = get_post_meta($post_id, '_yoast_wpseo_content_score', true);
-
-        if ($seo === '' && $read === '') {
-            echo '<span class="pqm-score-badge pqm-score-none" title="'
-                . esc_attr__('No Yoast analysis yet. Open the post in the editor to generate one.', 'post-quality-manager')
-                . '">—</span>';
-            return;
-        }
-
-        self::yoast_badge(__('SEO', 'post-quality-manager'), $seo, __('Yoast SEO score', 'post-quality-manager'));
-        self::yoast_badge(__('Readability', 'post-quality-manager'), $read, __('Yoast readability score', 'post-quality-manager'));
-    }
-
-    private static function yoast_badge(string $label, string $value, string $title): void
-    {
-        $class = $value === '' ? 'none' : self::score_class((int)$value);
-        printf(
-            '<span class="pqm-yoast-badge pqm-score-%s" title="%s">%s %s</span>',
-            esc_attr($class),
-            esc_attr($title),
-            esc_html($label),
-            esc_html($value === '' ? '—' : $value)
-        );
-    }
-
-    private static function score_class(int $score): string
-    {
-        if ($score >= 71)
-            return 'green';
-        if ($score >= 41)
-            return 'orange';
-        if ($score > 0)
-            return 'red';
-        return 'none';
-    }
-
-    private static function format_status(string $status): string
-    {
-        $status = strtolower($status);
-        if ($status === 'processing') return __('⚙️ Processing...', 'post-quality-manager');
-        
-        return match ($status) {
-                'ship'           => '🟢 ' . __('Ready to Ship', 'post-quality-manager'),
-                'needs_revision' => '🟠 ' . __('Needs Revision', 'post-quality-manager'),
-                'major_revision' => '🔴 ' . __('Major Revision', 'post-quality-manager'),
-                default          => $status ? $status : '—',
-            };
-    }
-
-    private static function format_date(string $date): string
-    {
-        if (empty($date) || $date === '0000-00-00 00:00:00') {
-            return '—';
-        }
-        $timestamp = strtotime($date);
-        return date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $timestamp);
-    }
-
-    private static function sortable_header(string $col, string $label, string $current_orderby, string $current_order): string
-    {
-        $is_active = $current_orderby === $col;
-        $next_order = ($is_active && $current_order === 'ASC') ? 'DESC' : 'ASC';
-        $arrow = $is_active ? ($current_order === 'ASC' ? ' ▲' : ' ▼') : '';
-
-        $url = add_query_arg([
-            'orderby' => $col,
-            'order' => $next_order,
-        ]);
-
-        return '<a href="' . esc_url($url) . '">' . esc_html($label . $arrow) . '</a>';
     }
 }

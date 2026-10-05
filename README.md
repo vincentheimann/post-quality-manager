@@ -28,7 +28,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 - **n8n workflow generator** — a dedicated **n8n Workflow** page with the pre-configured download, an "Import from URL" link, a live preview of what each agent sends to Claude, and an update notice when the bundled workflow changes
 - **Claude model choice** — pick the model globally (Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5, or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
 - **Blog profiles** — Marketing, Technical/IT, Lifestyle, or Custom presets that pre-fill voice and context (everything stays editable)
-- **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (AJAX, async so the UI never blocks)
+- **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (REST API `POST /trigger-review`, async so the UI never blocks)
 - **Scheduled reviews** — WP-Cron batches with configurable frequency, batch size, minimum score, and post age
 - **Agent settings** — per-agent model, reasoning effort, temperature (where the model supports it), and custom instructions; changes apply on the next command with no workflow re-import
 
@@ -36,7 +36,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 - WordPress 6.0+, PHP 8.0+
 - An n8n instance (self-hosted or cloud) and a Claude API key
-- Yoast SEO (optional — its SEO and readability scores appear on the Post Reviews screen next to the AI score, and its metadata enriches the review payload)
+- Yoast SEO (optional — its metadata enriches the review payload; its SEO and readability scores are not shown on the Post Reviews screen for now, their re-introduction is a follow-up epic-ui-rebuild story after 5.7)
 
 ## Installation
 

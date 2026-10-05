@@ -1,8 +1,6 @@
 /**
  * Dashboard styles (story 5.6) — mockup anatomy on @wordpress/components
- * Cards. Class names are new on purpose: the legacy pqm-admin.css still
- * loads on this page and owns .pqm-card, .pqm-stat-*, .pqm-stats-grid
- * and .pqm-dashboard-cta.
+ * Cards. Shared rules (page frame, score badge) come from the kit.
  */
 
 .pqm-dashboard {

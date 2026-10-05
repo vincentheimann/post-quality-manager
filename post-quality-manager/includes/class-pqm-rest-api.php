@@ -96,8 +96,8 @@ class PQM_REST_API {
     /**
      * May the current user trigger any agent at all? Holding any registry
      * capability gets past the route; the per-command decision (tier and
-     * exact capability) is PQM_Features::can() inside the callback, which
-     * the AJAX handler and the GET fallback also reach.
+     * exact capability) is PQM_Features::can() inside the callback of
+     * POST /trigger-review.
      */
     public static function check_can_trigger(): bool {
         $caps = array_unique( array_column( PQM_Features::registry(), 'capability' ) );
@@ -404,8 +404,8 @@ class PQM_REST_API {
         $post_id = (int) $request->get_param( 'post_id' );
         $command = sanitize_key( $request->get_param( 'command' ) );
 
-        // Feature gate (CAP-1 / CAP-3): one check for REST, AJAX and the GET
-        // fallback — gated commands are refused here, before any webhook.
+        // Feature gate (CAP-1 / CAP-3): one check on POST /trigger-review —
+        // gated commands are refused here, before any webhook.
         // A role refusal gets role copy, a plan refusal the upgrade copy.
         $refusal = PQM_Features::why_not( $command );
         if ( $refusal !== null ) {
@@ -480,8 +480,8 @@ class PQM_REST_API {
             PQM_Features::consume_quota();
             $quota = PQM_Features::quota_state();
 
-            // The `processing` placeholder is written once, here, for every
-            // caller (REST, AJAX, GET fallback): the Post Reviews polling
+            // The `processing` placeholder is written once, here, on the
+            // POST /trigger-review route: the Post Reviews polling
             // reads it back as `in_flight` and the n8n callback's result
             // row supersedes it. A refused or failed trigger writes nothing.
             PQM_DB::save_review(
@@ -692,8 +692,9 @@ class PQM_REST_API {
      * The Dashboard's own numbers — everything else (queue, tile counts,
      * viewer) comes from `GET /posts?orderby=priority`. The average is the
      * trend's last point, so the tile and the sparkline's endpoint agree
-     * by construction. Nudge flags port the legacy render_dashboard()
-     * rules; the dismiss link itself is still handled by the PHP shell.
+     * by construction. Nudge flags keep the former PHP Dashboard's rules
+     * (removed in story 5.7); the dismiss link itself is still handled by
+     * the PHP shell.
      */
     public static function dashboard_callback(): WP_REST_Response {
         $settings  = pqm_get_settings();
