@@ -12,7 +12,11 @@ date_default_timezone_set('UTC'); // deterministic latest_reviewed_display asser
 define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A', 'ARRAY_A');
 
-$GLOBALS['tw'] = ['caps' => []];
+$GLOBALS['tw'] = [
+    'caps'      => [],
+    'user_id'   => 42,
+    'user_meta' => [], // user_id => [key => value]
+];
 $GLOBALS['pqm_routes'] = [];
 
 /* ─── WP stubs ───────────────────────────────────────────────────────── */
@@ -44,6 +48,14 @@ function rest_url($p = '') { return '/wp-json/' . $p; }
 function get_edit_post_link($id, $context = 'display') { return '/wp-admin/post.php?post=' . $id . '&action=edit'; }
 function date_i18n($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
+/* Viewer-block stubs (story 5.2): quota_state() reads user meta + site clock. */
+function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
+function get_user_meta($uid, $key, $single) { return $GLOBALS['tw']['user_meta'][$uid][$key] ?? ''; }
+function wp_date($format, $ts = null) {
+    if ($format === 'Y-m' && $ts === null) { return '2026-10'; } // pinned current month
+    return gmdate($format, $ts ?? time());
+}
+function wp_timezone() { return new DateTimeZone('UTC'); }
 
 /* ─── WP REST / wpdb stubs ───────────────────────────────────────────── */
 class WP_REST_Server {
@@ -155,7 +167,7 @@ $wpdb = fresh_wpdb([
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
 check('200 response', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $data = $res->get_data();
-check('shape is {items,total,pages}', array_keys($data) === ['items', 'total', 'pages']);
+check('shape is {items,total,pages,viewer} — viewer additive (story 5.2)', array_keys($data) === ['items', 'total', 'pages', 'viewer']);
 check('total 2, pages 1', $data['total'] === 2 && $data['pages'] === 1);
 $item = $data['items'][0];
 check('item carries post_id/title/edit_link/latest_* /commands',
@@ -217,6 +229,59 @@ $wpdb = fresh_wpdb([], []);
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
 $data = $res->get_data();
 check('200 with empty items', $res->get_status() === 200 && $data['items'] === [] && $data['total'] === 0 && $data['pages'] === 0);
+
+/* ─── Viewer block (story 5.2) — read-only mirror of PQM_Features ────── */
+
+/** Fetch just the viewer block for the current test-world user. */
+function viewer_block(): array {
+    fresh_wpdb([[]], [0]);
+    return PQM_REST_API::list_posts_callback(new WP_REST_Request())->get_data()['viewer'];
+}
+
+/* Row: free-tier author — quota applies, paid commands hidden by role */
+echo "Viewer: free-tier author\n";
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews', 'pqm_run_free_agents'];
+$GLOBALS['tw']['user_meta'] = [42 => ['pqm_monthly_usage' => ['month' => '2026-10', 'count' => 6]]];
+$v = viewer_block();
+check('viewer keys are {can_trigger,quota,gated_commands,hidden_commands}',
+    array_keys($v) === ['can_trigger', 'quota', 'gated_commands', 'hidden_commands']);
+check('can_trigger true', $v['can_trigger'] === true);
+check('quota: limit 20, used 6, remaining 14',
+    is_array($v['quota'])
+    && $v['quota']['limit'] === 20
+    && $v['quota']['used'] === 6
+    && $v['quota']['remaining'] === 14);
+check('quota carries a non-empty resets date', is_string($v['quota']['resets'] ?? null) && $v['quota']['resets'] !== '');
+check('quota equals PQM_Features::quota_state()', $v['quota'] === PQM_Features::quota_state());
+check('gated_commands empty', $v['gated_commands'] === []);
+check('hidden_commands = paid commands', $v['hidden_commands'] === ['rewrite', 'sources', 'seo', 'audit']);
+check('partition equals PQM_Features outputs',
+    $v['gated_commands'] === PQM_Features::gated_commands()
+    && $v['hidden_commands'] === PQM_Features::hidden_commands());
+
+/* Row: admin on free plan — exempt from quota, paid commands gated by plan */
+echo "Viewer: admin on free plan\n";
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
+$GLOBALS['tw']['user_meta'] = [];
+$v = viewer_block();
+check('can_trigger true', $v['can_trigger'] === true);
+check('quota null (exempt via pqm_run_paid_agents)', $v['quota'] === null);
+check('gated_commands = paid commands', $v['gated_commands'] === ['rewrite', 'sources', 'seo', 'audit']);
+check('hidden_commands empty', $v['hidden_commands'] === []);
+check('partition equals PQM_Features outputs',
+    $v['gated_commands'] === PQM_Features::gated_commands()
+    && $v['hidden_commands'] === PQM_Features::hidden_commands());
+
+/* Row: cannot trigger — view-only user: quota null even though a limit exists */
+echo "Viewer: cannot trigger\n";
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
+$GLOBALS['tw']['user_meta'] = [];
+$v = viewer_block();
+check('can_trigger false', $v['can_trigger'] === false);
+check('quota null despite an applicable limit', $v['quota'] === null && PQM_Features::quota_state() !== null);
+check('gated_commands empty', $v['gated_commands'] === []);
+check('all six registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit']);
+check('hidden equals PQM_Features::hidden_commands()', $v['hidden_commands'] === PQM_Features::hidden_commands());
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

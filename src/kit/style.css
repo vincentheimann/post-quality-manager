@@ -1,0 +1,94 @@
+/**
+ * Shared kit styles (story 5.2) — extracted by wp-scripts into
+ * build/style-index.css. Visual rules per the approved mockup
+ * (_bmad-output/.../ux-dashboard-post-reviews/mockup.html) and DESIGN.md:
+ * WP admin palette; status always renders as icon + label + color, never
+ * color alone; yellow appears only as a filled badge behind its own dark
+ * label; Processing and not-analyzed use neutral gray #646970.
+ */
+
+/* ─── Status badge: filled pill, dashicon + label (mockup anatomy) ───── */
+.pqm-status-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 1px 8px;
+	border-radius: 9px;
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.pqm-status-badge .dashicon {
+	width: 12px;
+	height: 12px;
+	font-size: 12px;
+	flex: none;
+}
+
+.pqm-status-badge.is-good {
+	background: #edfaef;
+	color: #007a1f;
+}
+
+/* The yellow is the filled background only; the label stays dark. */
+.pqm-status-badge.is-warn {
+	background: #fcf9e8;
+	color: #6e5600;
+}
+
+.pqm-status-badge.is-crit {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+/* Processing / not analyzed / unknown: neutral gray by design (DESIGN.md). */
+.pqm-status-badge.is-neutral {
+	background: #f0f0f1;
+	color: #646970;
+}
+
+/* ─── Progress pills: all six commands, ran = blue ✓, un-run neutral ── */
+.pqm-progress-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px;
+}
+
+.pqm-progress-pill {
+	display: inline-block;
+	border: 1px solid #dcdcde;
+	border-radius: 9px;
+	padding: 0 7px;
+	font-size: 11px;
+	color: #50575e;
+	background: #f6f7f7;
+	white-space: nowrap;
+	/* Mockup renders pill labels lowercase; translations stay intact. */
+	text-transform: lowercase;
+}
+
+.pqm-progress-pill.is-ran {
+	border-color: #9ec2e6;
+	background: #f0f6fc;
+	color: #135e96;
+}
+
+/* ─── Filter-bar slot above the table (story 5.3 fills the left side) ── */
+.pqm-table-topbar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.pqm-table-topbar .pqm-quota-note {
+	/* Explicit 0 on the opposite side: the legacy pqm-admin.css (still on
+	   this hook, not RTL-processed) sets margin-left: auto; after the RTL
+	   swap both margins would be auto and the note would centre. */
+	margin-left: auto;
+	margin-right: 0;
+	color: #646970;
+	font-size: 12px;
+}

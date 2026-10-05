@@ -516,6 +516,11 @@ class PQM_REST_API {
      * Read-only list of posts with their latest review, for the React
      * Post Reviews table. Wraps PQM_DB::get_all_posts_with_scores(); bad
      * params are clamped to the DB method's accepted set, never an error.
+     *
+     * The additive `viewer` block (story 5.2) reports the current user's
+     * trigger eligibility, quota snapshot and gated/hidden command
+     * partition — read-only reporting of PQM_Features state, no
+     * semantics change.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -563,10 +568,21 @@ class PQM_REST_API {
             ];
         }
 
+        $can_trigger = self::check_can_trigger();
+
         return new WP_REST_Response( [
-            'items' => $items,
-            'total' => (int) $result['total'],
-            'pages' => (int) $result['pages'],
+            'items'  => $items,
+            'total'  => (int) $result['total'],
+            'pages'  => (int) $result['pages'],
+            'viewer' => [
+                'can_trigger'     => $can_trigger,
+                // Quota is meaningless for a user who cannot trigger at
+                // all; exempt users and limit 0 (unlimited) are already
+                // null from quota_state().
+                'quota'           => $can_trigger ? PQM_Features::quota_state() : null,
+                'gated_commands'  => PQM_Features::gated_commands(),
+                'hidden_commands' => PQM_Features::hidden_commands(),
+            ],
         ], 200 );
     }
 }
