@@ -3,7 +3,7 @@ title: 'Dashboard: queue, tiles, sparkline'
 type: 'feature'
 ticket: '6'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: '3486e81778d69b8412520a85e936be50cd8d4f9f'
 route: 'full'
 route_source: 'auto'
@@ -116,3 +116,17 @@ Skipped: tile delta ("▲ +3 this month") — add when the owner asks. Skipped: 
 **Manual checks (if no CLI):**
 - Real site: seed known statuses/scores/dates, confirm the queue order; click each tile and check the pressed chip + count; run Review from the queue; check the not-connected and cron-nudge states.
 
+**Result (2026-10-05):** owner walked the checklist below on the real site — all green, nothing to add. It covers every matrix row and AC, plus a 5.5 regression pass (5.6 rewired the shared trigger / polling / toast path). Kept as the script for the end-of-project agentic re-run on Local (backlog story 9).
+
+Dashboard checklist (5.5 regression = the 5.5 plan's matrix rows 1–8 + single-run AC):
+1. Not connected (webhook URL empty): only the "Connect n8n" card; button for admins only, an explanatory sentence otherwise.
+2. Five tiles: Average score, Major revision, Needs revision, Not analyzed, Ready to ship. Each status tile opens Post Reviews with that chip pressed; chip count = tile number — including with a failed-latest (empty status) post under Not analyzed.
+3. Average score tile → Post Reviews `orderby=score&order=asc` (never-reviewed posts first: known, deferred).
+4. Queue: ≤ 5 posts, Major → Needs → Not analyzed, then score asc, oldest review, oldest post; never a Ready-to-ship post. Rows: score, title, "Last reviewed …"/"Never reviewed", status badge, Review, Open in Editor.
+5. 1–4 posts to fix → only those; none → "Nothing to fix next — every analyzed post is ready to ship."
+6. Review from the queue: "requested" toast → Processing → ~3 s refresh → completion toast (score + status); tile and sparkline update. Reload mid-run (also with a non-English user locale) → Processing resumes and completes.
+7. Bulk-review ~10 unanalyzed posts, then open the Dashboard: no "Review complete." toast for a review still running.
+8. View-only user: no Review button in the queue.
+9. Sparkline: "Average score — last 8 weeks", endpoint label = Average tile; hover tooltip "Week ending {date} — average {n}" centred over the point (also RTL); < 2 weeks of history → "No score history yet…".
+10. First-review nudge (connected, nothing analyzed, viewer can run Review). Cron nudge (pro, admin, cron off, ≥ 1 analyzed, not dismissed): Enable → Settings cron section; Dismiss → gone for good; absent on free, for non-admins, with cron on.
+11. REST unreachable → "Could not load the dashboard…" Notice, never a blank page.
