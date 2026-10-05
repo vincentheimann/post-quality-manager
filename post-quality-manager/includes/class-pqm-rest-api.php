@@ -509,7 +509,38 @@ class PQM_REST_API {
                 'default'           => 'all',
                 'sanitize_callback' => 'sanitize_key',
             ],
+            'status' => [
+                'required'          => false,
+                'type'              => 'string',
+                'default'           => '',
+                'sanitize_callback' => 'sanitize_key',
+            ],
+            'min_score' => [
+                'required'          => false,
+                'type'              => 'integer',
+                'sanitize_callback' => 'intval',
+            ],
+            'max_score' => [
+                'required'          => false,
+                'type'              => 'integer',
+                'sanitize_callback' => 'intval',
+            ],
         ];
+    }
+
+    /** Stored review statuses plus the "never reviewed" sentinel accepted by `status=`. */
+    private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', 'processing', PQM_DB::STATUS_NONE ];
+
+    /**
+     * Clamp a score-band bound to 0–100; absent (null / empty) stays null,
+     * which the DB layer reads as unbounded.
+     */
+    private static function score_bound( $value ): ?int {
+        if ( null === $value || '' === $value ) {
+            return null;
+        }
+
+        return max( 0, min( 100, (int) $value ) );
     }
 
     /**
@@ -521,6 +552,10 @@ class PQM_REST_API {
      * trigger eligibility, quota snapshot and gated/hidden command
      * partition — read-only reporting of PQM_Features state, no
      * semantics change.
+     *
+     * Story 5.3 adds server-side filters (`status` incl. `none`,
+     * `min_score`/`max_score`), `orderby=status` and the filter-independent
+     * `counts` block the status chips display.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -529,19 +564,27 @@ class PQM_REST_API {
         $page = max( 1, absint( $request->get_param( 'page' ) ) );
 
         $orderby = sanitize_key( (string) $request->get_param( 'orderby' ) );
-        if ( ! in_array( $orderby, [ 'score', 'reviewed_at', 'title' ], true ) ) {
+        if ( ! in_array( $orderby, [ 'score', 'reviewed_at', 'title', 'status' ], true ) ) {
             $orderby = 'reviewed_at';
         }
 
         $order  = strtoupper( (string) $request->get_param( 'order' ) ) === 'ASC' ? 'ASC' : 'DESC';
         $filter = 'needs_review' === $request->get_param( 'filter' ) ? 'needs_review' : 'all';
 
+        $status = sanitize_key( (string) $request->get_param( 'status' ) );
+        if ( ! in_array( $status, self::LIST_STATUSES, true ) ) {
+            $status = '';
+        }
+
         $result = PQM_DB::get_all_posts_with_scores( [
-            'per_page' => $per_page,
-            'page'     => $page,
-            'orderby'  => $orderby,
-            'order'    => $order,
-            'filter'   => $filter,
+            'per_page'  => $per_page,
+            'page'      => $page,
+            'orderby'   => $orderby,
+            'order'     => $order,
+            'status'    => $status,
+            'min_score' => self::score_bound( $request->get_param( 'min_score' ) ),
+            'max_score' => self::score_bound( $request->get_param( 'max_score' ) ),
+            'filter'    => $filter,
         ] );
 
         $post_ids = array_map( 'intval', array_column( $result['items'], 'post_id' ) );
@@ -574,6 +617,9 @@ class PQM_REST_API {
             'items'  => $items,
             'total'  => (int) $result['total'],
             'pages'  => (int) $result['pages'],
+            // Facet counts over all listable posts, independent of the active
+            // filters, so a chip's number equals a Dashboard tile's.
+            'counts' => PQM_DB::count_posts_by_status(),
             'viewer' => [
                 'can_trigger'     => $can_trigger,
                 // Quota is meaningless for a user who cannot trigger at
