@@ -3,7 +3,7 @@ title: 'Post Reviews: bulk Review selected'
 type: 'feature'
 ticket: '5'
 created: '2026-10-05'
-status: 'built'
+status: done
 baseline_revision: '01a72867c82540efcb59195635988e3962357e08'
 route: 'full'
 route_source: 'auto'
@@ -112,3 +112,5 @@ Why client-side sequencing and not a bulk endpoint: CAP-2 asks for gate and quot
 - Real site, free-plan Author with a low quota: select more posts than the remaining actions, then confirm. The first posts are requested and the rest each show the limit message. Rows switch to Processing and completion toasts follow. A `pqm_view_reviews`-only user sees no checkboxes and no bulk bar. Select-all skips in-flight rows. Changing page mid-batch clears the selection and the report still completes.
 
 **Result (2026-10-05):** the owner walked the manual checks on the real site and reported all green. That pass covers matrix rows 1–8 and both browser ACs (sequential requests, single run unchanged). Story verify met end to end.
+
+**Re-run (2026-10-05):** story 5.6 moved the shared trigger / polling / toast code into `src/kit/`; the owner re-walked matrix rows 1–8 and the single-run AC on the 5.6 build — all green.
