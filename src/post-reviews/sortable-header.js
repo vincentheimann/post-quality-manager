@@ -19,11 +19,12 @@ export default function SortableHeader( {
 	const nextOrder = isSorted && order === 'asc' ? 'desc' : 'asc';
 	// Core convention (WP_List_Table::print_column_headers()): a sorted
 	// header carries its current direction; an unsorted one carries the
-	// opposite of the direction the next click produces.
+	// opposite of the direction the next click produces (always `desc`:
+	// an unsorted column sorts ascending first).
 	const classes = [
 		className,
 		isSorted ? 'sorted' : 'sortable',
-		isSorted ? order : nextOrder === 'asc' ? 'desc' : 'asc',
+		isSorted ? order : 'desc',
 	]
 		.filter( Boolean )
 		.join( ' ' );
@@ -41,8 +42,14 @@ export default function SortableHeader( {
 			>
 				<span>{ label }</span>
 				<span className="sorting-indicators">
-					<span className="sorting-indicator asc" aria-hidden="true" />
-					<span className="sorting-indicator desc" aria-hidden="true" />
+					<span
+						className="sorting-indicator asc"
+						aria-hidden="true"
+					/>
+					<span
+						className="sorting-indicator desc"
+						aria-hidden="true"
+					/>
 				</span>
 			</button>
 		</th>

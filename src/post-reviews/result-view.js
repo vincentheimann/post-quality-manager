@@ -14,21 +14,33 @@ import { __ } from '@wordpress/i18n';
 import { isEmpty, isObject } from '../kit/runs';
 
 /** The four universal pillars (memory/lessons.md 2026-03-27), in display order. */
-export const PILLARS = [
+const PILLARS = [
 	{ key: 'structure', label: __( 'Structure', 'post-quality-manager' ) },
 	{ key: 'readability', label: __( 'Readability', 'post-quality-manager' ) },
 	{ key: 'engagement', label: __( 'Engagement', 'post-quality-manager' ) },
 	{ key: 'credibility', label: __( 'Credibility', 'post-quality-manager' ) },
 ];
 
-/** A pillar score as the agents store it: `{ score: 72 }` or a bare number. */
+/**
+ * A pillar score as the agents store it: `{ score: 72 }` or a bare number.
+ *
+ * @param {*} value Stored pillar value.
+ * @return {number|null} Score 0–100, null when not a number.
+ */
 function pillarScore( value ) {
 	const score = isObject( value ) ? value.score : value;
 	const n = Number( score );
-	return Number.isFinite( n ) ? Math.max( 0, Math.min( 100, Math.round( n ) ) ) : null;
+	return Number.isFinite( n )
+		? Math.max( 0, Math.min( 100, Math.round( n ) ) )
+		: null;
 }
 
-/** True when the object carries at least one pillar score (a review result). */
+/**
+ * True when the object carries at least one pillar score (a review result).
+ *
+ * @param {*} data Stored result data.
+ * @return {boolean} Whether `data` is review-shaped.
+ */
 export function isReviewShape( data ) {
 	return (
 		isObject( data ) &&
@@ -40,6 +52,9 @@ export function isReviewShape( data ) {
  * Four single-hue horizontal meters (DESIGN.md: WP blue, magnitude only —
  * status color lives in the badge). The bar is decorative; label and
  * number carry the information.
+ *
+ * @param {Object} props
+ * @param {*}      props.data Review data carrying the pillar scores.
  */
 export function PillarMeters( { data } ) {
 	return (
@@ -62,7 +77,12 @@ export function PillarMeters( { data } ) {
 	);
 }
 
-/** `unsourced_critical` → "Unsourced critical". */
+/**
+ * `unsourced_critical` → "Unsourced critical".
+ *
+ * @param {string} key Result key.
+ * @return {string} Readable label.
+ */
 function humanize( key ) {
 	const text = String( key ).replace( /[_-]+/g, ' ' ).trim();
 	return text.charAt( 0 ).toUpperCase() + text.slice( 1 );
@@ -105,6 +125,9 @@ function Value( { value } ) {
 /**
  * Key/value rows for the scalars of one object, then a section per
  * nested object or array. A review-shaped object leads with its meters.
+ *
+ * @param {Object} props
+ * @param {Object} props.data Object to render.
  */
 function ObjectView( { data } ) {
 	const review = isReviewShape( data );

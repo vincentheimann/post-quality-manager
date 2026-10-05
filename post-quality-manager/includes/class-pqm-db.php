@@ -138,25 +138,6 @@ class PQM_DB {
     }
 
     /**
-     * Get the most recent review for a post + command.
-     */
-    public static function get_latest_review( int $post_id, string $command = 'review' ): ?array {
-        global $wpdb;
-        $table = self::table_name();
-
-        $row = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE post_id = %d AND command = %s ORDER BY reviewed_at DESC LIMIT 1",
-                $post_id,
-                $command
-            ),
-            ARRAY_A
-        );
-
-        return $row ?: null;
-    }
-
-    /**
      * Status value meaning "never reviewed" in list filters and counts
      * (`lr.status IS NULL`) — the REST `status=none` sentinel.
      */
@@ -167,7 +148,7 @@ class PQM_DB {
      * One SQL source for the Post Reviews status sort (story 5.3) and the
      * Dashboard queue (story 5.6).
      */
-    public const STATUS_SEVERITY = [ 'major_revision', 'needs_revision', 'ship', 'processing' ];
+    private const STATUS_SEVERITY = [ 'major_revision', 'needs_revision', 'ship', 'processing' ];
 
     /**
      * Subquery selecting the latest `review` row per post (aliased `lr`
@@ -237,7 +218,7 @@ class PQM_DB {
      *     @type string   $status     Filter by review status; self::STATUS_NONE for never reviewed.
      *     @type int|null $min_score  Lowest latest score to include (inclusive). Null = unbounded.
      *     @type int|null $max_score  Highest latest score to include (inclusive). Null = unbounded.
-     *     @type string   $filter     'needs_review' or 'all'.
+     *     @type string   $filter     'needs_review' or 'all'. Kept for the REST contract only (the legacy `filter` arg of GET /posts); the React pages never send it.
      * }
      * @return array { items: array, total: int, pages: int }
      */
@@ -350,7 +331,7 @@ class PQM_DB {
     /**
      * Facet counts of listable posts (publish + pending) by latest review
      * status, independent of any active filter — the numbers behind the
-     * Post Reviews chips and, later, the Dashboard tiles.
+     * Post Reviews chips and the Dashboard tiles.
      *
      * @return array { all: int, ship: int, needs_revision: int, major_revision: int, none: int }
      */
@@ -392,7 +373,7 @@ class PQM_DB {
     }
 
     /** Latest-result statuses that count toward the average score (story 5.6). */
-    public const SCORED_STATUSES = [ 'ship', 'needs_revision', 'major_revision' ];
+    private const SCORED_STATUSES = [ 'ship', 'needs_revision', 'major_revision' ];
 
     /**
      * Catalog average score as of the end of each of the last $weeks weeks

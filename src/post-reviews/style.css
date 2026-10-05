@@ -1,0 +1,500 @@
+/**
+ * Post Reviews styles (story 5.8: moved out of the kit) — the rules only
+ * the Post Reviews page renders: page width, table columns, filter and
+ * bulk bars, sortable headers, the detail row and panel, pagination.
+ * Shared rules (badges, quota note, toasts) stay in src/kit/style.css.
+ */
+
+/* Post Reviews is a list table: full width like WordPress core's, so the
+   extra room on wide screens goes to the Post column. */
+.pqm-wrap:has(#pqm-post-reviews-root) {
+	max-width: none;
+}
+
+/* ─── Post Reviews table: column widths and cell alignment ──────────── */
+/* The table is `fixed` (rows refresh while reviews run, so columns must
+   not jump): every column but Post has a set width and Post takes the
+   rest. Widths are in em so they grow with the text (zoom, larger fonts).
+   The scroll box carries the headers' 14px so 1em means the same on the
+   box, the table and the headers; cells keep core's own 13px text. */
+.pqm-table-scroll {
+	container-type: inline-size;
+	overflow-x: auto;
+	font-size: 14px;
+}
+
+.pqm-table-scroll:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+/* Below this, Post would drop under ~16em (about 30 characters a line):
+   the box scrolls sideways instead of squeezing the title. Worst case,
+   with the bulk and Yoast columns once the container queries below have
+   dropped what they can. */
+.pqm-posts-table {
+	min-width: 51em;
+}
+
+.pqm-posts-table .pqm-col-score {
+	width: 5.75em;
+}
+
+/* Wide enough for the English status badges ("Major revision"); longer
+   labels wrap inside the cell (see .pqm-cell-status). */
+.pqm-posts-table .pqm-col-status {
+	width: 10.75em;
+}
+
+.pqm-posts-table .pqm-col-progress {
+	width: 15.75em;
+}
+
+/* A full date and time on one line ("October 5, 2026 3:23 pm"). */
+.pqm-posts-table .pqm-col-date {
+	width: 12.75em;
+}
+
+.pqm-posts-table .pqm-col-actions {
+	width: 9.25em;
+}
+
+/* Yoast SEO column (story 5.10): compact, stacked kit badges
+   (.pqm-cell-yoast .pqm-score-badge below). */
+.pqm-posts-table .pqm-col-yoast {
+	width: 9.25em;
+}
+
+/* Column priority: as the room shrinks, the columns other places already
+   cover leave first, so Post never drops under its ~16em. Agents run
+   (the detail panel has a tab per agent), then Yoast SEO, then Last
+   reviewed (the History tab). Breakpoints assume the bulk and Yoast
+   columns are both on; without them, a column leaves a little early. */
+@container (max-width: 93em) {
+	.pqm-posts-table .pqm-col-progress,
+	.pqm-posts-table .pqm-cell-progress {
+		display: none;
+	}
+}
+
+@container (max-width: 75.5em) {
+	.pqm-posts-table .pqm-col-yoast,
+	.pqm-posts-table .pqm-cell-yoast {
+		display: none;
+	}
+}
+
+@container (max-width: 65em) {
+	.pqm-posts-table .pqm-col-date,
+	.pqm-posts-table .pqm-cell-date {
+		display: none;
+	}
+}
+
+.pqm-cell-title {
+	overflow-wrap: anywhere;
+}
+
+.pqm-cell-yoast .pqm-score-badge {
+	display: block;
+	width: max-content;
+	min-width: 0;
+	margin: 2px 0;
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
+.pqm-cell-score {
+	text-align: center !important;
+}
+
+.pqm-cell-status {
+	font-weight: 500;
+}
+
+/* Fallback for longer labels (translations, "Could not complete"): the
+   badge wraps inside its cell instead of spilling into the next column. */
+.pqm-cell-status .pqm-status-badge {
+	white-space: normal;
+	max-width: 100%;
+	box-sizing: border-box;
+}
+
+/* ─── Filter bar above the table: chips + score band left, quota right ── */
+.pqm-table-topbar {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 12px 0;
+}
+
+/* Status chips (story 5.3): bordered pills, pressed = blue (mockup);
+   overrides the kit Button's dark `is-pressed` look at higher specificity. */
+.pqm-filter-chips {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.pqm-filter-chip.components-button {
+	height: auto;
+	min-height: 28px;
+	padding: 2px 12px;
+	border: 1px solid #c3c4c7;
+	border-radius: 14px;
+	background: #fff;
+	color: #50575e;
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.pqm-filter-chip.components-button:hover:not(:disabled) {
+	border-color: #2271b1;
+	color: #135e96;
+}
+
+.pqm-filter-chip.components-button.is-pressed,
+.pqm-filter-chip.components-button.is-pressed:hover:not(:disabled) {
+	border-color: #2271b1;
+	background: #f0f6fc;
+	color: #135e96;
+	font-weight: 600;
+}
+
+.pqm-filter-chip-count {
+	margin-left: 5px;
+	color: #646970;
+	font-size: 12px;
+	font-weight: 400;
+}
+
+/* Score band select sits inline after the chips; its side label is muted. */
+.pqm-filter-bar .pqm-filter-score {
+	margin-left: 8px;
+}
+
+.pqm-filter-bar .pqm-filter-score .components-base-control__label,
+.pqm-filter-bar .pqm-filter-score .components-input-control__label {
+	color: #646970;
+	font-weight: 400;
+	text-transform: none;
+}
+
+/* ─── Bulk Review (story 5.5): bar, checkbox column, report, modal ──── */
+.pqm-bulk-bar {
+	margin-top: 0;
+}
+
+.pqm-posts-table .pqm-col-select,
+.pqm-posts-table .pqm-cell-select {
+	width: 2.2em;
+	padding-right: 0;
+	text-align: center;
+	vertical-align: middle;
+}
+
+.pqm-posts-table .pqm-cell-select input[type="checkbox"],
+.pqm-posts-table .pqm-col-select input[type="checkbox"] {
+	margin: 0;
+}
+
+.pqm-bulk-report.components-notice {
+	margin: 0 0 12px;
+}
+
+.pqm-bulk-report ul {
+	margin: 0;
+}
+
+.pqm-confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+/* ─── Sortable headers: core's list-table sort look, on a button ──────
+   Core styles `th.sortable a`; the same rules are mirrored here for the
+   button so the header is keyboard-operable without a navigation. */
+.pqm-posts-table th.sortable .pqm-sort-button,
+.pqm-posts-table th.sorted .pqm-sort-button {
+	display: flex;
+	align-items: flex-start;
+	width: 100%;
+	margin: 0;
+	padding: 8px;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.pqm-posts-table th.sortable .pqm-sort-button:hover,
+.pqm-posts-table th.sorted .pqm-sort-button:hover {
+	color: #135e96;
+}
+
+.pqm-posts-table th.sortable .pqm-sort-button:focus,
+.pqm-posts-table th.sorted .pqm-sort-button:focus {
+	border-radius: 2px;
+	box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-admin-theme-color, #3858e9);
+	outline: 2px solid transparent;
+}
+
+/* Focus flips the indicator like core's hover does for the active column. */
+.pqm-posts-table th.sorted.asc .pqm-sort-button:focus .sorting-indicator.asc::before,
+.pqm-posts-table th.sorted.desc .pqm-sort-button:focus .sorting-indicator.desc::before {
+	color: #a7aaad;
+}
+
+.pqm-posts-table th.sorted.asc .pqm-sort-button:focus .sorting-indicator.desc::before,
+.pqm-posts-table th.sorted.desc .pqm-sort-button:focus .sorting-indicator.asc::before {
+	color: #1d2327;
+}
+
+/* ─── Refetch state: current rows stay visible, dimmed ───────────────── */
+.pqm-table-updating {
+	min-height: 1.5em;
+	margin: 0 0 4px;
+	color: #646970;
+	font-size: 12px;
+}
+
+.pqm-posts-table.is-loading tbody {
+	opacity: 0.6;
+}
+
+.pqm-empty-filtered .components-button.is-link {
+	font-size: inherit;
+}
+
+/* ─── Detail panel (story 5.4): detail row, tabs, meters, actions ───── */
+/* A longer translation of "Hide details" wraps instead of overflowing. */
+.pqm-posts-table .pqm-cell-actions .pqm-details-toggle {
+	height: auto;
+	min-height: 36px;
+	white-space: normal;
+	text-align: center;
+}
+
+.pqm-posts-table.striped > tbody > tr.pqm-expanded-row > td {
+	padding: 14px 16px;
+	background: #f6f7f7;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.pqm-detail-note {
+	margin: 0 0 8px;
+}
+
+/* Tablist: the mockup's underlined tabs on the kit's TabPanel primitive. */
+.pqm-detail-tabs .components-tab-panel__tabs {
+	border-bottom: 1px solid #dcdcde;
+	margin-bottom: 12px;
+}
+
+.pqm-detail-tabs .components-tab-panel__tabs-item {
+	height: auto;
+	padding: 6px 12px;
+	color: #50575e;
+}
+
+.pqm-detail-tabs .components-tab-panel__tabs-item.is-active {
+	color: #135e96;
+	font-weight: 600;
+}
+
+.pqm-tab-done {
+	color: #007a1f;
+	font-weight: 700;
+}
+
+/* Pillar meters: single-hue WP blue, magnitude only (DESIGN.md; mockup .pillars/.meter). */
+.pqm-pillars {
+	display: grid;
+	grid-template-columns: 110px 1fr 34px;
+	gap: 6px 10px;
+	align-items: center;
+	max-width: 460px;
+	margin: 8px 0;
+}
+
+.pqm-meter {
+	display: block;
+	height: 10px;
+	border-radius: 3px;
+	background: #e3e5e8;
+	overflow: hidden;
+}
+
+.pqm-meter i {
+	display: block;
+	height: 100%;
+	border-radius: 3px;
+	background: #2271b1;
+}
+
+.pqm-pillar-score {
+	font-weight: 600;
+	text-align: right;
+}
+
+.pqm-detail-heading {
+	margin: 14px 0 4px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.pqm-top-edits {
+	margin: 0;
+	padding-left: 18px;
+}
+
+.pqm-top-edits li {
+	margin-bottom: 4px;
+}
+
+.pqm-result-meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+/* Action row: Open in Editor, Run / Re-run, locked Rewrite, quota note. */
+.pqm-panel-actions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 14px;
+}
+
+.pqm-panel-actions:empty {
+	display: none;
+}
+
+/* Plan-locked button: visible and focusable (aria-disabled), inert look. */
+.pqm-locked.components-button.is-secondary,
+.pqm-locked.components-button.is-secondary:hover,
+.pqm-locked.components-button.is-secondary:active {
+	color: #a7aaad;
+	border-color: #dcdcde;
+	background: #f6f7f7;
+	box-shadow: inset 0 0 0 1px #dcdcde;
+	cursor: not-allowed;
+}
+
+.pqm-locked.components-button .dashicon {
+	width: 14px;
+	height: 14px;
+	font-size: 14px;
+	margin-right: 4px;
+}
+
+/* Structured result renderer (agent tabs). */
+.pqm-result-rows {
+	margin: 0 0 8px;
+}
+
+.pqm-result-row {
+	display: grid;
+	grid-template-columns: minmax(120px, 200px) 1fr;
+	gap: 0 12px;
+	padding: 3px 0;
+	border-bottom: 1px solid #e3e5e8;
+}
+
+.pqm-result-row dt {
+	color: #50575e;
+	font-weight: 500;
+}
+
+.pqm-result-row dd {
+	margin: 0;
+}
+
+.pqm-result-section {
+	margin: 10px 0 0;
+}
+
+.pqm-result-section h4 {
+	margin: 0 0 4px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.pqm-result-list {
+	margin: 0 0 4px;
+	padding-left: 18px;
+	list-style: disc;
+}
+
+.pqm-result-list li {
+	margin-bottom: 4px;
+}
+
+.pqm-result-list .pqm-result-rows {
+	margin-bottom: 0;
+}
+
+.pqm-result-raw {
+	margin: 0;
+	padding: 8px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.pqm-bool.is-yes {
+	color: #007a1f;
+	font-weight: 700;
+}
+
+.pqm-bool.is-no {
+	color: #b32d2e;
+	font-weight: 700;
+}
+
+/* History: command · score · status · date per row. */
+.pqm-run-history {
+	margin: 0;
+	list-style: none;
+}
+
+.pqm-run-history li {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 6px 0;
+	border-bottom: 1px solid #e3e5e8;
+}
+
+.pqm-run-history li:last-child {
+	border-bottom: 0;
+}
+
+.pqm-run-history-cmd {
+	min-width: 80px;
+	font-weight: 600;
+}
+
+/* Prev / next buttons match core's 32px `.tablenav-pages .button`. */
+.pqm-tablenav .pagination-links .components-button {
+	min-width: 32px;
+	min-height: 32px;
+	margin: 0;
+	padding: 0 4px;
+	justify-content: center;
+}
+
+.pqm-tablenav .pagination-links .paging-input {
+	margin: 0 6px;
+}

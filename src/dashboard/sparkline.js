@@ -22,7 +22,11 @@ export default function Sparkline( { trend } ) {
 	const slots = trend.length;
 	const step = slots > 1 ? ( W - PAD.left - PAD.right ) / ( slots - 1 ) : 0;
 	const points = trend
-		.map( ( p, i ) => ( { x: PAD.left + i * step, value: p.average, label: p.label } ) )
+		.map( ( p, i ) => ( {
+			x: PAD.left + i * step,
+			value: p.average,
+			label: p.label,
+		} ) )
 		.filter( ( p ) => p.value !== null && p.value !== undefined );
 
 	if ( points.length < 2 ) {
@@ -80,9 +84,17 @@ export default function Sparkline( { trend } ) {
 				onMouseLeave={ () => setHover( null ) }
 			>
 				<g stroke="#e3e5e8" strokeWidth="1">
-					{ [ PAD.top, PAD.top + plotH / 2, PAD.top + plotH ].map( ( y ) => (
-						<line key={ y } x1={ PAD.left } y1={ y } x2={ W - PAD.right } y2={ y } />
-					) ) }
+					{ [ PAD.top, PAD.top + plotH / 2, PAD.top + plotH ].map(
+						( y ) => (
+							<line
+								key={ y }
+								x1={ PAD.left }
+								y1={ y }
+								x2={ W - PAD.right }
+								y2={ y }
+							/>
+						)
+					) }
 				</g>
 				{ active && (
 					<line
@@ -100,11 +112,18 @@ export default function Sparkline( { trend } ) {
 					strokeWidth="2"
 					strokeLinejoin="round"
 					strokeLinecap="round"
-					points={ points.map( ( p ) => `${ p.x },${ p.y }` ).join( ' ' ) }
+					points={ points
+						.map( ( p ) => `${ p.x },${ p.y }` )
+						.join( ' ' ) }
 				/>
 				<circle cx={ last.x } cy={ last.y } r="3.5" fill="#2271b1" />
 				{ active && active !== last && (
-					<circle cx={ active.x } cy={ active.y } r="3" fill="#2271b1" />
+					<circle
+						cx={ active.x }
+						cy={ active.y }
+						r="3"
+						fill="#2271b1"
+					/>
 				) }
 				<text
 					x={ last.x + 8 }
@@ -129,7 +148,10 @@ export default function Sparkline( { trend } ) {
 				>
 					{ sprintf(
 						/* translators: 1: week end date; 2: average score */
-						__( 'Week ending %1$s — average %2$d', 'post-quality-manager' ),
+						__(
+							'Week ending %1$s — average %2$d',
+							'post-quality-manager'
+						),
 						active.label,
 						active.value
 					) }

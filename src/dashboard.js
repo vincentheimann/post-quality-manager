@@ -7,7 +7,7 @@
  * `in_flight`, `viewer` and `counts` — the tiles' numbers); GET /dashboard
  * adds the average, the 8-week trend and the nudge flags. A queue Review
  * runs through the same trigger + polling + toast path as Post Reviews
- * (src/kit/runs.js, use-polling.js, toasts.js).
+ * (src/kit/use-single-run.js).
  */
 import apiFetch from '@wordpress/api-fetch';
 import {
@@ -18,7 +18,7 @@ import {
 	Notice,
 	Spinner,
 } from '@wordpress/components';
-import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
+import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs } from '@wordpress/url';
 
@@ -26,18 +26,12 @@ import FixNextQueue from './dashboard/fix-next-queue';
 import Sparkline from './dashboard/sparkline';
 import StatTiles from './dashboard/stat-tiles';
 import './dashboard/style.css';
-import {
-	giveUpMessage,
-	requestRun,
-	requestedMessage,
-	settledToast,
-} from './kit/runs';
-import Toasts, { useToasts } from './kit/toasts';
-import usePolling from './kit/use-polling';
-import { canRender } from './post-reviews/detail-panel';
+import { POSTS_PATH, canRender } from './kit/runs';
+import Toasts from './kit/toasts';
+import useSingleRun from './kit/use-single-run';
 
 const QUEUE_SIZE = 5;
-const QUEUE_PATH = addQueryArgs( '/post-quality/v1/posts', {
+const QUEUE_PATH = addQueryArgs( POSTS_PATH, {
 	orderby: 'priority',
 	per_page: QUEUE_SIZE,
 } );
@@ -46,19 +40,26 @@ const DASHBOARD_PATH = '/post-quality/v1/dashboard';
 function Loading() {
 	return (
 		<p>
-			<Spinner />{ ' ' }
-			{ __( 'Loading dashboard…', 'post-quality-manager' ) }
+			<Spinner /> { __( 'Loading dashboard…', 'post-quality-manager' ) }
 		</p>
 	);
 }
 
-/** Not connected: only the call to action; the button only for admins. */
+/**
+ * Not connected: only the call to action; the button only for admins.
+ *
+ * @param {Object}  props
+ * @param {boolean} props.canManage Whether the viewer may open the n8n Workflow page.
+ */
 function ConnectCard( { canManage } ) {
 	return (
 		<Card className="pqm-dash-card">
 			<CardBody>
 				<h2 className="pqm-dash-heading">
-					{ __( 'Connect n8n to start reviewing', 'post-quality-manager' ) }
+					{ __(
+						'Connect n8n to start reviewing',
+						'post-quality-manager'
+					) }
 				</h2>
 				{ canManage ? (
 					<>
@@ -68,8 +69,14 @@ function ConnectCard( { canManage } ) {
 								'post-quality-manager'
 							) }
 						</p>
-						<Button variant="primary" href="admin.php?page=pqm-workflow">
-							{ __( 'Set up the n8n workflow', 'post-quality-manager' ) }
+						<Button
+							variant="primary"
+							href="admin.php?page=pqm-workflow"
+						>
+							{ __(
+								'Set up the n8n workflow',
+								'post-quality-manager'
+							) }
 						</Button>
 					</>
 				) : (
@@ -89,21 +96,21 @@ export default function Dashboard() {
 	const [ dash, setDash ] = useState( null );
 	const [ list, setList ] = useState( null ); // { items, counts, viewer }
 	const [ error, setError ] = useState( false );
-	// Queue refetch trigger (polling ticks, post-trigger refresh) and the
-	// /dashboard refetch version (after each settled run: average + trend move).
-	const [ refreshKey, setRefreshKey ] = useState( 0 );
-	const refreshCounter = useRef( 0 );
+	// The /dashboard refetch version (after each settled run: average +
+	// trend move). The queue's single-run plumbing (refetch trigger, busy
+	// post, polling, toasts) is the kit's useSingleRun.
 	const [ dashVersion, setDashVersion ] = useState( 0 );
-	// A post stays busy from the click until the post-trigger refetch resolves.
-	const [ pendingPostId, setPendingPostId ] = useState( null );
-	const pendingUntilKey = useRef( null );
-	const { toasts, addToast, removeToast } = useToasts();
-
-	const refetch = useCallback( () => {
-		refreshCounter.current += 1;
-		setRefreshKey( refreshCounter.current );
-		return refreshCounter.current;
-	}, [] );
+	const {
+		refreshKey,
+		settlePending,
+		awaited,
+		pendingPostId,
+		trigger,
+		toasts,
+		removeToast,
+	} = useSingleRun( list ? list.items : null, QUEUE_PATH, {
+		onSettled: () => setDashVersion( ( v ) => v + 1 ),
+	} );
 
 	// Refetch failures keep the data on screen; only a failed first load errors.
 	useEffect( () => {
@@ -119,12 +126,6 @@ export default function Dashboard() {
 
 	useEffect( () => {
 		let cancelled = false;
-		const settlePending = () => {
-			if ( pendingUntilKey.current !== null && refreshKey >= pendingUntilKey.current ) {
-				pendingUntilKey.current = null;
-				setPendingPostId( null );
-			}
-		};
 
 		apiFetch( { path: QUEUE_PATH } ).then(
 			( data ) => {
@@ -136,13 +137,13 @@ export default function Dashboard() {
 					counts: ( data && data.counts ) || null,
 					viewer: ( data && data.viewer ) || null,
 				} );
-				settlePending();
+				settlePending( refreshKey );
 			},
 			() => {
 				if ( cancelled ) {
 					return;
 				}
-				settlePending();
+				settlePending( refreshKey );
 				if ( refreshKey === 0 ) {
 					setError( true );
 				}
@@ -151,44 +152,11 @@ export default function Dashboard() {
 		return () => {
 			cancelled = true;
 		};
-	}, [ refreshKey ] );
-
-	const onSettled = useCallback(
-		( postId, command ) => {
-			setDashVersion( ( v ) => v + 1 );
-			settledToast( postId, command ).then(
-				( toast ) => toast && addToast( toast.content, toast.status )
-			);
-		},
-		[ addToast ]
-	);
-
-	const onGiveUp = useCallback(
-		( postId, command ) => addToast( giveUpMessage( command ), 'info' ),
-		[ addToast ]
-	);
-
-	const { awaited, restart } = usePolling( list ? list.items : null, QUEUE_PATH, {
-		onTick: refetch,
-		onSettled,
-		onGiveUp,
-	} );
+	}, [ refreshKey, settlePending ] );
 
 	// Same path as a single run on Post Reviews: request, then re-arm
 	// polling and refetch so the row switches to Processing.
-	const review = ( postId ) => {
-		setPendingPostId( postId );
-		requestRun( postId, 'review' ).then( ( { ok, message } ) => {
-			if ( ! ok ) {
-				addToast( message, 'warning' );
-				setPendingPostId( null );
-				return;
-			}
-			restart( postId, 'review' );
-			addToast( requestedMessage( 'review' ), 'info' );
-			pendingUntilKey.current = refetch();
-		} );
-	};
+	const review = ( postId ) => trigger( postId, 'review' );
 
 	if ( error ) {
 		return (
@@ -215,7 +183,9 @@ export default function Dashboard() {
 
 	const { counts, viewer } = list;
 	const canReview = canRender( viewer, 'review' );
-	const queue = list.items.filter( ( item ) => item.latest_status !== 'ship' );
+	const queue = list.items.filter(
+		( item ) => item.latest_status !== 'ship'
+	);
 	const total = counts ? counts.all : 0;
 	const analyzed = counts ? counts.all - counts.none : 0;
 
@@ -235,9 +205,16 @@ export default function Dashboard() {
 	return (
 		<div className="pqm-dashboard">
 			{ total > 0 && analyzed === 0 && canReview && (
-				<Notice status="info" isDismissible={ false } className="pqm-dash-notice">
+				<Notice
+					status="info"
+					isDismissible={ false }
+					className="pqm-dash-notice"
+				>
 					<strong>
-						{ __( 'You are all set — run your first review.', 'post-quality-manager' ) }
+						{ __(
+							'You are all set — run your first review.',
+							'post-quality-manager'
+						) }
 					</strong>{ ' ' }
 					{ __(
 						'Pick a post below and click Review. The score, issues and suggested edits land here in about a minute.',
@@ -262,7 +239,8 @@ export default function Dashboard() {
 							items={ queue }
 							canReview={ canReview }
 							isBusy={ ( postId ) =>
-								awaited.has( postId ) || pendingPostId === postId
+								awaited.has( postId ) ||
+								pendingPostId === postId
 							}
 							onReview={ review }
 						/>
@@ -275,7 +253,10 @@ export default function Dashboard() {
 					<h2 className="pqm-dash-heading">
 						{ sprintf(
 							/* translators: %d: number of weeks */
-							__( 'Average score — last %d weeks', 'post-quality-manager' ),
+							__(
+								'Average score — last %d weeks',
+								'post-quality-manager'
+							),
 							( dash.trend || [] ).length
 						) }
 					</h2>
@@ -292,7 +273,10 @@ export default function Dashboard() {
 					className="pqm-dash-notice"
 					actions={ [
 						{
-							label: __( 'Enable scheduled reviews', 'post-quality-manager' ),
+							label: __(
+								'Enable scheduled reviews',
+								'post-quality-manager'
+							),
 							url: 'admin.php?page=pqm-settings#pqm-cron-settings',
 							variant: 'primary',
 						},
@@ -303,7 +287,10 @@ export default function Dashboard() {
 					] }
 				>
 					<strong>
-						{ __( 'Let reviews run themselves.', 'post-quality-manager' ) }
+						{ __(
+							'Let reviews run themselves.',
+							'post-quality-manager'
+						) }
 					</strong>{ ' ' }
 					{ __(
 						'Scheduled reviews keep scoring your back catalog automatically — you pick the frequency and batch size.',

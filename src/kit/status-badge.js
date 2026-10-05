@@ -20,10 +20,10 @@ const STATUS_MAP = {
 	error: { icon: 'dismiss', variant: 'neutral' },
 };
 
-const STATUS_NONE = { icon: 'minus', variant: 'neutral' };
+const NONE_BADGE = { icon: 'minus', variant: 'neutral' };
 
 export default function StatusBadge( { status } ) {
-	const config = ( status && STATUS_MAP[ status ] ) || STATUS_NONE;
+	const config = ( status && STATUS_MAP[ status ] ) || NONE_BADGE;
 
 	return (
 		<span className={ `pqm-status-badge is-${ config.variant }` }>

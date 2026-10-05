@@ -1,7 +1,8 @@
 /**
  * ScoreBadge (story 5.2) — numeric score chip: 71+ green, 41–70 orange,
  * 1–40 red, 0 or none grey. The `pqm-score-badge` / `pqm-score-*` rules live
- * in the kit's style.css (moved from pqm-admin.css in story 5.7).
+ * in the kit's style.css; pqm-admin.css (Settings and n8n Workflow only)
+ * no longer carries them since story 5.7.
  *
  * Story 5.10: an optional `label` renders "label value" (the Yoast pair)
  * and an optional `title` becomes the span's tooltip.

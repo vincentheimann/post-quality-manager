@@ -4,7 +4,7 @@
  * Plugin URI:        https://github.com/vincentheimann/post-quality-manager
  * Description:       Content quality dashboard — store review results from n8n workflows, schedule automated reviews, and get a global overview of your blog content quality.
  * Version:           3.0.0
- * Requires at least: 6.0
+ * Requires at least: 6.6
  * Requires PHP:      8.0
  * Author:            Vincent Heimann
  * License:           GPL-2.0-or-later
@@ -268,7 +268,7 @@ function pqm_voice_presets(): array
 /* ─── Helper: n8n workflow JSON with site values injected ────────────── */
 /**
  * Bundled workflow template with this site's values injected. Shared by the
- * settings-page download and the REST import-from-URL endpoint.
+ * n8n Workflow page download and the REST import-from-URL endpoint.
  * Returns null when the template file is missing.
  */
 function pqm_workflow_json(): ?string

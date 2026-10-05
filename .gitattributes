@@ -3,3 +3,7 @@
 # no real change. Keep the BMad runtime files LF on every platform.
 *.py   text eol=lf
 *.toml text eol=lf
+
+# The index is LF; keep every text file LF in the working tree too, so
+# wp-scripts lint-js (prettier) sees the same endings on Windows and in CI.
+* text=auto eol=lf

@@ -427,8 +427,7 @@ class PQM_Admin
      * PHP shell shared by the React pages: heading + root div only — every
      * row, badge, tile and panel renders client-side from REST data
      * (ADR 0005, one render source). On a fresh clone without built assets,
-     * or on a core too old for the bundle, the page explains the next step
-     * instead of staying blank.
+     * the page explains the next step instead of staying blank.
      */
     private static function render_app_shell(string $title, string $root_id): void
     {
@@ -449,12 +448,6 @@ class PQM_Admin
                         ['code' => []]
                     );
                     ?></p>
-                </div>
-            <?php elseif (!wp_script_is('react-jsx-runtime', 'registered')): ?>
-                <?php // The bundle depends on core's react-jsx-runtime handle (WP 6.6+);
-                      // older cores silently drop the script, so explain instead of a blank div. ?>
-                <div class="notice notice-warning">
-                    <p><?php esc_html_e('This page needs WordPress 6.6 or newer to render. Update WordPress, then reload this page.', 'post-quality-manager'); ?></p>
                 </div>
             <?php else: ?>
                 <div id="<?php echo esc_attr($root_id); ?>"></div>
@@ -857,8 +850,8 @@ class PQM_Admin
     /* ─── Page: n8n Workflow ─────────────────────────────────────────── */
 
     /**
-     * Agent keys => human labels, shared by the settings page and the
-     * workflow configuration preview.
+     * Agent keys => human labels, shared by the Settings page and the
+     * n8n Workflow page's configuration preview.
      */
     private static function agent_labels(): array
     {
@@ -1025,7 +1018,7 @@ class PQM_Admin
 
     /**
      * "Or import from URL" block shown under each workflow download button.
-     * Rendered twice on the settings page, so classes only — no IDs.
+     * Rendered twice on the n8n Workflow page, so classes only — no IDs.
      */
     private static function render_import_url(string $import_url): void
     {

@@ -16,7 +16,13 @@ import { STATUS_NONE, statusLabel } from '../kit/copy';
 import QuotaNote from '../kit/quota-note';
 
 /** Chip order follows the mockup; '' is the "All" chip (no status filter). */
-const CHIP_STATUSES = [ '', 'ship', 'needs_revision', 'major_revision', STATUS_NONE ];
+const CHIP_STATUSES = [
+	'',
+	'ship',
+	'needs_revision',
+	'major_revision',
+	STATUS_NONE,
+];
 
 /**
  * Score bands as `min_score` / `max_score` pairs; null = unbounded.
@@ -24,15 +30,41 @@ const CHIP_STATUSES = [ '', 'ship', 'needs_revision', 'major_revision', STATUS_N
  * "Below 41" starts at 1: score 0 is the processing / error placeholder,
  * which ScoreBadge renders in the neutral color, not red.
  */
-export const SCORE_BANDS = [
-	{ value: '', min: null, max: null, label: __( 'Any', 'post-quality-manager' ) },
-	{ value: 'low', min: 1, max: 40, label: __( 'Below 41', 'post-quality-manager' ) },
-	{ value: 'mid', min: 41, max: 70, label: __( '41–70', 'post-quality-manager' ) },
-	{ value: 'high', min: 71, max: null, label: __( '71+', 'post-quality-manager' ) },
+const SCORE_BANDS = [
+	{
+		value: '',
+		min: null,
+		max: null,
+		label: __( 'Any', 'post-quality-manager' ),
+	},
+	{
+		value: 'low',
+		min: 1,
+		max: 40,
+		label: __( 'Below 41', 'post-quality-manager' ),
+	},
+	{
+		value: 'mid',
+		min: 41,
+		max: 70,
+		label: __( '41–70', 'post-quality-manager' ),
+	},
+	{
+		value: 'high',
+		min: 71,
+		max: null,
+		label: __( '71+', 'post-quality-manager' ),
+	},
 ];
 
-/** The band whose bounds equal the given min/max, or undefined (custom deep link). */
-export function findBand( min, max ) {
+/**
+ * The band whose bounds equal the given min/max, or undefined (custom deep link).
+ *
+ * @param {number|null} min Lowest score, null = unbounded.
+ * @param {number|null} max Highest score, null = unbounded.
+ * @return {Object|undefined} The matching SCORE_BANDS entry.
+ */
+function findBand( min, max ) {
 	return SCORE_BANDS.find( ( band ) => band.min === min && band.max === max );
 }
 
