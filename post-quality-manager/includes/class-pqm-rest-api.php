@@ -9,6 +9,7 @@
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
  *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
+ *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags (Dashboard app)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -73,6 +74,13 @@ class PQM_REST_API {
             'callback'            => [ __CLASS__, 'list_posts_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
             'args'                => self::list_posts_args(),
+        ] );
+
+        // Story 5.6: Dashboard read model — average, trend, nudge flags.
+        register_rest_route( PQM_REST_NAMESPACE, '/dashboard', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ __CLASS__, 'dashboard_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
         ] );
     }
 
@@ -330,12 +338,14 @@ class PQM_REST_API {
      * so display conversion goes through get_date_from_gmt() — the site's
      * timezone and date/time format. Blank / zero dates render as ''.
      */
-    private static function display_date( string $gmt ): string {
+    private static function display_date( string $gmt, bool $with_time = true ): string {
         if ( '' === $gmt || '0000-00-00 00:00:00' === $gmt ) {
             return '';
         }
 
-        return get_date_from_gmt( $gmt, get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
+        $format = get_option( 'date_format' ) . ( $with_time ? ' ' . get_option( 'time_format' ) : '' );
+
+        return get_date_from_gmt( $gmt, $format );
     }
 
     /**
@@ -597,7 +607,9 @@ class PQM_REST_API {
      * Story 5.3 adds server-side filters (`status` incl. `none`,
      * `min_score`/`max_score`), `orderby=status` and the filter-independent
      * `counts` block the status chips display. Story 5.4 adds the per-item
-     * `in_flight` command list the detail panel's polling watches.
+     * `in_flight` command list the detail panel's polling watches. Story
+     * 5.6 adds `orderby=priority` (the Dashboard Fix-next queue, fixed
+     * direction — see PQM_DB::priority_order_sql()).
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -606,7 +618,7 @@ class PQM_REST_API {
         $page = max( 1, absint( $request->get_param( 'page' ) ) );
 
         $orderby = sanitize_key( (string) $request->get_param( 'orderby' ) );
-        if ( ! in_array( $orderby, [ 'score', 'reviewed_at', 'title', 'status' ], true ) ) {
+        if ( ! in_array( $orderby, [ 'score', 'reviewed_at', 'title', 'status', 'priority' ], true ) ) {
             $orderby = 'reviewed_at';
         }
 
@@ -672,5 +684,56 @@ class PQM_REST_API {
                 'hidden_commands' => PQM_Features::hidden_commands(),
             ],
         ], 200 );
+    }
+
+    /* ─── 7. GET /dashboard (Dashboard app, story 5.6) ───────────────── */
+
+    /**
+     * The Dashboard's own numbers — everything else (queue, tile counts,
+     * viewer) comes from `GET /posts?orderby=priority`. The average is the
+     * trend's last point, so the tile and the sparkline's endpoint agree
+     * by construction. Nudge flags port the legacy render_dashboard()
+     * rules; the dismiss link itself is still handled by the PHP shell.
+     */
+    public static function dashboard_callback(): WP_REST_Response {
+        $settings  = pqm_get_settings();
+        $trend     = PQM_DB::get_score_trend();
+        $average   = $trend ? $trend[ count( $trend ) - 1 ]['average'] : null;
+        $can_admin = current_user_can( 'pqm_manage_settings' );
+
+        // Habit-loop nudge: first result is in, cron still off. Pro only —
+        // on a free site the Automated Reviews section is locked.
+        $cron_nudge = null !== $average
+            && empty( $settings['cron_enabled'] )
+            && ! get_option( 'pqm_cron_nudge_dismissed' )
+            && $can_admin
+            && PQM_Features::is_pro();
+
+        $data = [
+            'average_score'       => $average,
+            'trend'               => array_map(
+                static fn( $point ) => [
+                    'label'   => self::display_date( $point['end'], false ),
+                    'average' => $point['average'],
+                ],
+                $trend
+            ),
+            'connected'           => ! empty( $settings['n8n_webhook_url'] ),
+            'can_manage_settings' => $can_admin,
+            'cron_nudge'          => $cron_nudge,
+        ];
+
+        if ( $cron_nudge ) {
+            // Raw URL (no &amp;): it travels as JSON into an href.
+            $data['cron_nudge_dismiss_url'] = add_query_arg(
+                [
+                    'pqm_dismiss_cron_nudge' => '1',
+                    '_wpnonce'               => wp_create_nonce( 'pqm_dismiss_cron_nudge' ),
+                ],
+                admin_url( 'admin.php?page=pqm-dashboard' )
+            );
+        }
+
+        return new WP_REST_Response( $data, 200 );
     }
 }

@@ -1,0 +1,147 @@
+/**
+ * Dashboard styles (story 5.6) — mockup anatomy on @wordpress/components
+ * Cards. Class names are new on purpose: the legacy pqm-admin.css still
+ * loads on this page and owns .pqm-card, .pqm-stat-*, .pqm-stats-grid
+ * and .pqm-dashboard-cta.
+ */
+
+.pqm-dashboard {
+	max-width: 1060px;
+	margin-top: 12px;
+}
+
+.pqm-dash-card {
+	margin-bottom: 16px;
+}
+
+.pqm-dash-heading {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.pqm-dash-card .components-card__body > .pqm-dash-heading {
+	margin-bottom: 8px;
+}
+
+.pqm-dash-notice.components-notice {
+	margin: 0 0 16px;
+}
+
+/* ─── Stat tiles: one per chip, plus the average ─────────────────────── */
+.pqm-tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.pqm-tile {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 12px 14px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	color: #1d2327;
+	text-decoration: none;
+}
+
+.pqm-tile:hover {
+	border-color: #2271b1;
+	color: #1d2327;
+}
+
+.pqm-tile:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: 2px solid transparent;
+}
+
+.pqm-tile-label {
+	color: #646970;
+	font-size: 12px;
+}
+
+.pqm-tile-value {
+	font-size: 26px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+/* ─── Fix-next queue ─────────────────────────────────────────────────── */
+.pqm-queue {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pqm-queue-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0;
+	padding: 10px 0;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.pqm-queue-row:last-child {
+	border-bottom: 0;
+}
+
+.pqm-queue-row .pqm-score-badge {
+	min-width: 34px;
+	text-align: center;
+}
+
+.pqm-queue-title {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 160px;
+}
+
+.pqm-queue-meta {
+	font-size: 12px;
+}
+
+.pqm-queue-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.pqm-queue-empty {
+	margin: 0;
+}
+
+/* ─── Sparkline ──────────────────────────────────────────────────────── */
+.pqm-spark {
+	position: relative;
+	max-width: 560px;
+}
+
+.pqm-spark-svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.pqm-spark-tip {
+	position: absolute;
+	padding: 2px 7px;
+	border-radius: 3px;
+	background: #1d2327;
+	color: #fff;
+	font-size: 11px;
+	white-space: nowrap;
+	pointer-events: none;
+	/* The centring transform is inline in sparkline.js: rtlcss would flip a
+	   CSS translate(-50%) while the SVG and the inline `left` stay unmirrored,
+	   and wp-scripts' cssnano strips rtl:ignore comments before rtlcss runs. */
+}
+
+.pqm-spark-empty {
+	margin: 0;
+}

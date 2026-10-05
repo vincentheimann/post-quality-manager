@@ -33,29 +33,13 @@ import {
 	runLabel,
 } from '../kit/copy';
 import QuotaNote from '../kit/quota-note';
+import { isFailedRow, isObject } from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
-import ResultView, {
-	PillarMeters,
-	isEmpty,
-	isObject,
-	isReviewShape,
-} from './result-view';
+import ResultView, { PillarMeters, isReviewShape } from './result-view';
 
 /** Tabs: every canonical command except Rewrite, then History. */
 const TAB_COMMANDS = COMMAND_ORDER.filter( ( c ) => c !== 'rewrite' );
-
-/**
- * A stored row that is a failed run — the saved `error` status, or the
- * template's fallback shape (empty status, `{}` result).
- */
-export function isFailedRow( row ) {
-	return (
-		!! row &&
-		( row.status === 'error' ||
-			( ! row.status && isEmpty( row.result_data ) ) )
-	);
-}
 
 /** 'none' | 'running' | 'failed' | 'done' for the latest row of a command. */
 function rowState( row ) {

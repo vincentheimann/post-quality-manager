@@ -8,6 +8,10 @@
  * wpdb call order per list request: get_var (count) → get_results (items)
  * → get_results (commands) → get_results (in_flight, story 5.4) — both
  * only when items exist — → get_results (counts).
+ *
+ * Story 5.6 appends `orderby=priority` (Fix-next queue) and GET /dashboard:
+ * registration, flag matrix and the score-trend walk on known rows (one
+ * get_results per request).
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -15,11 +19,13 @@ date_default_timezone_set('UTC'); // deterministic latest_reviewed_display asser
 
 define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A', 'ARRAY_A');
+define('WEEK_IN_SECONDS', 7 * 86400);
 
 $GLOBALS['tw'] = [
     'caps'      => [],
     'user_id'   => 42,
     'user_meta' => [], // user_id => [key => value]
+    'options'   => [], // option overrides (story 5.6: pqm_settings, pqm_cron_nudge_dismissed)
 ];
 $GLOBALS['pqm_routes'] = [];
 
@@ -32,7 +38,7 @@ function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function wp_generate_uuid4() { return 'stub-uuid'; }
 function get_option($k, $d = false) {
-    return ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d;
+    return $GLOBALS['tw']['options'][$k] ?? ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d;
 }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
@@ -53,6 +59,9 @@ function rest_url($p = '') { return '/wp-json/' . $p; }
 function get_edit_post_link($id, $context = 'display') { return '/wp-admin/post.php?post=' . $id . '&action=edit'; }
 /* Stored dates are GMT; the site timezone is pinned to UTC here, so display == stored (story 5.4 fix). */
 function get_date_from_gmt($gmt, $format = 'Y-m-d H:i:s') { return gmdate($format, strtotime($gmt . ' UTC')); }
+function admin_url($p = '') { return '/wp-admin/' . $p; }
+function wp_create_nonce($a = '') { return 'nonce-' . $a; }
+function add_query_arg(array $args, string $url) { return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
 /* Viewer-block stubs (story 5.2): quota_state() reads user meta + site clock. */
 function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
@@ -328,6 +337,10 @@ $wpdb = list_with(['status' => 'none']);
 $limit = limit_args($wpdb);
 check('status=none → lr.status IS NULL in items query', $limit !== null && strpos($limit['sql'], 'lr.status IS NULL') !== false);
 check('status=none → lr.status IS NULL in count query', strpos($wpdb->last_var_sql, 'lr.status IS NULL') !== false);
+check("status=none also matches an empty status ('' = failed-run fallback, counted as none) in items + count queries",
+    $limit !== null
+    && strpos($limit['sql'], "(lr.status IS NULL OR lr.status = '')") !== false
+    && strpos($wpdb->last_var_sql, "(lr.status IS NULL OR lr.status = '')") !== false);
 check('no lr.status = %s prepared', prepared_with($wpdb, 'lr.status = %s') === null);
 
 /* Row: unknown status — ignored, treated as no filter */
@@ -454,6 +467,127 @@ check('quota null despite an applicable limit', $v['quota'] === null && PQM_Feat
 check('gated_commands empty', $v['gated_commands'] === []);
 check('all six registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit']);
 check('hidden equals PQM_Features::hidden_commands()', $v['hidden_commands'] === PQM_Features::hidden_commands());
+
+/* ─── Fix-next queue: orderby=priority (story 5.6) ───────────────────── */
+
+/* Row: queue order — rank, score ASC, reviewed ASC, post date ASC, ID ASC; `order` ignored */
+echo "Queue order (orderby=priority)\n";
+$priority = PQM_DB::priority_order_sql();
+check('priority SQL: rank (major, needs, none — NULL/empty status read as none), then score, staleness, post date, ID',
+    $priority === "IFNULL(NULLIF(FIELD(IFNULL(NULLIF(lr.status, ''), 'none'), 'major_revision','needs_revision','none'), 0), 99) ASC, latest_score ASC, latest_reviewed ASC, p.post_date ASC, p.ID ASC");
+$wpdb = list_with(['orderby' => 'priority', 'order' => 'desc', 'per_page' => 5]);
+$limit = limit_args($wpdb);
+check('orderby=priority passes the whitelist → ORDER BY <priority list>', $limit !== null && strpos($limit['sql'], "ORDER BY {$priority}") !== false);
+check('order=desc ignored (no fallback to latest_reviewed, no DESC)', $limit !== null
+    && strpos($limit['sql'], 'ORDER BY latest_reviewed') === false && strpos($limit['sql'], 'DESC') === false);
+check('per_page 5 reaches the DB (queue of 5)', $limit !== null && $limit['args'] === [5, 0]);
+check('ship is not a priority rank (ranks after; the client drops ship rows)', !in_array('ship', PQM_DB::PRIORITY, true));
+
+/* ─── GET /dashboard (story 5.6) ─────────────────────────────────────── */
+
+/* Row: registration + permission — read-only, view-reviews gate */
+echo "Dashboard route\n";
+PQM_REST_API::register_routes();
+$routes = $GLOBALS['pqm_routes'];
+check('/dashboard registered', isset($routes[$ns . '/dashboard']));
+check('/dashboard is read-only GET', ($routes[$ns . '/dashboard']['methods'] ?? '') === WP_REST_Server::READABLE);
+check('/dashboard gated by check_view_reviews (no pqm_view_reviews → 401/403)',
+    ($routes[$ns . '/dashboard']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+
+/**
+ * One /dashboard request: $rows feed the trend query; $settings become
+ * pqm_settings; $dismissed sets pqm_cron_nudge_dismissed.
+ */
+function dashboard_with(array $caps, array $settings, array $rows, bool $dismissed = false): array {
+    $GLOBALS['tw']['caps'] = $caps;
+    $GLOBALS['tw']['options'] = ['pqm_settings' => $settings, 'pqm_cron_nudge_dismissed' => $dismissed ? 1 : false];
+    fresh_wpdb([$rows], []);
+    $res = PQM_REST_API::dashboard_callback();
+    return ['status' => $res->get_status(), 'data' => $res->get_data()];
+}
+
+/** GMT 'Y-m-d H:i:s', $weeks weeks + $days days before now. */
+function ago(int $weeks, int $days = 0): string {
+    return gmdate('Y-m-d H:i:s', time() - $weeks * WEEK_IN_SECONDS - $days * 86400);
+}
+
+$admin = ['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
+$connected_pro = ['n8n_webhook_url' => 'https://n8n.example/webhook', 'license_key' => 'PQM-KEY', 'cron_enabled' => false];
+$one_scored = [['post_id' => '1', 'overall_score' => '70', 'status' => 'ship', 'reviewed_at' => ago(0, 1)]];
+
+/* Row: trend on known rows — each point = average of latest results as of that week's end */
+echo "Trend walk on known rows\n";
+// Week ends E0 = now − 7 weeks … E7 = now. Rows ascending, as the SQL orders them.
+$rows = [
+    ['post_id' => '1', 'overall_score' => '40', 'status' => 'major_revision', 'reviewed_at' => ago(7, 1)], // before E0
+    ['post_id' => '2', 'overall_score' => '80', 'status' => 'ship',           'reviewed_at' => ago(5, 1)], // before E2
+    ['post_id' => '1', 'overall_score' => '60', 'status' => 'needs_revision', 'reviewed_at' => ago(3, 1)], // before E4: supersedes 40
+    ['post_id' => '2', 'overall_score' => '0',  'status' => '',               'reviewed_at' => ago(1, 1)], // before E6: failed latest, post 2 drops out
+    ['post_id' => '3', 'overall_score' => '0',  'status' => 'error',          'reviewed_at' => ago(0, 1)], // before E7: failed, never counts
+];
+$r = dashboard_with($admin, $connected_pro, $rows);
+$d = $r['data'];
+check('200 response', $r['status'] === 200);
+check('shape: average_score, trend, connected, can_manage_settings, cron_nudge (+ dismiss url when the nudge shows)',
+    array_keys($d) === ['average_score', 'trend', 'connected', 'can_manage_settings', 'cron_nudge', 'cron_nudge_dismiss_url']);
+check('8 points, each {label, average}', count($d['trend']) === 8 && array_keys($d['trend'][0]) === ['label', 'average']);
+check('as-of walk: 40, 40, 60, 60, 70, 70, 60, 60 (supersede, failed-latest exclusion)',
+    array_column($d['trend'], 'average') === [40, 40, 60, 60, 70, 70, 60, 60]);
+check('last point equals average_score', $d['average_score'] === 60 && end($d['trend'])['average'] === $d['average_score']);
+check('point label = week-end date in the site date format (no time)', end($d['trend'])['label'] === gmdate('Y-m-d'));
+check('first label is seven weeks back', $d['trend'][0]['label'] === gmdate('Y-m-d', time() - 7 * WEEK_IN_SECONDS));
+$trend_sql = $wpdb->results_sql[0] ?? '';
+check('trend: one query of non-processing review rows for listable posts, ascending',
+    count($wpdb->results_sql) === 1
+    && strpos($trend_sql, "r.command = 'review' AND r.status <> 'processing'") !== false
+    && strpos($trend_sql, "p.post_status IN ('publish', 'pending') AND p.post_type = 'post'") !== false
+    && strpos($trend_sql, 'ORDER BY r.reviewed_at ASC') !== false);
+$r = dashboard_with($admin, $connected_pro, [
+    ['post_id' => '1', 'overall_score' => '40', 'status' => 'needs_revision', 'reviewed_at' => ago(0, 2)],
+    ['post_id' => '2', 'overall_score' => '81', 'status' => 'ship',           'reviewed_at' => ago(0, 1)],
+]);
+check('average rounds to an int (60.5 → 61); earlier points without history are null',
+    $r['data']['average_score'] === 61 && array_column($r['data']['trend'], 'average') === [null, null, null, null, null, null, null, 61]);
+
+/* Row: no history — average null, all points null */
+echo "No history\n";
+$r = dashboard_with($admin, $connected_pro, []);
+check('average_score null', $r['data']['average_score'] === null);
+check('8 points, all null', count($r['data']['trend']) === 8 && array_unique(array_column($r['data']['trend'], 'average')) === [null]);
+
+/* Row: not connected — connected false; can_manage_settings mirrors the cap */
+echo "Not connected\n";
+$r = dashboard_with($admin, ['n8n_webhook_url' => ''] + $connected_pro, $one_scored);
+check('empty webhook URL → connected false', $r['data']['connected'] === false);
+check('admin → can_manage_settings true', $r['data']['can_manage_settings'] === true);
+$r = dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents'], ['n8n_webhook_url' => ''], $one_scored);
+check('author → can_manage_settings false', $r['data']['can_manage_settings'] === false);
+$r = dashboard_with($admin, $connected_pro, $one_scored);
+check('webhook URL set → connected true', $r['data']['connected'] === true);
+
+/* Row: cron nudge — pro, admin, cron off, ≥1 analyzed, not dismissed */
+echo "Cron nudge\n";
+$r = dashboard_with($admin, $connected_pro, $one_scored);
+$url = $r['data']['cron_nudge_dismiss_url'] ?? '';
+check('all conditions met → cron_nudge true', $r['data']['cron_nudge'] === true);
+check('dismiss URL targets the Dashboard and carries a nonce for pqm_dismiss_cron_nudge',
+    strpos($url, '/wp-admin/admin.php?page=pqm-dashboard') === 0
+    && strpos($url, 'pqm_dismiss_cron_nudge=1') !== false
+    && strpos($url, '_wpnonce=nonce-pqm_dismiss_cron_nudge') !== false);
+check('dismiss URL is raw (no &amp;) — it travels as JSON into an href', strpos($url, '&amp;') === false);
+$cases = [
+    'free plan'            => dashboard_with($admin, ['license_key' => ''] + $connected_pro, $one_scored),
+    'not an admin'         => dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents'], $connected_pro, $one_scored),
+    'cron already on'      => dashboard_with($admin, ['cron_enabled' => true] + $connected_pro, $one_scored),
+    'nothing analyzed'     => dashboard_with($admin, $connected_pro, []),
+    'only a failed latest' => dashboard_with($admin, $connected_pro, [['post_id' => '1', 'overall_score' => '0', 'status' => 'error', 'reviewed_at' => ago(0, 1)]]),
+    'dismissed'            => dashboard_with($admin, $connected_pro, $one_scored, true),
+];
+foreach ($cases as $label => $r) {
+    check("$label → cron_nudge false, no dismiss url",
+        $r['data']['cron_nudge'] === false && !array_key_exists('cron_nudge_dismiss_url', $r['data']));
+}
+$GLOBALS['tw']['options'] = [];
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

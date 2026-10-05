@@ -1,6 +1,7 @@
 /**
- * usePolling (story 5.4, DESIGN.md D6) — the one polling loop of the
- * Post Reviews page. It watches the list's server-derived `in_flight`
+ * usePolling (story 5.4, DESIGN.md D6) — the one polling loop, shared by
+ * Post Reviews and the Dashboard queue (story 5.6, moved into the kit).
+ * It watches the list's server-derived `in_flight`
  * field: while any listed post has a command in flight, one 3-second
  * interval asks the table to refetch the current query silently. Because
  * the signal is server state, not label text, the loop resumes by itself

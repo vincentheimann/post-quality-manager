@@ -206,13 +206,34 @@ class PQM_DB {
     }
 
     /**
+     * Dashboard Fix-next rank (story 5.6), most urgent first. Never
+     * reviewed (NULL) and an empty latest status both read as STATUS_NONE,
+     * like count_posts_by_status(); anything else — ship included — ranks
+     * after them (the client drops ship rows from the queue).
+     */
+    public const PRIORITY = [ 'major_revision', 'needs_revision', self::STATUS_NONE ];
+
+    /**
+     * Full ORDER BY list for `orderby=priority` — queue priority v1:
+     * status rank, then score ascending, then staleness (oldest review
+     * first; never-reviewed posts: oldest post first), then post ID.
+     * Direction is fixed; the request's `order` does not apply.
+     */
+    public static function priority_order_sql(): string {
+        $quoted = "'" . implode( "','", self::PRIORITY ) . "'";
+        $status = "IFNULL(NULLIF(lr.status, ''), '" . self::STATUS_NONE . "')";
+
+        return "IFNULL(NULLIF(FIELD({$status}, {$quoted}), 0), 99) ASC, latest_score ASC, latest_reviewed ASC, p.post_date ASC, p.ID ASC";
+    }
+
+    /**
      * Get paginated list of posts with their latest review scores.
      *
      * @param array $args {
      *     @type int      $per_page   Default 20.
      *     @type int      $page       Default 1.
-     *     @type string   $orderby    'score', 'reviewed_at', 'title', 'status'. Default 'reviewed_at'.
-     *     @type string   $order      'ASC' or 'DESC'. Default 'DESC'.
+     *     @type string   $orderby    'score', 'reviewed_at', 'title', 'status', 'priority'. Default 'reviewed_at'.
+     *     @type string   $order      'ASC' or 'DESC'. Default 'DESC'. Ignored by 'priority'.
      *     @type string   $status     Filter by review status; self::STATUS_NONE for never reviewed.
      *     @type int|null $min_score  Lowest latest score to include (inclusive). Null = unbounded.
      *     @type int|null $max_score  Highest latest score to include (inclusive). Null = unbounded.
@@ -257,7 +278,8 @@ class PQM_DB {
         }
 
         if ( self::STATUS_NONE === $args['status'] ) {
-            $where_clauses[] = 'lr.status IS NULL';
+            // Empty = the template's failed-run fallback: "none", like the counts.
+            $where_clauses[] = "(lr.status IS NULL OR lr.status = '')";
         } elseif ( ! empty( $args['status'] ) ) {
             $where_clauses[] = $wpdb->prepare( 'lr.status = %s', $args['status'] );
         }
@@ -274,6 +296,7 @@ class PQM_DB {
         ];
         $order_col = $order_map[ $args['orderby'] ] ?? 'latest_reviewed';
         $order_dir = strtoupper( $args['order'] ) === 'ASC' ? 'ASC' : 'DESC';
+        $order_sql = 'priority' === $args['orderby'] ? self::priority_order_sql() : "{$order_col} {$order_dir}";
 
         // Count total.
         $count_sql = "
@@ -308,7 +331,7 @@ class PQM_DB {
             WHERE {$where_sql}
             GROUP BY p.ID
             {$having_sql}
-            ORDER BY {$order_col} {$order_dir}
+            ORDER BY {$order_sql}
             LIMIT %d OFFSET %d
         ";
 
@@ -368,6 +391,68 @@ class PQM_DB {
         return $counts;
     }
 
+    /** Latest-result statuses that count toward the average score (story 5.6). */
+    public const SCORED_STATUSES = [ 'ship', 'needs_revision', 'major_revision' ];
+
+    /**
+     * Catalog average score as of the end of each of the last $weeks weeks
+     * (story 5.6 sparkline), oldest first; the last week ends now, so its
+     * average is the Dashboard's Average score. A point averages each
+     * listable post's latest `review` result as of that moment —
+     * `processing` placeholders never count, and a post whose latest
+     * result failed (empty / `error` status) drops out. Null = no scored
+     * post at that point.
+     *
+     * Ceiling: loads every review row of listable posts and walks them in
+     * PHP. Fine for a blog's catalog; upgrade to stored weekly snapshots
+     * (one row per week, written by cron) if catalogs grow large.
+     *
+     * @return array<int, array{end: string, average: ?int}>  `end` in GMT 'Y-m-d H:i:s'.
+     */
+    public static function get_score_trend( int $weeks = 8 ): array {
+        global $wpdb;
+        $table = self::table_name();
+
+        $rows = $wpdb->get_results(
+            "SELECT r.post_id, r.overall_score, r.status, r.reviewed_at
+             FROM {$table} r
+             INNER JOIN {$wpdb->posts} p ON p.ID = r.post_id
+             WHERE r.command = 'review' AND r.status <> 'processing'
+               AND p.post_status IN ('publish', 'pending') AND p.post_type = 'post'
+             ORDER BY r.reviewed_at ASC",
+            ARRAY_A
+        ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL
+
+        $now    = time();
+        $latest = []; // post_id => latest row as of the current week end
+        $next   = 0;  // rows are ascending: each week end only advances the cursor
+        $count  = count( $rows );
+        $trend  = [];
+
+        for ( $i = $weeks - 1; $i >= 0; $i-- ) {
+            $end = gmdate( 'Y-m-d H:i:s', $now - $i * WEEK_IN_SECONDS );
+
+            while ( $next < $count && (string) $rows[ $next ]['reviewed_at'] <= $end ) {
+                $latest[ (int) $rows[ $next ]['post_id'] ] = $rows[ $next ];
+                $next++;
+            }
+
+            $scores = [];
+            foreach ( $latest as $row ) {
+                if ( in_array( (string) $row['status'], self::SCORED_STATUSES, true ) ) {
+                    $scores[] = (int) $row['overall_score'];
+                }
+            }
+
+            $trend[] = [
+                'end'     => $end,
+                'average' => $scores ? (int) round( array_sum( $scores ) / count( $scores ) ) : null,
+            ];
+        }
+
+        return $trend;
+    }
+
     /**
      * Get posts that need a review (never reviewed, low score, or stale).
      */
@@ -408,7 +493,8 @@ class PQM_DB {
     }
 
     /**
-     * Dashboard aggregate stats.
+     * Dashboard aggregate stats — legacy PHP Dashboard only (unrouted since
+     * story 5.6; removal is story 5.7).
      */
     public static function get_dashboard_stats(): array {
         global $wpdb;
