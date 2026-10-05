@@ -3,7 +3,7 @@ title: 'Post Reviews: detail panel and trigger flow'
 type: 'feature'
 ticket: '4'
 created: '2026-10-05'
-status: 'built'
+status: 'done'
 baseline_revision: 'eceef0aa4a7fb35573abc871bbe1ec5b04464863'
 route: 'full'
 route_source: 'auto'
@@ -123,4 +123,6 @@ Why poll the list, not `/reviews/{id}`: one request per tick regardless of how m
 - `for f in tests/harness/*.php; do php "$f" || break; done` -- expected: all green incl. the new reviews harness and the quota-harness processing-row checks
 
 **Manual checks (if no CLI):**
-- Real site, free-plan admin: open Details → tabs by keyboard; Run Review → toast, Processing row, Details disabled, row updates in place with completion toast; reload mid-run → polling resumes; Rewrite shows locked with the Pro title; free-tier Author: quota note beside the buttons and decrements after a run; `pqm_view_reviews`-only user: Details works, no buttons, no quota note; translated site (any locale): auto-resume still works.
+- [x] Real site, free-plan admin: open Details → tabs by keyboard; Run Review → toast, Processing row, Details disabled, row updates in place with completion toast; reload mid-run → polling resumes; Rewrite shows locked with the Pro title; free-tier Author: quota note beside the buttons and decrements after a run; `pqm_view_reviews`-only user: Details works, no buttons, no quota note; translated site (any locale): auto-resume still works.
+
+**Result (2026-10-05):** PR #24 merged (`515a3fe`); the owner walked the manual checks on the real site and reported all green — no failures, no bug tickets. Matrix rows 5–10 (UI) are covered by this pass. Story verify met end to end.
