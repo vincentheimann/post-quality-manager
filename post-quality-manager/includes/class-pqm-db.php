@@ -112,34 +112,27 @@ class PQM_DB {
     }
 
     /**
-     * Get paginated list of posts with their latest review scores.
-     *
-     * @param array $args {
-     *     @type int    $per_page   Default 20.
-     *     @type int    $page       Default 1.
-     *     @type string $orderby    'score', 'reviewed_at', 'title'. Default 'reviewed_at'.
-     *     @type string $order      'ASC' or 'DESC'. Default 'DESC'.
-     *     @type string $status     Filter by review status.
-     *     @type string $filter     'needs_review' or 'all'.
-     * }
-     * @return array { items: array, total: int, pages: int }
+     * Status value meaning "never reviewed" in list filters and counts
+     * (`lr.status IS NULL`) — the REST `status=none` sentinel.
      */
-    public static function get_all_posts_with_scores( array $args = [] ): array {
-        global $wpdb;
+    public const STATUS_NONE = 'none';
 
-        $defaults = [
-            'per_page' => 20,
-            'page'     => 1,
-            'orderby'  => 'reviewed_at',
-            'order'    => 'DESC',
-            'status'   => '',
-            'filter'   => 'all',
-        ];
-        $args  = wp_parse_args( $args, $defaults );
+    /**
+     * Severity order of the stored review statuses, most urgent first.
+     * One SQL source for the Post Reviews status sort (story 5.3) and the
+     * Dashboard queue (story 5.6).
+     */
+    public const STATUS_SEVERITY = [ 'major_revision', 'needs_revision', 'ship', 'processing' ];
+
+    /**
+     * Subquery selecting the latest `review` row per post (aliased `lr`
+     * by callers). Shared by the list query and the per-status counts so
+     * chip counts and rows can never disagree on what "latest" means.
+     */
+    private static function latest_review_subquery(): string {
         $table = self::table_name();
 
-        // Subquery: latest review per post.
-        $latest_subquery = "
+        return "
             SELECT r1.*
             FROM {$table} r1
             INNER JOIN (
@@ -149,16 +142,73 @@ class PQM_DB {
                 GROUP BY post_id
             ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
         ";
+    }
+
+    /**
+     * ORDER BY expression ranking `lr.status` by severity: 1 = major
+     * revision … 4 = processing; never reviewed (NULL) and unknown values
+     * rank last ascending (FIELD() yields 0 for both → remapped to 99).
+     */
+    public static function status_order_expression(): string {
+        $quoted = "'" . implode( "','", self::STATUS_SEVERITY ) . "'";
+
+        return "IFNULL(NULLIF(FIELD(lr.status, {$quoted}), 0), 99)";
+    }
+
+    /**
+     * Get paginated list of posts with their latest review scores.
+     *
+     * @param array $args {
+     *     @type int      $per_page   Default 20.
+     *     @type int      $page       Default 1.
+     *     @type string   $orderby    'score', 'reviewed_at', 'title', 'status'. Default 'reviewed_at'.
+     *     @type string   $order      'ASC' or 'DESC'. Default 'DESC'.
+     *     @type string   $status     Filter by review status; self::STATUS_NONE for never reviewed.
+     *     @type int|null $min_score  Lowest latest score to include (inclusive). Null = unbounded.
+     *     @type int|null $max_score  Highest latest score to include (inclusive). Null = unbounded.
+     *     @type string   $filter     'needs_review' or 'all'.
+     * }
+     * @return array { items: array, total: int, pages: int }
+     */
+    public static function get_all_posts_with_scores( array $args = [] ): array {
+        global $wpdb;
+
+        $defaults = [
+            'per_page'  => 20,
+            'page'      => 1,
+            'orderby'   => 'reviewed_at',
+            'order'     => 'DESC',
+            'status'    => '',
+            'min_score' => null,
+            'max_score' => null,
+            'filter'    => 'all',
+        ];
+        $args = wp_parse_args( $args, $defaults );
+
+        // Subquery: latest review per post.
+        $latest_subquery = self::latest_review_subquery();
 
         // Get all published and pending posts with optional LEFT JOIN to reviews.
         $where_clauses = [ "p.post_status IN ('publish', 'pending')", "p.post_type = 'post'" ];
         $having_clauses = [];
 
         if ( $args['filter'] === 'needs_review' ) {
-            $having_clauses[] = 'latest_score IS NULL OR latest_score < 71';
+            // Parenthesised: it may be ANDed with a score band below.
+            $having_clauses[] = '(latest_score IS NULL OR latest_score < 71)';
         }
 
-        if ( ! empty( $args['status'] ) ) {
+        // Score band: comparisons drop NULL scores, so unreviewed posts are excluded.
+        if ( null !== $args['min_score'] && null !== $args['max_score'] ) {
+            $having_clauses[] = $wpdb->prepare( 'latest_score BETWEEN %d AND %d', (int) $args['min_score'], (int) $args['max_score'] );
+        } elseif ( null !== $args['min_score'] ) {
+            $having_clauses[] = $wpdb->prepare( 'latest_score >= %d', (int) $args['min_score'] );
+        } elseif ( null !== $args['max_score'] ) {
+            $having_clauses[] = $wpdb->prepare( 'latest_score <= %d', (int) $args['max_score'] );
+        }
+
+        if ( self::STATUS_NONE === $args['status'] ) {
+            $where_clauses[] = 'lr.status IS NULL';
+        } elseif ( ! empty( $args['status'] ) ) {
             $where_clauses[] = $wpdb->prepare( 'lr.status = %s', $args['status'] );
         }
 
@@ -170,6 +220,7 @@ class PQM_DB {
             'score'       => 'latest_score',
             'reviewed_at' => 'latest_reviewed',
             'title'       => 'p.post_title',
+            'status'      => self::status_order_expression(),
         ];
         $order_col = $order_map[ $args['orderby'] ] ?? 'latest_reviewed';
         $order_dir = strtoupper( $args['order'] ) === 'ASC' ? 'ASC' : 'DESC';
@@ -221,6 +272,50 @@ class PQM_DB {
             'total' => $total,
             'pages' => $pages,
         ];
+    }
+
+    /**
+     * Facet counts of listable posts (publish + pending) by latest review
+     * status, independent of any active filter — the numbers behind the
+     * Post Reviews chips and, later, the Dashboard tiles.
+     *
+     * @return array { all: int, ship: int, needs_revision: int, major_revision: int, none: int }
+     */
+    public static function count_posts_by_status(): array {
+        global $wpdb;
+
+        $latest_subquery = self::latest_review_subquery();
+
+        $sql = "
+            SELECT lr.status AS status, COUNT(DISTINCT p.ID) AS cnt
+            FROM {$wpdb->posts} p
+            LEFT JOIN ( {$latest_subquery} ) lr ON p.ID = lr.post_id
+            WHERE p.post_status IN ('publish', 'pending') AND p.post_type = 'post'
+            GROUP BY lr.status
+        ";
+
+        $rows = $wpdb->get_results( $sql, ARRAY_A ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL
+
+        $counts = [
+            'all'            => 0,
+            'ship'           => 0,
+            'needs_revision' => 0,
+            'major_revision' => 0,
+            self::STATUS_NONE => 0,
+        ];
+
+        foreach ( $rows as $row ) {
+            $cnt = (int) $row['cnt'];
+            $key = null === $row['status'] || '' === $row['status'] ? self::STATUS_NONE : (string) $row['status'];
+
+            // `all` counts every listable post, including statuses without a chip (processing).
+            $counts['all'] += $cnt;
+            if ( array_key_exists( $key, $counts ) ) {
+                $counts[ $key ] += $cnt;
+            }
+        }
+
+        return $counts;
     }
 
     /**

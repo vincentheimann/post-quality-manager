@@ -39,6 +39,37 @@ export function commandLabel( command ) {
 }
 
 /**
+ * The "never reviewed" status key — the REST `status=none` sentinel and
+ * the `counts.none` key; stored reviews never carry it.
+ */
+export const STATUS_NONE = 'none';
+
+/** Status labels, sentence case per the mockup; keys match the stored review status values. */
+const STATUS_LABELS = {
+	ship: __( 'Ready to ship', 'post-quality-manager' ),
+	needs_revision: __( 'Needs revision', 'post-quality-manager' ),
+	major_revision: __( 'Major revision', 'post-quality-manager' ),
+	processing: __( 'Processing…', 'post-quality-manager' ),
+	[ STATUS_NONE ]: __( 'Not analyzed', 'post-quality-manager' ),
+};
+
+/**
+ * Display label for a review status — the one source StatusBadge and the
+ * filter chips share (story 5.3), so they can never drift. Empty / null
+ * reads as "not analyzed"; an unknown but non-empty status passes through
+ * raw so a new status is never blank.
+ *
+ * @param {string|null|undefined} status Stored status, '' / null for never reviewed.
+ * @return {string} Translated label.
+ */
+export function statusLabel( status ) {
+	if ( ! status ) {
+		return STATUS_LABELS[ STATUS_NONE ];
+	}
+	return STATUS_LABELS[ status ] || status;
+}
+
+/**
  * Title attribute for a plan-locked command button (visible but locked —
  * the plan gate; role-hidden commands render no button at all).
  */

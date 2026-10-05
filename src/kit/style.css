@@ -74,7 +74,7 @@
 	color: #135e96;
 }
 
-/* ─── Filter-bar slot above the table (story 5.3 fills the left side) ── */
+/* ─── Filter bar above the table: chips + score band left, quota right ── */
 .pqm-table-topbar {
 	display: flex;
 	align-items: center;
@@ -91,4 +91,127 @@
 	margin-right: 0;
 	color: #646970;
 	font-size: 12px;
+}
+
+/* Status chips (story 5.3): bordered pills, pressed = blue (mockup);
+   overrides the kit Button's dark `is-pressed` look at higher specificity. */
+.pqm-filter-chips {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.pqm-filter-chip.components-button {
+	height: auto;
+	min-height: 28px;
+	padding: 2px 12px;
+	border: 1px solid #c3c4c7;
+	border-radius: 14px;
+	background: #fff;
+	color: #50575e;
+	font-size: 13px;
+	line-height: 1.6;
+}
+
+.pqm-filter-chip.components-button:hover:not(:disabled) {
+	border-color: #2271b1;
+	color: #135e96;
+}
+
+.pqm-filter-chip.components-button.is-pressed,
+.pqm-filter-chip.components-button.is-pressed:hover:not(:disabled) {
+	border-color: #2271b1;
+	background: #f0f6fc;
+	color: #135e96;
+	font-weight: 600;
+}
+
+.pqm-filter-chip-count {
+	margin-left: 5px;
+	color: #646970;
+	font-size: 12px;
+	font-weight: 400;
+}
+
+/* Score band select sits inline after the chips; its side label is muted. */
+.pqm-filter-bar .pqm-filter-score {
+	margin-left: 8px;
+}
+
+.pqm-filter-bar .pqm-filter-score .components-base-control__label,
+.pqm-filter-bar .pqm-filter-score .components-input-control__label {
+	color: #646970;
+	font-weight: 400;
+	text-transform: none;
+}
+
+/* ─── Sortable headers: core's list-table sort look, on a button ──────
+   Core styles `th.sortable a`; the same rules are mirrored here for the
+   button so the header is keyboard-operable without a navigation. */
+.pqm-posts-table th.sortable .pqm-sort-button,
+.pqm-posts-table th.sorted .pqm-sort-button {
+	display: flex;
+	align-items: flex-start;
+	width: 100%;
+	margin: 0;
+	padding: 8px;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.pqm-posts-table th.sortable .pqm-sort-button:hover,
+.pqm-posts-table th.sorted .pqm-sort-button:hover {
+	color: #135e96;
+}
+
+.pqm-posts-table th.sortable .pqm-sort-button:focus,
+.pqm-posts-table th.sorted .pqm-sort-button:focus {
+	border-radius: 2px;
+	box-shadow: 0 0 0 var(--wp-admin-border-width-focus, 1.5px) var(--wp-admin-theme-color, #3858e9);
+	outline: 2px solid transparent;
+}
+
+/* Focus flips the indicator like core's hover does for the active column. */
+.pqm-posts-table th.sorted.asc .pqm-sort-button:focus .sorting-indicator.asc::before,
+.pqm-posts-table th.sorted.desc .pqm-sort-button:focus .sorting-indicator.desc::before {
+	color: #a7aaad;
+}
+
+.pqm-posts-table th.sorted.asc .pqm-sort-button:focus .sorting-indicator.desc::before,
+.pqm-posts-table th.sorted.desc .pqm-sort-button:focus .sorting-indicator.asc::before {
+	color: #1d2327;
+}
+
+/* ─── Refetch state: current rows stay visible, dimmed ───────────────── */
+.pqm-table-updating {
+	min-height: 1.5em;
+	margin: 0 0 4px;
+	color: #646970;
+	font-size: 12px;
+}
+
+.pqm-posts-table.is-loading tbody {
+	opacity: 0.6;
+}
+
+.pqm-empty-filtered .components-button.is-link {
+	font-size: inherit;
+}
+
+/* Prev / next buttons match core's 32px `.tablenav-pages .button`. */
+.pqm-tablenav .pagination-links .components-button {
+	min-width: 32px;
+	min-height: 32px;
+	margin: 0;
+	padding: 0 4px;
+	justify-content: center;
+}
+
+.pqm-tablenav .pagination-links .paging-input {
+	margin: 0 6px;
 }

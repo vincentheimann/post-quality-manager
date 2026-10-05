@@ -3,7 +3,10 @@
  * REST list-route harness for story 5.1 — covers the I/O & Edge-Case Matrix
  * of GET post-quality/v1/posts: registration + permission, response shape,
  * bad-param clamping to the DB whitelist, and the empty site. WP + wpdb
- * stubs, no WP install.
+ * stubs, no WP install. Story 5.3 appends the filter/sort/counts rows.
+ *
+ * wpdb call order per list request: get_var (count) → get_results (items)
+ * → get_results (commands, only when items exist) → get_results (counts).
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -95,7 +98,9 @@ class PQM_Stub_WPDB {
         $this->prepared[] = ['sql' => $sql, 'args' => $args];
         return $sql;
     }
+    public $results_sql = [];   // SQL of every get_results(), in call order
     public function get_results($sql, $output = ARRAY_A) {
+        $this->results_sql[] = $sql;
         return array_shift($this->results_queue) ?: [];
     }
     public function get_var($sql) {
@@ -163,11 +168,16 @@ $wpdb = fresh_wpdb([
         ['post_id' => '7', 'command' => 'review'],
         ['post_id' => '7', 'command' => 'seo'],
     ],
+    [ // counts query (story 5.3)
+        ['status' => 'ship', 'cnt' => '1'],
+        ['status' => null, 'cnt' => '1'],
+    ],
 ], [2]);
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
 check('200 response', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $data = $res->get_data();
-check('shape is {items,total,pages,viewer} — viewer additive (story 5.2)', array_keys($data) === ['items', 'total', 'pages', 'viewer']);
+check('shape is {items,total,pages,counts,viewer} — counts (5.3) and viewer (5.2) additive, first three untouched',
+    array_keys($data) === ['items', 'total', 'pages', 'counts', 'viewer']);
 check('total 2, pages 1', $data['total'] === 2 && $data['pages'] === 1);
 $item = $data['items'][0];
 check('item carries post_id/title/edit_link/latest_* /commands',
@@ -192,13 +202,16 @@ check('default order: latest_reviewed DESC', strpos($limit['sql'], 'ORDER BY lat
 
 /* Row: bad params — clamped/whitelisted, silently sanitized, still 200 */
 echo "Bad params\n";
-$wpdb = fresh_wpdb([[]], [0]);
+$wpdb = fresh_wpdb([[], []], [0]);
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request([
-    'per_page' => 999,
-    'page'     => 0,
-    'orderby'  => 'evil',
-    'order'    => 'sideways',
-    'filter'   => 'bogus',
+    'per_page'  => 999,
+    'page'      => 0,
+    'orderby'   => 'evil',
+    'order'     => 'sideways',
+    'filter'    => 'bogus',
+    'status'    => 'weird',
+    'min_score' => -5,
+    'max_score' => 500,
 ]));
 check('still 200', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $limit = limit_args($wpdb);
@@ -206,11 +219,14 @@ check('per_page 999 clamped to 100', $limit !== null && $limit['args'][0] === 10
 check('page 0 clamped to 1 (offset 0)', $limit !== null && $limit['args'][1] === 0);
 check('orderby evil falls back to latest_reviewed', strpos($limit['sql'], 'ORDER BY latest_reviewed') !== false);
 check('order sideways falls back to DESC', strpos($limit['sql'], 'DESC') !== false);
-check('filter bogus treated as all (no HAVING)', strpos($wpdb->last_var_sql, 'HAVING') === false);
+check('filter bogus treated as all (no needs_review HAVING)', strpos($wpdb->last_var_sql, 'latest_score IS NULL') === false);
+check('status weird ignored (no lr.status clause)', strpos($limit['sql'], 'lr.status =') === false && strpos($limit['sql'], 'lr.status IS NULL') === false);
+$band = prepared_with($wpdb, 'latest_score BETWEEN');
+check('scores clamped to 0–100 (min -5 → 0, max 500 → 100)', $band !== null && $band['args'] === [0, 100]);
 
 /* Row: whitelisted values pass through untouched */
 echo "Whitelisted params\n";
-$wpdb = fresh_wpdb([[]], [0]);
+$wpdb = fresh_wpdb([[], []], [0]);
 PQM_REST_API::list_posts_callback(new WP_REST_Request([
     'per_page' => 5,
     'page'     => 3,
@@ -222,6 +238,12 @@ $limit = limit_args($wpdb);
 check('per_page 5 / page 3 → offset 10', $limit !== null && $limit['args'] === [5, 10]);
 check('orderby score ASC honored', strpos($limit['sql'], 'ORDER BY latest_score ASC') !== false);
 check('needs_review filter reaches the query', strpos($wpdb->last_var_sql, 'HAVING') !== false);
+check('needs_review clause parenthesised (safe to AND with a band)',
+    strpos($wpdb->last_var_sql, 'HAVING (latest_score IS NULL OR latest_score < 71)') !== false);
+check('no status / band clauses by default',
+    strpos($limit['sql'], 'lr.status =') === false && strpos($limit['sql'], 'lr.status IS NULL') === false
+    && strpos($limit['sql'], 'latest_score BETWEEN') === false
+    && strpos($limit['sql'], 'latest_score >=') === false && strpos($limit['sql'], 'latest_score <=') === false);
 
 /* Row: empty site — 200 with items: [] */
 echo "Empty site\n";
@@ -229,6 +251,114 @@ $wpdb = fresh_wpdb([], []);
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
 $data = $res->get_data();
 check('200 with empty items', $res->get_status() === 200 && $data['items'] === [] && $data['total'] === 0 && $data['pages'] === 0);
+check('counts all zero on an empty site',
+    $data['counts'] === ['all' => 0, 'ship' => 0, 'needs_revision' => 0, 'major_revision' => 0, 'none' => 0]);
+
+/* ─── Filters, sort and counts (story 5.3) ───────────────────────────── */
+
+/** The prepare() call whose SQL contains $needle, or null. */
+function prepared_with(PQM_Stub_WPDB $wpdb, string $needle): ?array {
+    foreach ($wpdb->prepared as $p) {
+        if (strpos($p['sql'], $needle) !== false) {
+            return $p;
+        }
+    }
+    return null;
+}
+
+/** Run one list request against an empty result set and return the stub. */
+function list_with(array $params): PQM_Stub_WPDB {
+    $wpdb = fresh_wpdb([[], []], [0]);
+    PQM_REST_API::list_posts_callback(new WP_REST_Request($params));
+    return $wpdb;
+}
+
+/* Row: status filter — lr.status = %s, prepared */
+echo "Status filter\n";
+$wpdb = list_with(['status' => 'needs_revision']);
+$p = prepared_with($wpdb, 'lr.status = %s');
+check('status=needs_revision → prepared lr.status = %s', $p !== null && $p['args'] === ['needs_revision']);
+$limit = limit_args($wpdb);
+check('clause sits in the WHERE of the items query', $limit !== null && strpos($limit['sql'], 'lr.status = %s') !== false);
+check('clause sits in the count query too (total counts the filtered set)', strpos($wpdb->last_var_sql, 'lr.status = %s') !== false);
+
+/* Row: not analyzed — status=none → lr.status IS NULL */
+echo "Not analyzed\n";
+$wpdb = list_with(['status' => 'none']);
+$limit = limit_args($wpdb);
+check('status=none → lr.status IS NULL in items query', $limit !== null && strpos($limit['sql'], 'lr.status IS NULL') !== false);
+check('status=none → lr.status IS NULL in count query', strpos($wpdb->last_var_sql, 'lr.status IS NULL') !== false);
+check('no lr.status = %s prepared', prepared_with($wpdb, 'lr.status = %s') === null);
+
+/* Row: unknown status — ignored, treated as no filter */
+echo "Unknown status\n";
+$wpdb = list_with(['status' => 'weird']);
+$limit = limit_args($wpdb);
+check('status=weird → no lr.status clause at all', $limit !== null
+    && strpos($limit['sql'], 'lr.status =') === false && strpos($limit['sql'], 'lr.status IS NULL') === false);
+
+/* Row: score band — HAVING latest_score BETWEEN prepared ints */
+echo "Score band\n";
+$wpdb = list_with(['min_score' => 41, 'max_score' => 70]);
+$p = prepared_with($wpdb, 'latest_score BETWEEN %d AND %d');
+check('min 41 / max 70 → prepared BETWEEN %d AND %d with [41, 70]', $p !== null && $p['args'] === [41, 70]);
+$limit = limit_args($wpdb);
+check('band lives in HAVING of the items query', $limit !== null && strpos($limit['sql'], 'HAVING latest_score BETWEEN %d AND %d') !== false);
+check('band lives in HAVING of the count query', strpos($wpdb->last_var_sql, 'HAVING latest_score BETWEEN %d AND %d') !== false);
+
+/* Row: score band, open-ended — min only */
+echo "Score band, open-ended\n";
+$wpdb = list_with(['min_score' => 71]);
+$p = prepared_with($wpdb, 'latest_score >= %d');
+check('min 71 alone → prepared latest_score >= %d with [71]', $p !== null && $p['args'] === [71]);
+check('no BETWEEN / <= clause', prepared_with($wpdb, 'BETWEEN') === null && prepared_with($wpdb, 'latest_score <=') === null);
+$wpdb = list_with(['max_score' => 40]);
+$p = prepared_with($wpdb, 'latest_score <= %d');
+check('max 40 alone → prepared latest_score <= %d with [40]', $p !== null && $p['args'] === [40]);
+
+/* Row: band + legacy needs_review combine with AND, parenthesised */
+echo "Band + needs_review\n";
+$wpdb = list_with(['filter' => 'needs_review', 'min_score' => 41, 'max_score' => 70]);
+$limit = limit_args($wpdb);
+check('HAVING (needs_review) AND band', $limit !== null
+    && strpos($limit['sql'], 'HAVING (latest_score IS NULL OR latest_score < 71) AND latest_score BETWEEN %d AND %d') !== false);
+
+/* Row: status sort — severity FIELD() order, NULLs last asc, desc reverses */
+echo "Status sort\n";
+$expr = PQM_DB::status_order_expression();
+check('expression ranks by FIELD(major_revision, needs_revision, ship, processing)',
+    $expr === "IFNULL(NULLIF(FIELD(lr.status, 'major_revision','needs_revision','ship','processing'), 0), 99)");
+$wpdb = list_with(['orderby' => 'status', 'order' => 'asc']);
+$limit = limit_args($wpdb);
+check('orderby=status asc → ORDER BY <severity expr> ASC', $limit !== null && strpos($limit['sql'], "ORDER BY {$expr} ASC") !== false);
+$wpdb = list_with(['orderby' => 'status', 'order' => 'desc']);
+$limit = limit_args($wpdb);
+check('orderby=status desc → ORDER BY <severity expr> DESC', $limit !== null && strpos($limit['sql'], "ORDER BY {$expr} DESC") !== false);
+
+/* Row: counts — fixed shape, filter-independent, ints; processing folds into all only */
+echo "Counts\n";
+$wpdb = fresh_wpdb([
+    [],
+    [
+        ['status' => 'ship',           'cnt' => '28'],
+        ['status' => 'needs_revision', 'cnt' => '9'],
+        ['status' => 'major_revision', 'cnt' => '6'],
+        ['status' => 'processing',     'cnt' => '2'],
+        ['status' => null,             'cnt' => '15'],
+    ],
+], [0]);
+$data = PQM_REST_API::list_posts_callback(new WP_REST_Request(['status' => 'ship', 'min_score' => 71]))->get_data();
+check('counts keys are {all,ship,needs_revision,major_revision,none}',
+    array_keys($data['counts']) === ['all', 'ship', 'needs_revision', 'major_revision', 'none']);
+check('counts are ints: ship 28, needs_revision 9, major_revision 6, none 15',
+    $data['counts']['ship'] === 28 && $data['counts']['needs_revision'] === 9
+    && $data['counts']['major_revision'] === 6 && $data['counts']['none'] === 15);
+check('all = every listable post incl. processing (60)', $data['counts']['all'] === 60);
+$counts_sql = end($wpdb->results_sql);
+check('counts query is one GROUP BY lr.status over listable posts',
+    strpos($counts_sql, 'GROUP BY lr.status') !== false && strpos($counts_sql, "p.post_status IN ('publish', 'pending')") !== false);
+check('counts query ignores the active status / band filters',
+    strpos($counts_sql, 'lr.status =') === false && strpos($counts_sql, 'HAVING') === false);
 
 /* ─── Viewer block (story 5.2) — read-only mirror of PQM_Features ────── */
 
