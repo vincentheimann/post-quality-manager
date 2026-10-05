@@ -17,6 +17,12 @@
 	max-width: 1200px;
 }
 
+/* Post Reviews is a list table: full width like WordPress core's, so the
+   extra room on wide screens goes to the Post column. */
+.pqm-wrap:has(#pqm-post-reviews-root) {
+	max-width: none;
+}
+
 /* ─── Score badge: thresholds in score-badge.js (moved, story 5.7) ──── */
 .pqm-score-badge {
 	display: inline-block;
@@ -58,29 +64,88 @@
 	margin-left: auto;
 }
 
-/* ─── Post Reviews table: column widths and cell alignment (moved) ──── */
-.pqm-posts-table .pqm-col-score,
+/* ─── Post Reviews table: column widths and cell alignment ──────────── */
+/* The table is `fixed` (rows refresh while reviews run, so columns must
+   not jump): every column but Post has a set width and Post takes the
+   rest. Widths are in em so they grow with the text (zoom, larger fonts).
+   The scroll box carries the headers' 14px so 1em means the same on the
+   box, the table and the headers; cells keep core's own 13px text. */
+.pqm-table-scroll {
+	container-type: inline-size;
+	overflow-x: auto;
+	font-size: 14px;
+}
+
+.pqm-table-scroll:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+/* Below this, Post would drop under ~16em (about 30 characters a line):
+   the box scrolls sideways instead of squeezing the title. Worst case,
+   with the bulk and Yoast columns once the container queries below have
+   dropped what they can. */
+.pqm-posts-table {
+	min-width: 51em;
+}
+
+.pqm-posts-table .pqm-col-score {
+	width: 5.75em;
+}
+
+/* Wide enough for the English status badges ("Major revision"); longer
+   labels wrap inside the cell (see .pqm-cell-status). */
 .pqm-posts-table .pqm-col-status {
-	width: 100px;
+	width: 10.75em;
 }
 
 .pqm-posts-table .pqm-col-progress {
-	width: 220px;
+	width: 15.75em;
 }
 
+/* A full date and time on one line ("October 5, 2026 3:23 pm"). */
 .pqm-posts-table .pqm-col-date {
-	width: 160px;
+	width: 12.75em;
 }
 
 .pqm-posts-table .pqm-col-actions {
-	width: 180px;
-	white-space: nowrap;
+	width: 9.25em;
 }
 
 /* Yoast SEO column (story 5.10): compact, stacked kit badges, adapted from
    the legacy .pqm-yoast-badge rule. */
 .pqm-posts-table .pqm-col-yoast {
-	width: 130px;
+	width: 9.25em;
+}
+
+/* Column priority: as the room shrinks, the columns other places already
+   cover leave first, so Post never drops under its ~16em. Agents run
+   (the detail panel has a tab per agent), then Yoast SEO, then Last
+   reviewed (the History tab). Breakpoints assume the bulk and Yoast
+   columns are both on; without them, a column leaves a little early. */
+@container (max-width: 93em) {
+	.pqm-posts-table .pqm-col-progress,
+	.pqm-posts-table .pqm-cell-progress {
+		display: none;
+	}
+}
+
+@container (max-width: 75.5em) {
+	.pqm-posts-table .pqm-col-yoast,
+	.pqm-posts-table .pqm-cell-yoast {
+		display: none;
+	}
+}
+
+@container (max-width: 65em) {
+	.pqm-posts-table .pqm-col-date,
+	.pqm-posts-table .pqm-cell-date {
+		display: none;
+	}
+}
+
+.pqm-cell-title {
+	overflow-wrap: anywhere;
 }
 
 .pqm-cell-yoast .pqm-score-badge {
@@ -97,8 +162,15 @@
 }
 
 .pqm-cell-status {
-	white-space: nowrap;
 	font-weight: 500;
+}
+
+/* Fallback for longer labels (translations, "Could not complete"): the
+   badge wraps inside its cell instead of spilling into the next column. */
+.pqm-cell-status .pqm-status-badge {
+	white-space: normal;
+	max-width: 100%;
+	box-sizing: border-box;
 }
 
 /* ─── Status badge: filled pill, dashicon + label (mockup anatomy) ───── */
@@ -321,8 +393,12 @@
 }
 
 /* ─── Detail panel (story 5.4): detail row, tabs, meters, actions ───── */
+/* A longer translation of "Hide details" wraps instead of overflowing. */
 .pqm-posts-table .pqm-cell-actions .pqm-details-toggle {
-	white-space: nowrap;
+	height: auto;
+	min-height: 36px;
+	white-space: normal;
+	text-align: center;
 }
 
 .pqm-posts-table.striped > tbody > tr.pqm-expanded-row > td {
