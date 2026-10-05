@@ -28,7 +28,7 @@ The owner opens the Dashboard, sees the five posts most worth fixing, clicks int
 
 ## Boundaries
 
-The two app pages, their components, build tooling and the CI asset build. Not the Settings or n8n Workflow pages, not the gate/quota/REST/webhook semantics, not the n8n template (ADR 0005: rendering only). Touch point: `epic-delivery-pipeline` later consumes this epic's CI asset-build job for the release zip.
+The two app pages, their components, build tooling and the CI asset build. Not the Settings or n8n Workflow pages, not the gate/quota/REST/webhook semantics, not the n8n template (ADR 0005: rendering only). Touch point: `epic-delivery-pipeline` later consumes this epic's CI asset-build job for the release zip. Touch point: `epic-yoast-context` reads entry 10's live `yoast` item field on `GET /posts`; its detail-panel story comes after 5.10.
 
 ## References
 
@@ -44,4 +44,6 @@ The two app pages, their components, build tooling and the CI asset build. Not t
 - Decision (owner, 2026-10-02): rebuilt pages replace the old ones outright; old render code deleted in this epic. No toggle.
 - Decision (owner, 2026-10-02): identity (backlog ticket 10) does not gate this epic; naming resolution lands before the Dashboard story when available.
 - Decision (owner, 2026-10-02): queue length 5; bulk "Review selected" is in the first slice set.
+- Decision (owner, 2026-10-05): story 5.7 stripped the legacy Yoast column and Pending marker without porting them; entry 10 restores them, after 5.7 and before the refactor sweep (5.8) and the manual pass (5.9), which now also walks entry 10's verify.
+- Assumption (agent, 2026-10-05, re-slice): entry 10 owns its own Yoast meta read for `GET /posts` and leaves the `post-score` route's `(int)` reads untouched; whether `epic-yoast-context` later shares one read helper is settled at that epic's inception.
 - Note: `tests/harness/render-matrix-harness.php` asserts the old PHP-rendered Settings page only — untouched; any harness lines pinning the two app pages' PHP output retire with the strip story.

@@ -1,6 +1,7 @@
 # tickets.toml — agreed stories of epic-ui-rebuild, in build order (table order).
 # Incepted 2026-10-02 from spec-ui-rebuild (CAP-1…CAP-6). Two lanes after story 2:
 # Post Reviews (3→4→5) and Dashboard (6) share only the component kit; story 7 joins them.
+# Re-sliced 2026-10-05: entry 10 (Yoast column + Pending marker, stripped by 7) sits between 7 and the sweep.
 
 [[entry]]
 id = 1
@@ -82,13 +83,30 @@ hitl = false
 risk = "medium"
 
 [[entry]]
+id = 10
+type = "story"
+title = "Post Reviews: Yoast column and Pending marker"
+description = "Restores what story 5.7 stripped without porting (owner decision 2026-10-05): GET /posts gains, additively per the spec's extend-existing-responses constraint, item fields `wp_post_status` and `yoast` ({seo, readability}, each an int or null when Yoast has no score for the post; the whole field null while Yoast is inactive) plus a top-level `yoast_active` flag, and the React table shows a '— Pending' marker after pending post titles and, only while Yoast is active, a display-only (not sortable) Yoast SEO column with labelled SEO and readability badges (em-dash for an unanalyzed post) styled from the kit; README :39 and user-paths B2 drop their follow-up wording."
+verify = "With Yoast active and then inactive, Post Reviews shows the badges (em-dash for an unanalyzed post) and then no column with the layout intact; a pending post shows the Pending marker; rest-posts-harness covers the new fields with Yoast off and on."
+covers = ["CAP-2"]
+after = [7]
+hitl = false
+risk = "low"
+unknown = "Whether ScoreBadge gains a label prop or a small kit component wraps the pqm-score-* classes (the legacy badges read 'SEO 72' / 'Readability 45'); settled at the plan checkpoint."
+references = [
+  "user-paths — docs/user-paths.md, B2",
+  "manual pass — _bmad-output/backlog/story-manual-pass-agnostic-and-llm-pivots.md, item 6",
+  "decision — _bmad-output/initiative-post-quality-manager/epic-ui-rebuild/story-php-strip-and-dead-weight-plan.md, Decision (owner, 2026-10-05): parity gaps",
+]
+
+[[entry]]
 id = 8
 type = "story"
 title = "Refactor sweep"
 description = "Cleans up what this epic's build records and deferred review findings name; cleanup only, scope pushed out of another story is a new story."
 verify = "php -l, node --check and the build stay clean and every prior story's verify still passes."
 covers = []
-after = [7]
+after = [10]
 hitl = false
 risk = "low"
 
@@ -96,7 +114,7 @@ risk = "low"
 id = 9
 type = "story"
 title = "Manual pass of the epic's Done when"
-description = "The owner walks Done when 1–5 on the real site, including a translated-site check, and records the result."
+description = "The owner walks Done when 1–5 and entry 10's verify on the real site, including a translated-site check, and records the result."
 verify = "Each Done when line is checked off, or a bug ticket exists for the failure."
 covers = ["CAP-1", "CAP-2", "CAP-3", "CAP-4", "CAP-5", "CAP-6"]
 after = [8]
