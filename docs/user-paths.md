@@ -68,7 +68,7 @@ WP-Cron reviews batches on schedule; manual triggers fill the gaps.
 - **Signal:** share of reviews originating from cron vs. manual.
 
 ### B2. Triage in the dashboard
-Scan scores, statuses, and top edits. The Yoast columns that gave context alongside were removed with the legacy list in epic-ui-rebuild story 5.7; their re-introduction is a follow-up epic-ui-rebuild story after 5.7.
+Scan scores, statuses, and top edits, with Yoast's SEO and readability scores alongside while Yoast is active. *(2026-10-05, pending validation: the Yoast column and the "— Pending" title marker, dropped with the legacy list in epic-ui-rebuild story 5.7, are back in the React table since story 5.10.)*
 
 - **CV:** the global overview exists and informs — this is the plugin's core delivered value.
 - **UV:** the dashboard reports, but doesn't *prioritize* — no "fix next" queue ordered by impact (low score × high traffic × post age); Yoast standing at review time isn't snapshotted, so past reviews lose their context (backlog). *(2026-07-24: stat cards now link into the filtered Post Reviews list — routing, not yet prioritization. Also: takeaways/sources/seo/audit results — the agents user #1 actually uses — are now visible and triggerable per post; progress chips show what actually ran instead of a fixed Review/Rewrite pair.)* *(2026-10-05, pending validation: the rebuilt Dashboard (epic-ui-rebuild story 5.6) prioritizes — a "Fix next" queue of 5 ordered by status severity, then score, then staleness, each row with Review + Open in Editor; tiles open the matching Post Reviews chip; an 8-week average-score sparkline. Traffic and Yoast inputs to the priority remain open — no analytics source yet.)*

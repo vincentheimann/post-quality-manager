@@ -36,7 +36,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 - WordPress 6.0+, PHP 8.0+
 - An n8n instance (self-hosted or cloud) and a Claude API key
-- Yoast SEO (optional — its metadata enriches the review payload; its SEO and readability scores are not shown on the Post Reviews screen for now, their re-introduction is a follow-up epic-ui-rebuild story after 5.7)
+- Yoast SEO (optional — its metadata enriches the review payload, and while it is active the Post Reviews screen shows its SEO and readability scores in a Yoast SEO column)
 
 ## Installation
 

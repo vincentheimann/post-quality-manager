@@ -77,6 +77,21 @@
 	white-space: nowrap;
 }
 
+/* Yoast SEO column (story 5.10): compact, stacked kit badges, adapted from
+   the legacy .pqm-yoast-badge rule. */
+.pqm-posts-table .pqm-col-yoast {
+	width: 130px;
+}
+
+.pqm-cell-yoast .pqm-score-badge {
+	display: block;
+	width: max-content;
+	min-width: 0;
+	margin: 2px 0;
+	padding: 2px 8px;
+	font-size: 11px;
+}
+
 .pqm-cell-score {
 	text-align: center !important;
 }
