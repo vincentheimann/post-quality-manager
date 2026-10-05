@@ -33,7 +33,7 @@ context: []
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
 | Yoast inactive | `WPSEO_VERSION` undefined | items `yoast: null`, `yoast_active: false`; no Yoast column, layout intact | — |
-| Yoast scored post | linkdex `72`, content_score `45` | `yoast: {seo: 72, readability: 45}`; badges "SEO 72" (orange) and "Readability 45" (orange) | — |
+| Yoast scored post | linkdex `72`, content_score `45` | `yoast: {seo: 72, readability: 45}`; badges "SEO 72" (green) and "Readability 45" (orange) | — |
 | Yoast unanalyzed post | both metas `''` | `yoast: {seo: null, readability: null}`; one grey "—" badge with tooltip "No Yoast analysis yet. Open the post in the editor to generate one." | — |
 | One score missing | linkdex `80`, content_score `''` | `{seo: 80, readability: null}`; "SEO 80" green, "Readability —" grey | — |
 | Pending post | `wp_post_status: 'pending'` | title followed by " — Pending" | — |
@@ -41,6 +41,8 @@ context: []
 | Empty / filtered list | Yoast active, no items | empty-state row spans every column | — |
 
 **Decision (owner, 2026-10-05): plan size.** The plan is kept whole at about 2,100 tokens: one goal, and the server fields only matter once the table shows them.
+
+**Decision (owner, 2026-10-05): matrix colour.** The "Yoast scored post" row read "SEO 72" (orange); corrected to green, as the kit thresholds give (71+ green), at the owner's request after review triage row 1.
 
 </frozen-after-approval>
 
@@ -77,6 +79,7 @@ Paths under `post-quality-manager/` unless they start with `src/`, `tests/` or `
 - Verification run: `npm run build` compiled; `php -l` clean on both PHP files; full harness sweep green (rest-posts 133 passed, 0 failed). `npx wp-scripts lint-js` cannot run in this checkout (`@typescript-eslint` plugin load error in node_modules, unrelated to this change). Manual site checks not run yet.
 - Orchestrator re-check (step 03, against the diff): build exit 0, `php -l` clean, all 8 harnesses exit 0 with 0 FAIL lines (caps 173, cron-gate 24, license 21, quota 40, render-matrix 38, rest-posts 133, rest-reviews 24, sanitize-matrix 86).
 - Matrix test audit: the server half of every row is covered by `rest-posts-harness.php` and ran green. Those checks cover the Yoast inactive, scored, unanalyzed and one-missing payloads, the pending and published `wp_post_status`, and the empty list with Yoast on. The render half of each row (badge text and colours, the tooltip, the marker, no column while Yoast is off, `colSpan`) is React output. The repo has no JS test path (deferred in 5.5), so the render half is covered only by the pending manual site pass, as in 5.3–5.7.
+- 2026-10-05, owner-requested fold-in (bug found after the site pass): the Status badges overflowed the fixed 100px Status column into Analyzed (the table is `fixed`, so a column never grows; the width dated from the emoji-status layout). `src/kit/style.css`: Status 100 → 150px, Actions 180 → 130px (net width unchanged, still fits "Hide details"), and the badge may wrap inside its cell as a fallback for longer labels (translations, "Could not complete"). Owner follow-ups in the same change: the progress column header "Analyzed" became "Agents run" (it sat next to the "Not analyzed" status but shows which agents ran; the approved mockup said "Analyzed"); the Post column gets the room: the Post Reviews page drops the 1,200px `.pqm-wrap` cap (full width like core list tables, `:has(#pqm-post-reviews-root)`, so the Dashboard keeps it), Score 100 → 80px, and long title words wrap (`.pqm-cell-title`); Last reviewed 160 → 180px so date and time fit on one line. Then, at the owner's request ("apply best UX practices"), the widths were redone: all column widths in em (scale with zoom; the new `.pqm-table-scroll` box carries the headers' 14px so 1em matches), the table sits in a focusable, labelled scroll region with `min-width: 51em` so Post never drops under ~16em, and container queries drop the columns other places cover as room shrinks: Agents run under 93em, Yoast SEO under 75.5em, Last reviewed under 65em (worst-case breakpoints, bulk + Yoast on). The details toggle may wrap. Not done: letting the user bring a hidden column back (core's Screen Options toggles). Owner site check of the whole follow-up (resize order, 150% zoom, keyboard scroll, RTL) green 2026-10-05.
 
 ## Plan Change Log
 
@@ -108,4 +111,4 @@ Skipped: Yoast scores in the Dashboard queue or detail panel. Those belong to `e
 **Manual checks:**
 - Real site (Yoast on): Post Reviews shows the Yoast SEO column after Score. A scored post shows two labelled coloured badges, and an unanalyzed post shows one grey "—" with its tooltip. A pending post shows " — Pending". Open Details on a row: the expanded row spans the full width. Deactivate Yoast and reload: no column, layout intact, Details still full width. Check with and without the bulk checkbox column (Admin vs a role without Review).
 
-**Result (2026-10-05):** the owner walked the manual checks on the real site: Yoast on (scored, unanalyzed and pending posts, Details spanning the full width), Yoast off (no column, layout intact), with and without the bulk column, console open. All green. Story verify is met end to end. Open with the owner: the frozen matrix row "Yoast scored post" says "SEO 72" orange, but the kit thresholds make 72 green (triage row 1).
+**Result (2026-10-05):** the owner walked the manual checks on the real site: Yoast on (scored, unanalyzed and pending posts, Details spanning the full width), Yoast off (no column, layout intact), with and without the bulk column, console open. All green. Story verify is met end to end. The frozen matrix row "Yoast scored post" was corrected afterwards (owner decision "matrix colour").

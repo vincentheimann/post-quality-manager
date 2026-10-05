@@ -13,6 +13,8 @@ risk: medium
 
 # Dashboard and Post Reviews set the UX/UI standard every other page follows
 
+> **Delivered 2026-10-02:** the owner approved the findings-and-decisions document (`ux-dashboard-post-reviews/DESIGN.md` + `mockup.html`) and ADR 0005; the redesign it implies was specced (`spec-ui-rebuild`) and incepted as `epic-ui-rebuild`, whose stories 5.1–5.7 and 5.10 have shipped (5.8 sweep and 5.9 manual pass remain).
+
 ## Description
 
 A full UX review of the two core pages — the Dashboard and Post Reviews (journey stages B2 triage and A5 first review) — producing an agreed set of findings and redesign decisions; every other admin page (Settings, n8n Workflow) is then aligned to the UX/UI patterns those two pages establish, not reviewed separately.

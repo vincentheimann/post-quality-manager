@@ -198,7 +198,7 @@ function PostRow( {
 					/>
 				</td>
 			) }
-			<td>
+			<td className="pqm-cell-title">
 				<strong>
 					{ item.edit_link ? (
 						<a href={ item.edit_link }>{ item.title }</a>
@@ -520,135 +520,144 @@ export default function PostReviewsTable() {
 				) }
 			</p>
 			<Toasts toasts={ toasts } onRemove={ removeToast } />
-			<table
-				className={ `widefat fixed striped pqm-posts-table${
-					isLoading ? ' is-loading' : ''
-				}` }
-				aria-busy={ isLoading }
+			{ /* A focusable, labelled region so keyboard users can scroll it
+			     sideways once the table hits its minimum width. */ }
+			<div
+				className="pqm-table-scroll"
+				role="region"
+				aria-label={ __( 'Posts', 'post-quality-manager' ) }
+				tabIndex={ 0 }
 			>
-				<thead>
-					<tr>
-						{ canBulk && (
-							<th scope="col" className="pqm-col-select">
-								<input
-									type="checkbox"
-									aria-label={ __( 'Select all posts', 'post-quality-manager' ) }
-									checked={ allSelected }
-									disabled={ selectable.length === 0 }
-									onChange={ toggleSelectAll }
-								/>
-							</th>
-						) }
-						<SortableHeader
-							column="title"
-							label={ __( 'Post', 'post-quality-manager' ) }
-							className="pqm-col-title"
-							{ ...sortProps }
-						/>
-						<SortableHeader
-							column="score"
-							label={ __( 'Score', 'post-quality-manager' ) }
-							className="pqm-col-score"
-							{ ...sortProps }
-						/>
-						{ yoastActive && (
-							<th scope="col" className="pqm-col-yoast">
-								{ __( 'Yoast SEO', 'post-quality-manager' ) }
-							</th>
-						) }
-						<SortableHeader
-							column="status"
-							label={ __( 'Status', 'post-quality-manager' ) }
-							className="pqm-col-status"
-							{ ...sortProps }
-						/>
-						<th scope="col" className="pqm-col-progress">
-							{ __( 'Analyzed', 'post-quality-manager' ) }
-						</th>
-						<SortableHeader
-							column="reviewed_at"
-							label={ __( 'Last reviewed', 'post-quality-manager' ) }
-							className="pqm-col-date"
-							{ ...sortProps }
-						/>
-						<th scope="col" className="pqm-col-actions">
-							{ __( 'Actions', 'post-quality-manager' ) }
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{ items.length > 0 &&
-						items.map( ( item ) => {
-							const isOpen = openPostId === item.post_id;
-							const isAwaited = awaited.has( item.post_id );
-							return (
-								<Fragment key={ item.post_id }>
-									<PostRow
-										item={ item }
-										isOpen={ isOpen }
-										isAwaited={ isAwaited }
-										onToggle={ () => toggleDetails( item.post_id ) }
-										canSelect={ canBulk }
-										isSelected={ selected.has( item.post_id ) && ! inFlight( item, 'review' ) }
-										onSelect={ () => toggleSelect( item.post_id ) }
-										yoastActive={ yoastActive }
+				<table
+					className={ `widefat fixed striped pqm-posts-table${
+						isLoading ? ' is-loading' : ''
+					}` }
+					aria-busy={ isLoading }
+				>
+					<thead>
+						<tr>
+							{ canBulk && (
+								<th scope="col" className="pqm-col-select">
+									<input
+										type="checkbox"
+										aria-label={ __( 'Select all posts', 'post-quality-manager' ) }
+										checked={ allSelected }
+										disabled={ selectable.length === 0 }
+										onChange={ toggleSelectAll }
 									/>
-									{ isOpen && (
-										<tr
-											className="pqm-expanded-row"
-											id={ `pqm-detail-${ item.post_id }` }
-										>
-											<td colSpan={ columns }>
-												<DetailPanel
-													postId={ item.post_id }
-													editLink={ item.edit_link || '' }
-													viewer={ viewer }
-													busy={
-														isAwaited ||
-														pendingPostId === item.post_id
-													}
-													version={ detailVersion }
-													onTrigger={ ( command ) =>
-														trigger( item.post_id, command )
-													}
-												/>
-											</td>
-										</tr>
-									) }
-								</Fragment>
-							);
-						} ) }
-					{ items.length === 0 &&
-						( hasActiveFilters( query ) || query.paged > 1 ? (
-							<tr>
-								<td colSpan={ columns } className="pqm-empty-filtered">
-									{ __(
-										'No posts match these filters.',
-										'post-quality-manager'
-									) }{ ' ' }
-									<Button
-										variant="link"
-										onClick={ clearFilters }
-									>
+								</th>
+							) }
+							<SortableHeader
+								column="title"
+								label={ __( 'Post', 'post-quality-manager' ) }
+								className="pqm-col-title"
+								{ ...sortProps }
+							/>
+							<SortableHeader
+								column="score"
+								label={ __( 'Score', 'post-quality-manager' ) }
+								className="pqm-col-score"
+								{ ...sortProps }
+							/>
+							{ yoastActive && (
+								<th scope="col" className="pqm-col-yoast">
+									{ __( 'Yoast SEO', 'post-quality-manager' ) }
+								</th>
+							) }
+							<SortableHeader
+								column="status"
+								label={ __( 'Status', 'post-quality-manager' ) }
+								className="pqm-col-status"
+								{ ...sortProps }
+							/>
+							<th scope="col" className="pqm-col-progress">
+								{ __( 'Agents run', 'post-quality-manager' ) }
+							</th>
+							<SortableHeader
+								column="reviewed_at"
+								label={ __( 'Last reviewed', 'post-quality-manager' ) }
+								className="pqm-col-date"
+								{ ...sortProps }
+							/>
+							<th scope="col" className="pqm-col-actions">
+								{ __( 'Actions', 'post-quality-manager' ) }
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						{ items.length > 0 &&
+							items.map( ( item ) => {
+								const isOpen = openPostId === item.post_id;
+								const isAwaited = awaited.has( item.post_id );
+								return (
+									<Fragment key={ item.post_id }>
+										<PostRow
+											item={ item }
+											isOpen={ isOpen }
+											isAwaited={ isAwaited }
+											onToggle={ () => toggleDetails( item.post_id ) }
+											canSelect={ canBulk }
+											isSelected={ selected.has( item.post_id ) && ! inFlight( item, 'review' ) }
+											onSelect={ () => toggleSelect( item.post_id ) }
+											yoastActive={ yoastActive }
+										/>
+										{ isOpen && (
+											<tr
+												className="pqm-expanded-row"
+												id={ `pqm-detail-${ item.post_id }` }
+											>
+												<td colSpan={ columns }>
+													<DetailPanel
+														postId={ item.post_id }
+														editLink={ item.edit_link || '' }
+														viewer={ viewer }
+														busy={
+															isAwaited ||
+															pendingPostId === item.post_id
+														}
+														version={ detailVersion }
+														onTrigger={ ( command ) =>
+															trigger( item.post_id, command )
+														}
+													/>
+												</td>
+											</tr>
+										) }
+									</Fragment>
+								);
+							} ) }
+						{ items.length === 0 &&
+							( hasActiveFilters( query ) || query.paged > 1 ? (
+								<tr>
+									<td colSpan={ columns } className="pqm-empty-filtered">
 										{ __(
-											'Clear filters',
+											'No posts match these filters.',
+											'post-quality-manager'
+										) }{ ' ' }
+										<Button
+											variant="link"
+											onClick={ clearFilters }
+										>
+											{ __(
+												'Clear filters',
+												'post-quality-manager'
+											) }
+										</Button>
+									</td>
+								</tr>
+							) : (
+								<tr>
+									<td colSpan={ columns }>
+										{ __(
+											'No reviews found. Trigger a review to get started.',
 											'post-quality-manager'
 										) }
-									</Button>
-								</td>
-							</tr>
-						) : (
-							<tr>
-								<td colSpan={ columns }>
-									{ __(
-										'No reviews found. Trigger a review to get started.',
-										'post-quality-manager'
-									) }
-								</td>
-							</tr>
-						) ) }
-				</tbody>
-			</table>
+									</td>
+								</tr>
+							) ) }
+					</tbody>
+				</table>
+			</div>
 			<Pagination
 				total={ total }
 				page={ query.paged }
