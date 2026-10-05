@@ -3,13 +3,13 @@ title: 'Status and copy component kit'
 type: 'feature'
 ticket: '2'
 created: '2026-10-02'
-status: 'in-review'
+status: 'built'
 baseline_revision: '361cafe2374116622151d63ed4a8b1e83fad5de9'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
 review_source: 'pinned'
-lenses_ran: ['quick']
+lenses_ran: ['quick', 'quick']
 review_loop_iteration: 0
 context: ['{project-root}/docs/brand.md']
 ---
@@ -87,6 +87,14 @@ _2026-10-02, built as planned. Details worth recording:_
 Pass 1 (quick lens): 1 finding, verified real, **not yet patched** — owner stopped the session after the lens returned. Resume at step-04 to finish triage.
 
 - **low / pending** — `src/kit/status-badge.js` (`STATUS_MAP[ status ]`) and `src/kit/copy.js` (`commandLabel`) look up plain objects, so inherited keys such as `"constructor"` or `"toString"` resolve to `Object.prototype` members: the badge renders an empty label with class `is-undefined`, and the pill renders a function, which React drops. This breaks the frozen "unknown status → raw value, never blank" row. It is reachable only if n8n sends such a literal status, which `save_review_callback` stores after `sanitize_text_field` alone. The smallest fix is an `Object.hasOwn()` guard in both lookups. Pattern inherited from 5.1, now canonicalized by the kit.
+
+Pass 2 (quick lens, resumed 2026-10-05): 5 findings — 3 patched, 1 deferred, 1 rejected. Verification re-run after the patches: `npm run build` clean, `php -l` clean, 7/7 harnesses green (420 checks).
+
+- **low / rejected** — `Object.prototype` key lookups (status-badge.js:43-45, copy.js `commandLabel`). carried: code unchanged, claim still true. Rejected under the low rule: a literal `constructor`/`toString` status never occurs in everyday use (n8n sends the four known values or `error`) and the fix adds guards rather than correcting a line. Owner may override.
+- **low / patch** — `src/kit/style.css` quota-note rule: on RTL sites the note centres. Verified: `pqm-admin.css` is enqueued on the Post Reviews hook without RTL data (`class-pqm-admin.php:123-128`) and keeps `.pqm-quota-note{margin-left:auto}`, while the RTL twin of the kit rule sets `margin-right:auto` — both auto → centred. Patched with an explicit `margin-right: 0` (RTL swap → `margin-right:auto;margin-left:0`, higher specificity wins; LTR unchanged, confirmed in the built `style-index-rtl.css`).
+- **low / patch** — `src/kit/status-badge.js` label casing mixed title/sentence inside the one canonical copy source; the mockup is sentence case throughout (`Ready to ship`, `Needs revision`, `Major revision` — mockup.html:150-182, 219-222, 326) and 5.3's filter chips would otherwise diverge from the badges. Patched the three strings to sentence case (legacy PHP stays title case until 5.7 removes it).
+- **low / patch** — `memory/admin-ui-rebuild.md` still said the kit was pending and carried no `viewer` contract; DoD requires memory updated in the same change. Patched: kit built, `src/kit/` as the JS copy source, `viewer` block semantics recorded.
+- **medium / defer** — stored `error` status renders the raw untranslated word on the neutral badge. Verified reachable (`save_review_callback` :298-299 stores `error`; `latest_status` is the latest `review` row). Pre-existing: legacy `format_status()` rendered the same raw value, the mockup omits error states by design and the spec names none, so the kit has no rule to follow. Deferred to `deferred-work.md` — needs an owner decision on the failed-review badge, natural home story 5.4.
 
 ## Design Notes
 

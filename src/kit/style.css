@@ -84,7 +84,11 @@
 }
 
 .pqm-table-topbar .pqm-quota-note {
+	/* Explicit 0 on the opposite side: the legacy pqm-admin.css (still on
+	   this hook, not RTL-processed) sets margin-left: auto; after the RTL
+	   swap both margins would be auto and the note would centre. */
 	margin-left: auto;
+	margin-right: 0;
 	color: #646970;
 	font-size: 12px;
 }

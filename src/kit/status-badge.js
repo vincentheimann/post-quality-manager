@@ -9,22 +9,22 @@ import { __ } from '@wordpress/i18n';
 
 import './style.css';
 
-/** Keys match the stored review status values. */
+/** Keys match the stored review status values; labels are sentence case per the mockup. */
 const STATUS_MAP = {
 	ship: {
 		icon: 'yes-alt',
 		variant: 'good',
-		label: __( 'Ready to Ship', 'post-quality-manager' ),
+		label: __( 'Ready to ship', 'post-quality-manager' ),
 	},
 	needs_revision: {
 		icon: 'flag',
 		variant: 'warn',
-		label: __( 'Needs Revision', 'post-quality-manager' ),
+		label: __( 'Needs revision', 'post-quality-manager' ),
 	},
 	major_revision: {
 		icon: 'warning',
 		variant: 'crit',
-		label: __( 'Major Revision', 'post-quality-manager' ),
+		label: __( 'Major revision', 'post-quality-manager' ),
 	},
 	processing: {
 		icon: 'update',
