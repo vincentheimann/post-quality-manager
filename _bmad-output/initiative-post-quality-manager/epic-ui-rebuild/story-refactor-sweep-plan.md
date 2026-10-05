@@ -98,6 +98,7 @@ Skipped: unused SELECT columns `slug`/`post_type`/`latest_command` in `get_all_p
 - `package-lock.json`: `typescript` 7.0.2 → 5.3.3 drops the 20 `@typescript/typescript-<platform>` packages TS 7 pulled in.
 - Comments: `class-pqm-admin.php` agent-labels doc (Settings page + n8n Workflow page preview) and `render_import_url()` doc (n8n Workflow page); the `Workflow Generator (admin-post download)` banner is still accurate and stayed. `render_app_shell()` doc drops the "core too old" case with the guard.
 - Verification: `npm run lint:js` exit 0; `npm run build` green; sorted rule diff of `style-index.css` and `-rtl.css` vs the pre-change build shows only the two removed redundancies (123 → 122 rules; `.pqm-panel-actions .pqm-quota-note` gone, `.pqm-queue-row .pqm-score-badge` without `text-align`); bundle i18n strings and translator comments are identical (108 strings); `php -l` clean on the four touched PHP files; `node --check post-quality-manager/admin/js/pqm-admin.js` clean; harness sweep green with the AC counts (173 / 24 / 21 / 40 / 38 / 133 / 24 / 86); AC grep: no hits. The owner's real-site walk (LTR/RTL) is still to do.
+- 2026-10-05, after review (owner-approved): triage row 1 resolved — `AGENTS.md:8` now reads "Settings and n8n Workflow use vanilla JS (`admin/js/pqm-admin.js`, no jQuery)". No `bmad-project-context` source to update: a refresh re-verifies each block line against the code, so the corrected fact survives it. The `deferred-work.md` entry is resolved by this change.
 
 ## Plan Change Log
 
