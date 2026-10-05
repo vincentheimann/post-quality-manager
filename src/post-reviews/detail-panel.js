@@ -79,7 +79,7 @@ function reviewData( row ) {
 
 /* ─── Gate helpers over the viewer block ───────────────────────────── */
 
-function canRender( viewer, command ) {
+export function canRender( viewer, command ) {
 	return (
 		!! viewer &&
 		!! viewer.can_trigger &&

@@ -146,6 +146,39 @@
 	text-transform: none;
 }
 
+/* ─── Bulk Review (story 5.5): bar, checkbox column, report, modal ──── */
+.pqm-bulk-bar {
+	margin-top: 0;
+}
+
+.pqm-posts-table .pqm-col-select,
+.pqm-posts-table .pqm-cell-select {
+	width: 2.2em;
+	padding-right: 0;
+	text-align: center;
+	vertical-align: middle;
+}
+
+.pqm-posts-table .pqm-cell-select input[type="checkbox"],
+.pqm-posts-table .pqm-col-select input[type="checkbox"] {
+	margin: 0;
+}
+
+.pqm-bulk-report.components-notice {
+	margin: 0 0 12px;
+}
+
+.pqm-bulk-report ul {
+	margin: 0;
+}
+
+.pqm-confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+
 /* ─── Sortable headers: core's list-table sort look, on a button ──────
    Core styles `th.sortable a`; the same rules are mirrored here for the
    button so the header is keyboard-operable without a navigation. */

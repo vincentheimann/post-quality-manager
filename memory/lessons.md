@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-05] — Recommending `window.confirm()` over a WordPress `Modal`
+**What happened:** The story 5.5 plan offered the bulk confirmation as native `window.confirm()` or a `@wordpress/components` `Modal`, and recommended the native one because the minimal-code ladder's rung 4 lists the browser next to WordPress core. The owner chose `Modal` and said they prefer WordPress components by default.
+**Root cause:** Reading rung 4 as "the browser is the cheaper of two equals". The React pages exist to render from one WordPress component source (ADR 0005), so a browser-native dialog is an off-system exception there, not the minimal option.
+**Rule going forward:** In the React admin pages, dialogs, confirmations and similar UI use `@wordpress/components` by default. Offer a browser native only with a named reason, and ask first. The durable fact lives in `memory/admin-ui-rebuild.md`.
+
 ## [2026-10-05] — `intval` as a REST sanitize_callback fatals every request using the arg
 **What happened:** A story 5.3 review patch swapped `absint` for `'intval'` on the `min_score`/`max_score` args of `GET /posts`. WP calls every `sanitize_callback` as `(value, request, param)`; PHP 8 internals with fixed arity throw `ArgumentCountError` on the third argument, so any score-band request returned 500 ("Could not load your posts"). The owner found it on the real site; the harnesses were green because they call route callbacks directly, bypassing WP's arg sanitizing.
 **Root cause:** Treating a PHP internal like a WP userland helper (WP functions such as `absint`/`sanitize_key` silently ignore extra args; internals do not), and trusting harness coverage for a code path the harness never exercises.
