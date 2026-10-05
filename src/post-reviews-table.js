@@ -18,7 +18,10 @@
  * run); one usePolling hook watches the list's server-derived `in_flight`
  * field (3 s, auto-resumes after a reload) and refetches the current
  * query silently so rows update in place; outcomes surface as toasts.
- * Bulk actions are story 5.5.
+ *
+ * Story 5.5: viewers who can run Review get a checkbox column (page-local
+ * selection, cleared on any query change) and the BulkBar, which queues
+ * the selected posts through the same startRun() path as a single run.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, Spinner } from '@wordpress/components';
@@ -36,7 +39,8 @@ import { STATUS_NONE, commandLabel, statusLabel } from './kit/copy';
 import ProgressPills from './kit/progress-pills';
 import ScoreBadge from './kit/score-badge';
 import StatusBadge from './kit/status-badge';
-import DetailPanel, { isFailedRow } from './post-reviews/detail-panel';
+import BulkBar from './post-reviews/bulk-bar';
+import DetailPanel, { canRender, isFailedRow } from './post-reviews/detail-panel';
 import FilterBar from './post-reviews/filter-bar';
 import Pagination from './post-reviews/pagination';
 import SortableHeader from './post-reviews/sortable-header';
@@ -44,7 +48,6 @@ import Toasts, { useToasts } from './post-reviews/toasts';
 import usePolling from './post-reviews/use-polling';
 
 const PER_PAGE = 20;
-const COLUMNS = 6;
 // No `processing`: placeholders never form a post's latest status (5.4), so that filter would be empty.
 const STATUSES = [ 'ship', 'needs_revision', 'major_revision', STATUS_NONE ];
 const ORDERBYS = [ 'title', 'score', 'status', 'reviewed_at' ];
@@ -188,11 +191,27 @@ function outcomeToast( command, row ) {
 	};
 }
 
-function PostRow( { item, isOpen, isAwaited, onToggle } ) {
+function PostRow( { item, isOpen, isAwaited, onToggle, canSelect, isSelected, onSelect } ) {
 	const detailId = `pqm-detail-${ item.post_id }`;
 
 	return (
 		<tr className="pqm-post-row">
+			{ canSelect && (
+				<td className="pqm-cell-select">
+					{ /* A post whose review is in flight cannot be selected. */ }
+					<input
+						type="checkbox"
+						aria-label={ sprintf(
+							/* translators: %s: post title */
+							__( 'Select: %s', 'post-quality-manager' ),
+							item.title
+						) }
+						checked={ isSelected }
+						disabled={ inFlight( item, 'review' ) }
+						onChange={ onSelect }
+					/>
+				</td>
+			) }
 			<td>
 				<strong>
 					{ item.edit_link ? (
@@ -265,6 +284,8 @@ export default function PostReviewsTable() {
 	const [ pendingPostId, setPendingPostId ] = useState( null );
 	const pendingUntilKey = useRef( null );
 	const { toasts, addToast, removeToast } = useToasts();
+	// Story 5.5: selected post ids, page-local.
+	const [ selected, setSelected ] = useState( () => new Set() );
 
 	/** Refetch the current query; returns the refreshKey that request carries. */
 	const refetch = useCallback( ( silent = false ) => {
@@ -323,6 +344,30 @@ export default function PostReviewsTable() {
 		};
 	}, [ query, refreshKey ] );
 
+	// Selection is page-local: any filter, sort or page change clears it.
+	useEffect( () => {
+		setSelected( ( prev ) => ( prev.size ? new Set() : prev ) );
+	}, [ query ] );
+
+	// A row whose review went in flight leaves the selection for good, so it
+	// does not come back ticked once the review completes.
+	useEffect( () => {
+		if ( ! items ) {
+			return;
+		}
+		setSelected( ( prev ) => {
+			const busy = items.filter(
+				( item ) => prev.has( item.post_id ) && inFlight( item, 'review' )
+			);
+			if ( ! busy.length ) {
+				return prev;
+			}
+			const next = new Set( prev );
+			busy.forEach( ( item ) => next.delete( item.post_id ) );
+			return next;
+		} );
+	}, [ items ] );
+
 	// Completion: the row is already updated in place by the refetch (or
 	// the post left the current view because its result changed it); the
 	// outcome — score + status, or a failure — comes from the stored row.
@@ -368,62 +413,72 @@ export default function PostReviewsTable() {
 		onGiveUp,
 	} );
 
-	// Trigger flow (D4 / F6): no confirm for a single run; the server
-	// writes the processing row on an n8n 2xx and the next refetch shows
-	// it — that refetch also ends the busy state.
-	const trigger = ( postId, command ) => {
-		const label = commandLabel( command );
-		setPendingPostId( postId );
-
+	// One trigger path for single and bulk runs (D4 / F6): the server
+	// writes the processing row on an n8n 2xx, so a success re-arms
+	// polling and refetches silently — rows switch to Processing. Resolves
+	// `{ ok, message }` with the server's refusal copy; never rejects.
+	const startRun = ( postId, command ) =>
 		apiFetch( {
 			path: '/post-quality/v1/trigger-review',
 			method: 'POST',
 			data: { post_id: postId, command },
-		} )
-			.then( ( data ) => {
+		} ).then(
+			( data ) => {
 				if ( data && data.success === false ) {
-					addToast(
-						sprintf(
+					return {
+						ok: false,
+						message: sprintf(
 							/* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
 							__(
 								'%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.',
 								'post-quality-manager'
 							),
-							label,
+							commandLabel( command ),
 							data.n8n_status || 0
 						),
-						'warning'
-					);
-					setPendingPostId( null );
-					return;
+					};
 				}
-				addToast(
-					sprintf(
-						/* translators: %s: agent command label, e.g. "Review" */
-						__(
-							'%s requested — running in the background, this page stays usable.',
-							'post-quality-manager'
-						),
-						label
-					),
-					'info'
-				);
 				restart( postId, command );
 				setDetailVersion( ( v ) => v + 1 );
-				pendingUntilKey.current = refetch( true );
-			} )
-			.catch( ( err ) => {
-				// Gate / quota / not configured / n8n down: the server's message, gently.
-				addToast(
+				refetch( true );
+				return { ok: true, message: '' };
+			},
+			// Gate / quota / not configured / n8n down: the server's message, gently.
+			( err ) => ( {
+				ok: false,
+				message:
 					( err && err.message ) ||
-						__(
-							'Could not reach the site REST API. Reload the page and try again.',
-							'post-quality-manager'
-						),
-					'warning'
-				);
+					__(
+						'Could not reach the site REST API. Reload the page and try again.',
+						'post-quality-manager'
+					),
+			} )
+		);
+
+	// Single run: no confirm; the post stays busy until the post-trigger
+	// refetch resolves.
+	const trigger = ( postId, command ) => {
+		setPendingPostId( postId );
+
+		startRun( postId, command ).then( ( { ok, message } ) => {
+			if ( ! ok ) {
+				addToast( message, 'warning' );
 				setPendingPostId( null );
-			} );
+				return;
+			}
+			addToast(
+				sprintf(
+					/* translators: %s: agent command label, e.g. "Review" */
+					__(
+						'%s requested — running in the background, this page stays usable.',
+						'post-quality-manager'
+					),
+					commandLabel( command )
+				),
+				'info'
+			);
+			pendingUntilKey.current = refreshCounter.current; // the refetch startRun just issued
+		} );
 	};
 
 	// Any filter or sort change restarts at page 1; an explicit filter action
@@ -467,6 +522,25 @@ export default function PostReviewsTable() {
 		);
 	}
 
+	// Bulk Review (5.5): same rule as the panel's Review button.
+	const canBulk = canRender( viewer, 'review' );
+	const columns = 6 + ( canBulk ? 1 : 0 );
+	const selectable = items.filter( ( item ) => ! inFlight( item, 'review' ) );
+	const selection = selectable.filter( ( item ) => selected.has( item.post_id ) );
+	const allSelected = selectable.length > 0 && selection.length === selectable.length;
+	const toggleSelect = ( postId ) =>
+		setSelected( ( prev ) => {
+			const next = new Set( prev );
+			if ( ! next.delete( postId ) ) {
+				next.add( postId );
+			}
+			return next;
+		} );
+	const toggleSelectAll = () =>
+		setSelected(
+			allSelected ? new Set() : new Set( selectable.map( ( item ) => item.post_id ) )
+		);
+
 	const sortProps = {
 		orderby: query.orderby,
 		order: query.order,
@@ -485,6 +559,14 @@ export default function PostReviewsTable() {
 				onStatusChange={ setStatus }
 				onBandChange={ setBand }
 			/>
+			{ canBulk && (
+				<BulkBar
+					selection={ selection }
+					viewer={ viewer }
+					startRun={ startRun }
+					onStart={ () => setSelected( new Set() ) }
+				/>
+			) }
 			{ /* The page's one live region. Refetches keep the current rows
 			     visible; the table only dims. Toasts render outside it —
 			     SnackbarList announces its own notices. */ }
@@ -505,6 +587,17 @@ export default function PostReviewsTable() {
 			>
 				<thead>
 					<tr>
+						{ canBulk && (
+							<th scope="col" className="pqm-col-select">
+								<input
+									type="checkbox"
+									aria-label={ __( 'Select all posts', 'post-quality-manager' ) }
+									checked={ allSelected }
+									disabled={ selectable.length === 0 }
+									onChange={ toggleSelectAll }
+								/>
+							</th>
+						) }
 						<SortableHeader
 							column="title"
 							label={ __( 'Post', 'post-quality-manager' ) }
@@ -549,13 +642,16 @@ export default function PostReviewsTable() {
 										isOpen={ isOpen }
 										isAwaited={ isAwaited }
 										onToggle={ () => toggleDetails( item.post_id ) }
+										canSelect={ canBulk }
+										isSelected={ selected.has( item.post_id ) && ! inFlight( item, 'review' ) }
+										onSelect={ () => toggleSelect( item.post_id ) }
 									/>
 									{ isOpen && (
 										<tr
 											className="pqm-expanded-row"
 											id={ `pqm-detail-${ item.post_id }` }
 										>
-											<td colSpan={ COLUMNS }>
+											<td colSpan={ columns }>
 												<DetailPanel
 													postId={ item.post_id }
 													editLink={ item.edit_link || '' }
@@ -578,7 +674,7 @@ export default function PostReviewsTable() {
 					{ items.length === 0 &&
 						( hasActiveFilters( query ) || query.paged > 1 ? (
 							<tr>
-								<td colSpan={ COLUMNS } className="pqm-empty-filtered">
+								<td colSpan={ columns } className="pqm-empty-filtered">
 									{ __(
 										'No posts match these filters.',
 										'post-quality-manager'
@@ -596,7 +692,7 @@ export default function PostReviewsTable() {
 							</tr>
 						) : (
 							<tr>
-								<td colSpan={ COLUMNS }>
+								<td colSpan={ columns }>
 									{ __(
 										'No reviews found. Trigger a review to get started.',
 										'post-quality-manager'
