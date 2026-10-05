@@ -1,8 +1,7 @@
 /**
- * ScoreBadge (story 5.2) — numeric score chip. Thresholds mirror
- * PQM_Admin::score_class(); class names stay `pqm-score-badge` /
- * `pqm-score-*` so the shared pqm-admin.css badge rules keep applying
- * (that CSS loads on every pqm- admin page).
+ * ScoreBadge (story 5.2) — numeric score chip: 71+ green, 41–70 orange,
+ * 1–40 red, 0 or none grey. The `pqm-score-badge` / `pqm-score-*` rules live
+ * in the kit's style.css (moved from pqm-admin.css in story 5.7).
  */
 
 function scoreClass( score ) {

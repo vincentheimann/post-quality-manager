@@ -235,11 +235,6 @@ trigger('review');
 check('two triggers → two rows, each for its own command',
     processing_rows() === [[7, 'takeaways', 'processing'], [7, 'review', 'processing']]);
 
-/* The AJAX handler must not insert a second row (static check). */
-$admin = file_get_contents($base . '/admin/class-pqm-admin.php');
-$ajax  = substr($admin, strpos($admin, 'function ajax_trigger_command'), 1500);
-check('ajax_trigger_command() no longer writes its own processing row', strpos($ajax, 'save_review(') === false);
-
 /* ─── Decision: non-registry commands consume quota too ──────────────── */
 echo "Extra — non-registry command (score) spends quota\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);

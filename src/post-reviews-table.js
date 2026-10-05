@@ -66,9 +66,6 @@ const DEFAULT_QUERY = {
 	orderby: 'reviewed_at',
 	order: 'desc',
 	paged: 1,
-	// Legacy ?filter=needs_review from the PHP Dashboard card — honoured
-	// until story 5.6 replaces the card; shown as "no chip pressed".
-	filter: '',
 };
 const QUERY_KEYS = Object.keys( DEFAULT_QUERY );
 
@@ -89,7 +86,6 @@ function readQueryFromUrl() {
 		orderby: ORDERBYS.includes( args.orderby ) ? args.orderby : DEFAULT_QUERY.orderby,
 		order: args.order === 'asc' ? 'asc' : 'desc',
 		paged: Number.isInteger( paged ) && paged > 1 ? paged : 1,
-		filter: args.filter === 'needs_review' ? 'needs_review' : '',
 	};
 }
 
@@ -106,7 +102,8 @@ function activeParams( query ) {
 
 function writeQueryToUrl( query ) {
 	const url = addQueryArgs(
-		removeQueryArgs( window.location.href, ...QUERY_KEYS ),
+		// 'filter': strip the retired ?filter=needs_review deep link too.
+		removeQueryArgs( window.location.href, ...QUERY_KEYS, 'filter' ),
 		activeParams( query )
 	);
 	window.history.replaceState( null, '', url );
@@ -126,8 +123,7 @@ function hasActiveFilters( query ) {
 	return (
 		query.status !== '' ||
 		query.min_score !== null ||
-		query.max_score !== null ||
-		query.filter !== ''
+		query.max_score !== null
 	);
 }
 
@@ -367,12 +363,11 @@ export default function PostReviewsTable() {
 		} );
 	};
 
-	// Any filter or sort change restarts at page 1; an explicit filter action
-	// (chip or band) also replaces the legacy needs_review view.
+	// Any filter or sort change restarts at page 1.
 	const setStatus = ( status ) =>
-		setQuery( { ...query, status, filter: '', paged: 1 } );
+		setQuery( { ...query, status, paged: 1 } );
 	const setBand = ( min_score, max_score ) =>
-		setQuery( { ...query, min_score, max_score, filter: '', paged: 1 } );
+		setQuery( { ...query, min_score, max_score, paged: 1 } );
 	const setSort = ( orderby, order ) =>
 		setQuery( { ...query, orderby, order, paged: 1 } );
 	const setPage = ( paged ) => setQuery( { ...query, paged } );
@@ -382,7 +377,6 @@ export default function PostReviewsTable() {
 			status: '',
 			min_score: null,
 			max_score: null,
-			filter: '',
 			paged: 1,
 		} );
 	const toggleDetails = ( postId ) =>
@@ -441,7 +435,6 @@ export default function PostReviewsTable() {
 				maxScore={ query.max_score }
 				counts={ counts }
 				viewer={ viewer }
-				legacyFilter={ query.filter !== '' }
 				onStatusChange={ setStatus }
 				onBandChange={ setBand }
 			/>

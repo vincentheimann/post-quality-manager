@@ -5,7 +5,86 @@
  * WP admin palette; status always renders as icon + label + color, never
  * color alone; yellow appears only as a filled badge behind its own dark
  * label; Processing and not-analyzed use neutral gray #646970.
+ *
+ * Since story 5.7 this bundle is the only stylesheet of the React pages:
+ * the legacy pqm-admin.css serves the Settings and n8n Workflow pages
+ * alone, so the rules the React pages borrowed from it live below.
  */
+
+/* ─── Page frame (moved from pqm-admin.css, which keeps its own copy for
+   the Settings and n8n Workflow pages sharing the .pqm-wrap class) ──── */
+.pqm-wrap {
+	max-width: 1200px;
+}
+
+/* ─── Score badge: thresholds in score-badge.js (moved, story 5.7) ──── */
+.pqm-score-badge {
+	display: inline-block;
+	min-width: 48px;
+	padding: 4px 12px;
+	border-radius: 14px;
+	font-size: 14px;
+	font-weight: 600;
+	text-align: center;
+	line-height: 1.5;
+	box-sizing: border-box;
+}
+
+.pqm-score-green {
+	background: #e8f5e9;
+	color: #2e7d32;
+}
+
+.pqm-score-orange {
+	background: #fff3e0;
+	color: #e65100;
+}
+
+.pqm-score-red {
+	background: #ffebee;
+	color: #c62828;
+}
+
+.pqm-score-none {
+	background: #f1f5f9;
+	color: #64748b;
+}
+
+/* ─── Quota note: pushed to the row's end inside flex rows (RTL-flipped) ── */
+.pqm-quota-note {
+	color: #646970;
+	font-size: 12px;
+	align-self: center;
+	margin-left: auto;
+}
+
+/* ─── Post Reviews table: column widths and cell alignment (moved) ──── */
+.pqm-posts-table .pqm-col-score,
+.pqm-posts-table .pqm-col-status {
+	width: 100px;
+}
+
+.pqm-posts-table .pqm-col-progress {
+	width: 220px;
+}
+
+.pqm-posts-table .pqm-col-date {
+	width: 160px;
+}
+
+.pqm-posts-table .pqm-col-actions {
+	width: 180px;
+	white-space: nowrap;
+}
+
+.pqm-cell-score {
+	text-align: center !important;
+}
+
+.pqm-cell-status {
+	white-space: nowrap;
+	font-weight: 500;
+}
 
 /* ─── Status badge: filled pill, dashicon + label (mockup anatomy) ───── */
 .pqm-status-badge {
@@ -81,16 +160,6 @@
 	flex-wrap: wrap;
 	gap: 8px;
 	margin: 12px 0;
-}
-
-.pqm-table-topbar .pqm-quota-note {
-	/* Explicit 0 on the opposite side: the legacy pqm-admin.css (still on
-	   this hook, not RTL-processed) sets margin-left: auto; after the RTL
-	   swap both margins would be auto and the note would centre. */
-	margin-left: auto;
-	margin-right: 0;
-	color: #646970;
-	font-size: 12px;
 }
 
 /* Status chips (story 5.3): bordered pills, pressed = blue (mockup);
@@ -236,9 +305,7 @@
 	font-size: inherit;
 }
 
-/* ─── Detail panel (story 5.4): detail row, tabs, meters, actions ─────
-   Class names are new on purpose: the legacy pqm-admin.css still loads
-   on this page and owns .pqm-detail-row, .pqm-history, .pqm-edits, … */
+/* ─── Detail panel (story 5.4): detail row, tabs, meters, actions ───── */
 .pqm-posts-table .pqm-cell-actions .pqm-details-toggle {
 	white-space: nowrap;
 }
