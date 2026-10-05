@@ -1,0 +1,18 @@
+# House rules for bmad-code-review (team override, committed).
+# Base defaults: .claude/skills/bmad-code-review/customize.toml — strings replace, lists append.
+
+# House lens (ADR 0007): over-engineering review, appended to the thorough set
+# (this skill's default review). The recipe and its tags live in the ladder file.
+[[workflow.thorough_lenses]]
+id = "overbuild"
+name = "Overbuild Hunter"
+instruction = """
+Launch a context-free subagent with this prompt:
+
+Read `_bmad/custom/minimal-code-ladder.md` at the repository root completely and follow its "Reviewing: the `overbuild` lens" section as your review instructions; the rest of that file defines what must never be flagged.
+
+Review content: the unified diff at `{diff_file}`. Read that file — it is the change under review. Search the repository before claiming a `reuse:` or `native:` replacement exists.
+
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+
+"""

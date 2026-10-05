@@ -39,3 +39,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0004 — Adopt the BMad Method as the delivery process](0004-adopt-bmad-method.md)
 - [0005 — Rebuild Dashboard and Post Reviews on @wordpress/components](0005-wordpress-components-for-app-screens.md)
 - [0006 — The license provider ships as a stub until Freemius is set up](0006-license-provider-ships-as-stub.md)
+- [0007 — Adopt the minimal-code ladder natively in BMad; decline Caveman; Headroom stays machine-local](0007-minimal-code-ladder-native-in-bmad.md)
