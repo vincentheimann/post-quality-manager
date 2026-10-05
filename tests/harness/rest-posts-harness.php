@@ -45,6 +45,7 @@ function esc_url($s) { return (string) $s; }
 function sanitize_text_field($s) { return (string) $s; }
 function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
 function absint($n) { return abs((int) $n); }
+function sanitize_title($title, $fallback_title = '', $context = 'save') { return strtolower((string) $title); } // WP's real arity
 function is_admin() { return false; }
 function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
@@ -150,6 +151,25 @@ check('/posts is read-only GET', ($routes[$ns . '/posts']['methods'] ?? '') === 
 check('/posts gated by check_view_reviews', ($routes[$ns . '/posts']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
 foreach (['/post-score', '/save-review', '/reviews/(?P<post_id>\d+)', '/trigger-review', '/workflow'] as $existing) {
     check("existing route still registered: $existing", isset($routes[$ns . $existing]));
+}
+
+/* Every arg's sanitize_callback survives WP's real call shape — (value, request, param).
+   PHP internals with fixed arity (intval, trim…) throw ArgumentCountError there. */
+echo "Sanitize callbacks take WP's three arguments
+";
+foreach ($routes as $route => $def) {
+    foreach ((isset($def['methods']) ? [$def] : $def) as $endpoint) {
+        foreach (($endpoint['args'] ?? []) as $param => $arg) {
+            if (!isset($arg['sanitize_callback'])) { continue; }
+            try {
+                call_user_func($arg['sanitize_callback'], '41', new WP_REST_Request(), $param);
+                $ok = true;
+            } catch (Throwable $e) {
+                $ok = false;
+            }
+            check("$route $param: sanitize_callback accepts (value, request, param)", $ok);
+        }
+    }
 }
 
 /* Row: no capability — 403 via the shared permission callback */

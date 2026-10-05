@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-05] — `intval` as a REST sanitize_callback fatals every request using the arg
+**What happened:** A story 5.3 review patch swapped `absint` for `'intval'` on the `min_score`/`max_score` args of `GET /posts`. WP calls every `sanitize_callback` as `(value, request, param)`; PHP 8 internals with fixed arity throw `ArgumentCountError` on the third argument, so any score-band request returned 500 ("Could not load your posts"). The owner found it on the real site; the harnesses were green because they call route callbacks directly, bypassing WP's arg sanitizing.
+**Root cause:** Treating a PHP internal like a WP userland helper (WP functions such as `absint`/`sanitize_key` silently ignore extra args; internals do not), and trusting harness coverage for a code path the harness never exercises.
+**Rule going forward:** Never put a PHP internal (`intval`, `trim`, `strtolower`…) in a REST `sanitize_callback` — use a WP helper, a closure, or omit it and let the `type` schema sanitize. `rest-posts-harness.php` now calls every registered arg's `sanitize_callback` with WP's three arguments; keep stubs at WP's real arity so that check stays honest.
+
 ## [2026-07-24] — Dismissing ADR/skill as vehicles because the practice "didn't exist yet"
 **What happened:** When placing the user-paths doc, the agent reasoned "the repo has no ADR practice, skills are workflows" and wired references only into AGENTS.md + memory. The user corrected: ADRs, skills, and living memory are practices that *should* be applied in this repo — the absence of a practice was the gap to fix, not a constraint to design around.
 **Root cause:** Treating the current state of the workspace as fixed. The agentic workspace is itself a product the user actively invests in; "we don't do X here" is an invitation to propose adopting X, not a reason to route around it.
