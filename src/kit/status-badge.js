@@ -16,6 +16,8 @@ const STATUS_MAP = {
 	needs_revision: { icon: 'flag', variant: 'warn' },
 	major_revision: { icon: 'warning', variant: 'crit' },
 	processing: { icon: 'update', variant: 'neutral' },
+	// Failed run (story 5.4 owner decision): neutral gray, never alarming.
+	error: { icon: 'dismiss', variant: 'neutral' },
 };
 
 const STATUS_NONE = { icon: 'minus', variant: 'neutral' };
