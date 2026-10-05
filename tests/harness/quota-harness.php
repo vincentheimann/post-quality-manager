@@ -50,6 +50,22 @@ function wp_remote_post($url, $args) {
 }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function is_wp_error($t) { return $t instanceof WP_Error; }
+/* Processing-row stubs (story 5.4): PQM_DB::save_review() runs inside the trigger callback. */
+function current_time($type, $gmt = 0) { return '2026-10-05 12:00:00'; }
+function sanitize_text_field($s) { return (string) $s; }
+function absint($n) { return abs((int) $n); }
+
+class PQM_Stub_WPDB {
+    public $prefix = 'wp_';
+    public $insert_id = 0;
+    public $inserts = []; // every insert(): ['table' => ..., 'data' => [...]]
+    public function insert($table, $data, $format = null) {
+        $this->inserts[] = ['table' => $table, 'data' => $data];
+        $this->insert_id = count($this->inserts);
+        return 1;
+    }
+}
+$wpdb = new PQM_Stub_WPDB();
 
 class WP_Error {
     private $code; private $message; private $data;
@@ -78,6 +94,7 @@ class WP_Role {}
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
+require $base . '/includes/class-pqm-db.php';       // processing placeholder (story 5.4)
 require $base . '/includes/class-pqm-rest-api.php';
 
 /* ─── Tiny assert runner ─────────────────────────────────────────────── */
@@ -96,6 +113,14 @@ function reset_world($caps, $meta = null, $settings = []) {
     $GLOBALS['tw']['webhook_result'] = 200;
     $GLOBALS['tw']['webhook_calls'] = 0;
     $GLOBALS['tw']['now_month'] = '2026-10';
+    $GLOBALS['wpdb']->inserts = [];
+}
+/** The processing rows written during the current world, as [post_id, command, status] triples. */
+function processing_rows() {
+    return array_map(
+        fn($i) => [$i['data']['post_id'], $i['data']['command'], $i['data']['status']],
+        $GLOBALS['wpdb']->inserts
+    );
 }
 function trigger($command = 'review') {
     $req = new WP_REST_Request();
@@ -113,6 +138,13 @@ check('webhook fired once', $GLOBALS['tw']['webhook_calls'] === 1);
 check('response is success', !is_wp_error($r) && $r->get_data()['success'] === true);
 check('count incremented to 6', stored_count() === 6);
 check('quota_remaining is 14', $r->get_data()['quota_remaining'] === 14);
+check('one processing row for post 7 / review (story 5.4)', processing_rows() === [[7, 'review', 'processing']]);
+check('processing row carries score 0 and a JSON summary',
+    $GLOBALS['wpdb']->inserts[0]['data']['overall_score'] === 0
+    && $GLOBALS['wpdb']->inserts[0]['table'] === 'wp_pqm_reviews'
+    && json_decode($GLOBALS['wpdb']->inserts[0]['data']['result_data'], true) === ['summary' => 'Running asynchronously in n8n...']);
+check('response keys unchanged: {success,message,n8n_status,quota_remaining}',
+    array_keys($r->get_data()) === ['success', 'message', 'n8n_status', 'quota_remaining']);
 
 /* ─── Row 2: Author at quota (20 of 20 used) ─────────────────────────── */
 echo "Row 2 — Author at quota\n";
@@ -122,6 +154,7 @@ check('refused with pqm_quota_exceeded', is_wp_error($r) && $r->get_error_code()
 check('HTTP status 429', is_wp_error($r) && ($r->get_error_data()['status'] ?? 0) === 429);
 check('no webhook call', $GLOBALS['tw']['webhook_calls'] === 0);
 check('count unchanged', stored_count() === 20);
+check('no processing row on a quota refusal', processing_rows() === []);
 $msg = is_wp_error($r) ? $r->get_error_message() : '';
 $GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage'] = ['month' => '2026-10', 'count' => 0];
 $resets = PQM_Features::quota_state()['resets'];
@@ -146,6 +179,7 @@ $r = trigger('review');
 check('existing pqm_n8n_error kept', is_wp_error($r) && $r->get_error_code() === 'pqm_n8n_error');
 check('HTTP status 502', is_wp_error($r) && ($r->get_error_data()['status'] ?? 0) === 502);
 check('count unchanged', stored_count() === 5);
+check('no processing row when n8n is unreachable', processing_rows() === []);
 
 /* non-2xx n8n answer also never spends quota */
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);
@@ -153,6 +187,7 @@ $GLOBALS['tw']['webhook_result'] = 500;
 $r = trigger('review');
 check('n8n 500: success=false, count unchanged', !is_wp_error($r) && $r->get_data()['success'] === false && stored_count() === 5);
 check('n8n 500: quota_remaining still 15', $r->get_data()['quota_remaining'] === 15);
+check('n8n 500: no processing row', processing_rows() === []);
 
 /* ─── Row 5: Month rollover ──────────────────────────────────────────── */
 echo "Row 5 — Month rollover\n";
@@ -190,6 +225,20 @@ echo "Extra — feature gate fires before quota\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 20]);
 $r = trigger('rewrite'); // paid agent, author lacks pqm_run_paid_agents AND is at quota
 check('role refusal wins over quota', is_wp_error($r) && $r->get_error_code() === 'pqm_feature_gated');
+check('no processing row on a gate refusal', processing_rows() === []);
+
+/* ─── Story 5.4: the placeholder is written for the command that ran, once per trigger ── */
+echo "Extra — processing row follows the command, once per 2xx\n";
+reset_world(editor_caps(), ['month' => '2026-10', 'count' => 0]);
+trigger('takeaways');
+trigger('review');
+check('two triggers → two rows, each for its own command',
+    processing_rows() === [[7, 'takeaways', 'processing'], [7, 'review', 'processing']]);
+
+/* The AJAX handler must not insert a second row (static check). */
+$admin = file_get_contents($base . '/admin/class-pqm-admin.php');
+$ajax  = substr($admin, strpos($admin, 'function ajax_trigger_command'), 1500);
+check('ajax_trigger_command() no longer writes its own processing row', strpos($ajax, 'save_review(') === false);
 
 /* ─── Decision: non-registry commands consume quota too ──────────────── */
 echo "Extra — non-registry command (score) spends quota\n";

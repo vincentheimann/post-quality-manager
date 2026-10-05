@@ -93,6 +93,51 @@ class PQM_DB {
     }
 
     /**
+     * Which commands are still running for a batch of post IDs — the
+     * server truth behind the Post Reviews polling and its auto-resume
+     * (story 5.4). A command is in flight when its latest row for that
+     * post is the `processing` placeholder; a newer result row (any
+     * status, including the stored error) ends it. One query, joined on
+     * MAX(reviewed_at) per post+command like latest_review_subquery().
+     *
+     * @param  int[] $post_ids
+     * @return array  Keyed by post_id → array of in-flight command names; posts with none are absent.
+     */
+    public static function get_in_flight_for_posts( array $post_ids ): array {
+        if ( empty( $post_ids ) ) {
+            return [];
+        }
+
+        global $wpdb;
+        $table = self::table_name();
+
+        $placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+        $sql          = "
+            SELECT r1.post_id, r1.command
+            FROM {$table} r1
+            INNER JOIN (
+                SELECT post_id, command, MAX(reviewed_at) AS max_date
+                FROM {$table}
+                WHERE post_id IN ($placeholders)
+                GROUP BY post_id, command
+            ) r2 ON r1.post_id = r2.post_id AND r1.command = r2.command AND r1.reviewed_at = r2.max_date
+            WHERE r1.status = 'processing'
+            GROUP BY r1.post_id, r1.command
+        ";
+        $rows         = $wpdb->get_results(
+            $wpdb->prepare( $sql, ...$post_ids ), // phpcs:ignore WordPress.DB.PreparedSQL
+            ARRAY_A
+        ) ?: [];
+
+        $map = [];
+        foreach ( $rows as $row ) {
+            $map[ (int) $row['post_id'] ][] = $row['command'];
+        }
+
+        return $map;
+    }
+
+    /**
      * Get the most recent review for a post + command.
      */
     public static function get_latest_review( int $post_id, string $command = 'review' ): ?array {
@@ -128,6 +173,11 @@ class PQM_DB {
      * Subquery selecting the latest `review` row per post (aliased `lr`
      * by callers). Shared by the list query and the per-status counts so
      * chip counts and rows can never disagree on what "latest" means.
+     *
+     * The `processing` placeholder is excluded (story 5.4): a post's
+     * latest_* is its last *result*, so a running review never changes
+     * list membership, ordering or counts — `in_flight` from
+     * get_in_flight_for_posts() is the only processing signal.
      */
     private static function latest_review_subquery(): string {
         $table = self::table_name();
@@ -138,7 +188,7 @@ class PQM_DB {
             INNER JOIN (
                 SELECT post_id, MAX(reviewed_at) AS max_date
                 FROM {$table}
-                WHERE command = 'review'
+                WHERE command = 'review' AND status <> 'processing'
                 GROUP BY post_id
             ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
         ";

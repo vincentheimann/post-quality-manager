@@ -1512,9 +1512,8 @@ class PQM_Admin
             wp_send_json_error($response->get_error_message(), (int) ($response->get_error_data()['status'] ?? 400));
         }
 
-        // If the REST API call was successful, record a 'processing' status immediately.
-        // The actual review results will come back via the webhook.
-        PQM_DB::save_review($post_id, $command, 0, 'processing', ['summary' => __('Running asynchronously in n8n...', 'post-quality-manager')]);
+        // The 'processing' placeholder row is written by the REST callback
+        // itself on an n8n 2xx (story 5.4) — one write path for every caller.
         wp_send_json_success([
             'message' => __('Command triggered in n8n.', 'post-quality-manager'),
             // Post-trigger remaining count from the REST callback; null for exempt/unlimited.

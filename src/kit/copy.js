@@ -4,7 +4,7 @@
  * Post Reviews table now and stories 5.3–5.6 later. Copy follows
  * docs/brand.md; every string flows through @wordpress/i18n.
  */
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 
 /**
  * Canonical command order — the order pills, tabs and buttons render in.
@@ -39,6 +39,31 @@ export function commandLabel( command ) {
 }
 
 /**
+ * Commands free on every plan (ADR 0003) — the same pair LOCKED_TITLE
+ * names; the detail panel's "not run yet" copy reads it.
+ */
+export const FREE_COMMANDS = [ 'review', 'takeaways' ];
+
+/**
+ * Label for a trigger button (story 5.4): "Run Review" before a command
+ * has ever run for the post, "Re-run Review" afterwards.
+ *
+ * @param {string}  command Command key.
+ * @param {boolean} hasRun  Whether a stored row exists for this command.
+ * @return {string} Translated label.
+ */
+export function runLabel( command, hasRun = false ) {
+	return sprintf(
+		hasRun
+			? /* translators: %s: agent command label, e.g. "Review" */
+			  __( 'Re-run %s', 'post-quality-manager' )
+			: /* translators: %s: agent command label, e.g. "Review" */
+			  __( 'Run %s', 'post-quality-manager' ),
+		commandLabel( command )
+	);
+}
+
+/**
  * The "never reviewed" status key — the REST `status=none` sentinel and
  * the `counts.none` key; stored reviews never carry it.
  */
@@ -50,6 +75,10 @@ const STATUS_LABELS = {
 	needs_revision: __( 'Needs revision', 'post-quality-manager' ),
 	major_revision: __( 'Major revision', 'post-quality-manager' ),
 	processing: __( 'Processing…', 'post-quality-manager' ),
+	// Stored by save_review on an n8n error; neutral wording per brand.md.
+	error: __( 'Could not complete', 'post-quality-manager' ),
+	// Stored by the template's rewrite confirmation; shown in History only.
+	rewritten: __( 'Rewrite applied', 'post-quality-manager' ),
 	[ STATUS_NONE ]: __( 'Not analyzed', 'post-quality-manager' ),
 };
 

@@ -322,18 +322,43 @@ class PQM_REST_API {
 
     /* ─── 3. GET /reviews/{post_id} ──────────────────────────────────── */
 
+    /** Rows the detail panel's History tab can show per post (story 5.4). */
+    private const REVIEWS_LIMIT = 50;
+
+    /**
+     * Stored `reviewed_at` values are GMT (`current_time( 'mysql', true )`),
+     * so display conversion goes through get_date_from_gmt() — the site's
+     * timezone and date/time format. Blank / zero dates render as ''.
+     */
+    private static function display_date( string $gmt ): string {
+        if ( '' === $gmt || '0000-00-00 00:00:00' === $gmt ) {
+            return '';
+        }
+
+        return get_date_from_gmt( $gmt, get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) );
+    }
+
+    /**
+     * Stored reviews for one post, newest first. Story 5.4 keeps the
+     * array shape and adds per row an int `overall_score` and a
+     * `reviewed_at_display` in the site's date/time format — the same
+     * conversion `/posts` uses, so the panel and the table agree.
+     */
     public static function get_reviews_callback( WP_REST_Request $request ): WP_REST_Response {
         $post_id = (int) $request->get_param( 'post_id' );
-        $reviews = PQM_DB::get_reviews_for_post( $post_id );
+        $reviews = PQM_DB::get_reviews_for_post( $post_id, self::REVIEWS_LIMIT );
 
-        // Decode result_data JSON for each review.
         foreach ( $reviews as &$review ) {
+            // Decode result_data JSON; on failure it stays the raw string as saved by n8n.
             $decoded = json_decode( $review['result_data'], true );
             if ( json_last_error() === JSON_ERROR_NONE ) {
                 $review['result_data'] = $decoded;
             }
-            // If json_decode fails, $review['result_data'] remains the raw string as saved by n8n.
+
+            $review['overall_score']       = (int) ( $review['overall_score'] ?? 0 );
+            $review['reviewed_at_display'] = self::display_date( (string) ( $review['reviewed_at'] ?? '' ) );
         }
+        unset( $review );
 
         return new WP_REST_Response( $reviews, 200 );
     }
@@ -444,6 +469,18 @@ class PQM_REST_API {
         if ( $status_code >= 200 && $status_code < 300 ) {
             PQM_Features::consume_quota();
             $quota = PQM_Features::quota_state();
+
+            // The `processing` placeholder is written once, here, for every
+            // caller (REST, AJAX, GET fallback): the Post Reviews polling
+            // reads it back as `in_flight` and the n8n callback's result
+            // row supersedes it. A refused or failed trigger writes nothing.
+            PQM_DB::save_review(
+                $post_id,
+                $command,
+                0,
+                'processing',
+                [ 'summary' => __( 'Running asynchronously in n8n...', 'post-quality-manager' ) ]
+            );
         }
 
         return new WP_REST_Response( [
@@ -529,7 +566,7 @@ class PQM_REST_API {
     }
 
     /** Stored review statuses plus the "never reviewed" sentinel accepted by `status=`. */
-    private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', 'processing', PQM_DB::STATUS_NONE ];
+    private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', PQM_DB::STATUS_NONE ];
 
     /**
      * Clamp a score-band bound to 0–100; absent (null / empty) stays null,
@@ -555,7 +592,8 @@ class PQM_REST_API {
      *
      * Story 5.3 adds server-side filters (`status` incl. `none`,
      * `min_score`/`max_score`), `orderby=status` and the filter-independent
-     * `counts` block the status chips display.
+     * `counts` block the status chips display. Story 5.4 adds the per-item
+     * `in_flight` command list the detail panel's polling watches.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -587,10 +625,9 @@ class PQM_REST_API {
             'filter'    => $filter,
         ] );
 
-        $post_ids = array_map( 'intval', array_column( $result['items'], 'post_id' ) );
-        $commands = PQM_DB::get_commands_for_posts( $post_ids );
-
-        $date_format = get_option( 'date_format' ) . ' ' . get_option( 'time_format' );
+        $post_ids  = array_map( 'intval', array_column( $result['items'], 'post_id' ) );
+        $commands  = PQM_DB::get_commands_for_posts( $post_ids );
+        $in_flight = PQM_DB::get_in_flight_for_posts( $post_ids );
 
         $items = [];
         foreach ( $result['items'] as $row ) {
@@ -604,10 +641,11 @@ class PQM_REST_API {
                 'latest_score'            => null !== $row['latest_score'] ? (int) $row['latest_score'] : null,
                 'latest_status'           => (string) ( $row['latest_status'] ?? '' ),
                 'latest_reviewed'         => $reviewed,
-                'latest_reviewed_display' => $reviewed && '0000-00-00 00:00:00' !== $reviewed
-                    ? date_i18n( $date_format, strtotime( $reviewed ) )
-                    : '',
+                'latest_reviewed_display' => self::display_date( $reviewed ),
                 'commands'                => $commands[ $post_id ] ?? [],
+                // Commands whose latest row is still `processing` (story
+                // 5.4): the polling and auto-resume signal, server-derived.
+                'in_flight'               => $in_flight[ $post_id ] ?? [],
             ];
         }
 

@@ -6,7 +6,8 @@
  * stubs, no WP install. Story 5.3 appends the filter/sort/counts rows.
  *
  * wpdb call order per list request: get_var (count) → get_results (items)
- * → get_results (commands, only when items exist) → get_results (counts).
+ * → get_results (commands) → get_results (in_flight, story 5.4) — both
+ * only when items exist — → get_results (counts).
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -49,7 +50,8 @@ function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return '/wp-json/' . $p; }
 function get_edit_post_link($id, $context = 'display') { return '/wp-admin/post.php?post=' . $id . '&action=edit'; }
-function date_i18n($format, $ts = null) { return gmdate($format, $ts ?? time()); }
+/* Stored dates are GMT; the site timezone is pinned to UTC here, so display == stored (story 5.4 fix). */
+function get_date_from_gmt($gmt, $format = 'Y-m-d H:i:s') { return gmdate($format, strtotime($gmt . ' UTC')); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
 /* Viewer-block stubs (story 5.2): quota_state() reads user meta + site clock. */
 function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
@@ -168,6 +170,9 @@ $wpdb = fresh_wpdb([
         ['post_id' => '7', 'command' => 'review'],
         ['post_id' => '7', 'command' => 'seo'],
     ],
+    [ // in_flight query (story 5.4): post 7's latest seo row is still processing
+        ['post_id' => '7', 'command' => 'seo'],
+    ],
     [ // counts query (story 5.3)
         ['status' => 'ship', 'cnt' => '1'],
         ['status' => null, 'cnt' => '1'],
@@ -179,7 +184,11 @@ $data = $res->get_data();
 check('shape is {items,total,pages,counts,viewer} — counts (5.3) and viewer (5.2) additive, first three untouched',
     array_keys($data) === ['items', 'total', 'pages', 'counts', 'viewer']);
 check('total 2, pages 1', $data['total'] === 2 && $data['pages'] === 1);
+check('counts reach the response after the in_flight query (ship 1, none 1)',
+    $data['counts']['ship'] === 1 && $data['counts']['none'] === 1 && $data['counts']['all'] === 2);
 $item = $data['items'][0];
+check('item keys: 5.1–5.3 keys byte-identical, in_flight appended (5.4)',
+    array_keys($item) === ['post_id', 'title', 'edit_link', 'latest_score', 'latest_status', 'latest_reviewed', 'latest_reviewed_display', 'commands', 'in_flight']);
 check('item carries post_id/title/edit_link/latest_* /commands',
     $item['post_id'] === 7
     && $item['title'] === 'Hello World'
@@ -188,17 +197,28 @@ check('item carries post_id/title/edit_link/latest_* /commands',
     && $item['latest_status'] === 'ship'
     && $item['latest_reviewed'] === '2026-09-30 10:00:00'
     && $item['commands'] === ['review', 'seo']);
-check('reviewed date formatted for display', $item['latest_reviewed_display'] === '2026-09-30 10:00');
+check('in_flight lists the processing command; commands unchanged', $item['in_flight'] === ['seo'] && $item['commands'] === ['review', 'seo']);
+check('reviewed date formatted for display via get_date_from_gmt (stored value is GMT)', $item['latest_reviewed_display'] === '2026-09-30 10:00');
 $never = $data['items'][1];
-check('unreviewed post: null score, empty status/date, no commands',
+check('unreviewed post: null score, empty status/date, no commands, nothing in flight',
     $never['latest_score'] === null
     && $never['latest_status'] === ''
     && $never['latest_reviewed'] === ''
     && $never['latest_reviewed_display'] === ''
-    && $never['commands'] === []);
+    && $never['commands'] === []
+    && $never['in_flight'] === []);
+$in_flight_sql = $wpdb->results_sql[2];
+check('in_flight query: latest row per post+command (MAX(reviewed_at) join) with status processing, one query',
+    strpos($in_flight_sql, 'MAX(reviewed_at)') !== false
+    && strpos($in_flight_sql, 'GROUP BY post_id, command') !== false
+    && strpos($in_flight_sql, "r1.status = 'processing'") !== false
+    && count($wpdb->results_sql) === 4);
 $limit = limit_args($wpdb);
 check('defaults reach the DB: per_page 20, offset 0', $limit !== null && $limit['args'] === [20, 0]);
 check('default order: latest_reviewed DESC', strpos($limit['sql'], 'ORDER BY latest_reviewed DESC') !== false);
+check('latest-review subquery excludes the processing placeholder (5.4: a running review never moves the post)',
+    strpos($limit['sql'], "WHERE command = 'review' AND status <> 'processing'") !== false
+    && strpos($wpdb->last_var_sql, "WHERE command = 'review' AND status <> 'processing'") !== false);
 
 /* Row: bad params — clamped/whitelisted, silently sanitized, still 200 */
 echo "Bad params\n";
@@ -359,6 +379,8 @@ check('counts query is one GROUP BY lr.status over listable posts',
     strpos($counts_sql, 'GROUP BY lr.status') !== false && strpos($counts_sql, "p.post_status IN ('publish', 'pending')") !== false);
 check('counts query ignores the active status / band filters',
     strpos($counts_sql, 'lr.status =') === false && strpos($counts_sql, 'HAVING') === false);
+check('counts query shares the placeholder exclusion (chips never count a running review)',
+    strpos($counts_sql, "WHERE command = 'review' AND status <> 'processing'") !== false);
 
 /* ─── Viewer block (story 5.2) — read-only mirror of PQM_Features ────── */
 
