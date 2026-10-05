@@ -3,7 +3,7 @@ title: 'Post Reviews: list, filters, sorting'
 type: 'feature'
 ticket: '3'
 created: '2026-10-05'
-status: 'built'
+status: 'done'
 baseline_revision: '44cf780a3c5f976ddd62b7744037032c75d66ca0'
 route: 'full'
 route_source: 'auto'
@@ -115,4 +115,6 @@ Server-side everything: pagination with honest totals makes client-side filterin
 - `for f in tests/harness/*.php; do php "$f" || break; done` -- expected: every harness green incl. the new matrix rows
 
 **Manual checks (if no CLI):**
-- Post Reviews: each chip filters and shows its count; score band narrows; every data column sorts both ways with the arrow and `aria-sort` updating; page 2 of a 20+ site works; URL deep link restores the state; Dashboard "needs review" card still lands on the filtered list; on a `pqm_view_reviews`-only user everything works and no quota note appears.
+- [x] Post Reviews: each chip filters and shows its count; score band narrows; every data column sorts both ways with the arrow and `aria-sort` updating; page 2 of a 20+ site works; URL deep link restores the state; Dashboard "needs review" card still lands on the filtered list; on a `pqm_view_reviews`-only user everything works and no quota note appears.
+
+**Result (2026-10-05):** PR #23 merged (`427dc39`); the owner walked the manual checks on the real site and reported all green — no failures, no bug tickets. The three UI matrix rows (filtered empty, deep link, page overflow) are covered by this pass. Story verify met end to end.
