@@ -12,6 +12,10 @@
  * Story 5.6 appends `orderby=priority` (Fix-next queue) and GET /dashboard:
  * registration, flag matrix and the score-trend walk on known rows (one
  * get_results per request).
+ *
+ * Story 5.10 appends `wp_post_status`, `yoast` and `yoast_active`: Yoast
+ * off, then WPSEO_VERSION defined (it cannot be undefined again, so those
+ * rows run last) with scored, unanalyzed and half-scored posts.
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -26,6 +30,9 @@ $GLOBALS['tw'] = [
     'user_id'   => 42,
     'user_meta' => [], // user_id => [key => value]
     'options'   => [], // option overrides (story 5.6: pqm_settings, pqm_cron_nudge_dismissed)
+    'post_meta'   => [], // post_id => [key => value] (story 5.10: Yoast scores)
+    'meta_reads'  => 0,  // get_post_meta() calls
+    'meta_primes' => [], // update_postmeta_cache() calls, each its id list
 ];
 $GLOBALS['pqm_routes'] = [];
 
@@ -71,6 +78,12 @@ function wp_date($format, $ts = null) {
     return gmdate($format, $ts ?? time());
 }
 function wp_timezone() { return new DateTimeZone('UTC'); }
+/* Post-meta stubs (story 5.10), at WP's real arity. A missing single meta is ''. */
+function get_post_meta($post_id, $key = '', $single = false) {
+    $GLOBALS['tw']['meta_reads']++;
+    return $GLOBALS['tw']['post_meta'][$post_id][$key] ?? '';
+}
+function update_postmeta_cache($post_ids) { $GLOBALS['tw']['meta_primes'][] = $post_ids; return []; }
 
 /* ─── WP REST / wpdb stubs ───────────────────────────────────────────── */
 class WP_REST_Server {
@@ -210,14 +223,14 @@ $wpdb = fresh_wpdb([
 $res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
 check('200 response', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $data = $res->get_data();
-check('shape is {items,total,pages,counts,viewer} — counts (5.3) and viewer (5.2) additive, first three untouched',
-    array_keys($data) === ['items', 'total', 'pages', 'counts', 'viewer']);
+check('shape is {items,total,pages,counts,viewer,yoast_active} — counts (5.3), viewer (5.2), yoast_active (5.10) additive, first three untouched',
+    array_keys($data) === ['items', 'total', 'pages', 'counts', 'viewer', 'yoast_active']);
 check('total 2, pages 1', $data['total'] === 2 && $data['pages'] === 1);
 check('counts reach the response after the in_flight query (ship 1, none 1)',
     $data['counts']['ship'] === 1 && $data['counts']['none'] === 1 && $data['counts']['all'] === 2);
 $item = $data['items'][0];
-check('item keys: 5.1–5.3 keys byte-identical, in_flight appended (5.4)',
-    array_keys($item) === ['post_id', 'title', 'edit_link', 'latest_score', 'latest_status', 'latest_reviewed', 'latest_reviewed_display', 'commands', 'in_flight']);
+check('item keys: 5.1–5.3 keys byte-identical, in_flight appended (5.4), wp_post_status + yoast appended (5.10)',
+    array_keys($item) === ['post_id', 'title', 'edit_link', 'latest_score', 'latest_status', 'latest_reviewed', 'latest_reviewed_display', 'commands', 'in_flight', 'wp_post_status', 'yoast']);
 check('item carries post_id/title/edit_link/latest_* /commands',
     $item['post_id'] === 7
     && $item['title'] === 'Hello World'
@@ -588,6 +601,63 @@ foreach ($cases as $label => $r) {
         $r['data']['cron_nudge'] === false && !array_key_exists('cron_nudge_dismiss_url', $r['data']));
 }
 $GLOBALS['tw']['options'] = [];
+
+/* ─── Yoast column and Pending marker (story 5.10) ───────────────────── */
+
+/** One list request over $rows (no commands, nothing in flight); returns the response data. */
+function list_rows(array $rows): array {
+    fresh_wpdb([$rows, [], [], []], [count($rows)]);
+    $GLOBALS['tw']['meta_reads']  = 0;
+    $GLOBALS['tw']['meta_primes'] = [];
+    return PQM_REST_API::list_posts_callback(new WP_REST_Request())->get_data();
+}
+
+/** A never-reviewed DB row with the given WordPress post status. */
+function post_row(string $id, ?string $wp_status): array {
+    return ['post_id' => $id, 'title' => "Post $id", 'slug' => "p$id", 'post_type' => 'post', 'wp_post_status' => $wp_status,
+            'latest_score' => null, 'latest_status' => null, 'latest_reviewed' => null, 'latest_command' => null];
+}
+
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
+$GLOBALS['tw']['post_meta'] = [
+    11 => ['_yoast_wpseo_linkdex' => '72', '_yoast_wpseo_content_score' => '45'], // scored
+    12 => ['_yoast_wpseo_linkdex' => '',   '_yoast_wpseo_content_score' => ''],   // unanalyzed
+    13 => ['_yoast_wpseo_linkdex' => '80', '_yoast_wpseo_content_score' => ''],   // one score missing
+];
+$rows = [post_row('11', 'publish'), post_row('12', 'pending'), post_row('13', 'publish')];
+
+/* Row: Yoast inactive — field null, flag false, no meta read, no cache prime */
+echo "Yoast inactive\n";
+$data = list_rows($rows);
+check('yoast_active false', $data['yoast_active'] === false);
+check('every item: yoast null', array_column($data['items'], 'yoast') === [null, null, null]);
+check('no post meta read, no cache prime', $GLOBALS['tw']['meta_reads'] === 0 && $GLOBALS['tw']['meta_primes'] === []);
+
+/* Row: pending / published post — wp_post_status passes through */
+echo "Pending marker field\n";
+check('wp_post_status passes through (publish, pending, publish)',
+    array_column($data['items'], 'wp_post_status') === ['publish', 'pending', 'publish']);
+$data = list_rows([post_row('14', null)]);
+check('missing wp_post_status reads as an empty string', $data['items'][0]['wp_post_status'] === '');
+
+/* Row: Yoast active — scored, unanalyzed, one missing; one cache prime */
+define('WPSEO_VERSION', '99.0');
+echo "Yoast active\n";
+$data = list_rows($rows);
+check('yoast_active true, still the last top-level key',
+    $data['yoast_active'] === true && array_key_last($data) === 'yoast_active');
+check('scored post → {seo: 72, readability: 45}', $data['items'][0]['yoast'] === ['seo' => 72, 'readability' => 45]);
+check("unanalyzed post ('' metas) → {seo: null, readability: null}", $data['items'][1]['yoast'] === ['seo' => null, 'readability' => null]);
+check('one score missing → {seo: 80, readability: null}', $data['items'][2]['yoast'] === ['seo' => 80, 'readability' => null]);
+check("cache primed once with the page's ids", $GLOBALS['tw']['meta_primes'] === [[11, 12, 13]]);
+check('pending passes through with Yoast on too', $data['items'][1]['wp_post_status'] === 'pending');
+
+/* Row: Yoast active, empty list — layout input only, no cache prime */
+echo "Yoast active, empty list\n";
+$data = list_rows([]);
+check('items [] with yoast_active true, no cache prime',
+    $data['items'] === [] && $data['yoast_active'] === true && $GLOBALS['tw']['meta_primes'] === []);
+$GLOBALS['tw']['post_meta'] = [];
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

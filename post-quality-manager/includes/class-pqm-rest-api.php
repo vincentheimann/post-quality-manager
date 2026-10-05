@@ -595,6 +595,16 @@ class PQM_REST_API {
     }
 
     /**
+     * One Yoast score meta of a post (story 5.10). Yoast stores '' until
+     * it has analyzed the post; that reads as null, not 0.
+     */
+    private static function yoast_score( int $post_id, string $key ): ?int {
+        $value = get_post_meta( $post_id, $key, true );
+
+        return '' === $value ? null : (int) $value;
+    }
+
+    /**
      * Read-only list of posts with their latest review, for the React
      * Post Reviews table. Wraps PQM_DB::get_all_posts_with_scores(); bad
      * params are clamped to the DB method's accepted set, never an error.
@@ -610,6 +620,11 @@ class PQM_REST_API {
      * `in_flight` command list the detail panel's polling watches. Story
      * 5.6 adds `orderby=priority` (the Dashboard Fix-next queue, fixed
      * direction — see PQM_DB::priority_order_sql()).
+     *
+     * Story 5.10 appends the item fields `wp_post_status` (the "— Pending"
+     * marker) and `yoast` ({seo, readability}, each int or null when Yoast
+     * has no score; null while Yoast is inactive) plus the top-level
+     * `yoast_active` flag that shows the table's Yoast SEO column.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -645,6 +660,11 @@ class PQM_REST_API {
         $commands  = PQM_DB::get_commands_for_posts( $post_ids );
         $in_flight = PQM_DB::get_in_flight_for_posts( $post_ids );
 
+        $yoast_active = defined( 'WPSEO_VERSION' );
+        if ( $yoast_active && ! empty( $post_ids ) ) {
+            update_postmeta_cache( $post_ids ); // one query for every row's Yoast metas
+        }
+
         $items = [];
         foreach ( $result['items'] as $row ) {
             $post_id  = (int) $row['post_id'];
@@ -662,6 +682,11 @@ class PQM_REST_API {
                 // Commands whose latest row is still `processing` (story
                 // 5.4): the polling and auto-resume signal, server-derived.
                 'in_flight'               => $in_flight[ $post_id ] ?? [],
+                'wp_post_status'          => (string) ( $row['wp_post_status'] ?? '' ),
+                'yoast'                   => $yoast_active ? [
+                    'seo'         => self::yoast_score( $post_id, '_yoast_wpseo_linkdex' ),
+                    'readability' => self::yoast_score( $post_id, '_yoast_wpseo_content_score' ),
+                ] : null,
             ];
         }
 
@@ -683,6 +708,7 @@ class PQM_REST_API {
                 'gated_commands'  => PQM_Features::gated_commands(),
                 'hidden_commands' => PQM_Features::hidden_commands(),
             ],
+            'yoast_active' => $yoast_active,
         ], 200 );
     }
 

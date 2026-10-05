@@ -22,6 +22,11 @@
  * Story 5.5: viewers who can run Review get a checkbox column (page-local
  * selection, cleared on any query change) and the BulkBar, which queues
  * the selected posts through the same startRun() path as a single run.
+ *
+ * Story 5.10: pending posts carry core's "— Pending" post-state marker
+ * after the title; while Yoast is active (`yoast_active`) a display-only
+ * Yoast SEO column after Score shows the item's `yoast` scores as kit
+ * ScoreBadges.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, Spinner } from '@wordpress/components';
@@ -131,7 +136,48 @@ function inFlight( item, command ) {
 	return Array.isArray( item.in_flight ) && item.in_flight.includes( command );
 }
 
-function PostRow( { item, isOpen, isAwaited, onToggle, canSelect, isSelected, onSelect } ) {
+/** Yoast SEO + readability badges; one grey "—" while Yoast has no score at all. */
+function YoastBadges( { yoast } ) {
+	const { seo = null, readability = null } = yoast || {};
+
+	if ( seo === null && readability === null ) {
+		return (
+			<ScoreBadge
+				score={ null }
+				title={ __(
+					'No Yoast analysis yet. Open the post in the editor to generate one.',
+					'post-quality-manager'
+				) }
+			/>
+		);
+	}
+
+	return (
+		<>
+			<ScoreBadge
+				score={ seo }
+				label={ __( 'SEO', 'post-quality-manager' ) }
+				title={ __( 'Yoast SEO score', 'post-quality-manager' ) }
+			/>
+			<ScoreBadge
+				score={ readability }
+				label={ __( 'Readability', 'post-quality-manager' ) }
+				title={ __( 'Yoast readability score', 'post-quality-manager' ) }
+			/>
+		</>
+	);
+}
+
+function PostRow( {
+	item,
+	isOpen,
+	isAwaited,
+	onToggle,
+	canSelect,
+	isSelected,
+	onSelect,
+	yoastActive,
+} ) {
 	const detailId = `pqm-detail-${ item.post_id }`;
 
 	return (
@@ -159,11 +205,25 @@ function PostRow( { item, isOpen, isAwaited, onToggle, canSelect, isSelected, on
 					) : (
 						item.title
 					) }
+					{ /* Core's own post-state markup, as the Posts list renders "— Draft". */ }
+					{ item.wp_post_status === 'pending' && (
+						<>
+							{ ' — ' }
+							<span className="post-state">
+								{ __( 'Pending', 'post-quality-manager' ) }
+							</span>
+						</>
+					) }
 				</strong>
 			</td>
 			<td className="pqm-cell-score">
 				<ScoreBadge score={ item.latest_score } />
 			</td>
+			{ yoastActive && (
+				<td className="pqm-cell-yoast">
+					<YoastBadges yoast={ item.yoast } />
+				</td>
+			) }
 			<td className="pqm-cell-status">
 				{ /* A running review shows Processing; the stored latest_*
 				     (and so score, order and membership) stay its last result. */ }
@@ -208,6 +268,7 @@ export default function PostReviewsTable() {
 	const [ pages, setPages ] = useState( 0 );
 	const [ counts, setCounts ] = useState( null );
 	const [ viewer, setViewer ] = useState( null );
+	const [ yoastActive, setYoastActive ] = useState( false );
 	const [ isLoading, setIsLoading ] = useState( true );
 	const [ error, setError ] = useState( false );
 
@@ -264,6 +325,7 @@ export default function PostReviewsTable() {
 				setPages( ( data && data.pages ) || 0 );
 				setCounts( ( data && data.counts ) || null );
 				setViewer( ( data && data.viewer ) || null );
+				setYoastActive( !! ( data && data.yoast_active ) );
 				setIsLoading( false );
 				settlePending();
 			} )
@@ -404,7 +466,7 @@ export default function PostReviewsTable() {
 
 	// Bulk Review (5.5): same rule as the panel's Review button.
 	const canBulk = canRender( viewer, 'review' );
-	const columns = 6 + ( canBulk ? 1 : 0 );
+	const columns = 6 + ( canBulk ? 1 : 0 ) + ( yoastActive ? 1 : 0 );
 	const selectable = items.filter( ( item ) => ! inFlight( item, 'review' ) );
 	const selection = selectable.filter( ( item ) => selected.has( item.post_id ) );
 	const allSelected = selectable.length > 0 && selection.length === selectable.length;
@@ -489,6 +551,11 @@ export default function PostReviewsTable() {
 							className="pqm-col-score"
 							{ ...sortProps }
 						/>
+						{ yoastActive && (
+							<th scope="col" className="pqm-col-yoast">
+								{ __( 'Yoast SEO', 'post-quality-manager' ) }
+							</th>
+						) }
 						<SortableHeader
 							column="status"
 							label={ __( 'Status', 'post-quality-manager' ) }
@@ -524,6 +591,7 @@ export default function PostReviewsTable() {
 										canSelect={ canBulk }
 										isSelected={ selected.has( item.post_id ) && ! inFlight( item, 'review' ) }
 										onSelect={ () => toggleSelect( item.post_id ) }
+										yoastActive={ yoastActive }
 									/>
 									{ isOpen && (
 										<tr
