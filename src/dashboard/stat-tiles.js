@@ -12,9 +12,19 @@ import { STATUS_NONE } from '../kit/copy';
 import StatusBadge from '../kit/status-badge';
 
 /** Most urgent first, like the queue. */
-const STATUS_TILES = [ 'major_revision', 'needs_revision', STATUS_NONE, 'ship' ];
+const STATUS_TILES = [
+	'major_revision',
+	'needs_revision',
+	STATUS_NONE,
+	'ship',
+];
 
-/** Relative to wp-admin/admin.php, where the Dashboard lives. */
+/**
+ * Relative to wp-admin/admin.php, where the Dashboard lives.
+ *
+ * @param {Object} args Post Reviews query args, e.g. `{ status: 'ship' }`.
+ * @return {string} Post Reviews URL.
+ */
 function postReviewsUrl( args ) {
 	return addQueryArgs( 'admin.php', { page: 'pqm-posts', ...args } );
 }
@@ -35,7 +45,9 @@ export default function StatTiles( { average, counts } ) {
 					{ __( 'Average score', 'post-quality-manager' ) }
 				</span>
 				<span className="pqm-tile-value">
-					{ average === null || average === undefined ? '—' : average }
+					{ average === null || average === undefined
+						? '—'
+						: average }
 				</span>
 			</a>
 			{ STATUS_TILES.map( ( status ) => (

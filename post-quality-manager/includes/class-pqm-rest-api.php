@@ -3,7 +3,7 @@
  * REST API endpoints for the Post Quality Manager plugin.
  *
  * Endpoints:
- *  GET  /post-quality/v1/post-score      — existing: expose post data + Yoast scores
+ *  GET  /post-quality/v1/post-score      — expose post data + Yoast scores
  *  POST /post-quality/v1/save-review      — n8n posts review results here
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
@@ -22,7 +22,7 @@ class PQM_REST_API {
 
     public static function register_routes(): void {
 
-        // Existing endpoint: GET post data + Yoast scores.
+        // GET post data + Yoast scores.
         register_rest_route( PQM_REST_NAMESPACE, '/post-score', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'post_score_callback' ],
@@ -30,7 +30,7 @@ class PQM_REST_API {
             'args'                => self::post_score_args(),
         ] );
 
-        // New: n8n POSTs review results.
+        // n8n POSTs review results.
         register_rest_route( PQM_REST_NAMESPACE, '/save-review', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'save_review_callback' ],
@@ -38,14 +38,14 @@ class PQM_REST_API {
             'args'                => self::save_review_args(),
         ] );
 
-        // New: fetch stored reviews for a post.
+        // Fetch stored reviews for a post.
         register_rest_route( PQM_REST_NAMESPACE, '/reviews/(?P<post_id>\d+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'get_reviews_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
         ] );
 
-        // New: trigger a review via n8n.
+        // Trigger a review via n8n.
         register_rest_route( PQM_REST_NAMESPACE, '/trigger-review', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'trigger_review_callback' ],
@@ -53,7 +53,7 @@ class PQM_REST_API {
             'args'                => self::trigger_review_args(),
         ] );
 
-        // New: serve the site-configured workflow for n8n "Import from URL".
+        // Serve the site-configured workflow for n8n "Import from URL".
         register_rest_route( PQM_REST_NAMESPACE, '/workflow', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'workflow_callback' ],
@@ -152,7 +152,7 @@ class PQM_REST_API {
         return hash_equals( $expected, $provided );
     }
 
-    /* ─── 1. GET /post-score (existing logic, moved here) ────────────── */
+    /* ─── 1. GET /post-score ────────────────────────────────────────── */
 
     private static function post_score_args(): array {
         return [

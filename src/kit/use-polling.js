@@ -23,8 +23,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 
-export const POLL_INTERVAL = 3000;
-export const GIVE_UP_AFTER = 3 * 60 * 1000;
+const POLL_INTERVAL = 3000;
+const GIVE_UP_AFTER = 3 * 60 * 1000;
 
 const keyOf = ( postId, command ) => `${ postId }:${ command }`;
 
@@ -40,7 +40,12 @@ function sameSet( a, b ) {
 	return true;
 }
 
-/** Post ids with at least one entry still awaited (not given up). */
+/**
+ * Post ids with at least one entry still awaited (not given up).
+ *
+ * @param {Map} tracked Tracked entries, key → `{ postId, gaveUp, … }`.
+ * @return {Set<number>} Awaited post ids.
+ */
 function awaitedPosts( tracked ) {
 	const set = new Set();
 	tracked.forEach( ( entry ) => {
@@ -105,7 +110,10 @@ export default function usePolling( items, listKey, handlers ) {
 		listed.forEach( ( flights, postId ) => {
 			flights.forEach( ( command ) => {
 				const key = keyOf( postId, command );
-				if ( ! tracked.current.has( key ) && ! givenUp.current.has( key ) ) {
+				if (
+					! tracked.current.has( key ) &&
+					! givenUp.current.has( key )
+				) {
 					tracked.current.set( key, {
 						postId,
 						command,

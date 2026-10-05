@@ -8,13 +8,10 @@
 import { Button } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 
-import { commandLabel } from '../kit/copy';
+import { OPEN_IN_EDITOR, commandLabel } from '../kit/copy';
+import { inFlight } from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
-
-function inFlight( item ) {
-	return Array.isArray( item.in_flight ) && item.in_flight.includes( 'review' );
-}
 
 /**
  * @param {Object}   props
@@ -37,14 +34,24 @@ export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
 								{ item.latest_reviewed_display
 									? sprintf(
 											/* translators: %s: date of the last review */
-											__( 'Last reviewed %s', 'post-quality-manager' ),
+											__(
+												'Last reviewed %s',
+												'post-quality-manager'
+											),
 											item.latest_reviewed_display
 									  )
-									: __( 'Never reviewed', 'post-quality-manager' ) }
+									: __(
+											'Never reviewed',
+											'post-quality-manager'
+									  ) }
 							</span>
 						</span>
 						<StatusBadge
-							status={ busy || inFlight( item ) ? 'processing' : item.latest_status }
+							status={
+								busy || inFlight( item )
+									? 'processing'
+									: item.latest_status
+							}
 						/>
 						<span className="pqm-queue-actions">
 							{ canReview && (
@@ -53,7 +60,10 @@ export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
 									disabled={ busy }
 									aria-label={ sprintf(
 										/* translators: %s: post title */
-										__( 'Review: %s', 'post-quality-manager' ),
+										__(
+											'Review: %s',
+											'post-quality-manager'
+										),
 										item.title
 									) }
 									onClick={ () => onReview( item.post_id ) }
@@ -67,11 +77,14 @@ export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
 									href={ item.edit_link }
 									aria-label={ sprintf(
 										/* translators: %s: post title */
-										__( 'Open in Editor: %s', 'post-quality-manager' ),
+										__(
+											'Open in Editor: %s',
+											'post-quality-manager'
+										),
 										item.title
 									) }
 								>
-									{ __( 'Open in Editor', 'post-quality-manager' ) }
+									{ OPEN_IN_EDITOR }
 								</Button>
 							) }
 						</span>

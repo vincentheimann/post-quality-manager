@@ -34,7 +34,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 ## Requirements
 
-- WordPress 6.0+, PHP 8.0+
+- WordPress 6.6+, PHP 8.0+
 - An n8n instance (self-hosted or cloud) and a Claude API key
 - Yoast SEO (optional — its metadata enriches the review payload, and while it is active the Post Reviews screen shows its SEO and readability scores in a Yoast SEO column)
 

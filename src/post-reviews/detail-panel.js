@@ -29,11 +29,18 @@ import {
 	FREE_COMMANDS,
 	LOCKED_SUFFIX,
 	LOCKED_TITLE,
+	OPEN_IN_EDITOR,
 	commandLabel,
 	runLabel,
 } from '../kit/copy';
 import QuotaNote from '../kit/quota-note';
-import { isFailedRow, isObject } from '../kit/runs';
+import {
+	canRender,
+	isFailedRow,
+	isGated,
+	isObject,
+	reviewsPath,
+} from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
 import ResultView, { PillarMeters, isReviewShape } from './result-view';
@@ -41,7 +48,12 @@ import ResultView, { PillarMeters, isReviewShape } from './result-view';
 /** Tabs: every canonical command except Rewrite, then History. */
 const TAB_COMMANDS = COMMAND_ORDER.filter( ( c ) => c !== 'rewrite' );
 
-/** 'none' | 'running' | 'failed' | 'done' for the latest row of a command. */
+/**
+ * 'none' | 'running' | 'failed' | 'done' for the latest row of a command.
+ *
+ * @param {Object|undefined} row Latest stored row of the command.
+ * @return {string} Row state.
+ */
 function rowState( row ) {
 	if ( ! row ) {
 		return 'none';
@@ -52,27 +64,18 @@ function rowState( row ) {
 	return isFailedRow( row ) ? 'failed' : 'done';
 }
 
-/** Where the review's pillars live: the row itself, or a nested `review` (audit-style). */
+/**
+ * Where the review's pillars live: the row itself, or a nested `review` (audit-style).
+ *
+ * @param {Object|undefined} row Stored review row.
+ * @return {*} The review data.
+ */
 function reviewData( row ) {
 	const data = row && row.result_data;
 	if ( isReviewShape( data ) ) {
 		return data;
 	}
 	return isObject( data ) && isObject( data.review ) ? data.review : data;
-}
-
-/* ─── Gate helpers over the viewer block ───────────────────────────── */
-
-export function canRender( viewer, command ) {
-	return (
-		!! viewer &&
-		!! viewer.can_trigger &&
-		! ( viewer.hidden_commands || [] ).includes( command )
-	);
-}
-
-function isGated( viewer, command ) {
-	return !! viewer && ( viewer.gated_commands || [] ).includes( command );
 }
 
 /* ─── Small presentational pieces ──────────────────────────────────── */
@@ -106,7 +109,8 @@ function FailedNote( { row, command } ) {
 					'post-quality-manager'
 				),
 				commandLabel( command ),
-				stored || __( 'No result was returned.', 'post-quality-manager' )
+				stored ||
+					__( 'No result was returned.', 'post-quality-manager' )
 			) }
 		</Notice>
 	);
@@ -119,7 +123,10 @@ function NotRunNote( { command, viewer } ) {
 	} else if ( FREE_COMMANDS.includes( command ) ) {
 		copy = sprintf(
 			/* translators: %s: agent command label, e.g. "Takeaways" */
-			__( 'Not run yet — %s is free on every plan.', 'post-quality-manager' ),
+			__(
+				'Not run yet — %s is free on every plan.',
+				'post-quality-manager'
+			),
 			commandLabel( command )
 		);
 	} else {
@@ -128,14 +135,23 @@ function NotRunNote( { command, viewer } ) {
 	return <p className="pqm-muted pqm-detail-note">{ copy }</p>;
 }
 
-/** Status · score · date line above a result. */
+/**
+ * Status · score · date line above a result.
+ *
+ * @param {Object} props
+ * @param {Object} props.row Stored review row.
+ */
 function ResultMeta( { row } ) {
 	return (
 		<p className="pqm-result-meta">
 			{ ( row.status || isFailedRow( row ) ) && (
-				<StatusBadge status={ isFailedRow( row ) ? 'error' : row.status } />
+				<StatusBadge
+					status={ isFailedRow( row ) ? 'error' : row.status }
+				/>
 			) }
-			{ row.overall_score > 0 && <ScoreBadge score={ row.overall_score } /> }
+			{ row.overall_score > 0 && (
+				<ScoreBadge score={ row.overall_score } />
+			) }
 			<span className="pqm-muted">
 				{ row.reviewed_at_display || row.reviewed_at }
 			</span>
@@ -150,6 +166,13 @@ function ResultMeta( { row } ) {
  * attribute) with a lock icon, the LOCKED_TITLE tooltip and a
  * visually-hidden LOCKED_SUFFIX in its name; otherwise Run / Re-run,
  * disabled while the post is busy.
+ *
+ * @param {Object}   props
+ * @param {string}   props.command   Command key.
+ * @param {boolean}  props.hasRun    Whether a stored row exists for the command.
+ * @param {Object}   props.viewer    The list's `viewer` block.
+ * @param {boolean}  props.disabled  True while the post is busy.
+ * @param {Function} props.onTrigger `( command ) => void`.
  */
 function CommandButton( { command, hasRun, viewer, disabled, onTrigger } ) {
 	if ( ! canRender( viewer, command ) ) {
@@ -189,14 +212,21 @@ function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
 	const state = rowState( row );
 	const data = state === 'done' ? reviewData( row ) : null;
 	const topEdits =
-		isObject( data ) && Array.isArray( data.top_edits ) ? data.top_edits : [];
-	const anyButton = canRender( viewer, 'review' ) || canRender( viewer, 'rewrite' );
+		isObject( data ) && Array.isArray( data.top_edits )
+			? data.top_edits
+			: [];
+	const anyButton =
+		canRender( viewer, 'review' ) || canRender( viewer, 'rewrite' );
 
 	return (
 		<>
 			{ state === 'running' && <RunningNote command="review" /> }
-			{ state === 'failed' && <FailedNote row={ row } command="review" /> }
-			{ state === 'none' && <NotRunNote command="review" viewer={ viewer } /> }
+			{ state === 'failed' && (
+				<FailedNote row={ row } command="review" />
+			) }
+			{ state === 'none' && (
+				<NotRunNote command="review" viewer={ viewer } />
+			) }
 			{ state === 'done' && (
 				<>
 					<ResultMeta row={ row } />
@@ -218,7 +248,7 @@ function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
 			<div className="pqm-panel-actions">
 				{ editLink && (
 					<Button variant="primary" href={ editLink }>
-						{ __( 'Open in Editor', 'post-quality-manager' ) }
+						{ OPEN_IN_EDITOR }
 					</Button>
 				) }
 				<CommandButton
@@ -247,8 +277,12 @@ function AgentTab( { command, row, viewer, disabled, onTrigger } ) {
 	return (
 		<>
 			{ state === 'running' && <RunningNote command={ command } /> }
-			{ state === 'failed' && <FailedNote row={ row } command={ command } /> }
-			{ state === 'none' && <NotRunNote command={ command } viewer={ viewer } /> }
+			{ state === 'failed' && (
+				<FailedNote row={ row } command={ command } />
+			) }
+			{ state === 'none' && (
+				<NotRunNote command={ command } viewer={ viewer } />
+			) }
 			{ state === 'done' && (
 				<>
 					<ResultMeta row={ row } />
@@ -263,7 +297,9 @@ function AgentTab( { command, row, viewer, disabled, onTrigger } ) {
 					disabled={ disabled }
 					onTrigger={ onTrigger }
 				/>
-				{ canRender( viewer, command ) && <QuotaNote viewer={ viewer } /> }
+				{ canRender( viewer, command ) && (
+					<QuotaNote viewer={ viewer } />
+				) }
 			</div>
 		</>
 	);
@@ -330,7 +366,7 @@ export default function DetailPanel( {
 	useEffect( () => {
 		let cancelled = false;
 
-		apiFetch( { path: `/post-quality/v1/reviews/${ postId }` } )
+		apiFetch( { path: reviewsPath( postId ) } )
 			.then( ( data ) => {
 				if ( ! cancelled ) {
 					setRows( Array.isArray( data ) ? data : [] );
@@ -362,8 +398,7 @@ export default function DetailPanel( {
 	if ( rows === null ) {
 		return (
 			<p className="pqm-detail-note">
-				<Spinner />{ ' ' }
-				{ __( 'Loading reviews…', 'post-quality-manager' ) }
+				<Spinner /> { __( 'Loading reviews…', 'post-quality-manager' ) }
 			</p>
 		);
 	}
@@ -387,7 +422,8 @@ export default function DetailPanel( {
 						</span>
 						{ commandLabel( command ) }
 						<VisuallyHidden>
-							{ ' ' + __( '(has a result)', 'post-quality-manager' ) }
+							{ ' ' +
+								__( '(has a result)', 'post-quality-manager' ) }
 						</VisuallyHidden>
 					</>
 				) : (

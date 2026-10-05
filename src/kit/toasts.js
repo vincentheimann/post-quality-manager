@@ -4,10 +4,10 @@
  * SnackbarList, so trigger confirmations and polling outcomes surface
  * without a `core/notices` store or any `wp-data` dependency. Each
  * Snackbar announces its own message through `speak()` on mount, so the
- * wrapper is deliberately *not* a live region: the page keeps one
- * `role="status"` host (the table's "Updating…" line) and nothing nests
- * inside it. Each toast removes itself after five seconds; clicking one
- * dismisses it early.
+ * wrapper is deliberately *not* a live region, and both host pages render
+ * it outside any live region (Post Reviews keeps its one `role="status"`
+ * host, the "Updating…" line, separate). Each toast removes itself after
+ * five seconds; clicking one dismisses it early.
  */
 import { SnackbarList } from '@wordpress/components';
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';

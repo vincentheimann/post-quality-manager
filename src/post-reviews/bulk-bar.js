@@ -15,13 +15,20 @@ import { Button, Modal, Notice } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 
-/** "{title}: Review requested" or "{title}: {server message}". */
+/**
+ * "{title}: Review requested" or "{title}: {server message}".
+ *
+ * @param {Object} result `{ title, ok, message }` for one post.
+ * @return {string} Translated report line.
+ */
 function outcomeLine( result ) {
 	return sprintf(
 		/* translators: 1: post title; 2: outcome, e.g. "Review requested" or the server's refusal message */
 		__( '%1$s: %2$s', 'post-quality-manager' ),
 		result.title,
-		result.ok ? __( 'Review requested', 'post-quality-manager' ) : result.message
+		result.ok
+			? __( 'Review requested', 'post-quality-manager' )
+			: result.message
 	);
 }
 
@@ -29,7 +36,7 @@ function outcomeLine( result ) {
  * @param {Object}   props
  * @param {Array}    props.selection `[{ post_id, title }]` — selected, selectable rows of the current page.
  * @param {Object}   props.viewer    The list's `viewer` block (quota).
- * @param {Function} props.startRun  The table's `( postId, command ) => Promise<{ ok, message }>` — requestRun() from src/kit/runs.js plus polling re-arm; never rejects.
+ * @param {Function} props.startRun  `( postId, command ) => Promise<{ ok, message }>` from the kit's useSingleRun (src/kit/use-single-run.js) — requestRun() plus polling re-arm; never rejects.
  * @param {Function} props.onStart   Called when a batch starts (clears the selection).
  */
 export default function BulkBar( { selection, viewer, startRun, onStart } ) {
@@ -41,7 +48,12 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 	const quota = viewer && viewer.quota;
 
 	const run = async () => {
-		const batch = selection.map( ( { post_id, title } ) => ( { post_id, title } ) );
+		/* eslint-disable camelcase -- REST item key. */
+		const batch = selection.map( ( { post_id, title } ) => ( {
+			post_id,
+			title,
+		} ) );
+		/* eslint-enable camelcase */
 		setConfirming( false );
 		onStart();
 		setResults( [] );
@@ -60,7 +72,10 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 	if ( running ) {
 		hint = sprintf(
 			/* translators: 1: posts already requested; 2: posts in the batch */
-			__( 'Requesting reviews — %1$d of %2$d done…', 'post-quality-manager' ),
+			__(
+				'Requesting reviews — %1$d of %2$d done…',
+				'post-quality-manager'
+			),
 			results.length,
 			batchSize
 		);
@@ -76,7 +91,10 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 			count
 		);
 	} else {
-		hint = __( 'Select posts to review them in one go.', 'post-quality-manager' );
+		hint = __(
+			'Select posts to review them in one go.',
+			'post-quality-manager'
+		);
 	}
 
 	return (
@@ -106,15 +124,21 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 			{ results.length > 0 && (
 				<Notice
 					className="pqm-bulk-report"
-					status={ results.every( ( r ) => r.ok ) ? 'success' : 'warning' }
+					status={
+						results.every( ( r ) => r.ok ) ? 'success' : 'warning'
+					}
 					isDismissible={ ! running }
 					onRemove={ () => setResults( [] ) }
 					// Announce the newest outcome only, not the whole list again.
-					spokenMessage={ outcomeLine( results[ results.length - 1 ] ) }
+					spokenMessage={ outcomeLine(
+						results[ results.length - 1 ]
+					) }
 				>
 					<ul>
 						{ results.map( ( result ) => (
-							<li key={ result.post_id }>{ outcomeLine( result ) }</li>
+							<li key={ result.post_id }>
+								{ outcomeLine( result ) }
+							</li>
 						) ) }
 					</ul>
 				</Notice>
@@ -122,7 +146,10 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 
 			{ confirming && (
 				<Modal
-					title={ __( 'Review selected posts', 'post-quality-manager' ) }
+					title={ __(
+						'Review selected posts',
+						'post-quality-manager'
+					) }
 					onRequestClose={ () => setConfirming( false ) }
 				>
 					<p>
@@ -152,10 +179,17 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 						</p>
 					) }
 					<div className="pqm-confirm-actions">
-						<Button variant="tertiary" onClick={ () => setConfirming( false ) }>
+						<Button
+							variant="tertiary"
+							onClick={ () => setConfirming( false ) }
+						>
 							{ __( 'Cancel', 'post-quality-manager' ) }
 						</Button>
-						<Button variant="primary" disabled={ count === 0 } onClick={ run }>
+						<Button
+							variant="primary"
+							disabled={ count === 0 }
+							onClick={ run }
+						>
 							{ sprintf(
 								/* translators: %d: number of selected posts */
 								_n(

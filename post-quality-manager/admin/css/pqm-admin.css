@@ -58,7 +58,6 @@ td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
 .pqm-import-url-intro { font-size: 13px; margin: 0 0 4px; }
 .pqm-import-url-row { display: flex; align-items: center; gap: 6px; max-width: 480px; }
 .pqm-import-url-field { flex: 1; }
-.pqm-copy-feedback { min-height: 0; }
 .pqm-copy-feedback:empty { display: none; }
 
 /* ─── Setup Wizard ────────────────────────────────────────── */

@@ -1,5 +1,5 @@
 /**
- * Post Reviews table (stories 5.1 – 5.4).
+ * Post Reviews table (stories 5.1 – 5.5, 5.10).
  *
  * Fetches GET post-quality/v1/posts and renders a native WP admin table
  * using the shared kit components (src/kit/): StatusBadge, ScoreBadge,
@@ -15,9 +15,10 @@
  *
  * Story 5.4: a per-row Details toggle opens the DetailPanel; trigger
  * buttons call POST /trigger-review directly (no confirm for a single
- * run); one usePolling hook watches the list's server-derived `in_flight`
- * field (3 s, auto-resumes after a reload) and refetches the current
- * query silently so rows update in place; outcomes surface as toasts.
+ * run); the kit's useSingleRun hook (usePolling inside) watches the
+ * list's server-derived `in_flight` field (3 s, auto-resumes after a
+ * reload) and refetches the current query silently so rows update in
+ * place; outcomes surface as toasts.
  *
  * Story 5.5: viewers who can run Review get a checkbox column (page-local
  * selection, cleared on any query change) and the BulkBar, which queues
@@ -30,33 +31,23 @@
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, Spinner } from '@wordpress/components';
-import {
-	Fragment,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from '@wordpress/element';
+import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs, getQueryArgs, removeQueryArgs } from '@wordpress/url';
 
 import { STATUS_NONE } from './kit/copy';
 import ProgressPills from './kit/progress-pills';
-import {
-	giveUpMessage,
-	requestRun,
-	requestedMessage,
-	settledToast,
-} from './kit/runs';
+import { POSTS_PATH, canRender, inFlight } from './kit/runs';
 import ScoreBadge from './kit/score-badge';
 import StatusBadge from './kit/status-badge';
-import Toasts, { useToasts } from './kit/toasts';
-import usePolling from './kit/use-polling';
+import Toasts from './kit/toasts';
+import useSingleRun from './kit/use-single-run';
 import BulkBar from './post-reviews/bulk-bar';
-import DetailPanel, { canRender } from './post-reviews/detail-panel';
+import DetailPanel from './post-reviews/detail-panel';
 import FilterBar from './post-reviews/filter-bar';
 import Pagination from './post-reviews/pagination';
 import SortableHeader from './post-reviews/sortable-header';
+import './post-reviews/style.css';
 
 const PER_PAGE = 20;
 // No `processing`: placeholders never form a post's latest status (5.4), so that filter would be empty.
@@ -88,13 +79,20 @@ function readQueryFromUrl() {
 		status: STATUSES.includes( args.status ) ? args.status : '',
 		min_score: scoreParam( args.min_score ),
 		max_score: scoreParam( args.max_score ),
-		orderby: ORDERBYS.includes( args.orderby ) ? args.orderby : DEFAULT_QUERY.orderby,
+		orderby: ORDERBYS.includes( args.orderby )
+			? args.orderby
+			: DEFAULT_QUERY.orderby,
 		order: args.order === 'asc' ? 'asc' : 'desc',
 		paged: Number.isInteger( paged ) && paged > 1 ? paged : 1,
 	};
 }
 
-/** Only the non-default params, as strings, for the URL and the request. */
+/**
+ * Only the non-default params, as strings, for the URL and the request.
+ *
+ * @param {Object} query Table query state.
+ * @return {Object} Params that differ from DEFAULT_QUERY.
+ */
 function activeParams( query ) {
 	const params = {};
 	QUERY_KEYS.forEach( ( key ) => {
@@ -114,10 +112,15 @@ function writeQueryToUrl( query ) {
 	window.history.replaceState( null, '', url );
 }
 
-/** The REST path for a query — also the identity the polling hook keys on. */
+/**
+ * The REST path for a query — also the identity the polling hook keys on.
+ *
+ * @param {Object} query Table query state.
+ * @return {string} GET /posts path with the query's params.
+ */
 function restPath( query ) {
 	const { paged, ...rest } = activeParams( query );
-	return addQueryArgs( '/post-quality/v1/posts', {
+	return addQueryArgs( POSTS_PATH, {
 		per_page: PER_PAGE,
 		page: paged || 1,
 		...rest,
@@ -132,11 +135,12 @@ function hasActiveFilters( query ) {
 	);
 }
 
-function inFlight( item, command ) {
-	return Array.isArray( item.in_flight ) && item.in_flight.includes( command );
-}
-
-/** Yoast SEO + readability badges; one grey "—" while Yoast has no score at all. */
+/**
+ * Yoast SEO + readability badges; one grey "—" while Yoast has no score at all.
+ *
+ * @param {Object}      props
+ * @param {Object|null} props.yoast The item's `yoast` block (`seo`, `readability`).
+ */
 function YoastBadges( { yoast } ) {
 	const { seo = null, readability = null } = yoast || {};
 
@@ -162,7 +166,10 @@ function YoastBadges( { yoast } ) {
 			<ScoreBadge
 				score={ readability }
 				label={ __( 'Readability', 'post-quality-manager' ) }
-				title={ __( 'Yoast readability score', 'post-quality-manager' ) }
+				title={ __(
+					'Yoast readability score',
+					'post-quality-manager'
+				) }
 			/>
 		</>
 	);
@@ -193,7 +200,7 @@ function PostRow( {
 							item.title
 						) }
 						checked={ isSelected }
-						disabled={ inFlight( item, 'review' ) }
+						disabled={ inFlight( item ) }
 						onChange={ onSelect }
 					/>
 				</td>
@@ -228,7 +235,9 @@ function PostRow( {
 				{ /* A running review shows Processing; the stored latest_*
 				     (and so score, order and membership) stay its last result. */ }
 				<StatusBadge
-					status={ inFlight( item, 'review' ) ? 'processing' : item.latest_status }
+					status={
+						inFlight( item ) ? 'processing' : item.latest_status
+					}
 				/>
 			</td>
 			<td className="pqm-cell-progress">
@@ -272,47 +281,41 @@ export default function PostReviewsTable() {
 	const [ isLoading, setIsLoading ] = useState( true );
 	const [ error, setError ] = useState( false );
 
-	// Story 5.4 state: the open panel, a refetch trigger for the current
-	// query (silent for polling ticks — no "Updating…" announcement every
-	// 3 s), the panel's refetch version and the post with a pending
-	// trigger. A post stays busy from the click until the post-trigger
-	// refetch (refreshKey ≥ pendingUntilKey) resolves.
+	// Story 5.4 state: the open panel and the panel's refetch version.
+	// The single-run plumbing (refetch trigger, busy post, polling, toasts)
+	// is the kit's useSingleRun; a run start or completion bumps the panel.
 	const [ openPostId, setOpenPostId ] = useState( null );
-	const [ refreshKey, setRefreshKey ] = useState( 0 );
-	const refreshCounter = useRef( 0 );
-	const silentRefresh = useRef( false );
 	const [ detailVersion, setDetailVersion ] = useState( 0 );
-	const [ pendingPostId, setPendingPostId ] = useState( null );
-	const pendingUntilKey = useRef( null );
-	const { toasts, addToast, removeToast } = useToasts();
+	const bumpDetail = () => setDetailVersion( ( v ) => v + 1 );
+	const {
+		refreshKey,
+		settlePending,
+		awaited,
+		pendingPostId,
+		startRun,
+		trigger,
+		toasts,
+		removeToast,
+	} = useSingleRun( items, loadedKey, {
+		onStarted: bumpDetail,
+		onSettled: bumpDetail,
+	} );
+	// Every refreshKey change is a run refetch (polling tick or
+	// post-trigger): silent — no "Updating…" announcement every 3 s.
+	const seenRefreshKey = useRef( refreshKey );
 	// Story 5.5: selected post ids, page-local.
 	const [ selected, setSelected ] = useState( () => new Set() );
 
-	/** Refetch the current query; returns the refreshKey that request carries. */
-	const refetch = useCallback( ( silent = false ) => {
-		silentRefresh.current = silent;
-		refreshCounter.current += 1;
-		setRefreshKey( refreshCounter.current );
-		return refreshCounter.current;
-	}, [] );
-
 	useEffect( () => {
 		let cancelled = false; // a newer request supersedes this one
-		const silent = silentRefresh.current;
-		silentRefresh.current = false;
+		const silent = seenRefreshKey.current !== refreshKey;
+		seenRefreshKey.current = refreshKey;
 		const path = restPath( query );
 
 		writeQueryToUrl( query );
 		if ( ! silent ) {
 			setIsLoading( true );
 		}
-
-		const settlePending = () => {
-			if ( pendingUntilKey.current !== null && refreshKey >= pendingUntilKey.current ) {
-				pendingUntilKey.current = null;
-				setPendingPostId( null );
-			}
-		};
 
 		apiFetch( { path } )
 			.then( ( data ) => {
@@ -327,7 +330,7 @@ export default function PostReviewsTable() {
 				setViewer( ( data && data.viewer ) || null );
 				setYoastActive( !! ( data && data.yoast_active ) );
 				setIsLoading( false );
-				settlePending();
+				settlePending( refreshKey );
 			} )
 			.catch( () => {
 				if ( cancelled ) {
@@ -335,7 +338,7 @@ export default function PostReviewsTable() {
 				}
 				// A silent (polling) failure keeps the rows; the next tick
 				// retries. The busy flag never outlives its request.
-				settlePending();
+				settlePending( refreshKey );
 				if ( ! silent ) {
 					setError( true );
 				}
@@ -344,7 +347,7 @@ export default function PostReviewsTable() {
 		return () => {
 			cancelled = true;
 		};
-	}, [ query, refreshKey ] );
+	}, [ query, refreshKey, settlePending ] );
 
 	// Selection is page-local: any filter, sort or page change clears it.
 	useEffect( () => {
@@ -359,7 +362,7 @@ export default function PostReviewsTable() {
 		}
 		setSelected( ( prev ) => {
 			const busy = items.filter(
-				( item ) => prev.has( item.post_id ) && inFlight( item, 'review' )
+				( item ) => prev.has( item.post_id ) && inFlight( item )
 			);
 			if ( ! busy.length ) {
 				return prev;
@@ -370,66 +373,12 @@ export default function PostReviewsTable() {
 		} );
 	}, [ items ] );
 
-	// Completion: the row is already updated in place by the refetch (or
-	// the post left the current view because its result changed it); the
-	// outcome — score + status, or a failure — comes from the stored row.
-	const onSettled = useCallback(
-		( postId, command ) => {
-			setDetailVersion( ( v ) => v + 1 );
-			settledToast( postId, command ).then(
-				( toast ) => toast && addToast( toast.content, toast.status )
-			);
-		},
-		[ addToast ]
-	);
-
-	const onGiveUp = useCallback(
-		( postId, command ) => addToast( giveUpMessage( command ), 'info' ),
-		[ addToast ]
-	);
-
-	const { awaited, restart } = usePolling( items, loadedKey, {
-		onTick: () => refetch( true ),
-		onSettled,
-		onGiveUp,
-	} );
-
-	// One trigger path for single and bulk runs (D4 / F6): requestRun()
-	// (src/kit/runs.js, shared with the Dashboard) asks the server, which
-	// writes the processing row on an n8n 2xx; a success re-arms polling
-	// and refetches silently — rows switch to Processing. Resolves
-	// `{ ok, message }`; never rejects.
-	const startRun = ( postId, command ) =>
-		requestRun( postId, command ).then( ( outcome ) => {
-			if ( outcome.ok ) {
-				restart( postId, command );
-				setDetailVersion( ( v ) => v + 1 );
-				refetch( true );
-			}
-			return outcome;
-		} );
-
-	// Single run: no confirm; the post stays busy until the post-trigger
-	// refetch resolves.
-	const trigger = ( postId, command ) => {
-		setPendingPostId( postId );
-
-		startRun( postId, command ).then( ( { ok, message } ) => {
-			if ( ! ok ) {
-				addToast( message, 'warning' );
-				setPendingPostId( null );
-				return;
-			}
-			addToast( requestedMessage( command ), 'info' );
-			pendingUntilKey.current = refreshCounter.current; // the refetch startRun just issued
-		} );
-	};
-
 	// Any filter or sort change restarts at page 1.
-	const setStatus = ( status ) =>
-		setQuery( { ...query, status, paged: 1 } );
+	const setStatus = ( status ) => setQuery( { ...query, status, paged: 1 } );
+	/* eslint-disable camelcase -- REST query arg names. */
 	const setBand = ( min_score, max_score ) =>
 		setQuery( { ...query, min_score, max_score, paged: 1 } );
+	/* eslint-enable camelcase */
 	const setSort = ( orderby, order ) =>
 		setQuery( { ...query, orderby, order, paged: 1 } );
 	const setPage = ( paged ) => setQuery( { ...query, paged } );
@@ -458,8 +407,7 @@ export default function PostReviewsTable() {
 	if ( items === null ) {
 		return (
 			<p>
-				<Spinner />{ ' ' }
-				{ __( 'Loading posts…', 'post-quality-manager' ) }
+				<Spinner /> { __( 'Loading posts…', 'post-quality-manager' ) }
 			</p>
 		);
 	}
@@ -467,9 +415,12 @@ export default function PostReviewsTable() {
 	// Bulk Review (5.5): same rule as the panel's Review button.
 	const canBulk = canRender( viewer, 'review' );
 	const columns = 6 + ( canBulk ? 1 : 0 ) + ( yoastActive ? 1 : 0 );
-	const selectable = items.filter( ( item ) => ! inFlight( item, 'review' ) );
-	const selection = selectable.filter( ( item ) => selected.has( item.post_id ) );
-	const allSelected = selectable.length > 0 && selection.length === selectable.length;
+	const selectable = items.filter( ( item ) => ! inFlight( item ) );
+	const selection = selectable.filter( ( item ) =>
+		selected.has( item.post_id )
+	);
+	const allSelected =
+		selectable.length > 0 && selection.length === selectable.length;
 	const toggleSelect = ( postId ) =>
 		setSelected( ( prev ) => {
 			const next = new Set( prev );
@@ -480,7 +431,9 @@ export default function PostReviewsTable() {
 		} );
 	const toggleSelectAll = () =>
 		setSelected(
-			allSelected ? new Set() : new Set( selectable.map( ( item ) => item.post_id ) )
+			allSelected
+				? new Set()
+				: new Set( selectable.map( ( item ) => item.post_id ) )
 		);
 
 	const sortProps = {
@@ -540,7 +493,10 @@ export default function PostReviewsTable() {
 								<th scope="col" className="pqm-col-select">
 									<input
 										type="checkbox"
-										aria-label={ __( 'Select all posts', 'post-quality-manager' ) }
+										aria-label={ __(
+											'Select all posts',
+											'post-quality-manager'
+										) }
 										checked={ allSelected }
 										disabled={ selectable.length === 0 }
 										onChange={ toggleSelectAll }
@@ -561,7 +517,10 @@ export default function PostReviewsTable() {
 							/>
 							{ yoastActive && (
 								<th scope="col" className="pqm-col-yoast">
-									{ __( 'Yoast SEO', 'post-quality-manager' ) }
+									{ __(
+										'Yoast SEO',
+										'post-quality-manager'
+									) }
 								</th>
 							) }
 							<SortableHeader
@@ -575,7 +534,10 @@ export default function PostReviewsTable() {
 							</th>
 							<SortableHeader
 								column="reviewed_at"
-								label={ __( 'Last reviewed', 'post-quality-manager' ) }
+								label={ __(
+									'Last reviewed',
+									'post-quality-manager'
+								) }
 								className="pqm-col-date"
 								{ ...sortProps }
 							/>
@@ -595,10 +557,17 @@ export default function PostReviewsTable() {
 											item={ item }
 											isOpen={ isOpen }
 											isAwaited={ isAwaited }
-											onToggle={ () => toggleDetails( item.post_id ) }
+											onToggle={ () =>
+												toggleDetails( item.post_id )
+											}
 											canSelect={ canBulk }
-											isSelected={ selected.has( item.post_id ) && ! inFlight( item, 'review' ) }
-											onSelect={ () => toggleSelect( item.post_id ) }
+											isSelected={
+												selected.has( item.post_id ) &&
+												! inFlight( item )
+											}
+											onSelect={ () =>
+												toggleSelect( item.post_id )
+											}
 											yoastActive={ yoastActive }
 										/>
 										{ isOpen && (
@@ -609,15 +578,25 @@ export default function PostReviewsTable() {
 												<td colSpan={ columns }>
 													<DetailPanel
 														postId={ item.post_id }
-														editLink={ item.edit_link || '' }
+														editLink={
+															item.edit_link || ''
+														}
 														viewer={ viewer }
 														busy={
 															isAwaited ||
-															pendingPostId === item.post_id
+															pendingPostId ===
+																item.post_id
 														}
-														version={ detailVersion }
-														onTrigger={ ( command ) =>
-															trigger( item.post_id, command )
+														version={
+															detailVersion
+														}
+														onTrigger={ (
+															command
+														) =>
+															trigger(
+																item.post_id,
+																command
+															)
 														}
 													/>
 												</td>
@@ -629,7 +608,10 @@ export default function PostReviewsTable() {
 						{ items.length === 0 &&
 							( hasActiveFilters( query ) || query.paged > 1 ? (
 								<tr>
-									<td colSpan={ columns } className="pqm-empty-filtered">
+									<td
+										colSpan={ columns }
+										className="pqm-empty-filtered"
+									>
 										{ __(
 											'No posts match these filters.',
 											'post-quality-manager'

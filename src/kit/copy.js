@@ -1,8 +1,8 @@
 /**
  * Canonical command + gate copy (story 5.2) — the one JS source for
- * command order, command labels and plan-gate wording, consumed by the
- * Post Reviews table now and stories 5.3–5.6 later. Copy follows
- * docs/brand.md; every string flows through @wordpress/i18n.
+ * command order, command and status labels, plan-gate wording and the
+ * copy both React pages share (Post Reviews and the Dashboard). Copy
+ * follows docs/brand.md; every string flows through @wordpress/i18n.
  */
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -53,14 +53,18 @@ export const FREE_COMMANDS = [ 'review', 'takeaways' ];
  * @return {string} Translated label.
  */
 export function runLabel( command, hasRun = false ) {
-	return sprintf(
-		hasRun
-			? /* translators: %s: agent command label, e.g. "Review" */
-			  __( 'Re-run %s', 'post-quality-manager' )
-			: /* translators: %s: agent command label, e.g. "Review" */
-			  __( 'Run %s', 'post-quality-manager' ),
-		commandLabel( command )
-	);
+	const label = commandLabel( command );
+	return hasRun
+		? sprintf(
+				/* translators: %s: agent command label, e.g. "Review" */
+				__( 'Re-run %s', 'post-quality-manager' ),
+				label
+		  )
+		: sprintf(
+				/* translators: %s: agent command label, e.g. "Review" */
+				__( 'Run %s', 'post-quality-manager' ),
+				label
+		  );
 }
 
 /**
@@ -115,3 +119,6 @@ export const LOCKED_SUFFIX = __(
 	'(available with Pro)',
 	'post-quality-manager'
 );
+
+/** Link to the post's editor — the detail panel and the Fix-next queue. */
+export const OPEN_IN_EDITOR = __( 'Open in Editor', 'post-quality-manager' );

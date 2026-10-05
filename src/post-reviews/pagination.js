@@ -17,7 +17,12 @@ export default function Pagination( { total, page, pages, onChange } ) {
 				<span className="displaying-num">
 					{ sprintf(
 						/* translators: %d: number of posts matching the current filters */
-						_n( '%d item', '%d items', total, 'post-quality-manager' ),
+						_n(
+							'%d item',
+							'%d items',
+							total,
+							'post-quality-manager'
+						),
 						total
 					) }
 				</span>
@@ -30,7 +35,10 @@ export default function Pagination( { total, page, pages, onChange } ) {
 							className="prev-page"
 							disabled={ page <= 1 }
 							onClick={ () => onChange( page - 1 ) }
-							label={ __( 'Previous page', 'post-quality-manager' ) }
+							label={ __(
+								'Previous page',
+								'post-quality-manager'
+							) }
 							showTooltip={ false }
 						>
 							<span aria-hidden="true">‹</span>
@@ -39,7 +47,10 @@ export default function Pagination( { total, page, pages, onChange } ) {
 							<span className="tablenav-paging-text">
 								{ sprintf(
 									/* translators: 1: current page number, 2: total number of pages */
-									__( '%1$d of %2$d', 'post-quality-manager' ),
+									__(
+										'%1$d of %2$d',
+										'post-quality-manager'
+									),
 									page,
 									pages
 								) }

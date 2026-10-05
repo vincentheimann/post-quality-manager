@@ -5,7 +5,7 @@
 
 ## Post Quality Manager
 
-WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.0+ (REST API, Options API, WP-Cron), vanilla JS + jQuery in the admin. Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`.
+WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.6+ (REST API, Options API, WP-Cron); the Dashboard and Post Reviews are React app pages on `@wordpress/components`, Settings and n8n Workflow use jQuery. Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`.
 
 ## Policy
 
