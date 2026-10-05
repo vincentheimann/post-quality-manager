@@ -33,7 +33,7 @@ context: []
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
 | Yoast inactive | `WPSEO_VERSION` undefined | items `yoast: null`, `yoast_active: false`; no Yoast column, layout intact | — |
-| Yoast scored post | linkdex `72`, content_score `45` | `yoast: {seo: 72, readability: 45}`; badges "SEO 72" (orange) and "Readability 45" (orange) | — |
+| Yoast scored post | linkdex `72`, content_score `45` | `yoast: {seo: 72, readability: 45}`; badges "SEO 72" (green) and "Readability 45" (orange) | — |
 | Yoast unanalyzed post | both metas `''` | `yoast: {seo: null, readability: null}`; one grey "—" badge with tooltip "No Yoast analysis yet. Open the post in the editor to generate one." | — |
 | One score missing | linkdex `80`, content_score `''` | `{seo: 80, readability: null}`; "SEO 80" green, "Readability —" grey | — |
 | Pending post | `wp_post_status: 'pending'` | title followed by " — Pending" | — |
@@ -41,6 +41,8 @@ context: []
 | Empty / filtered list | Yoast active, no items | empty-state row spans every column | — |
 
 **Decision (owner, 2026-10-05): plan size.** The plan is kept whole at about 2,100 tokens: one goal, and the server fields only matter once the table shows them.
+
+**Decision (owner, 2026-10-05): matrix colour.** The "Yoast scored post" row read "SEO 72" (orange); corrected to green, as the kit thresholds give (71+ green), at the owner's request after review triage row 1.
 
 </frozen-after-approval>
 
@@ -108,4 +110,4 @@ Skipped: Yoast scores in the Dashboard queue or detail panel. Those belong to `e
 **Manual checks:**
 - Real site (Yoast on): Post Reviews shows the Yoast SEO column after Score. A scored post shows two labelled coloured badges, and an unanalyzed post shows one grey "—" with its tooltip. A pending post shows " — Pending". Open Details on a row: the expanded row spans the full width. Deactivate Yoast and reload: no column, layout intact, Details still full width. Check with and without the bulk checkbox column (Admin vs a role without Review).
 
-**Result (2026-10-05):** the owner walked the manual checks on the real site: Yoast on (scored, unanalyzed and pending posts, Details spanning the full width), Yoast off (no column, layout intact), with and without the bulk column, console open. All green. Story verify is met end to end. Open with the owner: the frozen matrix row "Yoast scored post" says "SEO 72" orange, but the kit thresholds make 72 green (triage row 1).
+**Result (2026-10-05):** the owner walked the manual checks on the real site: Yoast on (scored, unanalyzed and pending posts, Details spanning the full width), Yoast off (no column, layout intact), with and without the bulk column, console open. All green. Story verify is met end to end. The frozen matrix row "Yoast scored post" was corrected afterwards (owner decision "matrix colour").
