@@ -552,15 +552,15 @@ class PQM_REST_API {
                 'default'           => '',
                 'sanitize_callback' => 'sanitize_key',
             ],
+            // No sanitize_callback on the score args: WP passes three arguments and
+            // PHP internals (intval…) fatal on that — see score_bound().
             'min_score' => [
                 'required'          => false,
                 'type'              => 'integer',
-                'sanitize_callback' => 'intval',
             ],
             'max_score' => [
                 'required'          => false,
                 'type'              => 'integer',
-                'sanitize_callback' => 'intval',
             ],
         ];
     }
@@ -569,6 +569,10 @@ class PQM_REST_API {
     private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', PQM_DB::STATUS_NONE ];
 
     /**
+     * The score args carry no sanitize_callback on purpose: WP's schema
+     * sanitizing casts them to int, and WP calls a sanitize_callback with
+     * three arguments — PHP internals such as intval() fatal on that.
+     *
      * Clamp a score-band bound to 0–100; absent (null / empty) stays null,
      * which the DB layer reads as unbounded.
      */
