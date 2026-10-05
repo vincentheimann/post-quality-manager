@@ -11,6 +11,7 @@ persistent_facts = [
   "AI prompts in the n8n workflow stay niche-agnostic: universal pillars Structure, Readability, Engagement, Credibility; niche tailoring comes from user settings, never from code.",
   "Read docs/brand.md before writing any admin UI text, label, or copy.",
   "Never commit or push: present the change and let the user decide. Branches: feat/, fix/, chore/; Conventional Commits.",
+  "file:_bmad/custom/minimal-code-ladder.md",
 ]
 
 # House rules the vendored steps contradict (step-05-present.md and
@@ -30,4 +31,20 @@ extra reasoning, estimate the lines of code to add or modify and the files touch
 Oneshot only when all hold: 100 lines or fewer, at most 3 files, and no change
 to the DB schema, a REST route or its payload, or the n8n workflow template.
 Otherwise: full — the plan checkpoint is how the user approves work before code.
+"""
+
+# House lens (ADR 0007): over-engineering review, appended to the thorough set
+# the "full" route runs. The recipe and its tags live in the ladder file.
+[[workflow.thorough_lenses]]
+id = "overbuild"
+name = "Overbuild Hunter"
+instruction = """
+Launch a context-free subagent with this prompt:
+
+Read `_bmad/custom/minimal-code-ladder.md` at the repository root completely and follow its "Reviewing: the `overbuild` lens" section as your review instructions; the rest of that file defines what must never be flagged.
+
+Review content: the unified diff at `{diff_file}`. Read that file — it is the change under review. Search the repository before claiming a `reuse:` or `native:` replacement exists.
+
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+
 """

@@ -17,3 +17,4 @@ After any user correction, append the pattern to `memory/lessons.md` (format is 
 - A change bigger than one session → `bmad-spec` to fix the WHAT, `bmad-ticket` to incept the epic into stories, one `bmad-build` per story, `bmad-retrospective` when the epic is done.
 - `/prioritize` (EBM, `docs/user-paths.md`) decides which epic or backlog ticket is next; `/adr` records significant decisions; `/release` verifies a release.
 - Ask for a review only with `bmad-review` / `bmad-code-review`; they never run uninvited.
+- Code written outside `bmad-build` follows the same minimal-code ladder: `_bmad/custom/minimal-code-ladder.md` (ADR 0007; it loads automatically inside builds).
