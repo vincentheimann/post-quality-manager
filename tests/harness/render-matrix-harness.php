@@ -26,7 +26,7 @@ function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function plugin_basename($f) { return basename($f); }
 function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) { return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
+function get_option($k, $d = false) { if (isset($GLOBALS['tw_options'][$k])) { return $GLOBALS['tw_options'][$k]; } return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
@@ -352,6 +352,41 @@ $GLOBALS['tw'] = ['caps' => ['pqm_manage_settings'], 'pro' => true];
 check('settings-only role resolves to pqm_manage_settings', PQM_Admin::settings_page_capability() === 'pqm_manage_settings');
 $GLOBALS['tw'] = ['caps' => ['pqm_manage_agents'], 'pro' => true];
 check('agents-only role resolves to pqm_manage_agents', PQM_Admin::settings_page_capability() === 'pqm_manage_agents');
+
+/* n8n Workflow page: the credentials hint sits next to both import paths */
+echo "n8n Workflow page — credentials hint\n";
+if (!function_exists('wp_nonce_url')) { function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; } }
+if (!function_exists('add_query_arg')) { function add_query_arg($args, $url = '') { return $url . '?' . http_build_query((array) $args); } }
+$hint = 'n8n says "Credentials … are not set" after the import?';
+$render_workflow = static function (array $settings): string {
+    $GLOBALS['tw_settings'] = $settings;
+    ob_start();
+    PQM_Admin::render_workflow();
+    return ob_get_clean();
+};
+$wizard = $render_workflow(['n8n_webhook_url' => '']);
+preg_match('/<div class="pqm-wizard-step" data-step="2">.*?<\/div>\s*<div class="pqm-wizard-step" data-step="3">/s', $wizard, $m);
+$import_step = $m[0] ?? '';
+check('wizard: the hint sits in the Import step', str_contains($import_step, $hint));
+$connected = $render_workflow([]);
+preg_match('/Workflow File<\/h2>.*?<h2/s', $connected, $m);
+check('connected page: the hint sits in the Workflow File section, once', str_contains($m[0] ?? '', $hint) && substr_count($connected, $hint) === 1);
+check('wizard: no second "activate" line after the hint', !str_contains($import_step, 'Then activate the workflow in n8n.'));
+check('hint names the nodes to open', str_contains($connected, 'the six Claude nodes and Update WP Post (Rewrite)'));
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
+$outdated = $render_workflow([]);
+$GLOBALS['tw_options'] = [];
+check('update notice renders for an older import and no longer promises untouched credentials',
+    str_contains($outdated, 'Workflow update available.') && str_contains($outdated, 'your plugin settings stay as they are')
+    && !str_contains($outdated, 'credentials are untouched'));
+/* The hint names the credentialed nodes literally — keep it tied to the template. */
+$tpl = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true);
+$cred = [];
+foreach ($tpl['nodes'] as $n) { if (!empty($n['credentials'])) { $cred[$n['name']] = array_key_first($n['credentials']); } }
+$claude = array_filter($cred, static fn($type, $name) => $type === 'httpHeaderAuth' && str_starts_with($name, 'Claude - '), ARRAY_FILTER_USE_BOTH);
+check('template credentialed nodes = the six Claude nodes + Update WP Post (Rewrite), as the hint says',
+    count($cred) === 7 && count($claude) === 6 && ($cred['Update WP Post (Rewrite)'] ?? null) === 'httpBasicAuth');
+$GLOBALS['tw_settings'] = [];
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
