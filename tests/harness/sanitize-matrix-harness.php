@@ -317,5 +317,33 @@ check('read side: merged settings keep pattern on takeaways/sources only',
     pqm_get_settings()['agent_prompts']['sources']['pattern'] === 0
     && !isset(pqm_get_settings()['agent_prompts']['seo']['pattern']));
 
+/* ─── Case 8 (bug 19): pro site, the plan-gated sections absent from the
+       POST (form rendered while free, or a direct POST) carry stored ───── */
+echo "\nCase 8: pro site, cron + overrides not posted — stored values carry\n";
+$GLOBALS['pqm_test_patterns'] = [];
+foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+    foreach (['license_key only' => ['license_key' => 'PQM-STORED-KEY'], 'empty POST' => [], 'null input' => null] as $what => $post) {
+        setup($caps, true, $stored_option);
+        $out = PQM_Admin::sanitize_settings($post);
+        $expected_stored = pqm_get_settings();
+        $carried = array_filter($CRON_KEYS, static fn($key) => $out[$key] === $expected_stored[$key]);
+        check("$who, $what: every cron key identical to stored", $carried === $CRON_KEYS);
+        check("$who, $what: agent_prompts identical to stored", $out['agent_prompts'] === $expected_stored['agent_prompts']);
+    }
+}
+check('carried values are the stored ones, not the defaults', $out['cron_enabled'] === true
+    && $out['agent_prompts']['review']['model'] === 'claude-haiku-4-5');
+setup(['pqm_manage_agents'], true, $stored_option);
+$out = PQM_Admin::sanitize_settings([
+    'cron_frequency' => 'daily', 'cron_batch_size' => '3', 'cron_min_score' => '80', 'cron_max_age_days' => '10',
+    'agent_prompts'  => ['seo' => ['instructions' => 'seo instr', 'model' => '']],
+]);
+check('cron posted without the checkbox → cron_enabled false (unchecked)', $out['cron_enabled'] === false);
+check('…and the posted cron values are applied', $out['cron_frequency'] === 'daily' && $out['cron_batch_size'] === 3
+    && $out['cron_min_score'] === 80 && $out['cron_max_age_days'] === 10);
+check('an agent the POST omits carries its stored entry',
+    $out['agent_prompts']['review'] === pqm_get_settings()['agent_prompts']['review']);
+check('the posted agent is applied', $out['agent_prompts']['seo']['instructions'] === 'seo instr');
+
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

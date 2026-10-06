@@ -347,8 +347,14 @@ class PQM_Admin
             }
         }
 
-        if (PQM_Features::is_pro()) {
-            // Plan-gated sections: Automated Reviews + Agent-Specific Overrides.
+        // Plan-gated sections: Automated Reviews + Agent-Specific Overrides. A
+        // section the request did not post carries its stored values wholesale
+        // (never per field: an absent cron_enabled must not read as "unchecked")
+        // — locked on a free site (disabled fieldset), or missing on a pro site
+        // from a form rendered while the site was free, or a direct POST.
+        $is_pro = PQM_Features::is_pro();
+        $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
+        if ($is_pro && array_intersect_key($input, array_flip($cron_keys))) {
             $clean['cron_enabled'] = !empty($input['cron_enabled']);
             $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
                 ? $input['cron_frequency'] : $defaults['cron_frequency'];
@@ -356,13 +362,23 @@ class PQM_Admin
             $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
             $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
             $clean['cron_command'] = $defaults['cron_command'];
+        }
+        else {
+            foreach ($cron_keys as $key) {
+                $clean[$key] = $existing[$key];
+            }
+        }
 
+        if ($is_pro) {
             $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
             // Locked knobs (model doesn't support them) render disabled and are absent
             // from the POST — fall back to the stored value, not the default.
             $clean['agent_prompts'] = [];
             foreach (array_keys($defaults['agent_prompts']) as $agent) {
-                if (isset($input['agent_prompts'][$agent])) {
+                if (!isset($input['agent_prompts'][$agent])) {
+                    $clean['agent_prompts'][$agent] = $existing['agent_prompts'][$agent] ?? $defaults['agent_prompts'][$agent];
+                }
+                else {
                     $agent_input = $input['agent_prompts'][$agent];
                     $stored      = $existing['agent_prompts'][$agent] ?? $defaults['agent_prompts'][$agent];
                     $clean['agent_prompts'][$agent] = [
@@ -383,13 +399,6 @@ class PQM_Admin
             }
         }
         else {
-            // On a free site both sections render inside a disabled fieldset, so
-            // nothing of them POSTs — carry the stored values wholesale (never
-            // per field: an absent cron_enabled must not read as "unchecked").
-            $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
-            foreach ($cron_keys as $key) {
-                $clean[$key] = $existing[$key];
-            }
             $clean['agent_prompts'] = $existing['agent_prompts'];
         }
 
