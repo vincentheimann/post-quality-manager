@@ -62,7 +62,7 @@ class PQM_Blocks {
                 sprintf(
                     /* translators: %s: agent command label, e.g. "Takeaways" */
                     __( 'Run %s first, then insert.', 'post-quality-manager' ),
-                    self::label( $command )
+                    PQM_Features::label( $command )
                 ),
                 [ 'status' => 409 ]
             );
@@ -110,13 +110,6 @@ class PQM_Blocks {
         }
 
         return $patterns;
-    }
-
-    /** Translatable agent label for this class's copy and the route's success message. */
-    public static function label( string $command ): string {
-        return 'sources' === $command
-            ? __( 'Sources', 'post-quality-manager' )
-            : __( 'Takeaways', 'post-quality-manager' );
     }
 
     /**

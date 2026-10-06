@@ -210,6 +210,17 @@ class PQM_Admin
         );
         wp_set_script_translations('pqm-app', 'post-quality-manager', PQM_PLUGIN_DIR . 'languages');
 
+        // Command labels come from the PHP registry, the one label source;
+        // src/kit/copy.js commandLabel() reads them.
+        wp_add_inline_script(
+            'pqm-app',
+            'window.pqmCommandLabels = ' . wp_json_encode(array_map(
+                static fn(array $entry): string => $entry['label'],
+                PQM_Features::registry()
+            )) . ';',
+            'before'
+        );
+
         // @wordpress/components styling is served by core, not the bundle.
         wp_enqueue_style('wp-components');
 

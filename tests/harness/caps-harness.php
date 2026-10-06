@@ -251,11 +251,17 @@ $free_entry = ['tier' => 'free', 'capability' => 'pqm_run_free_agents'];
 $paid_entry = ['tier' => 'paid', 'capability' => 'pqm_run_paid_agents'];
 check('registry keys === the 8 commands', array_keys(PQM_Features::registry()) === $registry_commands);
 check('review, takeaways, score, apply free on pqm_run_free_agents; rewrite, sources, seo, audit paid on pqm_run_paid_agents',
-    PQM_Features::registry() === [
+    array_map(fn($entry) => array_intersect_key($entry, $free_entry), PQM_Features::registry()) === [
         'review'  => $free_entry, 'takeaways' => $free_entry,
         'rewrite' => $paid_entry, 'sources'   => $paid_entry, 'seo' => $paid_entry, 'audit' => $paid_entry,
         'score'   => $free_entry, 'apply'     => $free_entry,
     ]);
+/* Story 11: the registry is the one label source */
+check('every registry entry carries a non-empty label string',
+    array_filter(PQM_Features::registry(), fn($entry) => !is_string($entry['label'] ?? null) || $entry['label'] === '') === []);
+check("label('seo') === 'SEO', label('takeaways') === 'Takeaways'",
+    PQM_Features::label('seo') === 'SEO' && PQM_Features::label('takeaways') === 'Takeaways');
+check("label('foo') === 'foo' (unknown passes through raw, no ucfirst)", PQM_Features::label('foo') === 'foo');
 $unknown_commands = ['foo', 'apply_takeaways', 'ping', ''];
 foreach (['administrator', 'editor', 'author', 'contributor'] as $role_name) {
     foreach ([false, true] as $is_pro) {
