@@ -235,14 +235,24 @@ trigger('review');
 check('two triggers → two rows, each for its own command',
     processing_rows() === [[7, 'takeaways', 'processing'], [7, 'review', 'processing']]);
 
-/* ─── Decision: non-registry commands consume quota too ──────────────── */
-echo "Extra — non-registry command (score) spends quota\n";
+/* ─── Decision: score (free-tier registry entry since story 14) consumes quota too */
+echo "Extra — score spends quota\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);
 $r = trigger('score');
 check('score consumed one action', !is_wp_error($r) && stored_count() === 6);
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 20]);
 $r = trigger('score');
 check('score refused at the limit', is_wp_error($r) && $r->get_error_code() === 'pqm_quota_exceeded');
+
+/* ─── Story 14: an unknown command fails closed before the webhook ───── */
+echo "Extra — unknown command (foo) refused before any webhook\n";
+foreach (['author' => author_caps(), 'editor' => editor_caps()] as $who => $caps) {
+    reset_world($caps, ['month' => '2026-10', 'count' => 5]);
+    $r = trigger('foo');
+    check("$who: foo refused with pqm_feature_gated", is_wp_error($r) && $r->get_error_code() === 'pqm_feature_gated');
+    check("$who: no webhook call, no processing row", $GLOBALS['tw']['webhook_calls'] === 0 && processing_rows() === []);
+    check("$who: no quota consumed", stored_count() === 5);
+}
 
 /* ─── Reset-date formatting sanity ───────────────────────────────────── */
 echo "Extra — reset date is first of next month\n";

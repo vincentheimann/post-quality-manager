@@ -78,9 +78,11 @@ class PQM_Features {
     }
 
     /**
-     * Command registry: tier + required capability per agent.
-     * Commands not listed here (score, apply, apply_*) fall back to
-     * pqm_run_free_agents, the 1:1 successor of the old edit_posts check.
+     * Command registry: tier + required capability per command — the one
+     * command whitelist. The REST `command` enums are its keys, and a
+     * command missing here is refused (fail closed). score and apply are
+     * free-tier entries on pqm_run_free_agents, the 1:1 successor of the
+     * old edit_posts check.
      */
     public static function registry(): array {
         return [
@@ -90,6 +92,8 @@ class PQM_Features {
             'sources'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
             'seo'       => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
             'audit'     => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
+            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
+            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
         ];
     }
 
@@ -107,13 +111,13 @@ class PQM_Features {
      * Plan half of the gate alone: may this site's plan run $command?
      * The single source for the plan decision — why_not() delegates here,
      * and site-level runs with no user (cron, per ADR 0003) call it
-     * directly. Unknown commands fall back to the free tier, mirroring
+     * directly. An unknown command is refused (fail closed), mirroring
      * why_not().
      */
     public static function plan_allows( string $command ): bool {
-        $entry = self::registry()[ $command ] ?? [ 'tier' => 'free' ];
+        $entry = self::registry()[ $command ] ?? null;
 
-        return $entry['tier'] !== 'paid' || self::is_pro();
+        return $entry !== null && ( $entry['tier'] !== 'paid' || self::is_pro() );
     }
 
     /**
@@ -121,12 +125,13 @@ class PQM_Features {
      * 'role' (lacks the capability — hidden in the UI), 'plan' (paid tier
      * on a free site — visible but locked), or null when allowed.
      * Role is checked first: there is nothing to upsell to a user whose
-     * role cannot run the agent at all.
+     * role cannot run the agent at all. An unknown command is 'role' for
+     * everyone (fail closed) — no role can run what the registry lacks.
      */
     public static function why_not( string $command ): ?string {
-        $entry = self::registry()[ $command ] ?? [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ];
+        $entry = self::registry()[ $command ] ?? null;
 
-        if ( ! current_user_can( $entry['capability'] ) ) {
+        if ( $entry === null || ! current_user_can( $entry['capability'] ) ) {
             return 'role';
         }
 

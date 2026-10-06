@@ -5,7 +5,9 @@
  * (story-role-capabilities-replace-binary-checks-plan.md, Implementation
  * Notes + Review Triage Log): the ADR 0003 default map, register/remove
  * semantics, the why_not() role×command×plan matrix, and the
- * hidden/gated/allowed split of the registry.
+ * hidden/gated/allowed split of the registry. Story 14 appends the
+ * registry-as-whitelist rows: score/apply explicit free-tier entries and
+ * the fail-closed fallback for unknown commands.
  */
 
 error_reporting(E_ALL);
@@ -91,7 +93,7 @@ $default_map = [
     'pqm_manage_agents'   => ['administrator', 'editor'],
     'pqm_manage_settings' => ['administrator'],
 ];
-$registry_commands = ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit'];
+$registry_commands = ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply'];
 $paid_commands     = ['rewrite', 'sources', 'seo', 'audit'];
 
 /* ─── Row 1: Default map ─────────────────────────────────────────────── */
@@ -167,10 +169,12 @@ check('non-pqm direct grants and role keys survive',
     && $GLOBALS['tw']['users']['denied editor']->caps === ['editor' => true]);
 
 /* ─── Row 4: why_not() matrix — role × 8 commands × plan on/off ──────── */
-echo "Row 4 — why_not() matrix (role before plan, free fallback outside the registry)\n";
-/* Story 1.2's verified matrix. 8 commands = 6 registry + score/apply_takeaways
- * (non-registry → free-tier fallback on pqm_run_free_agents). */
-$free_cells = ['review' => null, 'takeaways' => null, 'score' => null, 'apply_takeaways' => null];
+echo "Row 4 — why_not() matrix (role before plan) over the 8 registry commands\n";
+/* Story 1.2's verified matrix, cells unchanged. Story 14 made score/apply
+ * explicit free-tier entries on pqm_run_free_agents (the cells they had as
+ * the free fallback) and swapped apply_takeaways (not sent since story 5.7,
+ * now fail-closed, see Row 6) for apply. */
+$free_cells = ['review' => null, 'takeaways' => null, 'score' => null, 'apply' => null];
 $expected_matrix = [
     'administrator' => [
         'free' => $free_cells + ['rewrite' => 'plan', 'sources' => 'plan', 'seo' => 'plan', 'audit' => 'plan'],
@@ -185,8 +189,8 @@ $expected_matrix = [
         'pro'  => $free_cells + ['rewrite' => 'role', 'sources' => 'role', 'seo' => 'role', 'audit' => 'role'],
     ],
     'contributor' => [ // holds no cap at all
-        'free' => array_fill_keys(['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply_takeaways'], 'role'),
-        'pro'  => array_fill_keys(['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply_takeaways'], 'role'),
+        'free' => array_fill_keys($registry_commands, 'role'),
+        'pro'  => array_fill_keys($registry_commands, 'role'),
     ],
 ];
 foreach ($expected_matrix as $role_name => $by_plan) {
@@ -240,6 +244,38 @@ foreach ($expected_split as [$role_name, $is_pro, $exp_hidden, $exp_gated]) {
     sort($all);
     check("$role_name $plan hidden + gated + allowed = registry", $union === $all);
 }
+
+/* ─── Row 6 (story 14): the registry is the command whitelist ────────── */
+echo "Row 6 — registry = the 8 commands with their tiers; unknown commands fail closed\n";
+$free_entry = ['tier' => 'free', 'capability' => 'pqm_run_free_agents'];
+$paid_entry = ['tier' => 'paid', 'capability' => 'pqm_run_paid_agents'];
+check('registry keys === the 8 commands', array_keys(PQM_Features::registry()) === $registry_commands);
+check('review, takeaways, score, apply free on pqm_run_free_agents; rewrite, sources, seo, audit paid on pqm_run_paid_agents',
+    PQM_Features::registry() === [
+        'review'  => $free_entry, 'takeaways' => $free_entry,
+        'rewrite' => $paid_entry, 'sources'   => $paid_entry, 'seo' => $paid_entry, 'audit' => $paid_entry,
+        'score'   => $free_entry, 'apply'     => $free_entry,
+    ]);
+$unknown_commands = ['foo', 'apply_takeaways', 'ping', ''];
+foreach (['administrator', 'editor', 'author', 'contributor'] as $role_name) {
+    foreach ([false, true] as $is_pro) {
+        reset_world(['administrator', 'editor', 'author', 'contributor'], $is_pro, $role_name);
+        PQM_Features::register_capabilities();
+        $plan = $is_pro ? 'pro' : 'free';
+        foreach ($unknown_commands as $command) {
+            check(sprintf("%-13s %-4s why_not('%s') = 'role', can() false", $role_name, $plan, $command),
+                PQM_Features::why_not($command) === 'role' && PQM_Features::can($command) === false);
+            check(sprintf("%-13s %-4s plan_allows('%s') = false", $role_name, $plan, $command),
+                PQM_Features::plan_allows($command) === false);
+        }
+    }
+}
+/* the pqm_is_pro override cannot open an unknown command either (free site, filter flips it pro) */
+reset_world(['administrator', 'editor', 'author', 'contributor'], false, 'administrator');
+PQM_Features::register_capabilities();
+$GLOBALS['tw']['filter_pro'] = true;
+check("mu-plugin override: why_not('foo') still 'role', plan_allows('foo') still false",
+    PQM_Features::why_not('foo') === 'role' && PQM_Features::plan_allows('foo') === false);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

@@ -318,7 +318,7 @@ class PQM_REST_API {
             'command' => [
                 'required' => true,
                 'type'     => 'string',
-                'enum'     => [ 'score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply' ],
+                'enum'     => array_keys( PQM_Features::registry() ), // the one command whitelist
             ],
             'overall_score' => [
                 'required' => false,
@@ -444,7 +444,7 @@ class PQM_REST_API {
                 'required' => false,
                 'type'     => 'string',
                 'default'  => 'review',
-                'enum'     => [ 'score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply' ],
+                'enum'     => array_keys( PQM_Features::registry() ), // the one command whitelist
             ],
         ];
     }
