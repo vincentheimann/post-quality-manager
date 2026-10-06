@@ -2,7 +2,7 @@
 type: initiative
 title: "Post Quality Manager — continuous content quality for any WordPress blog"
 parent: none
-covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4]
+covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5]
 after: []
 assignee: ""
 risk: medium
@@ -36,6 +36,7 @@ Owner requests:
 - O2: Free plan = Review + Key Takeaways; paid plan = everything else, one build, hosted licensing, per-site license (ADR 0003, 2026-09-22)
 - O3: Yoast scores as SEO/Audit agent context, framed as algorithmic signals, plus a per-review Yoast snapshot in `result_data`; the Review agent stays Yoast-free (user-approved 2026-07-23)
 - O4: Chat-provider contract — the webhook in/out JSON documented so any chat tool drives the workflow without reading n8n nodes
+- O5: Model choice and cost control in a clear Settings page — provider-then-model choice across the main providers, free models, a site-wide monthly token limit, Settings organized in tabs with an unambiguous AI context section (ADR 0009, 2026-10-06)
 
 ## Done when
 
@@ -64,6 +65,9 @@ The WordPress plugin, its REST contract and the n8n workflow template it ships. 
 - Decision: lightweight BMad — build/spec/ticket/review/retrospective only, no PRD or architecture layer (user, 2026-10-01, ADR 0004).
 - Decision: O1 and O2 are the first epic to be spec'd and incepted, but only after `/prioritize` ranks them against UV1–UV7 (ADR 0003 consequence; user, 2026-09-22).
 - Decision: `/prioritize` 2026-10-01 — `epic-freemium-and-roles` confirmed first (owner priority O1/O2 per ADR 0003; also the gate WordPress.org distribution waits on). EBM runner-up on pure UV size: `epic-ebm-telemetry` (UV1). The hitl manual passes (backlog stories 1 and 6, UV2/UV4 — the cheapest UV→CV conversions) stay with the owner in parallel; story 6 gates the first release.
+- Decision: `/prioritize` 2026-10-06 — next is one real-site walk covering epic-ui-rebuild 5.9 and backlog stories 1, 6 and 8 (UV2/UV4, the cheapest UV→CV conversions; owner pick). O5 added so backlog stories 25–30 rank instead of reading as scope creep. Within O5, story 26 (AI Prompts & Context review) ranks above story 29 (usage and token limit) (owner). The Settings stories build in the order 26 → 27 → 25 (owner).
+- Decision: backlog story 8 dropped (owner, 2026-10-06) — the freemium epic's own manual pass (story 1.8, walked green 2026-10-02) covered its gate, quota and Settings-section checks; its one uncovered check, Settings JS on the Editor's page, moved to story 1.
+- Open question: the owner says (2026-10-06) the plugin is still in development with no real-user data, while `docs/user-paths.md` cites "user #1" real usage as evidence (A4, B1, B3, B5). Reconcile which claims are observations before the next ranking leans on them.
 - Parked: wizard-style workflow *builder* (assemble the n8n graph from blocks) — KISS, the config-injected export is the locked MVP approach; the setup *flow* wizard already exists.
 - Parked: per-agent custom free-text model IDs — the global Custom ID exists; add per-agent only on a real need (six extra fields otherwise).
 - Parked: WordPress.org distribution (readme.txt, screenshots, i18n, GPL asset review) — UV7, after the freemium gate exists (ADR 0003: GitHub Releases first).

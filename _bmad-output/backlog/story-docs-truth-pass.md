@@ -4,7 +4,7 @@ type: story
 title: "README and the capability behavior tell the same truth"
 parent: none
 covers: []
-after: []
+after: [19]
 assignee: ""
 refined: false
 hitl: false
@@ -24,3 +24,7 @@ Verify: a `pqm_manage_settings`-only user can no longer edit the two agents sect
 ## References
 
 - findings — _bmad-output/initiative-post-quality-manager/epic-freemium-and-roles/epic-freemium-and-roles-retrospective.md (a9, a10, a15; answered A10)
+
+## Notes
+
+- `after: [19]` (validation, 2026-10-06): both rewrite the plan-gated block of `sanitize_settings()` and add sanitize-matrix cases; this story's `pqm_manage_agents` carry builds on the carry rule bug 19 fixes.
