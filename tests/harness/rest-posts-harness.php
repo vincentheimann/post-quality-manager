@@ -620,9 +620,18 @@ check('dismiss URL targets the Dashboard and carries a nonce for pqm_dismiss_cro
     && strpos($url, 'pqm_dismiss_cron_nudge=1') !== false
     && strpos($url, '_wpnonce=nonce-pqm_dismiss_cron_nudge') !== false);
 check('dismiss URL is raw (no &amp;) — it travels as JSON into an href', strpos($url, '&amp;') === false);
+/* Ticket 16: the nudge follows pqm_manage_agents, the cap of the section it links to */
+$r = dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents'], $connected_pro, $one_scored);
+check('editor (pqm_manage_agents, no pqm_manage_settings) on pro → cron_nudge true + dismiss url',
+    $r['data']['cron_nudge'] === true && isset($r['data']['cron_nudge_dismiss_url']));
+check('…while can_manage_settings stays the settings cap (false)', $r['data']['can_manage_settings'] === false);
+$src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
+check('dismiss handler persists only for pqm_manage_agents (static)',
+    (bool) preg_match("/'pqm_dismiss_cron_nudge'\\)\\s*&& current_user_can\\('pqm_manage_agents'\\)/", $src));
 $cases = [
     'free plan'            => dashboard_with($admin, ['license_key' => ''] + $connected_pro, $one_scored),
-    'not an admin'         => dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents'], $connected_pro, $one_scored),
+    'settings-only role (cannot see the cron section)' => dashboard_with(['pqm_view_reviews', 'pqm_manage_settings'], $connected_pro, $one_scored),
+    'author (no pqm_manage_agents)' => dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents'], $connected_pro, $one_scored),
     'cron already on'      => dashboard_with($admin, ['cron_enabled' => true] + $connected_pro, $one_scored),
     'nothing analyzed'     => dashboard_with($admin, $connected_pro, []),
     'only a failed latest' => dashboard_with($admin, $connected_pro, [['post_id' => '1', 'overall_score' => '0', 'status' => 'error', 'reviewed_at' => ago(0, 1)]]),

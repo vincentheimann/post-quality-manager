@@ -345,5 +345,37 @@ check('an agent the POST omits carries its stored entry',
     $out['agent_prompts']['review'] === pqm_get_settings()['agent_prompts']['review']);
 check('the posted agent is applied', $out['agent_prompts']['seo']['instructions'] === 'seo instr');
 
+/* ─── Case 9 (ticket 16): settings-only saver — the agent sections need
+       pqm_manage_agents, so a posted cron + overrides section carries ───── */
+echo "\nCase 9: settings-only saver (pqm_manage_settings), pro site — cron + overrides posted\n";
+setup(['pqm_manage_settings'], true, $stored_option);
+$out = PQM_Admin::sanitize_settings([
+    'n8n_webhook_url' => 'https://other-n8n.example.com/webhook/pqm',
+    'webhook_token' => 'new-token',
+    'blog_profile' => 'marketing',
+    'author_quota' => '40',
+    'default_model' => 'claude-sonnet-5',
+    'cron_enabled' => '', 'cron_frequency' => 'daily', 'cron_batch_size' => '3',
+    'cron_min_score' => '80', 'cron_max_age_days' => '10',
+    'agent_prompts' => [
+        'review' => ['instructions' => 'smuggled', 'temperature' => '0.1', 'model' => '', 'effort' => 'max'],
+        'seo'    => ['instructions' => 'smuggled seo', 'model' => 'claude-sonnet-5'],
+    ],
+]);
+$expected_stored = pqm_get_settings();
+check('admin-only keys applied', $out['n8n_webhook_url'] === 'https://other-n8n.example.com/webhook/pqm'
+    && $out['webhook_token'] === 'new-token' && $out['blog_profile'] === 'marketing'
+    && $out['author_quota'] === 40 && $out['default_model'] === 'claude-sonnet-5');
+foreach ($CRON_KEYS as $key) {
+    check("'$key' carried byte-identically from stored", $out[$key] === $expected_stored[$key]);
+}
+check('cron_enabled true survives the posted empty checkbox', $out['cron_enabled'] === true);
+check('agent_prompts carried byte-identically from stored', $out['agent_prompts'] === $expected_stored['agent_prompts']);
+setup(['pqm_manage_settings'], false, $stored_option);
+$out = PQM_Admin::sanitize_settings(['cron_batch_size' => '3', 'agent_prompts' => ['review' => ['instructions' => 'smuggled']]]);
+$expected_stored = pqm_get_settings();
+check('free site: cron + agent_prompts carried too',
+    $out['cron_batch_size'] === 7 && $out['agent_prompts'] === $expected_stored['agent_prompts']);
+
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

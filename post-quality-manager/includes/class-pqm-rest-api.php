@@ -820,11 +820,12 @@ class PQM_REST_API {
         $can_admin = current_user_can( 'pqm_manage_settings' );
 
         // Habit-loop nudge: first result is in, cron still off. Pro only —
-        // on a free site the Automated Reviews section is locked.
+        // on a free site the Automated Reviews section is locked. Shown to
+        // whoever can see that section (pqm_manage_agents, ticket 16).
         $cron_nudge = null !== $average
             && empty( $settings['cron_enabled'] )
             && ! get_option( 'pqm_cron_nudge_dismissed' )
-            && $can_admin
+            && current_user_can( 'pqm_manage_agents' )
             && PQM_Features::is_pro();
 
         $data = [
