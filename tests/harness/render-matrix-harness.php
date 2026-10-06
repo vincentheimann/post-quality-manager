@@ -13,7 +13,13 @@ $GLOBALS['tw'] = ['caps' => [], 'pro' => false];
 
 /* ─── WP stubs ───────────────────────────────────────────────────────── */
 function add_action(...$a) {}
-function add_filter(...$a) {}
+/* Ticket 12: add_filter records its calls (WP's real arity) so a hook's callback is asserted, not grepped. */
+$GLOBALS['tw_filters'] = [];
+function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
+    $GLOBALS['tw_filters'][] = [$hook_name, $callback, $priority, $accepted_args];
+    return true;
+}
+function register_setting($option_group, $option_name, $args = []) {}
 function register_activation_hook(...$a) {}
 function register_deactivation_hook(...$a) {}
 function plugin_dir_path($f) { return dirname($f) . '/'; }
@@ -291,13 +297,17 @@ $src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/clas
 check('render gates on capabilities, never on role names', strpos($src, "get_role('author'") === false && preg_match("/wp_get_current_user\\(\\)->roles/", $src) === 0);
 
 /* Row: Author / options.php — WP core enforces option_page_capability;
- * static check that the filter and the menu agree on pqm_manage_agents */
-echo "Author refusal (static: option_page_capability + menu cap)\n";
+ * register_settings() is executed and its recorded filter asserted (ticket 12);
+ * the settings_page_capability() body and the menu cap stay static checks */
+echo "Author refusal (option_page_capability executed; menu cap + settings_page_capability body static)\n";
 /* Review fix 3: both gates resolve the capability dynamically so a role
  * granted either pqm_manage_settings or pqm_manage_agents gets access. */
 check('settings_page_capability() prefers manage_settings, falls back to manage_agents',
     (bool) preg_match("/function settings_page_capability\\(\\).*?pqm_manage_settings.*?pqm_manage_agents/s", $src));
-check('option save uses settings_page_capability', (bool) preg_match("/option_page_capability_pqm_settings_group'\\s*,\\s*\\[__CLASS__,\\s*'settings_page_capability'\\]/", $src));
+$GLOBALS['tw_filters'] = [];
+PQM_Admin::register_settings();
+check('option save uses settings_page_capability (register_settings() hooks option_page_capability_pqm_settings_group)',
+    $GLOBALS['tw_filters'] === [['option_page_capability_pqm_settings_group', ['PQM_Admin', 'settings_page_capability'], 10, 1]]);
 check('Settings menu uses settings_page_capability', (bool) preg_match("/self::settings_page_capability\\(\\),\\s*'pqm-settings'/", $src));
 $GLOBALS['tw'] = ['caps' => ['pqm_manage_settings'], 'pro' => true];
 check('settings-only role resolves to pqm_manage_settings', PQM_Admin::settings_page_capability() === 'pqm_manage_settings');

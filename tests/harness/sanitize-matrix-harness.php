@@ -427,5 +427,18 @@ $carried = array_filter($others, static fn($key) => $out[$key] === $expected_sto
 check('pro, only cron_enabled 0 posted, stored true: switched off', $out['cron_enabled'] === false);
 check('…and every other cron key carried', $carried === $others);
 
+/* ─── Case 11 (ticket 12): free site, an agents-holder POSTs agent_prompts
+       with new values (direct POST past the locked fieldset) — stored wins ── */
+echo "\nCase 11: free site, pqm_manage_agents saver smuggles agent_prompts\n";
+foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+    setup($caps, false, $stored_option);
+    $out = PQM_Admin::sanitize_settings(['agent_prompts' => [
+        'review'    => ['instructions' => 'smuggled', 'temperature' => '0.1', 'model' => 'claude-sonnet-5', 'effort' => 'max'],
+        'seo'       => ['instructions' => 'smuggled seo', 'temperature' => '0.9', 'model' => '', 'effort' => 'high'],
+        'takeaways' => ['instructions' => 'smuggled takeaways', 'temperature' => '0.2', 'model' => '', 'effort' => 'low', 'pattern' => '0'],
+    ]]);
+    check("$who: agent_prompts === stored", $out['agent_prompts'] === pqm_get_settings()['agent_prompts']);
+}
+
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

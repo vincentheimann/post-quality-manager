@@ -60,11 +60,21 @@ function apply_filters($tag, $value) {
     return $value;
 }
 function __($s, $d = null) { return $s; }
+/* Ticket 12: maybe_upgrade() reads/writes pqm_caps_version; stubs at WP's real arity, writes counted. */
+function get_option($option, $default_value = false) {
+    return array_key_exists($option, $GLOBALS['tw']['options'] ?? []) ? $GLOBALS['tw']['options'][$option] : $default_value;
+}
+function update_option($option, $value, $autoload = null) {
+    $GLOBALS['tw']['option_writes'] = ($GLOBALS['tw']['option_writes'] ?? 0) + 1;
+    $GLOBALS['tw']['options'][$option] = $value;
+    return true;
+}
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
 require $base . '/includes/class-pqm-license.php';
 require $base . '/includes/class-pqm-features.php';
+require $base . '/includes/class-pqm-activator.php';
 
 /* ─── Tiny assert runner ─────────────────────────────────────────────── */
 $pass = 0; $fail = 0;
@@ -299,6 +309,46 @@ check('README role cells === capabilities() written out exactly (case and order)
     array_map('trim', $readme_cells) === $expected_cells);
 check('README states single-site support (multisite unsupported)',
     str_contains($readme, '**Single-site only.**') && str_contains($readme, 'Multisite networks are not supported'));
+
+/* ─── Row 8 (ticket 12): maybe_upgrade() grants only when the stored version is behind ── */
+echo "Row 8 — PQM_Activator::maybe_upgrade() against pqm_caps_version\n";
+/** Each role's capabilities array, as stored. */
+function role_caps_snapshot() {
+    return array_map(static fn($role) => $role->capabilities, $GLOBALS['tw']['roles']);
+}
+/** Role name list holding $cap. */
+function holders_of($cap) {
+    return array_keys(array_filter($GLOBALS['tw']['roles'], static fn($role) => !empty($role->capabilities[$cap])));
+}
+
+reset_world();
+PQM_Activator::maybe_upgrade();
+foreach ($default_map as $cap => $granted_roles) {
+    check("option absent: $cap granted to exactly its default roles", holders_of($cap) === $granted_roles);
+}
+check('option absent: pqm_caps_version stored as CAPS_VERSION, one write',
+    ($GLOBALS['tw']['options']['pqm_caps_version'] ?? null) === PQM_Features::CAPS_VERSION && $GLOBALS['tw']['option_writes'] === 1);
+
+reset_world();
+PQM_Features::register_capabilities();
+$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) PQM_Features::CAPS_VERSION]; // real get_option returns the stored scalar as a string
+$GLOBALS['tw']['option_writes'] = 0;
+unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // an admin removed it by hand
+$before = role_caps_snapshot();
+PQM_Activator::maybe_upgrade();
+check('equal version: no grant — every role byte-identical (hand edit kept)', role_caps_snapshot() === $before);
+check('equal version: no option write', $GLOBALS['tw']['option_writes'] === 0);
+
+reset_world();
+PQM_Features::register_capabilities();
+/* Ceiling: with CAPS_VERSION = 1 this stores 0 — distinct from 'absent' only once CAPS_VERSION > 1. */
+$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) (PQM_Features::CAPS_VERSION - 1)];
+$GLOBALS['tw']['option_writes'] = 0;
+unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // a cap the older map lacked
+PQM_Activator::maybe_upgrade();
+check('lower version: re-grants (author holds pqm_view_reviews again)', holders_of('pqm_view_reviews') === $default_map['pqm_view_reviews']);
+check('lower version: stores CAPS_VERSION, one write',
+    $GLOBALS['tw']['options']['pqm_caps_version'] === PQM_Features::CAPS_VERSION && $GLOBALS['tw']['option_writes'] === 1);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

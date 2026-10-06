@@ -232,6 +232,23 @@ $GLOBALS['tw']['caps'] = [];
 check('check_view_reviews refuses without pqm_view_reviews', PQM_REST_API::check_view_reviews() === false);
 $GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
 check('check_view_reviews passes with pqm_view_reviews', PQM_REST_API::check_view_reviews() === true);
+/* Ticket 12: an edit_posts-only user (WP Author/Contributor without pqm caps) cannot read reviews */
+$GLOBALS['tw']['caps'] = ['edit_posts'];
+check('check_view_reviews refuses an edit_posts-only user', PQM_REST_API::check_view_reviews() === false);
+
+/* Ticket 12: the trigger route lets through any registry capability, nothing else */
+echo "Trigger route permission\n";
+check('/trigger-review gated by check_can_trigger', ($routes[$ns . '/trigger-review']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_can_trigger']);
+foreach ([
+    'free cap [pqm_run_free_agents]' => [['pqm_run_free_agents'], true],
+    'paid cap [pqm_run_paid_agents]' => [['pqm_run_paid_agents'], true],
+    'capless []'                     => [[], false],
+    'edit_posts only [edit_posts]'   => [['edit_posts'], false],
+] as $label => [$caps, $expected]) {
+    $GLOBALS['tw']['caps'] = $caps;
+    check("check_can_trigger, $label → " . var_export($expected, true), PQM_REST_API::check_can_trigger() === $expected);
+}
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
 
 /* Row: list happy path — 200 {items,total,pages}, full item shape + commands */
 echo "List happy path\n";
