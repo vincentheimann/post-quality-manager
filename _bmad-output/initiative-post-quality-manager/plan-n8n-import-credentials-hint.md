@@ -1,7 +1,6 @@
 ---
 title: 'The n8n Workflow page tells the user how to link credentials after an import'
 type: 'bugfix'
-ticket: ''
 created: '2026-10-06'
 status: 'done'
 route: 'oneshot'
