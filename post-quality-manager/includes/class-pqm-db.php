@@ -435,9 +435,11 @@ class PQM_DB {
     }
 
     /**
-     * Get posts that need a review (never reviewed, low score, or stale).
+     * Get posts that need a $command run (never run, low score, or stale),
+     * judged by each post's latest result of that command (ticket 3: a
+     * scheduled audit moves on instead of re-picking the same posts).
      */
-    public static function get_posts_needing_review( int $min_score = 60, int $max_age_days = 30, int $limit = 10 ): array {
+    public static function get_posts_needing_review( int $min_score = 60, int $max_age_days = 30, int $limit = 10, string $command = 'review' ): array {
         global $wpdb;
         $table    = self::table_name();
         $cutoff   = gmdate( 'Y-m-d H:i:s', time() - ( $max_age_days * DAY_IN_SECONDS ) );
@@ -452,9 +454,9 @@ class PQM_DB {
                 INNER JOIN (
                     SELECT post_id, MAX(reviewed_at) AS max_date
                     FROM {$table}
-                    WHERE command = 'review'
+                    WHERE command = %s
                     GROUP BY post_id
-                ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
+                ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date AND r1.command = %s
             ) lr ON p.ID = lr.post_id
             WHERE p.post_status = 'publish'
               AND p.post_type = 'post'
@@ -468,7 +470,7 @@ class PQM_DB {
         ";
 
         return $wpdb->get_results(
-            $wpdb->prepare( $sql, $min_score, $cutoff, $limit ), // phpcs:ignore WordPress.DB.PreparedSQL
+            $wpdb->prepare( $sql, $command, $command, $min_score, $cutoff, $limit ), // phpcs:ignore WordPress.DB.PreparedSQL
             ARRAY_A
         ) ?: [];
     }

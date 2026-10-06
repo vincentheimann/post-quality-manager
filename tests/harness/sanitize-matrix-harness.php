@@ -196,7 +196,7 @@ $input = [
     'cron_batch_size' => '9',
     'cron_min_score' => '65',
     'cron_max_age_days' => '20',
-    'cron_command' => 'rewrite', // ignored: forced to the fixed default
+    'cron_command' => 'rewrite', // never schedulable (ticket 3): falls back to review
     'agent_prompts' => [
         // Locked knobs absent (model without temp/effort posts neither).
         'seo' => ['instructions' => 'seo instr', 'model' => 'claude-sonnet-5'],
@@ -207,7 +207,7 @@ $out = PQM_Admin::sanitize_settings($input);
 check('globals applied', $out['blog_profile'] === 'lifestyle' && $out['author_quota'] === 0);
 check('custom model id sanitized', $out['custom_model'] === 'claude-x-1');
 check('cron applied', $out['cron_enabled'] === true && $out['cron_batch_size'] === 9);
-check('cron_command stays the fixed default', $out['cron_command'] === 'review');
+check('cron_command rewrite → review (not schedulable)', $out['cron_command'] === 'review');
 check('posted agent values applied', $out['agent_prompts']['review']['effort'] === 'max'
     && $out['agent_prompts']['review']['temperature'] === 0.2);
 check('locked temperature knob falls back to stored (seo: default 0.0? no — stored)',
@@ -439,6 +439,40 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
     ]]);
     check("$who: agent_prompts === stored", $out['agent_prompts'] === pqm_get_settings()['agent_prompts']);
 }
+
+/* ─── Case 12 (ticket 3): the schedulable commands — review, seo, audit
+       from a posted section on a pro site; anything else falls back ───── */
+echo "\nCase 12: cron_command whitelist (review / seo / audit)\n";
+$cron_section = ['cron_enabled' => '1', 'cron_frequency' => 'daily', 'cron_batch_size' => '3',
+    'cron_min_score' => '70', 'cron_max_age_days' => '10'];
+foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+    foreach (['review' => 'review', 'seo' => 'seo', 'audit' => 'audit', 'rewrite' => 'review',
+              'takeaways' => 'review', 'foo' => 'review', '' => 'review'] as $posted => $want) {
+        setup($caps, true, $stored_option);
+        $out = PQM_Admin::sanitize_settings($cron_section + ['cron_command' => $posted]);
+        check("$who, pro, posted '$posted' → stored '$want'", $out['cron_command'] === $want);
+    }
+    setup($caps, true, $stored_option);
+    $out = PQM_Admin::sanitize_settings($cron_section + ['cron_command' => ['audit']]);
+    check("$who, pro, array posted → review", $out['cron_command'] === 'review');
+}
+$stored_audit = array_merge($stored_option, ['cron_command' => 'audit']);
+setup(['pqm_manage_agents'], true, $stored_audit);
+$out = PQM_Admin::sanitize_settings(['license_key' => 'PQM-STORED-KEY']);
+check('pro, section absent: stored audit carried (bug 19)', $out['cron_command'] === 'audit');
+$out = PQM_Admin::sanitize_settings($cron_section);
+check('pro, section posted without cron_command → review', $out['cron_command'] === 'review');
+foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+    setup($caps, false, $stored_audit);
+    $out = PQM_Admin::sanitize_settings($cron_section + ['cron_command' => 'seo']);
+    check("$who, free site, posted seo: stored audit carried (locked)", $out['cron_command'] === 'audit');
+    $out = PQM_Admin::sanitize_settings(['cron_enabled' => '0', 'cron_command' => 'seo']);
+    check("$who, free off-switch with seo smuggled: off, audit carried",
+        $out['cron_enabled'] === false && $out['cron_command'] === 'audit');
+}
+setup(['pqm_manage_settings'], true, $stored_audit);
+$out = PQM_Admin::sanitize_settings($cron_section + ['cron_command' => 'seo']);
+check('settings-only saver, pro, posted seo: stored audit carried (story 16)', $out['cron_command'] === 'audit');
 
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

@@ -63,8 +63,8 @@ User #1's real usage today: cron batches do the routine inflow, manual per-post 
 ### B1. Review inflow
 WP-Cron reviews batches on schedule; manual triggers fill the gaps.
 
-- **CV:** the scheduler works and is configured (validated by real usage); since 2026-07-23 cron sends the same full payload as manual triggers (brand voice, prompts, LLM map).
-- **UV:** cron is locked to the `review` command — the seo/audit agents user #1 actually uses still require manual triggering (backlog: *cron command choice*).
+- **CV:** the scheduler works and is configured (validated by real usage); since 2026-07-23 cron sends the same full payload as manual triggers (brand voice, prompts, LLM map). *(2026-10-06, pending validation: a schedule can run Review, SEO or Audit — one command per schedule, posts picked by their latest result of that command; results land in the post's tab and row chips, the dashboard stays review-only — ticket 3.)*
+- **UV:** one command per schedule — running review and seo/audit both on a schedule is not possible yet; scheduled seo/audit results do not feed the dashboard counts or trend.
 - **Signal:** share of reviews originating from cron vs. manual.
 
 ### B2. Triage in the dashboard
@@ -108,7 +108,7 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 | 3 | Pull-back mechanism (digest / notifications) | A6, B1 | Retention; silent results are unrealized value by definition |
 | 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | The future wizard; converts evaluators into activated users |
 | 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users (backlog item exists) |
-| 6 | Cron for seo/audit commands | B1 | Direct ask from real usage (backlog item exists) |
+| 6 | Cron for seo/audit commands | B1 | Direct ask from real usage *(2026-10-06, pending validation: one command per schedule shipped, ticket 3)* |
 | 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP |
 
 **Current Value in one line:** an installed, configured system that continuously scores the back-catalog and shows where to look — validated by real daily-adjacent usage of review, takeaways/sources, and seo/audit.

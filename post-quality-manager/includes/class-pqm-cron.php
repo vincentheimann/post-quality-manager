@@ -75,7 +75,7 @@ class PQM_Cron {
             return;
         }
 
-        $posts = PQM_DB::get_posts_needing_review( $min_score, $max_age_days, $batch_size );
+        $posts = PQM_DB::get_posts_needing_review( $min_score, $max_age_days, $batch_size, $command );
 
         foreach ( $posts as $post_data ) {
             self::trigger_single_review( (int) $post_data['post_id'], $command, $settings );

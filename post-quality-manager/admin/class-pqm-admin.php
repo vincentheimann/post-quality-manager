@@ -20,6 +20,12 @@ class PQM_Admin
 {
 
     /**
+     * Commands Automated Reviews can schedule (ticket 3). Never rewrite (it
+     * changes the post) nor the insert-oriented takeaways/sources.
+     */
+    private const CRON_COMMANDS = ['review', 'seo', 'audit'];
+
+    /**
      * Hook suffix of the Post Reviews submenu page, captured at registration
      * so the enqueue gate never depends on the translated menu title
      * (e.g. 'content-quality_page_pqm-posts' on an English site).
@@ -366,8 +372,8 @@ class PQM_Admin
         // without pqm_manage_agents, locked on a free site (disabled fieldset),
         // or missing on a pro site from a form rendered while the site was
         // free, or a direct POST. "Posted" means the knobs the pro form always
-        // posts — not cron_enabled (the free off-switch posts it too) nor the
-        // disabled cron_command.
+        // posts — not cron_enabled (the free off-switch posts it too) nor
+        // cron_command (ticket 3: one of review/seo/audit, else review).
         $can_edit_agents = current_user_can('pqm_manage_agents') && PQM_Features::is_pro();
         $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
         $cron_knobs = ['cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days'];
@@ -378,7 +384,8 @@ class PQM_Admin
             $clean['cron_batch_size'] = absint($input['cron_batch_size'] ?? $defaults['cron_batch_size']);
             $clean['cron_min_score'] = absint($input['cron_min_score'] ?? $defaults['cron_min_score']);
             $clean['cron_max_age_days'] = absint($input['cron_max_age_days'] ?? $defaults['cron_max_age_days']);
-            $clean['cron_command'] = $defaults['cron_command'];
+            $clean['cron_command'] = in_array($input['cron_command'] ?? '', self::CRON_COMMANDS, true)
+                ? $input['cron_command'] : $defaults['cron_command'];
         }
         else {
             foreach ($cron_keys as $key) {
@@ -849,7 +856,11 @@ class PQM_Admin
                 // Enable toggle live, outside the lock, as an off-switch. The
                 // hidden 0 makes the unchecked state post; the sanitizer only
                 // ever reads it to switch off.
-                $cron_off_switch = !$is_pro && !empty($settings['cron_enabled']);
+                // Only while the stored command still runs on free (ticket 3):
+                // a paid seo/audit schedule is skipped by PQM_Cron, so nothing
+                // "keeps running" and the section stays fully locked.
+                $cron_off_switch = !$is_pro && !empty($settings['cron_enabled'])
+                    && PQM_Features::plan_allows((string) $settings['cron_command']);
                 ?>
                 <h2 id="pqm-cron-settings" class="pqm-section-gap"><?php
                     esc_html_e('Automated Reviews (Cron)', 'post-quality-manager');
@@ -867,7 +878,7 @@ class PQM_Admin
                             <input type="hidden" name="pqm_settings[cron_enabled]" value="0" />
                             <label>
                                 <input type="checkbox" name="pqm_settings[cron_enabled]" value="1" checked />
-                                <?php esc_html_e('Automatically review posts on a schedule', 'post-quality-manager'); ?>
+                                <?php esc_html_e('Automatically run an agent on a schedule', 'post-quality-manager'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('On the free plan, scheduled reviews can be switched off but not back on.', 'post-quality-manager'); ?></p>
                         </td>
@@ -884,7 +895,7 @@ class PQM_Admin
                             <label>
                                 <input type="checkbox" name="pqm_settings[cron_enabled]" value="1"
                                        <?php checked($settings['cron_enabled']); ?> />
-                                <?php esc_html_e('Automatically review posts on a schedule', 'post-quality-manager'); ?>
+                                <?php esc_html_e('Automatically run an agent on a schedule', 'post-quality-manager'); ?>
                             </label>
                         </td>
                     </tr>
@@ -904,16 +915,18 @@ class PQM_Admin
                             <input type="number" id="pqm_cron_batch_size" name="pqm_settings[cron_batch_size]"
                                    value="<?php echo esc_attr($settings['cron_batch_size']); ?>"
                                    min="1" max="20" class="small-text" />
-                            <p class="description"><?php esc_html_e('Number of posts to review per cron run.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('Number of posts per scheduled run.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
                         <th><label for="pqm_cron_command"><?php esc_html_e('Command', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <select id="pqm_cron_command" name="pqm_settings[cron_command]" disabled>
-                                <option value="review" selected>review</option>
+                            <select id="pqm_cron_command" name="pqm_settings[cron_command]">
+                                <?php foreach (self::CRON_COMMANDS as $cron_cmd): ?>
+                                <option value="<?php echo esc_attr($cron_cmd); ?>" <?php selected($settings['cron_command'], $cron_cmd); ?>><?php echo esc_html(PQM_Features::label($cron_cmd)); ?></option>
+                                <?php endforeach; ?>
                             </select>
-                            <p class="description"><?php esc_html_e('Only "review" is available in this version.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('The agent that runs on each schedule. Posts are picked by their latest result from that agent.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -922,16 +935,16 @@ class PQM_Admin
                             <input type="number" id="pqm_cron_min_score" name="pqm_settings[cron_min_score]"
                                    value="<?php echo esc_attr($settings['cron_min_score']); ?>"
                                    min="0" max="100" class="small-text" />
-                            <p class="description"><?php esc_html_e('Re-review posts scoring below this value.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('Re-run posts whose result from this agent scores below this value.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="pqm_cron_max_age_days"><?php esc_html_e('Max Review Age (days)', 'post-quality-manager'); ?></label></th>
+                        <th><label for="pqm_cron_max_age_days"><?php esc_html_e('Max Result Age (days)', 'post-quality-manager'); ?></label></th>
                         <td>
                             <input type="number" id="pqm_cron_max_age_days" name="pqm_settings[cron_max_age_days]"
                                    value="<?php echo esc_attr($settings['cron_max_age_days']); ?>"
                                    min="1" max="365" class="small-text" />
-                            <p class="description"><?php esc_html_e('Re-review posts whose last review is older than this.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('Re-run posts whose latest result from this agent is older than this.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                 </table>
