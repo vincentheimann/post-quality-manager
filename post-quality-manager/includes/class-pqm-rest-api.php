@@ -457,12 +457,15 @@ class PQM_REST_API {
     public static function trigger_review_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $settings = pqm_get_settings();
 
-        // Not connected: the next step depends on who clicked — only
-        // pqm_manage_settings holders can open the n8n Workflow page.
+        // Every failed-start message names a step the clicker can take:
+        // only pqm_manage_settings holders can fix the n8n connection.
+        $can_manage = current_user_can( 'pqm_manage_settings' );
+
+        // Not connected: admins are sent to the n8n Workflow page.
         if ( empty( $settings['n8n_webhook_url'] ) ) {
             return new WP_Error(
                 'pqm_not_configured',
-                current_user_can( 'pqm_manage_settings' )
+                $can_manage
                     ? __( 'n8n is not connected yet. Set up the workflow on the Content Quality → n8n Workflow page, then try again.', 'post-quality-manager' )
                     : __( 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.', 'post-quality-manager' ),
                 [ 'status' => 400 ]
@@ -521,8 +524,11 @@ class PQM_REST_API {
             return new WP_Error(
                 'pqm_n8n_error',
                 sprintf(
-                    /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
-                    __( 'Could not connect to n8n (%s). Check your Webhook URL in Settings.', 'post-quality-manager' ),
+                    $can_manage
+                        /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
+                        ? __( 'Could not connect to n8n (%s). Check your Webhook URL in Settings.', 'post-quality-manager' )
+                        /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
+                        : __( 'Could not connect to n8n (%s). Ask an administrator to check the n8n connection, then try again.', 'post-quality-manager' ),
                     $response->get_error_message()
                 ),
                 [ 'status' => 502 ]
@@ -561,8 +567,11 @@ class PQM_REST_API {
                     $post->post_title
                 )
                 : sprintf(
-                    /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
-                    __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' ),
+                    $can_manage
+                        /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
+                        ? __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' )
+                        /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
+                        : __( '%1$s could not start — n8n answered HTTP %2$d. Ask an administrator to check the workflow in n8n, then try again.', 'post-quality-manager' ),
                     PQM_Features::label( $command ),
                     $status_code
                 ),

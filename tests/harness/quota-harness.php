@@ -289,8 +289,8 @@ $GLOBALS['tw']['webhook_result'] = 500;
 $r = trigger('takeaways');
 $msg = !is_wp_error($r) ? $r->get_data()['message'] : '';
 check('non-2xx: 200 body with success false (unchanged), n8n_status 500', !is_wp_error($r) && $r->get_data()['success'] === false && $r->get_data()['n8n_status'] === 500);
-check('non-2xx: message names the n8n status and says the run did not start',
-    $msg === 'Takeaways could not start — n8n answered HTTP 500. Check that the workflow is active in n8n, then try again.');
+check('non-2xx: message names the n8n status and says the run did not start (editor: no pqm_manage_settings, ticket 33)',
+    $msg === 'Takeaways could not start — n8n answered HTTP 500. Ask an administrator to check the workflow in n8n, then try again.');
 
 /* ─── Ticket 32: not configured — role-aware copy, nothing spent ─────── */
 echo "Extra — webhook URL unset: 400 pqm_not_configured, copy names the next step per role\n";
@@ -304,6 +304,31 @@ foreach ([
     check("$who: copy is \"$copy\"", is_wp_error($r) && $r->get_error_message() === $copy);
     check("$who: no webhook call, no processing row, no quota spent",
         $GLOBALS['tw']['webhook_calls'] === 0 && processing_rows() === [] && stored_count() === 5);
+}
+
+/* ─── Ticket 33: failed-start copy names a step the clicker can take ─── */
+echo "Extra — n8n unreachable / non-2xx: copy per role, response shape unchanged\n";
+foreach ([
+    'admin'  => [editor_caps() + ['pqm_manage_settings' => true],
+        'Could not connect to n8n (cURL error 7). Check your Webhook URL in Settings.',
+        'Review could not start — n8n answered HTTP 500. Check that the workflow is active in n8n, then try again.'],
+    'author' => [author_caps(),
+        'Could not connect to n8n (cURL error 7). Ask an administrator to check the n8n connection, then try again.',
+        'Review could not start — n8n answered HTTP 500. Ask an administrator to check the workflow in n8n, then try again.'],
+] as $who => [$caps, $unreachable, $non2xx]) {
+    reset_world($caps, ['month' => '2026-10', 'count' => 5]);
+    $GLOBALS['tw']['webhook_result'] = 'error';
+    $r = trigger('review');
+    check("$who unreachable: 502 pqm_n8n_error", is_wp_error($r) && $r->get_error_code() === 'pqm_n8n_error' && ($r->get_error_data()['status'] ?? 0) === 502);
+    check("$who unreachable: copy is \"$unreachable\"", is_wp_error($r) && $r->get_error_message() === $unreachable);
+
+    reset_world($caps, ['month' => '2026-10', 'count' => 5]);
+    $GLOBALS['tw']['webhook_result'] = 500;
+    $r = trigger('review');
+    $d = !is_wp_error($r) ? $r->get_data() : [];
+    check("$who non-2xx: 200 body, success false, n8n_status 500", ($d['success'] ?? null) === false && ($d['n8n_status'] ?? 0) === 500);
+    check("$who non-2xx: copy is \"$non2xx\"", ($d['message'] ?? '') === $non2xx);
+    check("$who non-2xx: response keys unchanged", array_keys($d) === ['success', 'message', 'n8n_status', 'quota_remaining']);
 }
 
 /* ─── Reset-date formatting sanity ───────────────────────────────────── */
