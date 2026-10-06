@@ -2,7 +2,9 @@
  * useSingleRun (story 5.8) — the single-run plumbing shared by Post
  * Reviews and the Dashboard queue: the list refetch trigger, the post
  * that stays busy from the click until the post-trigger refetch resolves,
- * polling (usePolling) and the run toasts (requested / outcome / give-up).
+ * polling (usePolling), the run toasts (requested / outcome / give-up) and
+ * the last failed single-run start (`startError`, ticket 32), which the
+ * page shows as an inline Notice where the user clicked — never a toast.
  *
  * The page keeps its own list request: it reruns that request whenever
  * `refreshKey` changes and calls `settlePending( refreshKey )` once the
@@ -26,13 +28,14 @@ import usePolling from './use-polling';
  * @param {Object}     callbacks             The page's own reactions.
  * @param {Function}   [callbacks.onStarted] `( postId, command )` after a run was accepted.
  * @param {Function}   [callbacks.onSettled] `( postId, command )` once a run's result landed.
- * @return {Object} `refreshKey`, `settlePending( key )`, `awaited`, `pendingPostId`, `startRun( postId, command )`, `trigger( postId, command )`, `toasts`, `addToast( content, status )`, `removeToast( id )`.
+ * @return {Object} `refreshKey`, `settlePending( key )`, `awaited`, `pendingPostId`, `startRun( postId, command )`, `trigger( postId, command )`, `startError` (`{ postId, command, message }` or null), `dismissStartError()`, `toasts`, `addToast( content, status )`, `removeToast( id )`.
  */
 export default function useSingleRun( items, listKey, callbacks = {} ) {
 	const [ refreshKey, setRefreshKey ] = useState( 0 );
 	const refreshCounter = useRef( 0 );
 	const [ pendingPostId, setPendingPostId ] = useState( null );
 	const pendingUntilKey = useRef( null );
+	const [ startError, setStartError ] = useState( null );
 	const { toasts, addToast, removeToast } = useToasts();
 
 	// Latest page callbacks without re-creating the handlers every render.
@@ -100,13 +103,15 @@ export default function useSingleRun( items, listKey, callbacks = {} ) {
 		} );
 
 	// Single run: no confirm; the post stays busy until the post-trigger
-	// refetch resolves.
+	// refetch resolves. A failed start is kept as `startError` (inline
+	// Notice, until dismissed or the next click); success keeps its toast.
 	const trigger = ( postId, command ) => {
 		setPendingPostId( postId );
+		setStartError( null );
 
 		startRun( postId, command ).then( ( { ok, message } ) => {
 			if ( ! ok ) {
-				addToast( message, 'warning' );
+				setStartError( { postId, command, message } );
 				setPendingPostId( null );
 				return;
 			}
@@ -115,6 +120,8 @@ export default function useSingleRun( items, listKey, callbacks = {} ) {
 		} );
 	};
 
+	const dismissStartError = useCallback( () => setStartError( null ), [] );
+
 	return {
 		refreshKey,
 		settlePending,
@@ -122,6 +129,8 @@ export default function useSingleRun( items, listKey, callbacks = {} ) {
 		pendingPostId,
 		startRun,
 		trigger,
+		startError,
+		dismissStartError,
 		toasts,
 		addToast,
 		removeToast,

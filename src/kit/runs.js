@@ -2,8 +2,8 @@
  * Runs (story 5.6) — the one trigger + outcome source shared by Post
  * Reviews (single and bulk runs) and the Dashboard queue: the
  * POST /trigger-review request, the requested / outcome / give-up copy,
- * the REST paths both pages read, the gate helpers over the list's
- * `viewer` block and the `in_flight` check. The single-run plumbing
+ * the REST paths both pages read, the gate and connection helpers over
+ * the list's `viewer` block and the `in_flight` check. The single-run plumbing
  * around it (refresh, polling, toasts) lives in use-single-run.js.
  */
 import apiFetch from '@wordpress/api-fetch';
@@ -50,6 +50,17 @@ export function canRender( viewer, command ) {
  */
 export function isGated( viewer, command ) {
 	return !! viewer && ( viewer.gated_commands || [] ).includes( command );
+}
+
+/**
+ * Whether n8n is connected (a webhook URL is set). An older response
+ * without the `connected` key reads as connected, so nothing changes.
+ *
+ * @param {Object|null} viewer The list's `viewer` block.
+ * @return {boolean} Whether runs can start.
+ */
+export function isConnected( viewer ) {
+	return ! viewer || viewer.connected !== false;
 }
 
 /**

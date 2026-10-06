@@ -20,6 +20,9 @@
  * Story 14 appends: the /trigger-review and /save-review `command` enums
  * equal the registry keys (the one command whitelist), and the viewer's
  * hidden list covers all 8 registry commands.
+ *
+ * Ticket 32 appends the viewer's `connected` / `can_manage_settings` flags
+ * (webhook URL set or empty × admin or author).
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -490,8 +493,8 @@ echo "Viewer: free-tier author\n";
 $GLOBALS['tw']['caps'] = ['pqm_view_reviews', 'pqm_run_free_agents'];
 $GLOBALS['tw']['user_meta'] = [42 => ['pqm_monthly_usage' => ['month' => '2026-10', 'count' => 6]]];
 $v = viewer_block();
-check('viewer keys are {can_trigger,quota,gated_commands,hidden_commands}',
-    array_keys($v) === ['can_trigger', 'quota', 'gated_commands', 'hidden_commands']);
+check('viewer keys are {can_trigger,quota,gated_commands,hidden_commands} + connected, can_manage_settings appended (ticket 32)',
+    array_keys($v) === ['can_trigger', 'quota', 'gated_commands', 'hidden_commands', 'connected', 'can_manage_settings']);
 check('can_trigger true', $v['can_trigger'] === true);
 check('quota: limit 20, used 6, remaining 14',
     is_array($v['quota'])
@@ -529,6 +532,26 @@ check('quota null despite an applicable limit', $v['quota'] === null && PQM_Feat
 check('gated_commands empty', $v['gated_commands'] === []);
 check('all 8 registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply']);
 check('hidden equals PQM_Features::hidden_commands()', $v['hidden_commands'] === PQM_Features::hidden_commands());
+
+/* Ticket 32: connected / can_manage_settings — the GET /dashboard flags, on the list's viewer */
+echo "Viewer: connected and can_manage_settings\n";
+$viewer_admin  = ['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
+$viewer_author = ['pqm_view_reviews', 'pqm_run_free_agents'];
+foreach ([
+    'URL set, admin'    => ['https://n8n.example/webhook', $viewer_admin,  true,  true],
+    'URL empty, admin'  => ['',                            $viewer_admin,  false, true],
+    'URL empty, author' => ['',                            $viewer_author, false, false],
+    'URL set, author'   => ['https://n8n.example/webhook', $viewer_author, true,  false],
+] as $label => [$url, $caps, $connected, $can_manage]) {
+    $GLOBALS['tw']['caps'] = $caps;
+    $GLOBALS['tw']['user_meta'] = [];
+    $GLOBALS['tw']['options'] = ['pqm_settings' => ['n8n_webhook_url' => $url]];
+    $v = viewer_block();
+    check("$label → connected " . var_export($connected, true) . ', can_manage_settings ' . var_export($can_manage, true),
+        $v['connected'] === $connected && $v['can_manage_settings'] === $can_manage);
+    check("$label → existing viewer keys keep their order", array_slice(array_keys($v), 0, 4) === ['can_trigger', 'quota', 'gated_commands', 'hidden_commands']);
+}
+$GLOBALS['tw']['options'] = [];
 
 /* ─── Fix-next queue: orderby=priority (story 5.6) ───────────────────── */
 

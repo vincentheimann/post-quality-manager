@@ -292,6 +292,20 @@ check('non-2xx: 200 body with success false (unchanged), n8n_status 500', !is_wp
 check('non-2xx: message names the n8n status and says the run did not start',
     $msg === 'Takeaways could not start — n8n answered HTTP 500. Check that the workflow is active in n8n, then try again.');
 
+/* ─── Ticket 32: not configured — role-aware copy, nothing spent ─────── */
+echo "Extra — webhook URL unset: 400 pqm_not_configured, copy names the next step per role\n";
+foreach ([
+    'admin'  => [editor_caps() + ['pqm_manage_settings' => true], 'n8n is not connected yet. Set up the workflow on the Content Quality → n8n Workflow page, then try again.'],
+    'author' => [author_caps(), 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.'],
+] as $who => [$caps, $copy]) {
+    reset_world($caps, ['month' => '2026-10', 'count' => 5], ['n8n_webhook_url' => '']);
+    $r = trigger('review');
+    check("$who: 400 pqm_not_configured", is_wp_error($r) && $r->get_error_code() === 'pqm_not_configured' && ($r->get_error_data()['status'] ?? 0) === 400);
+    check("$who: copy is \"$copy\"", is_wp_error($r) && $r->get_error_message() === $copy);
+    check("$who: no webhook call, no processing row, no quota spent",
+        $GLOBALS['tw']['webhook_calls'] === 0 && processing_rows() === [] && stored_count() === 5);
+}
+
 /* ─── Reset-date formatting sanity ───────────────────────────────────── */
 echo "Extra — reset date is first of next month\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 0]);
