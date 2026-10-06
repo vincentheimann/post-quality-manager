@@ -2,7 +2,7 @@
 title: 'Fix: score band filter returns 500 on Post Reviews'
 type: 'bugfix'
 created: '2026-10-05'
-status: 'built'
+status: 'done'
 baseline_revision: '68fd86c2b2964399492355519154399046004580'
 route: 'oneshot'
 route_source: 'auto'
