@@ -115,11 +115,11 @@ check('one DB query', $GLOBALS['tw']['db_queries'] === 1);
 check('webhook fired for each batch post', $GLOBALS['tw']['webhook_calls'] === 3);
 check('plan_allows(seo) is true on pro', PQM_Features::plan_allows('seo') === true);
 
-/* ─── Row 4: Non-registry command (free-tier fallback) ───────────────── */
-echo "Row 4 — Non-registry command on free site\n";
+/* ─── Row 4: score, a free-tier registry entry since story 14 ────────── */
+echo "Row 4 — score (free-tier registry entry) on free site\n";
 reset_world(['cron_command' => 'score'], false);
 PQM_Cron::run_scheduled_review();
-check('runs (free-tier fallback, mirrors why_not)', $GLOBALS['tw']['db_queries'] === 1 && $GLOBALS['tw']['webhook_calls'] === 3);
+check('runs (free tier, mirrors why_not)', $GLOBALS['tw']['db_queries'] === 1 && $GLOBALS['tw']['webhook_calls'] === 3);
 check('plan_allows(score) is true on free', PQM_Features::plan_allows('score') === true);
 
 /* ─── Row 5: Quota neutrality (CAP-4) ────────────────────────────────── */
@@ -151,7 +151,7 @@ $GLOBALS['tw']['user_caps'] = ['pqm_run_free_agents' => true, 'pqm_run_paid_agen
 $GLOBALS['tw']['is_pro'] = false;
 check("why_not(seo) is 'plan' (capable user, free site)", PQM_Features::why_not('seo') === 'plan');
 check('why_not(review) is null', PQM_Features::why_not('review') === null);
-check('why_not(score) is null (free fallback)', PQM_Features::why_not('score') === null);
+check('why_not(score) is null (free-tier entry)', PQM_Features::why_not('score') === null);
 $GLOBALS['tw']['is_pro'] = true;
 check('why_not(seo) is null on pro', PQM_Features::why_not('seo') === null);
 $GLOBALS['tw']['user_caps'] = [];

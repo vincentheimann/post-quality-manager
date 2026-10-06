@@ -16,6 +16,10 @@
  * Story 5.10 appends `wp_post_status`, `yoast` and `yoast_active`: Yoast
  * off, then WPSEO_VERSION defined (it cannot be undefined again, so those
  * rows run last) with scored, unanalyzed and half-scored posts.
+ *
+ * Story 14 appends: the /trigger-review and /save-review `command` enums
+ * equal the registry keys (the one command whitelist), and the viewer's
+ * hidden list covers all 8 registry commands.
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -174,6 +178,34 @@ check('/posts gated by check_view_reviews', ($routes[$ns . '/posts']['permission
 foreach (['/post-score', '/save-review', '/reviews/(?P<post_id>\d+)', '/trigger-review', '/workflow'] as $existing) {
     check("existing route still registered: $existing", isset($routes[$ns . $existing]));
 }
+
+/* Story 14: the registry is the one command whitelist — both command enums are its keys,
+   so WP's arg validation answers 400 rest_invalid_param for anything else. */
+echo "Command enums = registry keys\n";
+$registry_keys = array_keys(PQM_Features::registry());
+check('registry keys are the 8 commands',
+    $registry_keys === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply']);
+foreach (['/trigger-review', '/save-review'] as $route) {
+    $enum = $routes[$ns . $route]['args']['command']['enum'] ?? null;
+    check("$route command enum === array_keys(registry())", $enum === $registry_keys);
+    check("$route command enum leaves out unknown commands (foo, apply_takeaways)",
+        is_array($enum) && !in_array('foo', $enum, true) && !in_array('apply_takeaways', $enum, true));
+}
+/* The n8n template keeps its own list (Parse Input's validCommands): a registry-only
+   addition would pass WP and be rejected by n8n, so the two sets must match too. */
+$template = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true);
+$template_commands = null;
+foreach ($template['nodes'] ?? [] as $node) {
+    if (($node['name'] ?? '') === 'Parse Input'
+        && preg_match('/const validCommands = \[([^\]]*)\]/', $node['parameters']['jsCode'] ?? '', $m)) {
+        preg_match_all("/'([a-z_]+)'/", $m[1], $names);
+        $template_commands = $names[1];
+    }
+}
+$sorted_registry = $registry_keys;
+sort($sorted_registry);
+if (is_array($template_commands)) { sort($template_commands); }
+check("n8n template Parse Input validCommands = registry keys (as a set)", $template_commands === $sorted_registry);
 
 /* Every arg's sanitize_callback survives WP's real call shape — (value, request, param).
    PHP internals with fixed arity (intval, trim…) throw ArgumentCountError there. */
@@ -478,7 +510,7 @@ $v = viewer_block();
 check('can_trigger false', $v['can_trigger'] === false);
 check('quota null despite an applicable limit', $v['quota'] === null && PQM_Features::quota_state() !== null);
 check('gated_commands empty', $v['gated_commands'] === []);
-check('all six registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit']);
+check('all 8 registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply']);
 check('hidden equals PQM_Features::hidden_commands()', $v['hidden_commands'] === PQM_Features::hidden_commands());
 
 /* ─── Fix-next queue: orderby=priority (story 5.6) ───────────────────── */
