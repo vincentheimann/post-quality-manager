@@ -53,10 +53,10 @@ class PQM_Features {
     }
 
     /**
-     * Strip every pqm_* capability from every role (uninstall only — a
-     * remapped role must keep its grant across deactivation). Unconditional:
-     * an explicit deny (cap => false) fails has_cap() yet must go too, and
-     * remove_cap() is safe on a missing key.
+     * Strip every pqm_* capability from every role and every user's direct
+     * grants (uninstall only — a remapped role must keep its grant across
+     * deactivation). Unconditional: an explicit deny (cap => false) fails
+     * has_cap() yet must go too, and remove_cap() is safe on a missing key.
      */
     public static function remove_capabilities(): void {
         $caps = array_keys( self::capabilities() );
@@ -64,6 +64,15 @@ class PQM_Features {
         foreach ( wp_roles()->role_objects as $role ) {
             foreach ( $caps as $cap ) {
                 $role->remove_cap( $cap );
+            }
+        }
+
+        // Grants made to a user directly (WP_User::add_cap, a role editor's
+        // per-user grant) live in user meta. With the roles stripped,
+        // capability__in matches only users whose own meta names a pqm cap.
+        foreach ( get_users( [ 'capability__in' => $caps ] ) as $user ) {
+            foreach ( $caps as $cap ) {
+                $user->remove_cap( $cap );
             }
         }
     }

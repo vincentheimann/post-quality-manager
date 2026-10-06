@@ -2,7 +2,7 @@
 /**
  * Fired when the plugin is uninstalled.
  * Drops the custom database table, removes plugin options and strips the
- * pqm_* capabilities from every role.
+ * pqm_* capabilities from every role and every user's direct grants.
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
