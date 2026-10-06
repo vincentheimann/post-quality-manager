@@ -138,6 +138,19 @@ $html = render_for($admin_caps, true);
 foreach (array_merge($admin_sections, $editor_sections) as $s) { check("shows: $s", strpos($html, $s) !== false); }
 check('no locked fieldset', strpos($html, $locked_fieldset) === false);
 
+/* Row (ticket 16): settings-only role — the agent sections need
+ * pqm_manage_agents: no heading, no fieldset, no field; admin sections stay */
+foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
+    echo "Settings-only (pqm_manage_settings), $plan\n";
+    $html = render_for(['pqm_manage_settings'], $pro);
+    foreach ($admin_sections as $s) { check("shows: $s", strpos($html, $s) !== false); }
+    foreach ($editor_sections as $s) { check("hides: $s", strpos($html, $s) === false); }
+    check('no locked fieldset', strpos($html, $locked_fieldset) === false);
+    check('no upgrade copy', strpos($html, $upgrade_overrides) === false && strpos($html, $upgrade_cron) === false);
+    check('no agent or cron field', strpos($html, 'pqm_settings[agent_prompts]') === false
+        && strpos($html, 'pqm_settings[cron_') === false);
+}
+
 /* Story 23: Pattern field — Takeaways and Sources only */
 echo "Pattern field (story 23)\n";
 // 3 user patterns: 1 published with a List, 1 published without one, 1 draft.

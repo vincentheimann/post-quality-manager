@@ -283,5 +283,22 @@ $GLOBALS['tw']['filter_pro'] = true;
 check("mu-plugin override: why_not('foo') still 'role', plan_allows('foo') still false",
     PQM_Features::why_not('foo') === 'role' && PQM_Features::plan_allows('foo') === false);
 
+/* ─── Row 7 (ticket 16): the README tells the same truth ─────────────── */
+echo "Row 7 — README capability table === capabilities(); single-site stated\n";
+$readme = file_get_contents(dirname(__DIR__, 2) . '/README.md');
+/* Rows "| `pqm_x` | Administrator, Editor |" — the capability table only
+   (the page table's rows start with a page name, not a capability). */
+preg_match_all('/^\| `(pqm_[a-z_]+)` \| ([^|]+) \|\s*$/m', $readme, $rows, PREG_SET_ORDER);
+$readme_caps = array_column($rows, 1);
+$readme_cells = array_column($rows, 2, 1);
+/* The README cell exactly as written: role keys ucfirst, joined by ", ". */
+$expected_cells = array_map(static fn($roles) => implode(', ', array_map('ucfirst', $roles)), PQM_Features::capabilities());
+check('README capability table: each capability exactly once, no extra pqm_ row, in capabilities() order',
+    $readme_caps === array_keys($expected_cells));
+check('README role cells === capabilities() written out exactly (case and order)',
+    array_map('trim', $readme_cells) === $expected_cells);
+check('README states single-site support (multisite unsupported)',
+    str_contains($readme, '**Single-site only.**') && str_contains($readme, 'Multisite networks are not supported'));
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

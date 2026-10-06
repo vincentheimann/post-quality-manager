@@ -358,14 +358,17 @@ class PQM_Admin
             }
         }
 
-        // Plan-gated sections: Automated Reviews + Agent-Specific Overrides. A
-        // section the request did not post carries its stored values wholesale
-        // (never per field: an absent cron_enabled must not read as "unchecked")
-        // — locked on a free site (disabled fieldset), or missing on a pro site
-        // from a form rendered while the site was free, or a direct POST.
-        $is_pro = PQM_Features::is_pro();
+        // Agent sections: Automated Reviews + Agent-Specific Overrides. They
+        // come from the request only when the saver has pqm_manage_agents, the
+        // site is pro and the request posted the section; otherwise they carry
+        // their stored values wholesale (never per field: an absent
+        // cron_enabled must not read as "unchecked") — hidden for a role
+        // without pqm_manage_agents, locked on a free site (disabled fieldset),
+        // or missing on a pro site from a form rendered while the site was
+        // free, or a direct POST.
+        $can_edit_agents = current_user_can('pqm_manage_agents') && PQM_Features::is_pro();
         $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
-        if ($is_pro && array_intersect_key($input, array_flip($cron_keys))) {
+        if ($can_edit_agents && array_intersect_key($input, array_flip($cron_keys))) {
             $clean['cron_enabled'] = !empty($input['cron_enabled']);
             $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
                 ? $input['cron_frequency'] : $defaults['cron_frequency'];
@@ -380,7 +383,7 @@ class PQM_Admin
             }
         }
 
-        if ($is_pro) {
+        if ($can_edit_agents) {
             $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
             // Locked knobs (model doesn't support them) render disabled and are absent
             // from the POST — fall back to the stored value, not the default.
@@ -437,7 +440,7 @@ class PQM_Admin
     {
         if (isset($_GET['pqm_dismiss_cron_nudge'])
             && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'pqm_dismiss_cron_nudge')
-            && current_user_can('pqm_manage_settings')
+            && current_user_can('pqm_manage_agents')
         ) {
             update_option('pqm_cron_nudge_dismissed', 1, false);
         }
@@ -491,10 +494,12 @@ class PQM_Admin
         $workflow_page_url = admin_url('admin.php?page=pqm-workflow');
         $registry = pqm_model_registry();
         // Section gates (CAP-3 access matrix): the global sections are hidden
-        // without pqm_manage_settings; the paid sections (Agent-Specific
-        // Overrides, Automated Reviews) render visible but locked on a free
-        // site. Role-hidden beats plan-locked, mirroring PQM_Features::why_not().
+        // without pqm_manage_settings; the agent sections (Agent-Specific
+        // Overrides, Automated Reviews) are hidden without pqm_manage_agents
+        // and render visible but locked on a free site. Role-hidden beats
+        // plan-locked, mirroring PQM_Features::why_not().
         $can_manage_settings = current_user_can('pqm_manage_settings');
+        $can_manage_agents = current_user_can('pqm_manage_agents');
         $is_pro = PQM_Features::is_pro();
 ?>
         <div class="wrap pqm-wrap">
@@ -676,6 +681,7 @@ class PQM_Admin
                 </table>
                 <?php endif; // pqm_manage_settings ?>
 
+                <?php if ($can_manage_agents): ?>
                 <!-- Agent-Specific Overrides (paid: locked, not hidden, on a free site) -->
                 <h2 class="pqm-section-gap"><?php
                     esc_html_e('Agent-Specific Overrides', 'post-quality-manager');
@@ -890,6 +896,7 @@ class PQM_Admin
                     </tr>
                 </table>
                 <?php if (!$is_pro): ?></fieldset><?php endif; ?>
+                <?php endif; // pqm_manage_agents ?>
 
                 <?php if ($can_manage_settings): ?>
                 <!-- Author Quota -->
