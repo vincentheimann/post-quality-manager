@@ -3,7 +3,7 @@ title: 'Automated Reviews can schedule seo and audit, not only review'
 type: 'feature'
 ticket: '3'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

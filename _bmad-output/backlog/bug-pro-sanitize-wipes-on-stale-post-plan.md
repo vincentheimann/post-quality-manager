@@ -3,7 +3,7 @@ title: 'A pro-site save without the cron/overrides sections carries them'
 type: 'bugfix'
 ticket: '19'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'

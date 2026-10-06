@@ -3,7 +3,7 @@ title: 'Uninstall strips per-user pqm_* capability grants too'
 type: 'bugfix'
 ticket: '20'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'

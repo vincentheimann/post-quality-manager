@@ -3,7 +3,7 @@ title: 'Only registry commands reach the webhook; score and apply have explicit 
 type: 'feature'
 ticket: '14'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

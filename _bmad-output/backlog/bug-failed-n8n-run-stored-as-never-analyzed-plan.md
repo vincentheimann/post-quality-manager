@@ -3,7 +3,7 @@ title: 'A failed n8n run is stored as a failed review with a readable reason'
 type: 'bugfix'
 ticket: '31'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

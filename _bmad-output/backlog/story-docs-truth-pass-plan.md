@@ -3,7 +3,7 @@ title: 'README and the capability behavior tell the same truth'
 type: 'feature'
 ticket: '16'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

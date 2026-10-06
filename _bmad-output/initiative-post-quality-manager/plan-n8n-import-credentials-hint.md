@@ -3,7 +3,7 @@ title: 'The n8n Workflow page tells the user how to link credentials after an im
 type: 'bugfix'
 ticket: ''
 created: '2026-10-06'
-status: 'built'
+status: 'done'
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'

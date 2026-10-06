@@ -3,7 +3,7 @@ title: 'A free site can switch leftover scheduled reviews off'
 type: 'feature'
 ticket: '13'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

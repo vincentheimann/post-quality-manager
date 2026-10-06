@@ -3,7 +3,7 @@ title: 'REST copy is translated, labeled from one source and correct'
 type: 'feature'
 ticket: '11'
 created: '2026-10-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
