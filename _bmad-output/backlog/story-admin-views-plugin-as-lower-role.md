@@ -3,7 +3,7 @@ id: 34
 type: story
 title: "An Administrator views the plugin as a lower role and switches back"
 parent: none
-covers: [O1]
+covers: [O6]
 after: []
 assignee: ""
 refined: false
@@ -51,7 +51,7 @@ Owner request (2026-10-06). An Administrator holds every plugin capability, so t
 
 ## References
 
-- requirement — _bmad-output/initiative-post-quality-manager/initiative-post-quality-manager.md, Owner requests O1
+- requirement — _bmad-output/initiative-post-quality-manager/initiative-post-quality-manager.md, Owner requests O6
 - access — _bmad-output/initiative-post-quality-manager/spec-freemium-and-roles/access-matrix.md, Capabilities and Features tables
 - memory — memory/freemium-and-roles.md, Hidden vs locked and Author quota
 - decision — docs/adr/0003-freemium-plan-and-role-based-access.md, Decision
@@ -64,7 +64,8 @@ Owner request (2026-10-06). An Administrator holds every plugin capability, so t
 - Assumption: a simulated view is real, not read-only — an action the role may run (an Author's Review, an Editor's Settings save) runs with that role's rights. The one side effect: a trigger in the Author view spends the Administrator's own monthly quota, because the quota applies to anyone without the paid-agents capability. Alternative: a "look, don't touch" view where every write is refused with a note; more code, less faithful.
 - Assumption: the choice persists per Administrator until Exit (survives page loads and new sign-ins), stored on the user, deleted on uninstall. The alternative, a per-page-load query argument, is lost on every click.
 - Assumption: the switch exists on the free plan as well. ADR 0003 lists "role management" among paid features; this switch manages no role, it only lets the Administrator check the site's current mapping.
-- Open question: `covers` cites O1 (role-based access). The switch is a new owner request; the owner says whether O1 absorbs it or an O6 is added to the initiative.
-- Open question: does the control list only the three core roles, or every role a role editor created as well?
-- Open question: should the same control also simulate the free plan on a pro site ("View as: Author on the free plan"), so the Administrator sees the locked sections and upgrade copy their users get? The plugin already resolves the plan through one filter, so the cost is small; without it the Administrator still needs a free test site. The owner decides.
+- Decision (owner, 2026-10-06): the control lists the three default roles only — Editor, Author, Contributor — never custom roles.
+- Decision (owner, 2026-10-06): no plan simulation; the view never changes the site's Free/Pro state.
+- Decision (owner, 2026-10-06): the switch is for Administrators only, not for every holder of the settings capability.
+- Decision (owner, 2026-10-06): recorded as owner request O6 in the initiative, following the O5 convention, so the story ranks on its own.
 - Risk medium (reason): the view changes how capability checks resolve for one user. A mistake is visible at once and a revert is clean, but it is auth-adjacent code; the build adds a harness (none covers capability filtering today) proving the view can only remove capabilities, never add one, and that Exit works from the Contributor view.
