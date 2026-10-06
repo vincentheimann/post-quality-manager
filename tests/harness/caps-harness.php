@@ -31,6 +31,19 @@ class WP_Role {
     public function add_cap($cap, $grant = true) { $this->capabilities[$cap] = $grant; }
     public function remove_cap($cap) { unset($this->capabilities[$cap]); }
 }
+/* Bug 20: users with direct grants (their own capabilities meta). */
+class WP_User {
+    public $caps;
+    public function __construct($caps = []) { $this->caps = $caps; }
+    public function remove_cap($cap) { unset($this->caps[$cap]); }
+}
+/* Core's capability__in also matches users through a role holding the cap; the
+   stub models only the direct-grant match, all that remains once roles are stripped. */
+function get_users($args) {
+    $GLOBALS['tw']['users_query'] = $args;
+    return array_values(array_filter($GLOBALS['tw']['users'] ?? [],
+        static fn($user) => array_intersect_key($user->caps, array_flip($args['capability__in'])) !== []));
+}
 function get_role($name) { return $GLOBALS['tw']['roles'][$name] ?? null; }
 function wp_roles() { return (object) ['role_objects' => $GLOBALS['tw']['roles']]; }
 function current_user_can($cap) {
@@ -130,6 +143,28 @@ foreach ($GLOBALS['tw']['roles'] as $name => $role) {
 }
 check('no pqm_* key on any role (grants and explicit denies)', $leftover === []);
 check('non-pqm caps untouched', !empty($GLOBALS['tw']['roles']['author']->capabilities['edit_posts']));
+
+/* ─── Row 3b (bug 20): direct user grants are stripped too ───────────── */
+echo "Row 3b — remove_capabilities() leaves no pqm_* key in any user's own capabilities\n";
+reset_world();
+PQM_Features::register_capabilities();
+$GLOBALS['tw']['users'] = [
+    'quota-lifted author' => new WP_User(['author' => true, 'pqm_run_paid_agents' => true, 'edit_others_posts' => true]),
+    'denied editor'       => new WP_User(['editor' => true, 'pqm_manage_agents' => false]),
+];
+PQM_Features::remove_capabilities();
+check('the user query asks for exactly the five pqm caps',
+    $GLOBALS['tw']['users_query']['capability__in'] === array_keys($default_map));
+$leftover = [];
+foreach ($GLOBALS['tw']['users'] as $name => $user) {
+    foreach (array_keys($user->caps) as $cap) {
+        if (strpos($cap, 'pqm_') === 0) { $leftover[] = "$name:$cap"; }
+    }
+}
+check('no pqm_* key on any user (grants and explicit denies)', $leftover === []);
+check('non-pqm direct grants and role keys survive',
+    $GLOBALS['tw']['users']['quota-lifted author']->caps === ['author' => true, 'edit_others_posts' => true]
+    && $GLOBALS['tw']['users']['denied editor']->caps === ['editor' => true]);
 
 /* ─── Row 4: why_not() matrix — role × 8 commands × plan on/off ──────── */
 echo "Row 4 — why_not() matrix (role before plan, free fallback outside the registry)\n";
