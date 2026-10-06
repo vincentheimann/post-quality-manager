@@ -23,6 +23,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/initiative-post-quality-manager/epic-ui-rebuild/story-post-reviews-detail-panel-and-trigger-flow-plan.md`
   summary: The n8n template's failure paths (Error Fallback, agent JSON-parse errors, rewrite save failure) post `status: ''` with `result: {}` instead of `status: 'error'` + `error_message`, so a failed run is stored as "never analyzed" and the kit's `error` badge never lights up.
   evidence: Verified in `templates/n8n-workflow.json` (POST Result to WordPress body, ~line 598–604, sends no `error_message`); `save_review_callback` only wraps `{error}` when the status is `error` or `error_message` is present. Owner decision 2026-10-05 (story 5.4 OQ-1): keep the save-review contract and chips unchanged in the rebuild; fix the template in its own backlog ticket (template-version bump + handshake), after which the list shows "Could not complete" without further plugin work.
+  ticket: `_bmad-output/backlog/bug-failed-n8n-run-stored-as-never-analyzed.md` (bug 31, filed 2026-10-06)
 
 - source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/initiative-post-quality-manager/epic-ui-rebuild/story-bulk-review-selected-plan.md`
   summary: The React pages have no automated check for their I/O matrix rows (no JS test path), and `wp-scripts lint-js` crashes on an `@typescript-eslint` / `ts-api-utils` load error, so story code ships unlinted and UI matrix rows rely on the manual site pass alone.
