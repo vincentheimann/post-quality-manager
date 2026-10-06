@@ -136,18 +136,21 @@ export function requestRun( postId, command ) {
 		data: { post_id: postId, command },
 	} ).then(
 		( data ) => {
+			// n8n answered non-2xx: the server's role-aware message is the
+			// one wording; the fallback only covers an empty message.
 			if ( data && data.success === false ) {
 				return {
 					ok: false,
-					message: sprintf(
-						/* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
-						__(
-							'%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.',
-							'post-quality-manager'
+					message:
+						data.message ||
+						sprintf(
+							/* translators: %s: agent command label, e.g. "Review" */
+							__(
+								'%s could not start. Ask an administrator to check the n8n connection, then try again.',
+								'post-quality-manager'
+							),
+							commandLabel( command )
 						),
-						commandLabel( command ),
-						data.n8n_status || 0
-					),
 				};
 			}
 			return { ok: true, message: '' };

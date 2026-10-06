@@ -29,7 +29,7 @@ _This file is the single source of truth for brand, copy, and tone decisions in 
 - Use clear, actionable verbs for CTAs (e.g., "Review Post", "Rewrite Content", "Apply Changes").
 - Frame everything as **optimization and enhancement**.
 - Be concise. Real estate in the WP admin panel is valuable. Focus on the actual data (scores, issues, takeaways).
-- Explain errors gently with actionable solutions (e.g., "Could not connect to n8n. Check your Webhook URL in Settings.").
+- Explain errors gently with actionable solutions (e.g., "Could not connect to n8n. Check your Webhook URL in Settings."). The Settings step is for administrators; everyone else is told to ask an administrator.
 
 ### Don't
 - Never use accusatory or purely negative framing (e.g., "Your post is terrible", "Failed completely"). Replace with constructive feedback (e.g., "Requires revision").
