@@ -23,7 +23,7 @@ Built 2026-10-05 (story 23); the owner swapped the typed block-name field for a 
   The other command's marked blocks are never taken, so both agents can use the same pattern.
 - **`pattern` setting:** `agent_prompts.takeaways.pattern` and `agent_prompts.sources.pattern`, default `0` (plain list). Only these two agents have the key.
   - Sanitized as `absint`, kept only when `isset( PQM_Blocks::patterns()[ $id ] )`, else `0`.
-  - UI: a "Pattern" `<select>` in the two Overrides boxes: "Plain list" (0) + `patterns()`. The description names Appearance → Patterns and the first List; with no pattern it says how to create one. Reset to Defaults sets it to Plain list.
+  - UI (story 24, 2026-10-06): the "Pattern to use" row in the two Overrides boxes (its description says only published patterns with a List block are listed): a `<select>` ("Plain list" + optgroup "Your patterns" from `patterns()`), an "Edit pattern" link (core's `post.php?post=ID&action=edit`, follows the selection, hidden at 0), "Manage patterns" (`edit.php?post_type=wp_block`), or a "Create a pattern" button when none qualifies — links and button on Pro sites only (a free site's select is locked and `insert()` ignores the pattern); one line saying where the items land. A stored ID that no longer qualifies renders as Plain list (same test as `insert()`). Reset to Defaults sets Plain list and re-syncs the link. A live front-end preview was built and removed the same day (owner decision): rendering through the theme's `wp_head()`/`wp_footer()` pulled third-party scripts into the Settings page.
   - The field sits in the Pro-locked Overrides section. On a free site, `insert()` ignores the stored value and inserts a plain list.
   - The value reaches n8n inside `agent_prompts`, and the template ignores it.
 - **UI:** `src/post-reviews/insert-block.js` adds "Insert into Post" with a `Modal` confirmation, then an `apiFetch` POST, with the outcome shown via `onNotify` (the page toast; `useSingleRun` now also returns `addToast`). It appears in the Takeaways / Sources tab when:
@@ -31,6 +31,6 @@ Built 2026-10-05 (story 23); the owner swapped the typed block-name field for a 
   - `editLink` is set;
   - the viewer can render the command and it is not plan-gated.
 - **Known ceilings:** only top-level blocks are matched; the hand-made fallback needs the pattern's first block to have a block name (editor's Advanced panel). Editing a pattern later changes future inserts, not posts already inserted into.
-- **Locked in by:** `tests/harness/insert-block-harness.php` (every matrix row with the owner's Group › Heading + List, Spacer pattern; core's serializer copied verbatim), sanitize-matrix Case 7 and the render-matrix "Pattern field" rows.
+- **Locked in by:** `tests/harness/insert-block-harness.php` (every matrix row with the owner's Group › Heading + List, Spacer pattern; core's serializer copied verbatim), sanitize-matrix Case 7 and the render-matrix "Pattern field" / "Pattern to use row (story 24)" rows.
 
 Not done here: block-aware detection in the Takeaways prompt (with story 22's template fixes); the dead `apply` enum (story 14); theme/plugin-registered patterns (`WP_Block_Patterns_Registry`), when the owner asks.

@@ -751,23 +751,41 @@ class PQM_Admin
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
                                 </td>
                             </tr>
-                            <?php if (isset($agent_data['pattern'])): $patterns ??= PQM_Blocks::patterns(); ?>
+                            <?php if (isset($agent_data['pattern'])): $patterns ??= PQM_Blocks::patterns();
+                                // A stored pattern that no longer qualifies is the plain list here, as in insert().
+                                $pattern_id = isset($patterns[(int) $agent_data['pattern']]) ? (int) $agent_data['pattern'] : 0; ?>
                             <tr>
-                                <th><label for="pqm_agent_pattern_<?php echo esc_attr($key); ?>"><?php esc_html_e('Pattern', 'post-quality-manager'); ?></label></th>
+                                <th><label for="pqm_agent_pattern_<?php echo esc_attr($key); ?>"><?php esc_html_e('Pattern to use', 'post-quality-manager'); ?></label></th>
                                 <td>
-                                    <select id="pqm_agent_pattern_<?php echo esc_attr($key); ?>"
-                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][pattern]">
-                                        <option value="0"><?php esc_html_e('Plain list', 'post-quality-manager'); ?></option>
-                                        <?php foreach ($patterns as $pattern_id => $pattern_title): ?>
-                                            <option value="<?php echo esc_attr($pattern_id); ?>" <?php selected((int) $agent_data['pattern'], $pattern_id); ?>>
-                                                <?php echo esc_html($pattern_title); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <div class="pqm-pattern-row">
+                                        <select id="pqm_agent_pattern_<?php echo esc_attr($key); ?>"
+                                                name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][pattern]"
+                                                class="pqm-pattern-select">
+                                            <option value="0"><?php esc_html_e('Plain list', 'post-quality-manager'); ?></option>
+                                            <?php if ($patterns): ?>
+                                            <optgroup label="<?php esc_attr_e('Your patterns', 'post-quality-manager'); ?>">
+                                                <?php foreach ($patterns as $id => $title): ?>
+                                                    <option value="<?php echo esc_attr($id); ?>" <?php selected($pattern_id, $id); ?>>
+                                                        <?php echo esc_html($title); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </optgroup>
+                                            <?php endif; ?>
+                                        </select>
+                                        <?php // Free sites get no links: insert() ignores the pattern unless Pro, and links escape the disabled fieldset. ?>
+                                        <?php if ($is_pro && $patterns): ?>
+                                        <?php // Core's edit link (post.php?post=ID&action=edit); the JS swaps the ID on selection change and hides it at 0. ?>
+                                        <a class="pqm-pattern-edit<?php echo $pattern_id ? '' : ' pqm-hidden'; ?>"
+                                           href="<?php echo esc_url(admin_url('post.php?post=' . $pattern_id . '&action=edit')); ?>"><?php esc_html_e('Edit pattern', 'post-quality-manager'); ?></a>
+                                        <a href="<?php echo esc_url(admin_url('edit.php?post_type=wp_block')); ?>"><?php esc_html_e('Manage patterns', 'post-quality-manager'); ?></a>
+                                        <?php elseif ($is_pro): ?>
+                                        <a class="button" href="<?php echo esc_url(admin_url('post-new.php?post_type=wp_block')); ?>"><?php esc_html_e('Create a pattern', 'post-quality-manager'); ?></a>
+                                        <?php endif; ?>
+                                    </div>
                                     <p class="description"><?php
-                                        echo esc_html($patterns
-                                            ? __('Insert into Post copies the pattern you pick from Appearance → Patterns and puts the items into its first List. The rest of its design stays as is.', 'post-quality-manager')
-                                            : __('No pattern with a List yet. To present the items in your own design, create a pattern with a List block in Appearance → Patterns, then pick it here.', 'post-quality-manager'));
+                                        echo esc_html($key === 'sources'
+                                            ? __("Goes at the end of the post. The items fill the pattern's first List block, so only your published patterns that contain a List block appear here.", 'post-quality-manager')
+                                            : __("Goes at the top of the post. The items fill the pattern's first List block, so only your published patterns that contain a List block appear here.", 'post-quality-manager'));
                                     ?></p>
                                 </td>
                             </tr>
