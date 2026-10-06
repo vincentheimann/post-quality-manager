@@ -25,7 +25,7 @@ define('PQM_REST_NAMESPACE', 'post-quality/v1');
 // Bumped whenever templates/n8n-workflow.json changes in a way that requires
 // a re-import. The template echoes its own version in every WP callback so
 // the n8n Workflow page can flag outdated imports.
-define('PQM_WORKFLOW_VERSION', 2);
+define('PQM_WORKFLOW_VERSION', 3);
 
 /* ─── Includes ───────────────────────────────────────────────────────── */
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';

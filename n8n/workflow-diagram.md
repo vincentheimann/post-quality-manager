@@ -7,63 +7,59 @@ plugin (dashboard button or WP-Cron) POSTs to the webhook; any chat tool or auto
 can call the same contract. Results go back to the WordPress callback endpoint
 (`/save-review`) and, optionally, to a notification webhook (Slack, kChat, Teams, …).
 
-Two contract details introduced with workflow version 2:
+Contract details, by the workflow version that introduced them:
 
-- **LLM request params ride the payload.** The plugin sends a per-agent `llm` map
+- **LLM request params ride the payload (v2).** The plugin sends a per-agent `llm` map
   (`model`, `max_tokens`, and — only where the chosen model supports them —
   `temperature`, `output_config.effort`, `thinking`). The "Build … Body" Code nodes
   spread that fragment into the Claude request as-is, so model/effort changes in
   WP settings apply on the next command without re-importing the workflow.
-- **Version handshake.** `Parse Input` stamps the template's `workflow_version` and
+- **Version handshake (v2).** `Parse Input` stamps the template's `workflow_version` and
   the `/save-review` callback echoes it; the plugin flags an outdated import on the
   n8n Workflow page when the bundled template is newer.
+- **Failures are reported, not hidden (v3).** The Claude and WordPress HTTP nodes
+  "continue on error", so a failed call arrives as an item with `json.error`. The
+  Parse nodes, `Format Score`, `Format Rewrite Confirmation` and `Error Fallback` turn
+  each failure (empty post, model API error, unparseable agent output, failed rewrite
+  save, command without a branch) into an item with `error: true` and a plain
+  `message` naming what failed. `POST Result to WordPress` sends
+  `error_message: $json.error ? ($json.message || 'The workflow could not complete this command. Check the execution log in n8n.') : ''`;
+  the plugin stores a non-empty one as a review with status `error` and the kit shows
+  "Could not complete". Boundary: only failures with a post and a command the plugin
+  accepts reach `/save-review`. Parse Input rejections (missing `command`/`post_id`,
+  or a command outside the `save-review` `command` enum) cannot be stored by contract
+  and show only in the n8n execution log. `Rewrite Parsed?` keeps a failed rewrite
+  away from `Update WP Post (Rewrite)`, so the post is never PATCHed (or unpublished
+  to `pending`) when the agent's output could not be parsed.
+
+Solid edges are the connections in the template; dotted edges show the failure items
+travelling the same connection into `/save-review`.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client] --> B[Parse & Route Input]
-    B --> C{Route Command<br>10 branches}
+    A[Webhook Trigger<br>POST from WP plugin or any client] --> B[Parse Input<br>stamps workflow_version 3]
+    B --> C{Route Command}
 
-    C -->|score| D[Get Post Data]
-    D --> D2[Format Score Report] --> NOTIFY
+    C -->|score| SC[Format Score] --> CB
+    C -->|review| B1[Build Review Body] --> H1[Claude - Review Agent] --> P1[Parse Review Result] --> CB
+    C -->|takeaways| B2[Build Takeaways Body] --> H2[Claude - Takeaways Agent] --> P2[Parse Takeaways Result] --> CB
+    C -->|sources| B3[Build Sources Body] --> H3[Claude - Sources Agent] --> P3[Parse Sources Result] --> CB
+    C -->|seo| B4[Build SEO Body] --> H4[Claude - SEO Agent] --> P4[Parse SEO Result] --> CB
+    C -->|audit| B5[Build Audit Body] --> H5[Claude - Audit Agent] --> P5[Parse Audit Result] --> CB
 
-    C -->|review| E1[Get Post Data + Guidelines]
-    C -->|takeaways| E1
-    C -->|sources| E1
-    C -->|seo| E1
-    C -->|apply| E1
-    C -->|audit| E1
+    C -->|rewrite| B6[Build Rewrite Body] --> H6[Claude - Rewrite Agent] --> P6[Parse Rewrite Response] --> RP{Rewrite Parsed?}
+    RP -->|true| UP[Update WP Post Rewrite<br>PATCH content, excerpt, status pending] --> FR[Format Rewrite Confirmation]
+    RP -->|false| FR
+    FR --> CB
 
-    C -->|rewrite| E2[Get Post Data + Guidelines<br>+ Block Rules + Agent Instructions]
+    C -->|ping| PO([Ping OK<br>stops, webhook already answered])
+    C -->|fallback| EF[Error Fallback] --> CB
 
-    E1 --> F[Merge Post + Guidelines]
-    E2 --> F
+    SC -.->|empty post:<br>error true + message| CB
+    P1 & P2 & P3 & P4 & P5 -.->|empty post, model API error or invalid JSON:<br>error true + message| CB
+    FR -.->|empty post, model API error, parse failure or save failure:<br>error true + message| CB
+    EF -.->|command without a branch:<br>error true + message| CB
 
-    F --> G{Route to Agent}
-
-    G -->|review| R1[Build Review Body] --> P1[Claude - Review Agent] --> R1F[Format Review Report] --> CB[POST Result to WordPress<br>/save-review] --> NOTIFY
-    G -->|takeaways| R2[Build Takeaways Body] --> P2[Claude - Takeaways Agent] --> R2F[Format Takeaways Report] --> NOTIFY
-    R2F --> AutoT[Trigger Auto Apply] --> ApplyT[Apply Takeaways → Update WP Post → Confirmation → Notify]
-
-    G -->|sources| R3[Build Sources Body] --> P3[Claude - Sources Agent] --> R3F[Format Sources Report] --> NOTIFY
-    R3F --> AutoS[Trigger Auto Apply Sources] --> ApplyS[Apply Sources → Update WP Post → Confirmation → Notify]
-
-    G -->|rewrite| R4[Build Rewrite Body] --> P4[Claude - Rewrite Agent] --> RW1[Parse Rewrite Response] --> RW2[Prepare Rewrite for WP] --> RW3[Update WP Post] --> RW4[Format Rewrite Confirmation] --> NOTIFY
-
-    G -->|seo| R5[Build SEO Body] --> P5[Claude - SEO Agent] --> R5F[Format SEO Report] --> NOTIFY
-
-    G -->|apply| AP{Route Apply Subcommand}
-    AP -->|takeaways| CT{Check Takeaways Cache}
-    CT -->|hit| ApplyT
-    CT -->|miss| P2
-
-    AP -->|sources| CS{Check Sources Cache}
-    CS -->|hit| ApplyS
-    CS -->|miss| P3
-
-    G -->|audit| R6[Build Audit Body] --> P6[Claude - Audit Agent] --> R6F[Format Audit Report] --> NOTIFY
-
-    C -->|help| HLP[Format Help Message] --> NOTIFY
-    C -->|error| ERR[Send error] --> NOTIFY
-
-    NOTIFY([Send Notification<br>optional webhook: Slack / kChat / Teams])
+    CB[POST Result to WordPress<br>/save-review, error_message when error is true] --> HN{Has Notification URL?}
+    HN -->|true| NOTIFY([Send Notification<br>optional webhook: Slack / kChat / Teams])
 ```

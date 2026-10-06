@@ -4,7 +4,9 @@
  * I/O & Edge-Case Matrix rows the plugin side owns: GET /reviews/{id}
  * shaping (int score, display date via get_date_from_gmt, 50-row limit,
  * raw result_data on bad JSON) and the `in_flight` derivation behind the
- * list's polling. WP + wpdb stubs copied from rest-posts-harness.php, no
+ * list's polling. Bug 31 adds POST /save-review's failure contract and
+ * static checks that the n8n template speaks it (behavior per node lives
+ * in template-failure-harness.php). WP + wpdb stubs copied from rest-posts-harness.php, no
  * WP install.
  */
 
@@ -30,8 +32,12 @@ function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function wp_generate_uuid4() { return 'stub-uuid'; }
 function get_option($k, $d = false) {
-    return ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d;
+    return $GLOBALS['tw']['options'][$k] ?? (['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d);
 }
+function update_option($k, $v, $autoload = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
+function get_post($id) { return (int) $id === 7 ? (object) ['ID' => 7] : null; }
+function current_time($type, $gmt = 0) { return '2026-10-06 12:00:00'; }
+function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
@@ -105,6 +111,13 @@ class PQM_Stub_WPDB {
         return array_shift($this->results_queue) ?: [];
     }
     public function get_var($sql) { return 0; }
+    public $inserted = [];      // every insert(): ['table' => ..., 'data' => [...]]
+    public $insert_id = 0;
+    public function insert($table, $data, $format = null) {
+        $this->inserted[] = ['table' => $table, 'data' => $data];
+        $this->insert_id = count($this->inserted);
+        return 1;
+    }
 }
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
@@ -198,7 +211,64 @@ fresh_wpdb([[
 ]]);
 $rows = PQM_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']))->get_data();
 check('stored error row keeps status error and its message', $rows[0]['status'] === 'error' && $rows[0]['result_data'] === ['error' => 'Review Agent returned invalid JSON.']);
-check('template fallback row: empty status, empty result, score 0', $rows[1]['status'] === '' && $rows[1]['result_data'] === [] && $rows[1]['overall_score'] === 0);
+check('pre-v3 template fallback row: empty status, empty result, score 0', $rows[1]['status'] === '' && $rows[1]['result_data'] === [] && $rows[1]['overall_score'] === 0);
+
+/* ─── POST /save-review: the failure contract (bug 31) ───────────────── */
+
+/** Calls save_review_callback with a body as the template posts it; returns [response, inserted row data]. */
+function save_body(array $body): array {
+    $wpdb = fresh_wpdb([]);
+    $res  = PQM_REST_API::save_review_callback(new WP_REST_Request($body));
+    return [$res, $wpdb->inserted[0]['data'] ?? null];
+}
+
+/* Row: failed run — error_message non-empty → stored status error + the message */
+echo "Save failed run\n";
+$GLOBALS['tw']['options'] = [];
+[$res, $row] = save_body([
+    'post_id' => 7, 'command' => 'review', 'overall_score' => 0, 'status' => '', 'result' => [],
+    'workflow_version' => 3,
+    'error_message' => 'Review Agent could not get an answer from the model: Your credit balance is too low.',
+]);
+check('201 response', $res instanceof WP_REST_Response && $res->get_status() === 201);
+check('stored status is error', $row['status'] === 'error');
+check('stored result carries the message', $row['result_data'] === json_encode(['error' => 'Review Agent could not get an answer from the model: Your credit balance is too low.']));
+check('score 0, command kept', $row['overall_score'] === 0 && $row['command'] === 'review');
+check('seen workflow version recorded as 3', ($GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null) === 3);
+
+/* Row: success — error_message '' is ignored, status/result stored as posted */
+echo "Save completed run\n";
+$result = ['overall_score' => 72, 'structure' => ['score' => 80], 'top_edits' => ['Tighten the intro']];
+[, $with]    = save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 3, 'error_message' => '']);
+[, $without] = save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 3]);
+check('stored status and result as posted', $with['status'] === 'ship' && $with['overall_score'] === 72 && $with['result_data'] === json_encode($result));
+check('stored row identical to a body without error_message', $with === $without);
+
+/* ─── Template contract (static checks on templates/n8n-workflow.json) ── */
+echo "Template contract\n";
+$tpl   = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true);
+$nodes = array_column($tpl['nodes'], null, 'name');
+check('template parses', is_array($tpl) && isset($nodes['POST Result to WordPress']));
+check('POST body forwards error_message only for failure items',
+    strpos($nodes['POST Result to WordPress']['parameters']['body'], "error_message: \$json.error ? (\$json.message ||") !== false);
+$missing = [];
+foreach ($nodes as $name => $n) {
+    foreach (explode("\n", $n['parameters']['jsCode'] ?? '') as $line) {
+        if (strpos($line, 'error: true') !== false && strpos($line, 'message') === false) { $missing[] = $name; }
+    }
+}
+check('every Code node line containing "error: true" also mentions message', $missing === []);
+$into_update = [];
+foreach ($tpl['connections'] as $from => $c) {
+    foreach ($c['main'] as $out => $targets) {
+        foreach ($targets as $t) {
+            if ($t['node'] === 'Update WP Post (Rewrite)') { $into_update[] = "$from#$out"; }
+        }
+    }
+}
+check('Update WP Post (Rewrite) reached only through Rewrite Parsed? (true output)', $into_update === ['Rewrite Parsed?#0']);
+preg_match('/workflow_version: (\d+),/', $nodes['Parse Input']['parameters']['jsCode'], $m);
+check('Parse Input stamp === PQM_WORKFLOW_VERSION', isset($m[1]) && (int) $m[1] === PQM_WORKFLOW_VERSION);
 
 /* ─── in_flight derivation (PQM_DB::get_in_flight_for_posts) ─────────── */
 
