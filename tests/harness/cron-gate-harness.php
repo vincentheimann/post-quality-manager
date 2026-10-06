@@ -17,6 +17,8 @@ $GLOBALS['tw'] = [
     'user_caps'     => [],             // capability => true (for why_not() checks)
     'batch_posts'   => [['post_id' => 1], ['post_id' => 2], ['post_id' => 3]],
     'db_queries'    => 0,              // PQM_DB::get_posts_needing_review() calls
+    'db_command'    => null,           // the $command it last received (ticket 3)
+    'sent_commands' => [],             // the command of each webhook payload
     'webhook_calls' => 0,              // wp_remote_post() calls
     'user_meta'     => [],             // user_id => [key => value]
 ];
@@ -45,7 +47,7 @@ function __($s, $d = null) { return $s; }
 function get_post($id) {
     return (object)['ID' => $id, 'post_status' => 'publish', 'post_title' => 'Test Post'];
 }
-function pqm_n8n_payload($post, $command, $settings) { return ['command' => $command, 'post_id' => $post->ID]; }
+function pqm_n8n_payload($post, $command, $settings) { $GLOBALS['tw']['sent_commands'][] = $command; return ['command' => $command, 'post_id' => $post->ID]; }
 function wp_json_encode($v) { return json_encode($v); }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_calls']++;
@@ -58,10 +60,12 @@ function wp_next_scheduled($hook) { return $GLOBALS['tw']['events'][$hook] ?? fa
 function wp_unschedule_event($ts, $hook) { unset($GLOBALS['tw']['events'][$hook]); return true; }
 function wp_schedule_event($ts, $recurrence, $hook) { $GLOBALS['tw']['events'][$hook] = $ts; return true; }
 
-/* PQM_DB stub — counts queries so the gated skip can prove "before any DB query". */
+/* PQM_DB stub — counts queries so the gated skip can prove "before any DB query";
+   same signature as the real one, records the command it selects by (ticket 3). */
 class PQM_DB {
-    public static function get_posts_needing_review($min_score, $max_age_days, $batch_size) {
+    public static function get_posts_needing_review(int $min_score = 60, int $max_age_days = 30, int $limit = 10, string $command = 'review'): array {
         $GLOBALS['tw']['db_queries']++;
+        $GLOBALS['tw']['db_command'] = $command;
         return $GLOBALS['tw']['batch_posts'];
     }
 }
@@ -84,6 +88,8 @@ function reset_world($settings = [], $is_pro = false) {
     $GLOBALS['tw']['is_pro'] = $is_pro;
     $GLOBALS['tw']['db_queries'] = 0;
     $GLOBALS['tw']['webhook_calls'] = 0;
+    $GLOBALS['tw']['db_command'] = null;
+    $GLOBALS['tw']['sent_commands'] = [];
     $GLOBALS['tw']['user_meta'] = [
         42 => ['pqm_monthly_usage' => ['month' => '2026-10', 'count' => 5]],
         43 => ['pqm_monthly_usage' => ['month' => '2026-09', 'count' => 20]],
@@ -160,6 +166,23 @@ check('fixture: cron on schedules pqm_cron_review_posts', wp_next_scheduled('pqm
 $GLOBALS['tw']['settings']['cron_enabled'] = false;
 PQM_Cron::schedule();
 check('cron off: pqm_cron_review_posts cleared, nothing scheduled', $GLOBALS['tw']['events'] === []);
+
+/* ─── Row 8 (ticket 3): the batch selects by the scheduled command ───── */
+echo "Row 8 — selection per scheduled command\n";
+foreach (['audit', 'seo', 'review'] as $cmd) {
+    reset_world(['cron_command' => $cmd], true);
+    PQM_Cron::run_scheduled_review();
+    check("$cmd: get_posts_needing_review() receives '$cmd'", $GLOBALS['tw']['db_command'] === $cmd);
+    check("$cmd: each batch post sent as '$cmd'", $GLOBALS['tw']['sent_commands'] === [$cmd, $cmd, $cmd]);
+}
+reset_world(['cron_command' => null], false);
+PQM_Cron::run_scheduled_review();
+check("cron_command missing: selects and sends 'review'", $GLOBALS['tw']['db_command'] === 'review'
+    && $GLOBALS['tw']['sent_commands'] === ['review', 'review', 'review']);
+reset_world(['cron_command' => 'audit'], false);
+PQM_Cron::run_scheduled_review();
+check('audit on a lapsed (free) site: skipped before the query', $GLOBALS['tw']['db_command'] === null
+    && $GLOBALS['tw']['sent_commands'] === []);
 
 /* ─── why_not() refactor is pure (hidden/locked behavior unchanged) ──── */
 echo "Extra — why_not() unchanged after the plan_allows refactor\n";

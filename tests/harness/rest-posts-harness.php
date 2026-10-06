@@ -717,5 +717,26 @@ check('items [] with yoast_active true, no cache prime',
     $data['items'] === [] && $data['yoast_active'] === true && $GLOBALS['tw']['meta_primes'] === []);
 $GLOBALS['tw']['post_meta'] = [];
 
+/* ─── Ticket 3: cron selection per command — PQM_DB::get_posts_needing_review()
+       prepares the command as %s in the latest-row subquery and the r1 join ── */
+echo "Cron selection per command (ticket 3)\n";
+defined('DAY_IN_SECONDS') || define('DAY_IN_SECONDS', 86400);
+foreach (['audit' => [70, 14, 4, 'audit'], 'review (default)' => [70, 14, 4]] as $what => $call) {
+    $wpdb = fresh_wpdb([], []);
+    PQM_DB::get_posts_needing_review(...$call);
+    $cmd = $call[3] ?? 'review';
+    $p   = prepared_with($wpdb, 'MAX(reviewed_at)');
+    $sql = preg_replace('/\s+/', ' ', $p['sql'] ?? '');
+    check("$what: no hard-coded command literal", $p !== null && strpos($sql, "command = '") === false);
+    check("$what: command is %s in the subquery and the r1 join",
+        strpos($sql, 'WHERE command = %s GROUP BY post_id') !== false
+        && strpos($sql, 'r1.reviewed_at = r2.max_date AND r1.command = %s') !== false);
+    check("$what: args in placeholder order (command, command, min_score, cutoff, limit)",
+        count($p['args']) === 5 && $p['args'][0] === $cmd && $p['args'][1] === $cmd
+        && $p['args'][2] === 70 && $p['args'][4] === 4
+        && $p['args'][3] === gmdate('Y-m-d H:i:s', strtotime($p['args'][3])) && strtotime($p['args'][3]) < time() - 13 * 86400);
+    check("$what: placeholder count matches args", substr_count($p['sql'], '%') === count($p['args']));
+}
+
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

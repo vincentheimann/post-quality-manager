@@ -208,6 +208,45 @@ check('pro: one checked checkbox, no hidden 0, no off-switch line',
     && (bool) preg_match('/type="checkbox" name="pqm_settings\[cron_enabled\]" value="1"\s+checked/', $html));
 $GLOBALS['tw_settings'] = [];
 
+/* Ticket 3: the cron Command select offers Review, SEO, Audit */
+function cron_command_select(string $html): string {
+    preg_match('/<select id="pqm_cron_command".*?<\/select>/s', $html, $m);
+    return preg_replace('/\s+/', ' ', $m[0] ?? '');
+}
+$old_line = 'Only "review" is available in this version.';
+echo "Editor, licensed, stored cron_command audit (ticket 3)\n";
+$GLOBALS['tw_settings'] = ['cron_command' => 'audit'];
+$html   = render_for($editor_caps, true);
+$select = cron_command_select($html);
+check('enabled select named pqm_settings[cron_command]', $select !== ''
+    && strpos($select, 'name="pqm_settings[cron_command]"') !== false && strpos($select, 'disabled') === false);
+check('options review, seo, audit in order', preg_match_all('/<option value="([a-z]+)"/', $select, $values) === 3
+    && $values[1] === ['review', 'seo', 'audit']);
+check('labels from the registry', strpos($select, '>Review</option>') !== false
+    && strpos($select, '>SEO</option>') !== false && strpos($select, '>Audit</option>') !== false);
+check('stored audit selected, only it', substr_count($select, ' selected') === 1
+    && strpos($select, '<option value="audit" selected>') !== false);
+check('old "Only review" line gone', strpos($html, $old_line) === false);
+check('no rewrite option', strpos($select, 'rewrite') === false);
+echo "Editor, free site, stored cron_command seo (ticket 3)\n";
+$GLOBALS['tw_settings'] = ['cron_command' => 'seo'];
+$html = render_for($editor_caps, false);
+[$h2, $open, $close] = cron_fieldset($html, $locked_fieldset) ?: [false, false, false];
+$sel_at = strpos($html, '<select id="pqm_cron_command"');
+check('select inside the locked cron fieldset', $sel_at !== false && $open !== false && $sel_at > $open && $sel_at < $close);
+check('stored seo selected', strpos(cron_command_select($html), '<option value="seo" selected>') !== false);
+check('old "Only review" line gone (free)', strpos($html, $old_line) === false);
+echo "Editor, free site, stored cron on + cron_command audit (ticket 3)\n";
+$GLOBALS['tw_settings'] = ['cron_enabled' => true, 'cron_command' => 'audit'];
+$html = render_for($editor_caps, false);
+[$h2, $open, $close] = cron_fieldset($html, $locked_fieldset) ?: [false, false, false];
+$box = strpos($html, $cron_checkbox);
+check('paid command skipped by cron: fully locked, checkbox inside the fieldset',
+    substr_count($html, $cron_checkbox) === 1 && $box !== false && $box > $open && $box < $close);
+check('no off-switch: no hidden 0, no off-switch line', strpos($html, $cron_hidden) === false && strpos($html, $off_note) === false);
+check('today\'s locked note, not "keep running"', strpos($html, $upgrade_cron) !== false && strpos($html, 'keep running') === false);
+$GLOBALS['tw_settings'] = [];
+
 /* Story 23: Pattern field — Takeaways and Sources only */
 echo "Pattern field (story 23)\n";
 // 3 user patterns: 1 published with a List, 1 published without one, 1 draft.
