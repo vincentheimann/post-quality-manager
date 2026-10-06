@@ -1033,7 +1033,7 @@ class PQM_Admin
                         <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts.', 'post-quality-manager'); ?></li>
                         <li><?php esc_html_e('Claude — your Anthropic API key.', 'post-quality-manager'); ?></li>
                     </ul>
-                    <p><?php esc_html_e('Then activate the workflow in n8n.', 'post-quality-manager'); ?></p>
+                    <?php self::render_credentials_hint(); ?>
                 </div>
 
                 <div class="pqm-wizard-step" data-step="3">
@@ -1067,7 +1067,7 @@ class PQM_Admin
             <?php if ($seen_version > 0 && $seen_version < PQM_WORKFLOW_VERSION): ?>
             <div class="notice notice-warning inline pqm-inline-notice">
                 <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
-                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your settings and credentials are untouched.', 'post-quality-manager'); ?></p>
+                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your plugin settings stay as they are.', 'post-quality-manager'); ?></p>
             </div>
             <?php endif; ?>
 
@@ -1080,6 +1080,7 @@ class PQM_Admin
                 </a>
             </p>
             <?php self::render_import_url($import_url); ?>
+            <?php self::render_credentials_hint(); ?>
             <p class="description">
                 <?php
                 printf(
@@ -1159,6 +1160,22 @@ class PQM_Admin
             </div>
             <p class="pqm-copy-feedback" aria-live="polite"></p>
             <p class="description"><?php esc_html_e('In n8n, open the workflow menu, choose "Import from URL…" and paste this link. It includes your webhook token — keep it private.', 'post-quality-manager'); ?></p>
+        </div>
+<?php
+    }
+
+    /**
+     * After an import, n8n flags every credentialed node as "Credentials …
+     * are not set": it links credentials by an instance-specific ID the
+     * template cannot carry, and only fills a node in once it is opened.
+     * Shown next to both import paths (wizard + Workflow File).
+     */
+    private static function render_credentials_hint(): void
+    {
+?>
+        <div class="notice notice-info inline pqm-inline-notice">
+            <p><strong><?php esc_html_e('n8n says "Credentials … are not set" after the import?', 'post-quality-manager'); ?></strong>
+            <?php esc_html_e('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential (if you have several of the same kind, choose one in the node; if you have none yet, create it from the credential field in the node). Then save and activate the workflow.', 'post-quality-manager'); ?></p>
         </div>
 <?php
     }
