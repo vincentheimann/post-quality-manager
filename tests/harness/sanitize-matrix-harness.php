@@ -38,6 +38,25 @@ function esc_url_raw($url) { return trim((string) $url); }
 function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
 function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 function absint($n) { return abs((int) $n); }
+/* Story 23: PQM_Blocks::patterns() reads published wp_block posts and parses them. */
+$GLOBALS['pqm_test_patterns'] = []; // id => [title, status, content]
+function get_posts($args) {
+    $out = [];
+    foreach ($GLOBALS['pqm_test_patterns'] as $id => [$title, $status, $content]) {
+        if ($args['post_type'] === 'wp_block' && $status === $args['post_status']) {
+            $out[] = (object) ['ID' => $id, 'post_title' => $title, 'post_content' => $content];
+        }
+    }
+    return $out;
+}
+function parse_blocks($content) {
+    $list = ['blockName' => 'core/list', 'innerBlocks' => []];
+    return [
+        'group-with-list' => [['blockName' => 'core/group', 'innerBlocks' => [$list]]],
+        'paragraph-only'  => [['blockName' => 'core/paragraph', 'innerBlocks' => []]],
+        'list'            => [$list],
+    ][$content] ?? [];
+}
 
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
@@ -257,6 +276,46 @@ foreach ([
     $missing = array_diff(array_keys(pqm_default_settings()), array_keys($out));
     check('caps=[' . implode(',', $caps) . '] pro=' . var_export($pro, true) . ' → no missing keys', $missing === []);
 }
+
+/* ─── Case 7 (story 23): Pattern setting — Takeaways and Sources only ── */
+echo "\nCase 7: agent 'pattern' key — a listed pattern kept, anything else → 0, absent elsewhere\n";
+// User patterns (wp_block): 31 published with a List (nested), 32 without one, 33 a draft.
+$GLOBALS['pqm_test_patterns'] = [
+    31 => ['Key Takeaways', 'publish', 'group-with-list'],
+    32 => ['Banner', 'publish', 'paragraph-only'],
+    33 => ['Draft list', 'draft', 'list'],
+];
+check('defaults: pattern 0 for takeaways and sources only',
+    pqm_default_settings()['agent_prompts']['takeaways']['pattern'] === 0
+    && pqm_default_settings()['agent_prompts']['sources']['pattern'] === 0
+    && !isset(pqm_default_settings()['agent_prompts']['review']['pattern']));
+check('no typed block-name key left in the defaults', !isset(pqm_default_settings()['agent_prompts']['takeaways']['block']));
+setup(['pqm_manage_agents'], true, $stored_option);
+$agent = static fn($pattern) => ['instructions' => '', 'temperature' => '0.3', 'model' => '', 'effort' => 'medium', 'pattern' => $pattern];
+$out = PQM_Admin::sanitize_settings(['agent_prompts' => [
+    'takeaways' => $agent('31'),
+    'sources'   => $agent(31),
+    'review'    => $agent('31'), // posted where no Pattern field exists
+]]);
+check('published pattern with a List kept, stored as an int', $out['agent_prompts']['takeaways']['pattern'] === 31
+    && $out['agent_prompts']['sources']['pattern'] === 31);
+check('no pattern key stored on review, even when posted', !array_key_exists('pattern', $out['agent_prompts']['review']));
+foreach (['a page ID' => '7', 'a list-less pattern' => '32', 'a draft pattern' => '33', 'abc' => 'abc', 'empty' => ''] as $label => $bad) {
+    $out = PQM_Admin::sanitize_settings(['agent_prompts' => ['takeaways' => $agent($bad)]]);
+    check("$label stored as 0", $out['agent_prompts']['takeaways']['pattern'] === 0);
+}
+$no_pattern = $agent('31');
+unset($no_pattern['pattern']);
+$out = PQM_Admin::sanitize_settings(['agent_prompts' => ['takeaways' => $no_pattern]]);
+check('takeaways posted without a pattern field → 0', $out['agent_prompts']['takeaways']['pattern'] === 0);
+setup(['pqm_manage_agents'], false, array_merge($stored_option, ['agent_prompts' => [
+    'takeaways' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'medium', 'pattern' => 31],
+]]));
+$out = PQM_Admin::sanitize_settings([]);
+check('free site: stored pattern carried (section locked)', $out['agent_prompts']['takeaways']['pattern'] === 31);
+check('read side: merged settings keep pattern on takeaways/sources only',
+    pqm_get_settings()['agent_prompts']['sources']['pattern'] === 0
+    && !isset(pqm_get_settings()['agent_prompts']['seo']['pattern']));
 
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

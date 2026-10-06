@@ -15,6 +15,7 @@
 
         initSettingsPage();
         initModelControls();
+        initPatternLinks();
         initTestConnection();
         initImportUrlCopy();
         initWizard();
@@ -91,6 +92,11 @@
                 var modelSelect = document.getElementById('pqm_agent_model_' + key);
                 var effortSelect = document.getElementById('pqm_agent_effort_' + key);
                 if (effortSelect) effortSelect.value = defs.effort || 'high';
+                var patternSelect = document.getElementById('pqm_agent_pattern_' + key); // Takeaways, Sources only
+                if (patternSelect) {
+                    patternSelect.value = '0'; // Plain list
+                    patternSelect.dispatchEvent(new Event('change')); // re-sync the Edit link
+                }
                 if (modelSelect) {
                     modelSelect.value = defs.model || '';
                     modelSelect.dispatchEvent(new Event('change')); // re-sync visible knobs
@@ -164,6 +170,25 @@
         });
 
         refreshAll(); // sync JS state with the server-rendered initial state
+    }
+
+    /* ================================================================
+     *  INSERT INTO POST LINKS (settings page)
+     *  The Takeaways / Sources boxes carry a pattern select; the Edit
+     *  link follows the selection (Reset to Defaults dispatches a
+     *  change) and hides for the plain list.
+     * ================================================================ */
+    function initPatternLinks() {
+        document.querySelectorAll('.pqm-agent-box').forEach(function (box) {
+            var select = box.querySelector('.pqm-pattern-select');
+            var edit = box.querySelector('.pqm-pattern-edit');
+            if (!select || !edit) return;
+
+            select.addEventListener('change', function () {
+                edit.href = edit.href.replace(/post=\d+/, 'post=' + select.value);
+                edit.classList.toggle('pqm-hidden', select.value === '0');
+            });
+        });
     }
 
     /* ================================================================

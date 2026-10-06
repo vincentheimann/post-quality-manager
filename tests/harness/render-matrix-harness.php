@@ -20,7 +20,7 @@ function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function plugin_basename($f) { return basename($f); }
 function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) { return $k === 'pqm_settings' ? ['n8n_webhook_url' => 'https://n8n.example/webhook'] : $d; }
+function get_option($k, $d = false) { return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
@@ -60,6 +60,27 @@ function wp_schedule_event(...$a) { return true; }
 function wp_clear_scheduled_hook(...$a) {}
 function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
+
+/* Story 23: the Pattern field lists published wp_block posts holding a List. */
+$GLOBALS['tw_patterns'] = []; // id => [title, status, content]
+$GLOBALS['tw_settings'] = []; // merged over the stored pqm_settings
+function get_posts($args) {
+    $out = [];
+    foreach ($GLOBALS['tw_patterns'] as $id => [$title, $status, $content]) {
+        if ($args['post_type'] === 'wp_block' && $status === $args['post_status']) {
+            $out[] = (object) ['ID' => $id, 'post_title' => $title, 'post_content' => $content];
+        }
+    }
+    return $out;
+}
+function parse_blocks($content) {
+    $list = ['blockName' => 'core/list', 'innerBlocks' => []];
+    return [
+        'group-with-list' => [['blockName' => 'core/group', 'innerBlocks' => [$list]]],
+        'paragraph-only'  => [['blockName' => 'core/paragraph', 'innerBlocks' => []]],
+        'list'            => [$list],
+    ][$content] ?? [];
+}
 
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
@@ -116,6 +137,85 @@ echo "Admin, licensed\n";
 $html = render_for($admin_caps, true);
 foreach (array_merge($admin_sections, $editor_sections) as $s) { check("shows: $s", strpos($html, $s) !== false); }
 check('no locked fieldset', strpos($html, $locked_fieldset) === false);
+
+/* Story 23: Pattern field — Takeaways and Sources only */
+echo "Pattern field (story 23)\n";
+// 3 user patterns: 1 published with a List, 1 published without one, 1 draft.
+$GLOBALS['tw_patterns'] = [
+    31 => ['Key Takeaways', 'publish', 'group-with-list'],
+    32 => ['Banner', 'publish', 'paragraph-only'],
+    33 => ['Draft list', 'draft', 'list'],
+];
+$GLOBALS['tw_settings'] = ['agent_prompts' => ['takeaways' => ['pattern' => 31]]];
+$html = render_for($editor_caps, true);
+check('Pattern select for Takeaways and Sources', strpos($html, '<select id="pqm_agent_pattern_takeaways"') !== false
+    && strpos($html, 'name="pqm_settings[agent_prompts][takeaways][pattern]"') !== false
+    && strpos($html, 'name="pqm_settings[agent_prompts][sources][pattern]"') !== false);
+check('no Pattern field for the other agents', substr_count($html, '[pattern]"') === 2);
+check('no typed block-name field or datalist left', strpos($html, '[block]"') === false && strpos($html, '<datalist') === false);
+preg_match('/<select id="pqm_agent_pattern_takeaways".*?<\/select>/s', $html, $m);
+$select = preg_replace('/\s+/', ' ', $m[0] ?? '');
+check('options: Plain list (0) + the 1 published pattern with a List, by title',
+    preg_match_all('/<option value="(\d+)"/', $select, $values) === 2 && $values[1] === ['0', '31']
+    && strpos($select, '<option value="0">Plain list</option>') !== false && strpos($select, '> Key Takeaways </option>') !== false);
+check('the stored pattern is selected (Takeaways)', strpos($select, '<option value="31" selected>') !== false);
+preg_match('/<select id="pqm_agent_pattern_sources".*?<\/select>/s', $html, $m);
+check('nothing stored → Plain list (Sources)', strpos($m[0] ?? '', ' selected') === false);
+
+/* Story 24: the Pattern to use row — label, optgroup, links, listing rule */
+echo "Pattern to use row (story 24)\n";
+/** The Takeaways box's pattern <td>, whitespace collapsed. */
+function takeaways_cell(string $html): string {
+    preg_match('/<label for="pqm_agent_pattern_takeaways">.*?<\/td>/s', $html, $m);
+    return preg_replace('/\s+/', ' ', $m[0] ?? '');
+}
+$cell = takeaways_cell($html);
+check('label "Pattern to use"', str_contains($cell, '<label for="pqm_agent_pattern_takeaways">Pattern to use</label>'));
+check('select: Plain list, then the patterns under an optgroup "Your patterns"',
+    preg_match('/<option value="0">Plain list<\/option> <optgroup label="Your patterns"> <option value="31" selected>/', $cell) === 1);
+check('"Edit pattern" href is core\'s edit link for the chosen pattern (ends post=31&action=edit), shown',
+    preg_match('/<a class="pqm-pattern-edit" href="([^"]+)">Edit pattern<\/a>/', $cell, $m) === 1 && str_ends_with($m[1], 'post.php?post=31&action=edit'));
+check('"Manage patterns" → edit.php?post_type=wp_block',
+    str_contains($cell, '<a href="/wp-admin/edit.php?post_type=wp_block">Manage patterns</a>'));
+check('no "Create a pattern" button while a pattern qualifies', !str_contains($cell, 'Create a pattern'));
+check('Takeaways line says where the items land',
+    str_contains($cell, "Goes at the top of the post. The items fill the pattern's first List block, so only your published patterns that contain a List block appear here."));
+check('Sources line says the end', str_contains($html, "Goes at the end of the post. The items fill the pattern's first List block, so only your published patterns that contain a List block appear here."));
+check('no preview iframe (removed 2026-10-06: it pulled the theme\'s third-party scripts into Settings)', !str_contains($html, '<iframe'));
+
+$GLOBALS['tw_settings'] = []; // Plain list chosen
+$cell = takeaways_cell(render_for($editor_caps, true));
+check('plain list chosen → "Edit pattern" hidden, href at post=0',
+    preg_match('/<a class="pqm-pattern-edit pqm-hidden" href="[^"]*post\.php\?post=0&action=edit">Edit pattern<\/a>/', $cell) === 1);
+
+$GLOBALS['tw_settings'] = ['agent_prompts' => ['takeaways' => ['pattern' => 31]]];
+$GLOBALS['tw_patterns'] = [32 => ['Other list', 'publish', 'list']]; // the stored 31 no longer qualifies
+$cell = takeaways_cell(render_for($editor_caps, true));
+check('stored pattern gone → Plain list selected, "Edit pattern" hidden at post=0 (select and link agree)',
+    !str_contains($cell, ' selected') && preg_match('/<a class="pqm-pattern-edit pqm-hidden" href="[^"]*post\.php\?post=0&action=edit">/', $cell) === 1);
+$GLOBALS['tw_settings'] = [];
+
+$GLOBALS['tw_patterns'] = [32 => ['Banner', 'publish', 'paragraph-only'], 33 => ['Draft list', 'draft', 'list']]; // none eligible
+$cell = takeaways_cell(render_for($editor_caps, true));
+check('none eligible: select has Plain list only, no optgroup',
+    preg_match_all('/<option /', $cell) === 1 && !str_contains($cell, '<optgroup'));
+check('"Create a pattern" button → post-new.php?post_type=wp_block',
+    str_contains($cell, '<a class="button" href="/wp-admin/post-new.php?post_type=wp_block">Create a pattern</a>'));
+check('no "Edit pattern" / "Manage patterns" links', !str_contains($cell, 'Edit pattern') && !str_contains($cell, 'Manage patterns'));
+
+$GLOBALS['tw_patterns'] = [31 => ['Key Takeaways', 'publish', 'group-with-list']];
+$html  = render_for($editor_caps, false);
+$open  = strpos($html, $locked_fieldset);
+$field = strpos($html, '[takeaways][pattern]');
+check('free site: the row sits inside the locked Overrides fieldset',
+    $open !== false && $field > $open && $field < strpos($html, '</fieldset>', $open));
+$free_cells = takeaways_cell($html);
+$GLOBALS['tw_patterns'] = [];
+$free_cells .= takeaways_cell(render_for($editor_caps, false)); // the empty state too
+check('free site: no Edit pattern / Manage patterns links and no Create a pattern button (links escape the disabled fieldset)',
+    !str_contains($free_cells, 'Edit pattern') && !str_contains($free_cells, 'Manage patterns') && !str_contains($free_cells, 'Create a pattern')
+    && !str_contains($free_cells, '<a '));
+$GLOBALS['tw_settings'] = [];
 
 /* Row: remap — capability set is the only driver (an "Author" granted
  * pqm_manage_agents gets the Editor view; roles never checked directly) */

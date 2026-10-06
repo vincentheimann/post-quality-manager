@@ -32,6 +32,7 @@ require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-db.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-license.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-features.php';
+require_once PQM_PLUGIN_DIR . 'includes/class-pqm-blocks.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-cron.php';
 require_once PQM_PLUGIN_DIR . 'admin/class-pqm-admin.php';
@@ -87,8 +88,10 @@ function pqm_default_settings(): array
         // Per-agent: 'model' => '' means "use the default model above".
         'agent_prompts' => [
             'review' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'high'],
-            'takeaways' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'medium'],
-            'sources' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium'],
+            // 'pattern': the user pattern (wp_block ID) Insert into Post copies the items into,
+            // 0 = plain list (PQM_Blocks) — these two agents only.
+            'takeaways' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'medium', 'pattern' => 0],
+            'sources' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium', 'pattern' => 0],
             'seo' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium'],
             'audit' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium'],
             'rewrite' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'high'],

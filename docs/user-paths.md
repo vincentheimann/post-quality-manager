@@ -78,7 +78,7 @@ Scan scores, statuses, and top edits, with Yoast's SEO and readability scores al
 Edit the flagged post guided by the top edits (or, in theory, run rewrite).
 
 - **CV:** suggested edits are concrete enough to guide manual editing.
-- **UV — the biggest gap in the whole product:** the loop from insight to action is unproven. User #1's honest answer is "varies / too early to say", and the rewrite agent goes unused. There is no way to mark an edit applied, no tracking of whether reviews cause edits at all. *(2026-07-24, pending validation: the deep-link now exists — "Open in Editor" is the primary action on the Review tab.)* **If reviews don't lead to edits, the product's core promise is unrealized regardless of how good the scores are.**
+- **UV — the biggest gap in the whole product:** the loop from insight to action is unproven. User #1's honest answer is "varies / too early to say", and the rewrite agent goes unused. There is no way to mark an edit applied, no tracking of whether reviews cause edits at all. *(2026-07-24, pending validation: the deep-link now exists — "Open in Editor" is the primary action on the Review tab.)* *(2026-10-06, pending validation: "Insert into Post" puts Takeaways and Sources into the post in the owner's pattern — story 23.)* **If reviews don't lead to edits, the product's core promise is unrealized regardless of how good the scores are.**
 - **Signal:** % of reviewed posts edited within 14 days; score delta on the following review.
 
 ### B4. Verify improvement

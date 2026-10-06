@@ -34,6 +34,9 @@
 .pqm-temp-value { font-weight: bold; width: 30px; }
 .pqm-temp-row.pqm-locked { opacity: .55; }
 
+/* Insert into Post: pattern picker row (Takeaways, Sources) */
+.pqm-pattern-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
 /* Plan-locked settings sections: visible but inert (same tones as .pqm-locked) */
 .pqm-locked-section {
     border: 0; margin: 0; padding: 0; min-inline-size: auto;

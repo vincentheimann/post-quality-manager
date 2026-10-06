@@ -295,6 +295,7 @@ export default function PostReviewsTable() {
 		startRun,
 		trigger,
 		toasts,
+		addToast,
 		removeToast,
 	} = useSingleRun( items, loadedKey, {
 		onStarted: bumpDetail,
@@ -598,6 +599,7 @@ export default function PostReviewsTable() {
 																command
 															)
 														}
+														onNotify={ addToast }
 													/>
 												</td>
 											</tr>

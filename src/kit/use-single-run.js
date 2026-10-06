@@ -26,7 +26,7 @@ import usePolling from './use-polling';
  * @param {Object}     callbacks             The page's own reactions.
  * @param {Function}   [callbacks.onStarted] `( postId, command )` after a run was accepted.
  * @param {Function}   [callbacks.onSettled] `( postId, command )` once a run's result landed.
- * @return {Object} `refreshKey`, `settlePending( key )`, `awaited`, `pendingPostId`, `startRun( postId, command )`, `trigger( postId, command )`, `toasts`, `removeToast( id )`.
+ * @return {Object} `refreshKey`, `settlePending( key )`, `awaited`, `pendingPostId`, `startRun( postId, command )`, `trigger( postId, command )`, `toasts`, `addToast( content, status )`, `removeToast( id )`.
  */
 export default function useSingleRun( items, listKey, callbacks = {} ) {
 	const [ refreshKey, setRefreshKey ] = useState( 0 );
@@ -123,6 +123,7 @@ export default function useSingleRun( items, listKey, callbacks = {} ) {
 		startRun,
 		trigger,
 		toasts,
+		addToast,
 		removeToast,
 	};
 }

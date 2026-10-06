@@ -43,6 +43,7 @@ import {
 } from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
+import InsertBlock, { insertItems } from './insert-block';
 import ResultView, { PillarMeters, isReviewShape } from './result-view';
 
 /** Tabs: every canonical command except Rewrite, then History. */
@@ -271,8 +272,26 @@ function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
 	);
 }
 
-function AgentTab( { command, row, viewer, disabled, onTrigger } ) {
+function AgentTab( {
+	command,
+	row,
+	postId,
+	editLink,
+	viewer,
+	disabled,
+	onTrigger,
+	onNotify,
+} ) {
 	const state = rowState( row );
+	// Insert into Post (story 23): a done Takeaways / Sources run with items,
+	// for a viewer who may edit the post and run the agent (gated alike).
+	const items =
+		state === 'done' ? insertItems( command, row.result_data ) : [];
+	const canInsert =
+		items.length > 0 &&
+		!! editLink &&
+		canRender( viewer, command ) &&
+		! isGated( viewer, command );
 
 	return (
 		<>
@@ -290,6 +309,15 @@ function AgentTab( { command, row, viewer, disabled, onTrigger } ) {
 				</>
 			) }
 			<div className="pqm-panel-actions">
+				{ canInsert && (
+					<InsertBlock
+						postId={ postId }
+						command={ command }
+						count={ items.length }
+						disabled={ disabled }
+						onNotify={ onNotify }
+					/>
+				) }
 				<CommandButton
 					command={ command }
 					hasRun={ !! row }
@@ -351,6 +379,7 @@ function HistoryTab( { rows } ) {
  * @param {boolean}  props.busy      True while the post is awaited or a trigger is pending.
  * @param {number}   props.version   Bump to refetch (a run completed or started).
  * @param {Function} props.onTrigger `( command ) => void`.
+ * @param {Function} props.onNotify  `( content, status ) => void` — the page's toast (Insert into Post).
  */
 export default function DetailPanel( {
 	postId,
@@ -359,6 +388,7 @@ export default function DetailPanel( {
 	busy,
 	version,
 	onTrigger,
+	onNotify,
 } ) {
 	const [ rows, setRows ] = useState( null );
 	const [ error, setError ] = useState( false );
@@ -463,9 +493,12 @@ export default function DetailPanel( {
 						<AgentTab
 							command={ tab.name }
 							row={ latest[ tab.name ] }
+							postId={ postId }
+							editLink={ editLink }
 							viewer={ viewer }
 							disabled={ busy }
 							onTrigger={ onTrigger }
+							onNotify={ onNotify }
 						/>
 					);
 				} }
