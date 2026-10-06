@@ -41,3 +41,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0006 — The license provider ships as a stub until Freemius is set up](0006-license-provider-ships-as-stub.md)
 - [0007 — Adopt the minimal-code ladder natively in BMad; decline Caveman; Headroom stays machine-local](0007-minimal-code-ladder-native-in-bmad.md)
 - [0008 — The plugin, not n8n, writes Takeaways and Sources into posts](0008-plugin-writes-agent-output-into-posts.md)
+- [0009 — Agents run on several model providers through two request shapes, under one site-wide token limit](0009-multi-provider-models-and-token-limit.md)

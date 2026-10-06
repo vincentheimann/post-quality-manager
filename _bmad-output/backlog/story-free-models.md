@@ -3,8 +3,8 @@ id: 30
 type: story
 title: "The AI Model section can use free models"
 parent: none
-covers: []
-after: [25, 31]
+covers: [O5]
+after: [25, 29, 31]
 assignee: ""
 refined: false
 hitl: true
@@ -15,14 +15,15 @@ risk: medium
 
 ## Description
 
-Owner request (2026-10-06). Every agent node in the n8n template calls `api.anthropic.com` directly. Only Claude models are offered, and every command costs Anthropic credits. This story adds OpenRouter as the fourth provider in the picker story 25 builds, with its free router and free models, so an owner can run every agent at no model cost. OpenRouter takes the same request format as OpenAI, so it reuses story 25's non-Anthropic request path. The person step: the owner creates an OpenRouter account and key and stores the key in n8n.
+Owner request (2026-10-06). After story 25, the picker offers Anthropic, OpenAI and Google models, and every command still costs the owner provider credits. This story adds OpenRouter as the fourth provider in the picker story 25 builds, with its free router and free models, so an owner can run every agent at no model cost. OpenRouter takes the same request format as OpenAI, so it reuses story 25's non-Anthropic request path. The person step: the owner creates an OpenRouter account and key and stores the key in n8n.
 
 ## Acceptance Criteria
 
-Verify: with a free model selected as the default, and then as one agent's override, each command completes end to end and its result renders like a Claude result. The result's JSON fits the shape the plugin expects, or a failure is stored as an error and not as an empty review. Sites that keep a Claude model see no change in requests or results.
+Verify: with a free model selected as the default, and then as one agent's override on a licensed site (overrides are Pro), each command completes end to end and its result renders like a Claude result. The result's JSON fits the shape the plugin expects, or a failure is stored as an error and not as an empty review. Sites that keep a Claude model see no change in requests or results.
 
 ## References
 
+- decision — docs/adr/0009-multi-provider-models-and-token-limit.md
 - code — post-quality-manager/post-quality-manager.php, `pqm_model_registry()`, `pqm_model_caps()`, `pqm_llm_params()`
 - code — post-quality-manager/templates/n8n-workflow.json (the non-Anthropic request path story 25 adds)
 - OpenRouter — https://openrouter.ai/docs/quickstart and https://openrouter.ai/docs/faq (read 2026-10-06)

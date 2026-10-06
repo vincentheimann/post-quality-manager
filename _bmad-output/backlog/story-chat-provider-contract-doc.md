@@ -4,7 +4,7 @@ type: story
 title: "Any chat tool can drive the workflow from a documented webhook contract"
 parent: none
 covers: [O4]
-after: []
+after: [22, 31]
 assignee: ""
 refined: false
 hitl: false
@@ -30,3 +30,4 @@ Verify: a reader can craft a valid `trigger` request and interpret the callback 
 ## Notes
 
 - Docs only; no code change expected. If the contract turns out inconsistent, that is a bug ticket, not scope here.
+- `after: [22, 31]` (validation, 2026-10-06): story 22 verifies the contract this story documents, and bug 31 changes the callback payload (`status`, `error_message`). Stories 2, 25 and 29 also change the contract; whichever lands after this story updates the doc.

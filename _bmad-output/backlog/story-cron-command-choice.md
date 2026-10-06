@@ -4,7 +4,7 @@ type: story
 title: "Automated Reviews can schedule seo and audit, not only review"
 parent: none
 covers: [UV6]
-after: []
+after: [13]
 assignee: ""
 refined: false
 hitl: false
@@ -29,3 +29,4 @@ Verify: a cron batch configured for `audit` stores audit results that appear in 
 ## Notes
 
 - Decision needed at refine: one command per schedule, or a multi-select — the KISS default is one.
+- `after: [13]` (validation, 2026-10-06): both edit the Automated Reviews fieldset and the `cron_command` handling in the sanitizer; the command choice lands on the fieldset story 13 unlocks.

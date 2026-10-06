@@ -4,7 +4,7 @@ type: story
 title: "A free-site Admin can switch leftover scheduled reviews off"
 parent: none
 covers: []
-after: []
+after: [16]
 assignee: ""
 refined: false
 hitl: false
@@ -24,3 +24,7 @@ Verify: on a free site with stored `cron_enabled=true`, the Admin unchecks Enabl
 ## References
 
 - findings — _bmad-output/initiative-post-quality-manager/epic-freemium-and-roles/epic-freemium-and-roles-retrospective.md (adversarial a1, answered A7)
+
+## Notes
+
+- `after: [16]` (validation, 2026-10-06): the Enable exception is a narrow exception to the carry rule that bug 19 and story 16 reshape in the same sanitizer block, so it lands on their final version.

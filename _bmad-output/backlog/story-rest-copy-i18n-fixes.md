@@ -4,7 +4,7 @@ type: story
 title: "REST-layer refusal and success copy is translated, labeled and correct"
 parent: none
 covers: []
-after: []
+after: [14]
 assignee: ""
 refined: false
 hitl: false
@@ -23,7 +23,7 @@ Verify: every user-facing REST string is translatable, command labels come from 
 
 ## Notes
 
-- Sequencing: coordinate the shared label source with epic-ui-rebuild story 5.2 (component kit) so PHP and JS read one list — don't invent two "single sources".
+- `after: [14]` (validation, 2026-10-06): both edit the refusal path and the command registry; the PHP label map is keyed on story 14's whitelist. The JS label source already exists (`src/kit/copy.js`, epic-ui-rebuild story 5.2); the PHP map must not become a second source of the same labels.
 
 ## References
 

@@ -2,6 +2,8 @@
 
 The owner walks this on the real site and ticks each box, or files a bug in `_bmad-output/backlog/` and writes its id next to the box. The same walk also counts as story 5.8's site check ("nothing differs from today", LTR and RTL). When every box is ticked or has a bug id, close 5.8 and 5.9.
 
+**Same sitting (2026-10-06, `/prioritize`):** backlog stories 1 and 6 run in the same walk; their criteria skip what this checklist covers. Suggested order: section 0, story 6 (fresh install, wizard and round trip, so later sections have real reviews), story 1, then sections 1–6.
+
 ## Pre-checked by the agent (2026-10-05, `main` at `d4f7887`)
 
 These are the parts of Done when 3 and 5 that don't need a browser. Each was verified against the code:
@@ -78,6 +80,6 @@ The plugin ships no translations, so use the agent's pseudo-translation pack. It
 - Closing actions once green:
   - Mark 5.8 and 5.9 done.
   - In deferred-work, the owner closes three entries (the file is append-only): the 5.2 `error` badge (resolved by 5.4), the AGENTS.md jQuery line (resolved by `dec9aca`), and the lint-crash half of the 5.5 entry (resolved by 5.8; the Jest question stays open).
-  - Fold the n8n template failure-path entry into backlog story 22, which already lists "error and non-2xx handling".
+  - The n8n template failure-path entry is already filed as backlog bug 31 (2026-10-06); nothing to fold.
   - Remove the pseudo pack from the site's `languages/` folder.
   - Run `bmad-retrospective` for `epic-ui-rebuild`.

@@ -3,8 +3,8 @@ id: 29
 type: story
 title: "A Settings tab shows AI usage and limits what model calls may consume"
 parent: none
-covers: []
-after: [27]
+covers: [O5]
+after: [25, 27, 31]
 assignee: ""
 refined: false
 hitl: false
@@ -23,12 +23,15 @@ Verify: after commands run, the tab shows the month's usage per agent and per mo
 
 ## References
 
+- decision — docs/adr/0009-multi-provider-models-and-token-limit.md
 - code — post-quality-manager/includes/class-pqm-features.php (per-user monthly quota, the existing pattern for a self-resetting monthly counter)
 - code — post-quality-manager/includes/class-pqm-rest-api.php, `save_review_callback` (where n8n posts results back)
 - code — post-quality-manager/templates/n8n-workflow.json (POST Result to WordPress body; the provider's `usage` is not forwarded)
 
 ## Notes
 
+- Decision (owner, 2026-10-06): usage is stored in one site option that resets itself when the month changes, the same pattern as the Monthly Quota's counter. No database table. Uninstall deletes the option.
+- `after: [25, 27, 31]` (validation, 2026-10-06): story 25's two request shapes report `usage` under different field names, and both stories and bug 31 edit the same template nodes, the result body and `PQM_WORKFLOW_VERSION`.
 - Decision (owner, 2026-10-06): limits are measured in tokens.
 - Decision (owner, 2026-10-06): available on both the free and the pro plan.
 - Decision (owner, 2026-10-06): one site-wide monthly limit, 0 = unlimited like the Monthly Quota. Manual and scheduled commands draw from the same pool; no per-agent or per-user limits.

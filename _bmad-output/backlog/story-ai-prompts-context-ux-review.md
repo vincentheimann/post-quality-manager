@@ -3,8 +3,8 @@ id: 26
 type: story
 title: "AI Prompts & Context is reviewed for UX and behavior, and the Blog Profile / Brand Voice / Website Context overlap is resolved"
 parent: none
-covers: []
-after: []
+covers: [O5]
+after: [6]
 assignee: ""
 refined: false
 hitl: true
@@ -32,5 +32,6 @@ Verify: a findings document approved by the owner covers every control in the se
 ## Notes
 
 - Decision (owner, 2026-10-06): the review runs on Claude Fable 5.1.
+- `after: [6]` (2026-10-06): story 6's criterion 5 walks this section's presets on a real site; its findings are input to this review.
 - Open question: whether Blog Profile stays as a starting-point shortcut, merges into Brand Voice, or is removed.
-- Open question: whether this lands before or inside the tabbed Settings page (story 27). If the outcome changes the section's fields, build it first so story 27 moves the final version.
+- Decision (owner, 2026-10-06): the Settings stories build in the order 26 → 27 → 25, so this story lands before the tabs and story 27 moves the final version of the section.

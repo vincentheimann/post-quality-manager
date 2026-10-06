@@ -4,7 +4,7 @@ type: story
 title: "The connection test proves the full loop, callback and token included"
 parent: none
 covers: [UV5]
-after: []
+after: [1, 6, 22, 31]
 assignee: ""
 refined: false
 hitl: false
@@ -30,3 +30,4 @@ Verify: on a site with a correct token the test reports the round trip as proven
 ## Notes
 
 - A template change bumps the version handshake; older imports keep the one-way ping (known limitation in the initiative Notes).
+- `after: [1, 6, 22, 31]` (validation, 2026-10-06): stories 1 and 6 check the current one-way ping copy this story rewrites; story 22's findings fold into this story; bug 31 also changes the template and bumps `PQM_WORKFLOW_VERSION`.

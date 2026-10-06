@@ -25,6 +25,7 @@ Verify: the release-please changelog (or release body) for the next tag names th
 
 - Joins the Freemius release-notes/migration item already in `_bmad-output/initiative-post-quality-manager/deferred-work.md` when that ships.
 - Gates the next release — not the rebuild epic.
+- Decision (owner, 2026-10-06): this story owns the release-notes list for every release, not only the three freemium behaviors. Each template change (bug 31, stories 2, 25, 29, 30) adds its re-import entry here when it lands; story 25 also adds the new default model and the "(legacy)" model labels.
 
 ## References
 
