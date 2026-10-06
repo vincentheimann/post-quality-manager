@@ -28,6 +28,12 @@
  * after the title; while Yoast is active (`yoast_active`) a display-only
  * Yoast SEO column after Score shows the item's `yoast` scores as kit
  * ScoreBadges.
+ *
+ * Ticket 32: while n8n is not connected (`viewer.connected` false) a
+ * persistent notice above the table names the next step — the n8n
+ * Workflow page for `can_manage_settings`, an administrator otherwise —
+ * and the Run / Review selected buttons are disabled. A failed single-run
+ * start shows inline in the open DetailPanel, not as a toast.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, Spinner } from '@wordpress/components';
@@ -37,7 +43,7 @@ import { addQueryArgs, getQueryArgs, removeQueryArgs } from '@wordpress/url';
 
 import { STATUS_NONE } from './kit/copy';
 import ProgressPills from './kit/progress-pills';
-import { POSTS_PATH, canRender, inFlight } from './kit/runs';
+import { POSTS_PATH, canRender, inFlight, isConnected } from './kit/runs';
 import ScoreBadge from './kit/score-badge';
 import StatusBadge from './kit/status-badge';
 import Toasts from './kit/toasts';
@@ -269,6 +275,53 @@ function PostRow( {
 	);
 }
 
+/**
+ * n8n not connected (ticket 32): why Run is disabled, and the next step —
+ * the n8n Workflow page for admins, an administrator for everyone else.
+ *
+ * @param {Object}  props
+ * @param {boolean} props.canManage Whether the viewer may open the n8n Workflow page.
+ */
+function NotConnectedNotice( { canManage } ) {
+	return (
+		<Notice
+			status="warning"
+			isDismissible={ false }
+			className="pqm-connect-notice"
+			actions={
+				canManage
+					? [
+							{
+								label: __(
+									'Set up the n8n workflow',
+									'post-quality-manager'
+								),
+								url: 'admin.php?page=pqm-workflow',
+								variant: 'primary',
+							},
+					  ]
+					: []
+			}
+		>
+			<strong>
+				{ __(
+					'n8n is not connected yet, so agents cannot run.',
+					'post-quality-manager'
+				) }
+			</strong>{ ' ' }
+			{ canManage
+				? __(
+						'Import the pre-configured workflow into n8n and connect it to this site — about 10 minutes, one time.',
+						'post-quality-manager'
+				  )
+				: __(
+						'Ask an administrator to connect the n8n workflow to this site.',
+						'post-quality-manager'
+				  ) }
+		</Notice>
+	);
+}
+
 export default function PostReviewsTable() {
 	const [ query, setQuery ] = useState( readQueryFromUrl );
 	const [ items, setItems ] = useState( null );
@@ -294,6 +347,8 @@ export default function PostReviewsTable() {
 		pendingPostId,
 		startRun,
 		trigger,
+		startError,
+		dismissStartError,
 		toasts,
 		addToast,
 		removeToast,
@@ -445,6 +500,11 @@ export default function PostReviewsTable() {
 
 	return (
 		<>
+			{ viewer && viewer.can_trigger && ! isConnected( viewer ) && (
+				<NotConnectedNotice
+					canManage={ !! viewer.can_manage_settings }
+				/>
+			) }
 			<FilterBar
 				status={ query.status }
 				minScore={ query.min_score }
@@ -588,6 +648,10 @@ export default function PostReviewsTable() {
 															pendingPostId ===
 																item.post_id
 														}
+														starting={
+															pendingPostId ===
+															item.post_id
+														}
 														version={
 															detailVersion
 														}
@@ -600,6 +664,16 @@ export default function PostReviewsTable() {
 															)
 														}
 														onNotify={ addToast }
+														startError={
+															startError &&
+															startError.postId ===
+																item.post_id
+																? startError.message
+																: null
+														}
+														onDismissStartError={
+															dismissStartError
+														}
 													/>
 												</td>
 											</tr>

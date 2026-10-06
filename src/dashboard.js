@@ -7,7 +7,8 @@
  * `in_flight`, `viewer` and `counts` — the tiles' numbers); GET /dashboard
  * adds the average, the 8-week trend and the nudge flags. A queue Review
  * runs through the same trigger + polling + toast path as Post Reviews
- * (src/kit/use-single-run.js).
+ * (src/kit/use-single-run.js); a failed start shows inline in its queue
+ * row (ticket 32).
  */
 import apiFetch from '@wordpress/api-fetch';
 import {
@@ -106,6 +107,8 @@ export default function Dashboard() {
 		awaited,
 		pendingPostId,
 		trigger,
+		startError,
+		dismissStartError,
 		toasts,
 		removeToast,
 	} = useSingleRun( list ? list.items : null, QUEUE_PATH, {
@@ -242,7 +245,12 @@ export default function Dashboard() {
 								awaited.has( postId ) ||
 								pendingPostId === postId
 							}
+							isStarting={ ( postId ) =>
+								pendingPostId === postId
+							}
 							onReview={ review }
+							startError={ startError }
+							onDismissStartError={ dismissStartError }
 						/>
 					) }
 				</CardBody>

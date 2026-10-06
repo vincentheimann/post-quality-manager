@@ -109,6 +109,12 @@
 	gap: 8px;
 }
 
+/* A failed run start (ticket 32): its own line inside the row. */
+.pqm-queue-row > .pqm-start-error.components-notice {
+	flex-basis: 100%;
+	margin: 0;
+}
+
 .pqm-queue-empty {
 	margin: 0;
 }

@@ -457,10 +457,14 @@ class PQM_REST_API {
     public static function trigger_review_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $settings = pqm_get_settings();
 
+        // Not connected: the next step depends on who clicked — only
+        // pqm_manage_settings holders can open the n8n Workflow page.
         if ( empty( $settings['n8n_webhook_url'] ) ) {
             return new WP_Error(
                 'pqm_not_configured',
-                __( 'The n8n webhook URL is not configured yet. Add it in Content Quality → Settings.', 'post-quality-manager' ),
+                current_user_can( 'pqm_manage_settings' )
+                    ? __( 'n8n is not connected yet. Set up the workflow on the Content Quality → n8n Workflow page, then try again.', 'post-quality-manager' )
+                    : __( 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.', 'post-quality-manager' ),
                 [ 'status' => 400 ]
             );
         }
@@ -691,6 +695,9 @@ class PQM_REST_API {
      * marker) and `yoast` ({seo, readability}, each int or null when Yoast
      * has no score; null while Yoast is inactive) plus the top-level
      * `yoast_active` flag that shows the table's Yoast SEO column.
+     *
+     * Ticket 32 appends `connected` and `can_manage_settings` to `viewer`
+     * (the GET /dashboard flags): Post Reviews' not-connected notice.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -757,6 +764,7 @@ class PQM_REST_API {
         }
 
         $can_trigger = self::check_can_trigger();
+        $settings    = pqm_get_settings();
 
         return new WP_REST_Response( [
             'items'  => $items,
@@ -766,13 +774,17 @@ class PQM_REST_API {
             // filters, so a chip's number equals a Dashboard tile's.
             'counts' => PQM_DB::count_posts_by_status(),
             'viewer' => [
-                'can_trigger'     => $can_trigger,
+                'can_trigger'         => $can_trigger,
                 // Quota is meaningless for a user who cannot trigger at
                 // all; exempt users and limit 0 (unlimited) are already
                 // null from quota_state().
-                'quota'           => $can_trigger ? PQM_Features::quota_state() : null,
-                'gated_commands'  => PQM_Features::gated_commands(),
-                'hidden_commands' => PQM_Features::hidden_commands(),
+                'quota'               => $can_trigger ? PQM_Features::quota_state() : null,
+                'gated_commands'      => PQM_Features::gated_commands(),
+                'hidden_commands'     => PQM_Features::hidden_commands(),
+                // Ticket 32: the not-connected notice and disabled Run
+                // buttons — the same two flags as GET /dashboard.
+                'connected'           => ! empty( $settings['n8n_webhook_url'] ),
+                'can_manage_settings' => current_user_can( 'pqm_manage_settings' ),
             ],
             'yoast_active' => $yoast_active,
         ], 200 );

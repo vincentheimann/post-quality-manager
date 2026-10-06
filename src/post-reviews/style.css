@@ -200,7 +200,8 @@
 	margin: 0;
 }
 
-.pqm-bulk-report.components-notice {
+.pqm-bulk-report.components-notice,
+.pqm-connect-notice.components-notice {
 	margin: 0 0 12px;
 }
 
@@ -289,6 +290,11 @@
 
 .pqm-detail-note {
 	margin: 0 0 8px;
+}
+
+/* A failed run start (ticket 32), above the tabs. */
+.pqm-detail-panel > .pqm-start-error.components-notice {
+	margin: 0 0 12px;
 }
 
 /* Tablist: the mockup's underlined tabs on the kit's TabPanel primitive. */

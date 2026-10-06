@@ -10,7 +10,10 @@
  * outcome lives in History and the toast). A failed run (status `error`,
  * or an empty status with an empty result — what the shipped template
  * posts) shows the stored error or "No result was returned."; it never
- * reads as success.
+ * reads as success. A failed start (not connected, n8n unreachable or
+ * refusing, gate / quota refusal) shows as a dismissible warning Notice
+ * above the tabs (ticket 32); while n8n is not connected the Run buttons
+ * are disabled.
  */
 import apiFetch from '@wordpress/api-fetch';
 import {
@@ -36,6 +39,7 @@ import {
 import QuotaNote from '../kit/quota-note';
 import {
 	canRender,
+	isConnected,
 	isFailedRow,
 	isGated,
 	isObject,
@@ -166,16 +170,26 @@ function ResultMeta( { row } ) {
  * every supported WP version (`aria-disabled` + no-op, no `disabled`
  * attribute) with a lock icon, the LOCKED_TITLE tooltip and a
  * visually-hidden LOCKED_SUFFIX in its name; otherwise Run / Re-run,
- * disabled while the post is busy.
+ * disabled while the post is busy (busy-styled only while its start
+ * request is pending) or while n8n is not connected (the page notice
+ * says why).
  *
  * @param {Object}   props
  * @param {string}   props.command   Command key.
  * @param {boolean}  props.hasRun    Whether a stored row exists for the command.
  * @param {Object}   props.viewer    The list's `viewer` block.
  * @param {boolean}  props.disabled  True while the post is busy.
+ * @param {boolean}  props.starting  True while the post's start request is pending.
  * @param {Function} props.onTrigger `( command ) => void`.
  */
-function CommandButton( { command, hasRun, viewer, disabled, onTrigger } ) {
+function CommandButton( {
+	command,
+	hasRun,
+	viewer,
+	disabled,
+	starting,
+	onTrigger,
+} ) {
 	if ( ! canRender( viewer, command ) ) {
 		return null;
 	}
@@ -199,7 +213,8 @@ function CommandButton( { command, hasRun, viewer, disabled, onTrigger } ) {
 	return (
 		<Button
 			variant="secondary"
-			disabled={ disabled }
+			disabled={ disabled || ! isConnected( viewer ) }
+			isBusy={ starting }
 			onClick={ () => onTrigger( command ) }
 		>
 			{ runLabel( command, hasRun ) }
@@ -209,7 +224,15 @@ function CommandButton( { command, hasRun, viewer, disabled, onTrigger } ) {
 
 /* ─── Tabs ─────────────────────────────────────────────────────────── */
 
-function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
+function ReviewTab( {
+	row,
+	editLink,
+	viewer,
+	disabled,
+	starting,
+	onTrigger,
+	latest,
+} ) {
 	const state = rowState( row );
 	const data = state === 'done' ? reviewData( row ) : null;
 	const topEdits =
@@ -257,6 +280,7 @@ function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
 					hasRun={ !! row }
 					viewer={ viewer }
 					disabled={ disabled }
+					starting={ starting }
 					onTrigger={ onTrigger }
 				/>
 				<CommandButton
@@ -264,6 +288,7 @@ function ReviewTab( { row, editLink, viewer, disabled, onTrigger, latest } ) {
 					hasRun={ !! latest.rewrite }
 					viewer={ viewer }
 					disabled={ disabled }
+					starting={ starting }
 					onTrigger={ onTrigger }
 				/>
 				{ anyButton && <QuotaNote viewer={ viewer } /> }
@@ -279,6 +304,7 @@ function AgentTab( {
 	editLink,
 	viewer,
 	disabled,
+	starting,
 	onTrigger,
 	onNotify,
 } ) {
@@ -323,6 +349,7 @@ function AgentTab( {
 					hasRun={ !! row }
 					viewer={ viewer }
 					disabled={ disabled }
+					starting={ starting }
 					onTrigger={ onTrigger }
 				/>
 				{ canRender( viewer, command ) && (
@@ -372,23 +399,29 @@ function HistoryTab( { rows } ) {
 /* ─── Panel ────────────────────────────────────────────────────────── */
 
 /**
- * @param {Object}   props
- * @param {number}   props.postId    Post whose reviews to show.
- * @param {string}   props.editLink  Edit URL, '' when the viewer cannot edit.
- * @param {Object}   props.viewer    The list's `viewer` block.
- * @param {boolean}  props.busy      True while the post is awaited or a trigger is pending.
- * @param {number}   props.version   Bump to refetch (a run completed or started).
- * @param {Function} props.onTrigger `( command ) => void`.
- * @param {Function} props.onNotify  `( content, status ) => void` — the page's toast (Insert into Post).
+ * @param {Object}      props
+ * @param {number}      props.postId              Post whose reviews to show.
+ * @param {string}      props.editLink            Edit URL, '' when the viewer cannot edit.
+ * @param {Object}      props.viewer              The list's `viewer` block.
+ * @param {boolean}     props.busy                True while the post is awaited or a trigger is pending.
+ * @param {boolean}     props.starting            True while the post's start request is pending.
+ * @param {number}      props.version             Bump to refetch (a run completed or started).
+ * @param {Function}    props.onTrigger           `( command ) => void`.
+ * @param {Function}    props.onNotify            `( content, status ) => void` — the page's toast (Insert into Post).
+ * @param {string|null} props.startError          This post's failed-start message, null when none.
+ * @param {Function}    props.onDismissStartError Closes the failed-start notice.
  */
 export default function DetailPanel( {
 	postId,
 	editLink,
 	viewer,
 	busy,
+	starting,
 	version,
 	onTrigger,
 	onNotify,
+	startError,
+	onDismissStartError,
 } ) {
 	const [ rows, setRows ] = useState( null );
 	const [ error, setError ] = useState( false );
@@ -472,6 +505,16 @@ export default function DetailPanel( {
 
 	return (
 		<div className="pqm-detail-panel">
+			{ startError && (
+				<Notice
+					status="warning"
+					className="pqm-start-error"
+					isDismissible
+					onRemove={ onDismissStartError }
+				>
+					{ startError }
+				</Notice>
+			) }
 			<TabPanel className="pqm-detail-tabs" tabs={ tabs }>
 				{ ( tab ) => {
 					if ( tab.name === 'history' ) {
@@ -485,6 +528,7 @@ export default function DetailPanel( {
 								editLink={ editLink }
 								viewer={ viewer }
 								disabled={ busy }
+								starting={ starting }
 								onTrigger={ onTrigger }
 							/>
 						);
@@ -497,6 +541,7 @@ export default function DetailPanel( {
 							editLink={ editLink }
 							viewer={ viewer }
 							disabled={ busy }
+							starting={ starting }
 							onTrigger={ onTrigger }
 							onNotify={ onNotify }
 						/>

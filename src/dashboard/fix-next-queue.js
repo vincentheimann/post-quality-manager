@@ -3,9 +3,11 @@
  * in the server's priority v1 order (GET /posts?orderby=priority). Each
  * row: score, title + last-review date, status badge, Review (only for
  * viewers who can run it) and Open in Editor. A running review shows
- * Processing from the server's `in_flight`, like the Post Reviews table.
+ * Processing from the server's `in_flight`, like the Post Reviews table;
+ * a failed start shows as a dismissible warning Notice inside its row
+ * (ticket 32).
  */
-import { Button } from '@wordpress/components';
+import { Button, Notice } from '@wordpress/components';
 import { __, sprintf } from '@wordpress/i18n';
 
 import { OPEN_IN_EDITOR, commandLabel } from '../kit/copy';
@@ -14,13 +16,24 @@ import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
 
 /**
- * @param {Object}   props
- * @param {Array}    props.items     Queue rows (ship rows already dropped).
- * @param {boolean}  props.canReview Whether the viewer may run Review.
- * @param {Function} props.isBusy    `( postId ) => boolean` — trigger pending or result awaited.
- * @param {Function} props.onReview  `( postId ) => void`.
+ * @param {Object}      props
+ * @param {Array}       props.items               Queue rows (ship rows already dropped).
+ * @param {boolean}     props.canReview           Whether the viewer may run Review.
+ * @param {Function}    props.isBusy              `( postId ) => boolean` — trigger pending or result awaited.
+ * @param {Function}    props.isStarting          `( postId ) => boolean` — start request pending.
+ * @param {Function}    props.onReview            `( postId ) => void`.
+ * @param {Object|null} props.startError          The last failed start, `{ postId, command, message }`, or null.
+ * @param {Function}    props.onDismissStartError Closes the failed-start notice.
  */
-export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
+export default function FixNextQueue( {
+	items,
+	canReview,
+	isBusy,
+	isStarting,
+	onReview,
+	startError,
+	onDismissStartError,
+} ) {
 	return (
 		<ol className="pqm-queue">
 			{ items.map( ( item ) => {
@@ -58,6 +71,7 @@ export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
 								<Button
 									variant="secondary"
 									disabled={ busy }
+									isBusy={ isStarting( item.post_id ) }
 									aria-label={ sprintf(
 										/* translators: %s: post title */
 										__(
@@ -88,6 +102,16 @@ export default function FixNextQueue( { items, canReview, isBusy, onReview } ) {
 								</Button>
 							) }
 						</span>
+						{ startError && startError.postId === item.post_id && (
+							<Notice
+								status="warning"
+								className="pqm-start-error"
+								isDismissible
+								onRemove={ onDismissStartError }
+							>
+								{ startError.message }
+							</Notice>
+						) }
 					</li>
 				);
 			} ) }

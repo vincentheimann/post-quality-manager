@@ -9,11 +9,14 @@
  * toasts still come from the table's polling (5.4).
  *
  * The batch captures ids and titles when it starts, so it keeps running
- * and reporting while the user filters, sorts or pages.
+ * and reporting while the user filters, sorts or pages. While n8n is not
+ * connected the button is disabled; the page notice says why (ticket 32).
  */
 import { Button, Modal, Notice } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
+
+import { isConnected } from '../kit/runs';
 
 /**
  * "{title}: Review requested" or "{title}: {server message}".
@@ -35,7 +38,7 @@ function outcomeLine( result ) {
 /**
  * @param {Object}   props
  * @param {Array}    props.selection `[{ post_id, title }]` — selected, selectable rows of the current page.
- * @param {Object}   props.viewer    The list's `viewer` block (quota).
+ * @param {Object}   props.viewer    The list's `viewer` block (quota, connected).
  * @param {Function} props.startRun  `( postId, command ) => Promise<{ ok, message }>` from the kit's useSingleRun (src/kit/use-single-run.js) — requestRun() plus polling re-arm; never rejects.
  * @param {Function} props.onStart   Called when a batch starts (clears the selection).
  */
@@ -102,7 +105,9 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 			<div className="pqm-table-topbar pqm-bulk-bar">
 				<Button
 					variant="secondary"
-					disabled={ count === 0 || running }
+					disabled={
+						count === 0 || running || ! isConnected( viewer )
+					}
 					onClick={ () => setConfirming( true ) }
 				>
 					{ count > 0
