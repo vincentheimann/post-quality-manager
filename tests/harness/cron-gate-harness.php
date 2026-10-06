@@ -52,6 +52,11 @@ function wp_remote_post($url, $args) {
     return ['response' => ['code' => 200]];
 }
 class WP_Role {}
+/* WP-Cron stubs — a hook => timestamp map (ticket 13: schedule() clears the event). */
+$GLOBALS['tw']['events'] = [];
+function wp_next_scheduled($hook) { return $GLOBALS['tw']['events'][$hook] ?? false; }
+function wp_unschedule_event($ts, $hook) { unset($GLOBALS['tw']['events'][$hook]); return true; }
+function wp_schedule_event($ts, $recurrence, $hook) { $GLOBALS['tw']['events'][$hook] = $ts; return true; }
 
 /* PQM_DB stub — counts queries so the gated skip can prove "before any DB query". */
 class PQM_DB {
@@ -144,6 +149,17 @@ echo "Row 6 — No webhook URL\n";
 reset_world(['cron_command' => 'review', 'n8n_webhook_url' => ''], false);
 PQM_Cron::run_scheduled_review();
 check('early return: no DB query, no webhook call', $GLOBALS['tw']['db_queries'] === 0 && $GLOBALS['tw']['webhook_calls'] === 0);
+
+/* ─── Row 7 (ticket 13): switching cron off clears the event ─────────── */
+echo "Row 7 — schedule() with cron_enabled false clears the event
+";
+reset_world(['cron_enabled' => true, 'cron_frequency' => 'daily'], false);
+$GLOBALS['tw']['events'] = [];
+PQM_Cron::schedule();
+check('fixture: cron on schedules pqm_cron_review_posts', wp_next_scheduled('pqm_cron_review_posts') !== false);
+$GLOBALS['tw']['settings']['cron_enabled'] = false;
+PQM_Cron::schedule();
+check('cron off: pqm_cron_review_posts cleared, nothing scheduled', $GLOBALS['tw']['events'] === []);
 
 /* ─── why_not() refactor is pure (hidden/locked behavior unchanged) ──── */
 echo "Extra — why_not() unchanged after the plan_allows refactor\n";

@@ -151,6 +151,57 @@ foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
         && strpos($html, 'pqm_settings[cron_') === false);
 }
 
+/* Ticket 13: free-site off-switch — the Enable toggle leaves the lock only
+ * while stored cron is on; the rest of Automated Reviews stays locked */
+$cron_checkbox = 'type="checkbox" name="pqm_settings[cron_enabled]"';
+$cron_hidden   = 'type="hidden" name="pqm_settings[cron_enabled]" value="0"';
+$off_note      = 'On the free plan, scheduled reviews can be switched off but not back on.';
+/** [cron section start, its locked fieldset open, that fieldset's close] or false. */
+function cron_fieldset(string $html, string $locked_fieldset) {
+    $h2 = strpos($html, 'id="pqm-cron-settings"');
+    $open = $h2 === false ? false : strpos($html, $locked_fieldset, $h2);
+    return $open === false ? false : [$h2, $open, strpos($html, '</fieldset>', $open)];
+}
+foreach (['Editor' => $editor_caps, 'Admin' => $admin_caps] as $who => $caps) {
+    echo "$who, free site, stored cron on (ticket 13)\n";
+    $GLOBALS['tw_settings'] = ['cron_enabled' => true];
+    $html = render_for($caps, false);
+    [$h2, $open, $close] = cron_fieldset($html, $locked_fieldset) ?: [false, false, false];
+    $box    = strpos($html, $cron_checkbox);
+    $hidden = strpos($html, $cron_hidden);
+    check('still two locked fieldsets', substr_count($html, $locked_fieldset) === 2);
+    check('exactly one cron_enabled checkbox', substr_count($html, $cron_checkbox) === 1);
+    check('the checkbox is checked and sits outside (before) the locked cron fieldset',
+        $box !== false && $box > $h2 && $box < $open
+        && (bool) preg_match('/type="checkbox" name="pqm_settings\[cron_enabled\]" value="1" checked/', $html));
+    check('the hidden 0 precedes the checkbox', $hidden !== false && $hidden < $box && $hidden > $h2);
+    check('the off-switch line sits under the toggle, outside the lock',
+        ($note = strpos($html, $off_note)) !== false && $note > $box && $note < $open);
+    $inside = substr($html, $open, $close - $open);
+    $other_cron = ['cron_frequency', 'cron_batch_size', 'cron_command', 'cron_min_score', 'cron_max_age_days'];
+    check('the other cron inputs remain inside the locked fieldset', array_filter($other_cron,
+        static fn($k) => str_contains($inside, "name=\"pqm_settings[$k]\"")) === $other_cron
+        && substr_count($html, 'name="pqm_settings[cron_') === 2 + count($other_cron));
+    check('locked note says the scheduled reviews keep running (not "upgrade to let them run")',
+        strpos($html, 'Available with Pro. Your scheduled reviews keep running; upgrade to change their settings.') !== false
+        && strpos($html, $upgrade_cron) === false);
+}
+echo "Editor, free site, stored cron off (ticket 13)\n";
+$GLOBALS['tw_settings'] = ['cron_enabled' => false];
+$html = render_for($editor_caps, false);
+[$h2, $open, $close] = cron_fieldset($html, $locked_fieldset) ?: [false, false, false];
+$box = strpos($html, $cron_checkbox);
+check('fully locked: the checkbox sits inside the locked cron fieldset', $box !== false && $box > $open && $box < $close);
+check('no hidden 0, no off-switch line', strpos($html, $cron_hidden) === false && strpos($html, $off_note) === false);
+check('today\'s locked note', strpos($html, $upgrade_cron) !== false && strpos($html, 'keep running') === false);
+echo "Editor, licensed, stored cron on (ticket 13)\n";
+$GLOBALS['tw_settings'] = ['cron_enabled' => true];
+$html = render_for($editor_caps, true);
+check('pro: one checked checkbox, no hidden 0, no off-switch line',
+    substr_count($html, $cron_checkbox) === 1 && strpos($html, $cron_hidden) === false && strpos($html, $off_note) === false
+    && (bool) preg_match('/type="checkbox" name="pqm_settings\[cron_enabled\]" value="1"\s+checked/', $html));
+$GLOBALS['tw_settings'] = [];
+
 /* Story 23: Pattern field — Takeaways and Sources only */
 echo "Pattern field (story 23)\n";
 // 3 user patterns: 1 published with a List, 1 published without one, 1 draft.

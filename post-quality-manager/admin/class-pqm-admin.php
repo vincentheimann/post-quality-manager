@@ -365,10 +365,13 @@ class PQM_Admin
         // cron_enabled must not read as "unchecked") — hidden for a role
         // without pqm_manage_agents, locked on a free site (disabled fieldset),
         // or missing on a pro site from a form rendered while the site was
-        // free, or a direct POST.
+        // free, or a direct POST. "Posted" means the knobs the pro form always
+        // posts — not cron_enabled (the free off-switch posts it too) nor the
+        // disabled cron_command.
         $can_edit_agents = current_user_can('pqm_manage_agents') && PQM_Features::is_pro();
         $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
-        if ($can_edit_agents && array_intersect_key($input, array_flip($cron_keys))) {
+        $cron_knobs = ['cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days'];
+        if ($can_edit_agents && array_intersect_key($input, array_flip($cron_knobs))) {
             $clean['cron_enabled'] = !empty($input['cron_enabled']);
             $clean['cron_frequency'] = in_array($input['cron_frequency'] ?? '', ['daily', 'weekly'], true)
                 ? $input['cron_frequency'] : $defaults['cron_frequency'];
@@ -380,6 +383,17 @@ class PQM_Admin
         else {
             foreach ($cron_keys as $key) {
                 $clean[$key] = $existing[$key];
+            }
+            // The one exception (ticket 13): on a free site the Enable toggle
+            // stays live as an off-switch while stored cron is on, so leftover
+            // scheduled reviews can be stopped. It can only switch off — a
+            // carried section never sets cron_enabled true, and nothing else is
+            // read. Plan-independent, so an off-switch form rendered while free
+            // and saved after the site turned pro still switches off.
+            if (current_user_can('pqm_manage_agents')
+                && !empty($existing['cron_enabled'])
+                && isset($input['cron_enabled']) && empty($input['cron_enabled'])) {
+                $clean['cron_enabled'] = false;
             }
         }
 
@@ -830,15 +844,40 @@ class PQM_Admin
                 <?php if (!$is_pro): ?></fieldset><?php endif; ?>
 
                 <!-- Automated Reviews (paid: locked, not hidden, on a free site) -->
+                <?php
+                // Ticket 13: while stored cron is on, a free site keeps the
+                // Enable toggle live, outside the lock, as an off-switch. The
+                // hidden 0 makes the unchecked state post; the sanitizer only
+                // ever reads it to switch off.
+                $cron_off_switch = !$is_pro && !empty($settings['cron_enabled']);
+                ?>
                 <h2 id="pqm-cron-settings" class="pqm-section-gap"><?php
                     esc_html_e('Automated Reviews (Cron)', 'post-quality-manager');
                     if (!$is_pro): ?> <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"></span><?php endif;
                 ?></h2>
                 <?php if (!$is_pro): ?>
-                <p class="description pqm-locked-note"><?php esc_html_e('Available with Pro. Upgrade to let reviews run on a schedule.', 'post-quality-manager'); ?></p>
+                <p class="description pqm-locked-note"><?php echo esc_html($cron_off_switch
+                    ? __('Available with Pro. Your scheduled reviews keep running; upgrade to change their settings.', 'post-quality-manager')
+                    : __('Available with Pro. Upgrade to let reviews run on a schedule.', 'post-quality-manager')); ?></p>
+                <?php if ($cron_off_switch): ?>
+                <table class="form-table">
+                    <tr>
+                        <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
+                        <td>
+                            <input type="hidden" name="pqm_settings[cron_enabled]" value="0" />
+                            <label>
+                                <input type="checkbox" name="pqm_settings[cron_enabled]" value="1" checked />
+                                <?php esc_html_e('Automatically review posts on a schedule', 'post-quality-manager'); ?>
+                            </label>
+                            <p class="description"><?php esc_html_e('On the free plan, scheduled reviews can be switched off but not back on.', 'post-quality-manager'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+                <?php endif; ?>
                 <fieldset disabled class="pqm-locked-section">
                 <?php endif; ?>
                 <table class="form-table">
+                    <?php if (!$cron_off_switch): ?>
                     <tr>
                         <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
                         <td>
@@ -849,6 +888,7 @@ class PQM_Admin
                             </label>
                         </td>
                     </tr>
+                    <?php endif; ?>
                     <tr>
                         <th><label for="pqm_cron_frequency"><?php esc_html_e('Frequency', 'post-quality-manager'); ?></label></th>
                         <td>
