@@ -91,6 +91,8 @@
                 var modelSelect = document.getElementById('pqm_agent_model_' + key);
                 var effortSelect = document.getElementById('pqm_agent_effort_' + key);
                 if (effortSelect) effortSelect.value = defs.effort || 'high';
+                var patternSelect = document.getElementById('pqm_agent_pattern_' + key); // Takeaways, Sources only
+                if (patternSelect) patternSelect.value = '0'; // Plain list
                 if (modelSelect) {
                     modelSelect.value = defs.model || '';
                     modelSelect.dispatchEvent(new Event('change')); // re-sync visible knobs

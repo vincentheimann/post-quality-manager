@@ -29,6 +29,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 - **Claude model choice** — pick the model globally (Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5, or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
 - **Blog profiles** — Marketing, Technical/IT, Lifestyle, or Custom presets that pre-fill voice and context (everything stays editable)
 - **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (REST API `POST /trigger-review`, async so the UI never blocks)
+- **Insert into Post** — put the suggested Takeaways or Sources into the post with one confirmed click, as a plain list or in a pattern you design in Appearance → Patterns; the previous version stays in Revisions
 - **Scheduled reviews** — WP-Cron batches with configurable frequency, batch size, minimum score, and post age
 - **Agent settings** — per-agent model, reasoning effort, temperature (where the model supports it), and custom instructions; changes apply on the next command with no workflow re-import
 
@@ -50,6 +51,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 |---|---|---|---|
 | `/post-score` | GET | `pqm_view_reviews` | Post content, metadata, and SEO data for the workflow |
 | `/trigger-review` | POST | any `pqm_run_*` capability (per-command gate inside) | Fire the n8n workflow for a post |
+| `/insert-block` | POST | `edit_post` on the post + the agent's gate | Insert the latest Takeaways (first) or Sources (last) into the post, in the chosen pattern |
 | `/save-review` | POST | webhook token | Callback where n8n stores review results |
 | `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
 

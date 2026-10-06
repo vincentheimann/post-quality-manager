@@ -10,6 +10,7 @@
  *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
  *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags (Dashboard app)
+ *  POST /post-quality/v1/insert-block     — write the latest Takeaways / Sources into the post (story 23)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -82,6 +83,24 @@ class PQM_REST_API {
             'callback'            => [ __CLASS__, 'dashboard_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
         ] );
+
+        // Story 23: Insert into Post — plugin-side, no n8n call, no quota.
+        register_rest_route( PQM_REST_NAMESPACE, '/insert-block', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'insert_block_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_can_insert' ],
+            'args'                => [
+                'post_id' => [
+                    'required' => true,
+                    'type'     => 'integer',
+                ],
+                'command' => [
+                    'required' => true,
+                    'type'     => 'string',
+                    'enum'     => array_keys( PQM_Blocks::ITEM_KEYS ),
+                ],
+            ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -109,6 +128,46 @@ class PQM_REST_API {
         }
 
         return false;
+    }
+
+    /**
+     * Insert into Post edits the post, so the user must be able to edit
+     * that post, then run its agent (Takeaways free, Sources Pro) — a
+     * refusal carries the same copy as POST /trigger-review.
+     */
+    public static function check_can_insert( WP_REST_Request $request ): bool|WP_Error {
+        if ( ! current_user_can( 'edit_post', (int) $request->get_param( 'post_id' ) ) ) {
+            return false;
+        }
+
+        $command = (string) $request->get_param( 'command' );
+        $refusal = PQM_Features::why_not( $command );
+
+        return null === $refusal ? true : self::gate_error( $command, $refusal );
+    }
+
+    /**
+     * The feature gate's refusal (CAP-1 / CAP-3): role copy for 'role',
+     * the upgrade copy for 'plan'; 403 either way.
+     */
+    private static function gate_error( string $command, string $refusal ): WP_Error {
+        $label = 'seo' === $command ? 'SEO' : ucfirst( $command );
+
+        return new WP_Error(
+            'pqm_feature_gated',
+            'role' === $refusal
+                ? sprintf(
+                    /* translators: %s: agent command label, e.g. "Rewrite" */
+                    __( '%s is not available for your role. Ask an administrator to extend it.', 'post-quality-manager' ),
+                    $label
+                )
+                : sprintf(
+                    /* translators: %s: agent command label, e.g. "Rewrite" */
+                    __( '%s is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.', 'post-quality-manager' ),
+                    $label
+                ),
+            [ 'status' => 403 ]
+        );
     }
 
     /**
@@ -409,23 +468,7 @@ class PQM_REST_API {
         // A role refusal gets role copy, a plan refusal the upgrade copy.
         $refusal = PQM_Features::why_not( $command );
         if ( $refusal !== null ) {
-            $label = 'seo' === $command ? 'SEO' : ucfirst( $command );
-
-            return new WP_Error(
-                'pqm_feature_gated',
-                'role' === $refusal
-                    ? sprintf(
-                        /* translators: %s: agent command label, e.g. "Rewrite" */
-                        __( '%s is not available for your role. Ask an administrator to extend it.', 'post-quality-manager' ),
-                        $label
-                    )
-                    : sprintf(
-                        /* translators: %s: agent command label, e.g. "Rewrite" */
-                        __( '%s is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.', 'post-quality-manager' ),
-                        $label
-                    ),
-                [ 'status' => 403 ]
-            );
+            return self::gate_error( $command, $refusal );
         }
 
         // Author quota (CAP-4): checked after the gate — role/plan refusals
@@ -712,7 +755,32 @@ class PQM_REST_API {
         ], 200 );
     }
 
-    /* ─── 7. GET /dashboard (Dashboard app, story 5.6) ───────────────── */
+    /* ─── 7. POST /insert-block (Insert into Post, story 23) ─────────── */
+
+    /**
+     * Write the latest Takeaways / Sources items into the post
+     * (PQM_Blocks::insert). Gate and edit rights are the permission
+     * callback's; 409 when there is nothing to insert yet.
+     */
+    public static function insert_block_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $command = (string) $request->get_param( 'command' );
+        $result  = PQM_Blocks::insert( (int) $request->get_param( 'post_id' ), $command );
+
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+
+        return new WP_REST_Response( [
+            'success' => true,
+            'message' => sprintf(
+                /* translators: %s: agent command label, e.g. "Takeaways" */
+                __( '%s inserted into the post. The previous version is in Revisions.', 'post-quality-manager' ),
+                PQM_Blocks::label( $command )
+            ),
+        ], 200 );
+    }
+
+    /* ─── 8. GET /dashboard (Dashboard app, story 5.6) ───────────────── */
 
     /**
      * The Dashboard's own numbers — everything else (queue, tile counts,

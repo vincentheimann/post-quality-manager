@@ -20,7 +20,7 @@ function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function plugin_basename($f) { return basename($f); }
 function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) { return $k === 'pqm_settings' ? ['n8n_webhook_url' => 'https://n8n.example/webhook'] : $d; }
+function get_option($k, $d = false) { return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
@@ -60,6 +60,27 @@ function wp_schedule_event(...$a) { return true; }
 function wp_clear_scheduled_hook(...$a) {}
 function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
+
+/* Story 23: the Pattern field lists published wp_block posts holding a List. */
+$GLOBALS['tw_patterns'] = []; // id => [title, status, content]
+$GLOBALS['tw_settings'] = []; // merged over the stored pqm_settings
+function get_posts($args) {
+    $out = [];
+    foreach ($GLOBALS['tw_patterns'] as $id => [$title, $status, $content]) {
+        if ($args['post_type'] === 'wp_block' && $status === $args['post_status']) {
+            $out[] = (object) ['ID' => $id, 'post_title' => $title, 'post_content' => $content];
+        }
+    }
+    return $out;
+}
+function parse_blocks($content) {
+    $list = ['blockName' => 'core/list', 'innerBlocks' => []];
+    return [
+        'group-with-list' => [['blockName' => 'core/group', 'innerBlocks' => [$list]]],
+        'paragraph-only'  => [['blockName' => 'core/paragraph', 'innerBlocks' => []]],
+        'list'            => [$list],
+    ][$content] ?? [];
+}
 
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
@@ -116,6 +137,42 @@ echo "Admin, licensed\n";
 $html = render_for($admin_caps, true);
 foreach (array_merge($admin_sections, $editor_sections) as $s) { check("shows: $s", strpos($html, $s) !== false); }
 check('no locked fieldset', strpos($html, $locked_fieldset) === false);
+
+/* Story 23: Pattern field — Takeaways and Sources only */
+echo "Pattern field (story 23)\n";
+// 3 user patterns: 1 published with a List, 1 published without one, 1 draft.
+$GLOBALS['tw_patterns'] = [
+    31 => ['Key Takeaways', 'publish', 'group-with-list'],
+    32 => ['Banner', 'publish', 'paragraph-only'],
+    33 => ['Draft list', 'draft', 'list'],
+];
+$GLOBALS['tw_settings'] = ['agent_prompts' => ['takeaways' => ['pattern' => 31]]];
+$html = render_for($editor_caps, true);
+check('Pattern select for Takeaways and Sources', strpos($html, '<select id="pqm_agent_pattern_takeaways"') !== false
+    && strpos($html, 'name="pqm_settings[agent_prompts][takeaways][pattern]"') !== false
+    && strpos($html, 'name="pqm_settings[agent_prompts][sources][pattern]"') !== false);
+check('no Pattern field for the other agents', substr_count($html, '[pattern]"') === 2);
+check('no typed block-name field or datalist left', strpos($html, '[block]"') === false && strpos($html, '<datalist') === false);
+preg_match('/<select id="pqm_agent_pattern_takeaways".*?<\/select>/s', $html, $m);
+$select = preg_replace('/\s+/', ' ', $m[0] ?? '');
+check('options: Plain list (0) + the 1 published pattern with a List, by title',
+    preg_match_all('/<option value="(\d+)"/', $select, $values) === 2 && $values[1] === ['0', '31']
+    && strpos($select, '<option value="0">Plain list</option>') !== false && strpos($select, '> Key Takeaways </option>') !== false);
+check('the stored pattern is selected (Takeaways)', strpos($select, '<option value="31" selected>') !== false);
+preg_match('/<select id="pqm_agent_pattern_sources".*?<\/select>/s', $html, $m);
+check('nothing stored → Plain list (Sources)', strpos($m[0] ?? '', ' selected') === false);
+check('description names Appearance → Patterns and the first List',
+    strpos($html, 'Insert into Post copies the pattern you pick from Appearance → Patterns and puts the items into its first List.') !== false);
+$GLOBALS['tw_patterns'] = [];
+$html = render_for($editor_caps, true);
+check('no pattern yet → the description says how to create one',
+    strpos($html, 'No pattern with a List yet. To present the items in your own design, create a pattern with a List block in Appearance → Patterns, then pick it here.') !== false);
+$html = render_for($editor_caps, false);
+$open  = strpos($html, $locked_fieldset);
+$field = strpos($html, '[takeaways][pattern]');
+check('free site: Pattern field inside the locked Overrides fieldset',
+    $open !== false && $field > $open && $field < strpos($html, '</fieldset>', $open));
+$GLOBALS['tw_settings'] = [];
 
 /* Row: remap — capability set is the only driver (an "Author" granted
  * pqm_manage_agents gets the Editor view; roles never checked directly) */

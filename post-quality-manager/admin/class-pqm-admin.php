@@ -372,6 +372,13 @@ class PQM_Admin
                         'effort'       => in_array($agent_input['effort'] ?? '', $effort_levels, true)
                             ? $agent_input['effort'] : $stored['effort'],
                     ];
+                    // Insert into Post pattern (Takeaways, Sources only): one of
+                    // the listed user patterns, anything else is 0 (plain list).
+                    if (isset($defaults['agent_prompts'][$agent]['pattern'])) {
+                        $patterns ??= PQM_Blocks::patterns();
+                        $pattern = absint($agent_input['pattern'] ?? 0);
+                        $clean['agent_prompts'][$agent]['pattern'] = isset($patterns[$pattern]) ? $pattern : 0;
+                    }
                 }
             }
         }
@@ -744,6 +751,27 @@ class PQM_Admin
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
                                 </td>
                             </tr>
+                            <?php if (isset($agent_data['pattern'])): $patterns ??= PQM_Blocks::patterns(); ?>
+                            <tr>
+                                <th><label for="pqm_agent_pattern_<?php echo esc_attr($key); ?>"><?php esc_html_e('Pattern', 'post-quality-manager'); ?></label></th>
+                                <td>
+                                    <select id="pqm_agent_pattern_<?php echo esc_attr($key); ?>"
+                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][pattern]">
+                                        <option value="0"><?php esc_html_e('Plain list', 'post-quality-manager'); ?></option>
+                                        <?php foreach ($patterns as $pattern_id => $pattern_title): ?>
+                                            <option value="<?php echo esc_attr($pattern_id); ?>" <?php selected((int) $agent_data['pattern'], $pattern_id); ?>>
+                                                <?php echo esc_html($pattern_title); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <p class="description"><?php
+                                        echo esc_html($patterns
+                                            ? __('Insert into Post copies the pattern you pick from Appearance → Patterns and puts the items into its first List. The rest of its design stays as is.', 'post-quality-manager')
+                                            : __('No pattern with a List yet. To present the items in your own design, create a pattern with a List block in Appearance → Patterns, then pick it here.', 'post-quality-manager'));
+                                    ?></p>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
                             <tr>
                                 <th></th>
                                 <td>
