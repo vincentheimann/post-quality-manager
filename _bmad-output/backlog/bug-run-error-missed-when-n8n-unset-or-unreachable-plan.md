@@ -3,7 +3,7 @@ title: 'A failed Run start is reported in place, and Post Reviews says when n8n 
 type: 'bugfix'
 ticket: '32'
 created: '2026-10-06'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
