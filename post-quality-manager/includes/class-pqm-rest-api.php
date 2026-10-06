@@ -151,7 +151,7 @@ class PQM_REST_API {
      * the upgrade copy for 'plan'; 403 either way.
      */
     private static function gate_error( string $command, string $refusal ): WP_Error {
-        $label = 'seo' === $command ? 'SEO' : ucfirst( $command );
+        $label = PQM_Features::label( $command );
 
         return new WP_Error(
             'pqm_feature_gated',
@@ -248,7 +248,12 @@ class PQM_REST_API {
         if ( ! $query->have_posts() ) {
             return new WP_Error(
                 'pqm_not_found',
-                sprintf( 'No published or pending %s found with slug: %s', $post_type, $slug ),
+                sprintf(
+                    /* translators: 1: post type, e.g. "post", 2: post slug */
+                    __( 'No published or pending %1$s found with the slug "%2$s". Check the slug and post type.', 'post-quality-manager' ),
+                    $post_type,
+                    $slug
+                ),
                 [ 'status' => 404 ]
             );
         }
@@ -259,7 +264,7 @@ class PQM_REST_API {
         if ( ! current_user_can( 'read_post', $id ) ) {
             return new WP_Error(
                 'pqm_forbidden',
-                'You do not have permission to read this post.',
+                __( 'You do not have permission to read this post.', 'post-quality-manager' ),
                 [ 'status' => rest_authorization_required_code() ]
             );
         }
@@ -455,7 +460,7 @@ class PQM_REST_API {
         if ( empty( $settings['n8n_webhook_url'] ) ) {
             return new WP_Error(
                 'pqm_not_configured',
-                'n8n webhook URL is not configured. Go to Content Quality → Settings.',
+                __( 'The n8n webhook URL is not configured yet. Add it in Content Quality → Settings.', 'post-quality-manager' ),
                 [ 'status' => 400 ]
             );
         }
@@ -479,8 +484,9 @@ class PQM_REST_API {
             return new WP_Error(
                 'pqm_quota_exceeded',
                 sprintf(
-                    /* translators: 1: monthly quota limit, 2: reset date, e.g. "November 1, 2026" */
-                    __( 'Monthly limit reached (%1$d of %1$d AI actions used). Your quota resets on %2$s — or ask an administrator to raise it.', 'post-quality-manager' ),
+                    /* translators: 1: AI actions used this month, 2: monthly quota limit, 3: reset date, e.g. "November 1, 2026" */
+                    __( 'Monthly limit reached (%1$d of %2$d AI actions used). Your quota resets on %3$s — or ask an administrator to raise it.', 'post-quality-manager' ),
+                    $quota['used'],
                     $quota['limit'],
                     $quota['resets']
                 ),
@@ -492,7 +498,7 @@ class PQM_REST_API {
         if ( ! $post || ! in_array( $post->post_status, [ 'publish', 'pending' ], true ) ) {
             return new WP_Error(
                 'pqm_invalid_post',
-                'Post not found or not published/pending.',
+                __( 'Post not found. Only published or pending posts can be run.', 'post-quality-manager' ),
                 [ 'status' => 404 ]
             );
         }
@@ -510,16 +516,21 @@ class PQM_REST_API {
         if ( is_wp_error( $response ) ) {
             return new WP_Error(
                 'pqm_n8n_error',
-                'Failed to reach n8n: ' . $response->get_error_message(),
+                sprintf(
+                    /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
+                    __( 'Could not connect to n8n (%s). Check your Webhook URL in Settings.', 'post-quality-manager' ),
+                    $response->get_error_message()
+                ),
                 [ 'status' => 502 ]
             );
         }
 
         $status_code = wp_remote_retrieve_response_code( $response );
+        $accepted    = $status_code >= 200 && $status_code < 300;
 
         // Quota is spent only on success: n8n answered 2xx, so API money
         // is being spent. A failed webhook never costs the user an action.
-        if ( $status_code >= 200 && $status_code < 300 ) {
+        if ( $accepted ) {
             PQM_Features::consume_quota();
             $quota = PQM_Features::quota_state();
 
@@ -537,8 +548,20 @@ class PQM_REST_API {
         }
 
         return new WP_REST_Response( [
-            'success'         => $status_code >= 200 && $status_code < 300,
-            'message'         => sprintf( 'Review triggered for "%s" (command: %s).', $post->post_title, $command ),
+            'success'         => $accepted,
+            'message'         => $accepted
+                ? sprintf(
+                    /* translators: 1: agent command label, e.g. "Review", 2: post title */
+                    __( '%1$s started for "%2$s".', 'post-quality-manager' ),
+                    PQM_Features::label( $command ),
+                    $post->post_title
+                )
+                : sprintf(
+                    /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
+                    __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' ),
+                    PQM_Features::label( $command ),
+                    $status_code
+                ),
             'n8n_status'      => $status_code,
             // Post-trigger remaining count; null for exempt/unlimited users.
             'quota_remaining' => $quota !== null ? $quota['remaining'] : null,
@@ -775,7 +798,7 @@ class PQM_REST_API {
             'message' => sprintf(
                 /* translators: %s: agent command label, e.g. "Takeaways" */
                 __( '%s inserted into the post. The previous version is in Revisions.', 'post-quality-manager' ),
-                PQM_Blocks::label( $command )
+                PQM_Features::label( $command )
             ),
         ], 200 );
     }

@@ -78,23 +78,32 @@ class PQM_Features {
     }
 
     /**
-     * Command registry: tier + required capability per command — the one
-     * command whitelist. The REST `command` enums are its keys, and a
-     * command missing here is refused (fail closed). score and apply are
-     * free-tier entries on pqm_run_free_agents, the 1:1 successor of the
-     * old edit_posts check.
+     * Command registry: tier, required capability and display label per
+     * command — the one command whitelist and the one label source (REST
+     * copy, and the React pages via window.pqmCommandLabels). The REST
+     * `command` enums are its keys, and a command missing here is refused
+     * (fail closed). score and apply are free-tier entries on
+     * pqm_run_free_agents, the 1:1 successor of the old edit_posts check.
      */
     public static function registry(): array {
         return [
-            'review'    => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
-            'takeaways' => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
-            'rewrite'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
-            'sources'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
-            'seo'       => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
-            'audit'     => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents' ],
-            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
-            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents' ],
+            'review'    => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Review', 'post-quality-manager' ) ],
+            'takeaways' => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Takeaways', 'post-quality-manager' ) ],
+            'rewrite'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Rewrite', 'post-quality-manager' ) ],
+            'sources'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Sources', 'post-quality-manager' ) ],
+            'seo'       => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'SEO', 'post-quality-manager' ) ],
+            'audit'     => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Audit', 'post-quality-manager' ) ],
+            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Score', 'post-quality-manager' ) ],
+            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Apply', 'post-quality-manager' ) ],
         ];
+    }
+
+    /**
+     * Translated display label for $command; an unknown command passes
+     * through raw so the copy is never blank.
+     */
+    public static function label( string $command ): string {
+        return self::registry()[ $command ]['label'] ?? $command;
     }
 
     /**

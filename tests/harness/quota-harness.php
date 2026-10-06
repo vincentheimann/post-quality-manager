@@ -254,6 +254,44 @@ foreach (['author' => author_caps(), 'editor' => editor_caps()] as $who => $caps
     check("$who: no quota consumed", stored_count() === 5);
 }
 
+/* ─── Story 11: quota refusal prints used of limit ───────────────────── */
+echo "Extra — limit lowered to 10 with 12 used: copy says 12 of 10
+";
+reset_world(author_caps(), ['month' => '2026-10', 'count' => 12], ['author_quota' => 10]);
+$r = trigger('review');
+$msg = is_wp_error($r) ? $r->get_error_message() : '';
+check('429 pqm_quota_exceeded', is_wp_error($r) && $r->get_error_code() === 'pqm_quota_exceeded' && ($r->get_error_data()['status'] ?? 0) === 429);
+check('copy reads "Monthly limit reached (12 of 10 AI actions used)…"', str_starts_with($msg, 'Monthly limit reached (12 of 10 AI actions used).'));
+
+/* ─── Story 11: gate copy takes the label from the registry ──────────── */
+echo "Extra — gate copy labels come from the registry
+";
+reset_world(author_caps(), ['month' => '2026-10', 'count' => 0]);
+$r = trigger('seo');
+check('role refusal for seo: 403 "SEO is not available for your role…"', is_wp_error($r) && ($r->get_error_data()['status'] ?? 0) === 403
+    && $r->get_error_message() === 'SEO is not available for your role. Ask an administrator to extend it.');
+$r = trigger('foo');
+check('unknown foo: 403, label is the raw key (no ucfirst)', is_wp_error($r) && ($r->get_error_data()['status'] ?? 0) === 403
+    && str_starts_with($r->get_error_message(), 'foo is not available for your role.'));
+reset_world(editor_caps(), ['month' => '2026-10', 'count' => 0]);
+$r = trigger('sources');
+check('plan refusal for sources on a free site: 403 "Sources is a Pro agent…"', is_wp_error($r) && ($r->get_error_data()['status'] ?? 0) === 403
+    && str_starts_with($r->get_error_message(), 'Sources is a Pro agent.'));
+
+/* ─── Story 11: the trigger message names the label and tells the truth ── */
+echo "Extra — trigger message on 2xx and non-2xx
+";
+reset_world(editor_caps(), ['month' => '2026-10', 'count' => 0]);
+$r = trigger('review');
+check('2xx: success true, message "Review started for "Test Post"."', !is_wp_error($r) && $r->get_data()['success'] === true
+    && $r->get_data()['message'] === 'Review started for "Test Post".');
+$GLOBALS['tw']['webhook_result'] = 500;
+$r = trigger('takeaways');
+$msg = !is_wp_error($r) ? $r->get_data()['message'] : '';
+check('non-2xx: 200 body with success false (unchanged), n8n_status 500', !is_wp_error($r) && $r->get_data()['success'] === false && $r->get_data()['n8n_status'] === 500);
+check('non-2xx: message names the n8n status and says the run did not start',
+    $msg === 'Takeaways could not start — n8n answered HTTP 500. Check that the workflow is active in n8n, then try again.');
+
 /* ─── Reset-date formatting sanity ───────────────────────────────────── */
 echo "Extra — reset date is first of next month\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 0]);

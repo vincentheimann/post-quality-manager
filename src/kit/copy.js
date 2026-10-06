@@ -1,8 +1,11 @@
 /**
  * Canonical command + gate copy (story 5.2) — the one JS source for
- * command order, command and status labels, plan-gate wording and the
- * copy both React pages share (Post Reviews and the Dashboard). Copy
- * follows docs/brand.md; every string flows through @wordpress/i18n.
+ * command order, status labels, plan-gate wording and the copy both React
+ * pages share (Post Reviews and the Dashboard). Command labels are not
+ * kept here: they come translated from the PHP registry
+ * (PQM_Features::registry()), printed as window.pqmCommandLabels before
+ * the bundle. Copy follows docs/brand.md; every string here flows
+ * through @wordpress/i18n.
  */
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -18,24 +21,16 @@ export const COMMAND_ORDER = [
 	'rewrite',
 ];
 
-const COMMAND_LABELS = {
-	review: __( 'Review', 'post-quality-manager' ),
-	takeaways: __( 'Takeaways', 'post-quality-manager' ),
-	sources: __( 'Sources', 'post-quality-manager' ),
-	seo: __( 'SEO', 'post-quality-manager' ),
-	audit: __( 'Audit', 'post-quality-manager' ),
-	rewrite: __( 'Rewrite', 'post-quality-manager' ),
-};
-
 /**
- * Display label for a command key — carries the SEO casing ('seo' → 'SEO').
+ * Display label for a command key, read from the registry labels PHP
+ * prints (window.pqmCommandLabels) — carries the SEO casing ('seo' → 'SEO').
  * Unknown keys pass through raw so new commands are never blank.
  *
  * @param {string} command Command key, e.g. 'seo'.
  * @return {string} Translated label.
  */
 export function commandLabel( command ) {
-	return COMMAND_LABELS[ command ] || command;
+	return ( window.pqmCommandLabels || {} )[ command ] || command;
 }
 
 /**
