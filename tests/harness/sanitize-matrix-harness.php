@@ -377,5 +377,55 @@ $expected_stored = pqm_get_settings();
 check('free site: cron + agent_prompts carried too',
     $out['cron_batch_size'] === 7 && $out['agent_prompts'] === $expected_stored['agent_prompts']);
 
+/* ─── Case 10 (ticket 13): free-site off-switch — the Enable toggle may
+       only switch stored cron off; everything else still carries ───────── */
+echo "\nCase 10: free site, cron_enabled off-switch\n";
+$stored_off = array_merge($stored_option, ['cron_enabled' => false]);
+foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+    setup($caps, false, $stored_option);
+    $out = PQM_Admin::sanitize_settings(['cron_enabled' => '0']);
+    $expected_stored = pqm_get_settings();
+    check("$who, switch off: cron_enabled false", $out['cron_enabled'] === false);
+    $others = array_diff($CRON_KEYS, ['cron_enabled']);
+    $carried = array_filter($others, static fn($key) => $out[$key] === $expected_stored[$key]);
+    check("$who, switch off: every other cron key carried byte-identically", $carried === $others);
+    check("$who, switch off: agent_prompts carried byte-identically", $out['agent_prompts'] === $expected_stored['agent_prompts']);
+
+    $out = PQM_Admin::sanitize_settings(['cron_enabled' => '1']);
+    check("$who, leave on: posted 1 keeps cron_enabled true", $out['cron_enabled'] === true);
+
+    setup($caps, false, $stored_off);
+    $out = PQM_Admin::sanitize_settings(['cron_enabled' => '1']);
+    check("$who, smuggle on: stored false stays false", $out['cron_enabled'] === false);
+
+    setup($caps, false, $stored_option);
+    $out = PQM_Admin::sanitize_settings([
+        'cron_enabled' => '0', 'cron_batch_size' => '99', 'cron_frequency' => 'daily',
+        'cron_min_score' => '1', 'cron_max_age_days' => '2', 'cron_command' => 'rewrite',
+    ]);
+    check("$who, other knobs smuggled: only enabled flips", $out['cron_enabled'] === false
+        && $out['cron_batch_size'] === 7 && $out['cron_frequency'] === 'weekly'
+        && $out['cron_min_score'] === 55 && $out['cron_max_age_days'] === 45 && $out['cron_command'] === 'review');
+}
+setup(['pqm_manage_settings'], false, $stored_option);
+$out = PQM_Admin::sanitize_settings(['cron_enabled' => '0']);
+check('no agents cap: settings-only saver posting 0 → carried (true)', $out['cron_enabled'] === true);
+setup(['pqm_manage_agents'], false, $stored_option);
+$out = PQM_Admin::sanitize_settings(['cron_enabled' => '']);
+check('empty string posted counts as unchecked → false', $out['cron_enabled'] === false);
+
+/* Stale off-switch form (rendered free) saved after the site turned pro:
+   cron_enabled alone is not "the section posted" — the knobs carry. */
+setup(['pqm_manage_agents'], true, $stored_option);
+$out = PQM_Admin::sanitize_settings(['cron_enabled' => '1']);
+$expected_stored = pqm_get_settings();
+$carried = array_filter($CRON_KEYS, static fn($key) => $out[$key] === $expected_stored[$key]);
+check('pro, only cron_enabled 1 posted: every cron key carried', $carried === $CRON_KEYS);
+$out = PQM_Admin::sanitize_settings(['cron_enabled' => '0']);
+$others = array_diff($CRON_KEYS, ['cron_enabled']);
+$carried = array_filter($others, static fn($key) => $out[$key] === $expected_stored[$key]);
+check('pro, only cron_enabled 0 posted, stored true: switched off', $out['cron_enabled'] === false);
+check('…and every other cron key carried', $carried === $others);
+
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);
