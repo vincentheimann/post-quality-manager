@@ -3,7 +3,7 @@ title: 'The n8n connection is secured and host-agnostic end to end'
 type: 'feature'
 ticket: '35'
 created: '2026-10-07'
-status: 'built'
+status: done
 baseline_revision: '309fefd63b2e0dca2719819ad327b2d0bd98747f'
 route: 'full'
 route_source: 'auto'
