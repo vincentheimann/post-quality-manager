@@ -35,6 +35,7 @@ require_once PQM_PLUGIN_DIR . 'includes/class-pqm-features.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-blocks.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-cron.php';
+require_once PQM_PLUGIN_DIR . 'includes/class-pqm-view-as.php';
 require_once PQM_PLUGIN_DIR . 'admin/class-pqm-admin.php';
 
 /* ─── Activation / Deactivation ──────────────────────────────────────── */
@@ -46,6 +47,10 @@ add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 /* ─── REST API ───────────────────────────────────────────────────────── */
 add_action('rest_api_init', ['PQM_REST_API', 'register_routes']);
 
+/* ─── View as (story 34) ─────────────────────────────────────────────── */
+// Global, so the plugin's REST routes answer as the viewed role too.
+add_filter('user_has_cap', ['PQM_View_As', 'filter_caps'], 10, 4);
+
 /* ─── Admin ──────────────────────────────────────────────────────────── */
 if (is_admin()) {
     add_action('admin_menu', ['PQM_Admin', 'register_pages']);
@@ -55,6 +60,9 @@ if (is_admin()) {
     add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
     add_action('wp_ajax_pqm_test_connection', ['PQM_Admin', 'ajax_test_connection']);
     add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);
+    // Priority 100: after core's toolbar menus (New, Edit run at 70/80).
+    add_action('admin_bar_menu', ['PQM_View_As', 'admin_bar'], 100);
+    add_action('admin_post_pqm_view_as', ['PQM_View_As', 'handle_switch']);
 }
 
 /* ─── Cron ───────────────────────────────────────────────────────────── */

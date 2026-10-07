@@ -80,6 +80,8 @@ Access is driven entirely by five `pqm_*` capabilities, remappable with any role
 | n8n Workflow | `pqm_manage_settings` |
 | Settings | `pqm_manage_agents` or `pqm_manage_settings` — the page shows only the sections the user may manage: License, n8n Connection, AI Model, AI Prompts & Context, and Monthly Quota need `pqm_manage_settings`; Agent-Specific Overrides and Automated Reviews need `pqm_manage_agents` and stay locked until the site is on the Pro plan (one exception: on a free site with scheduled reviews still on, the Automated Reviews Enable toggle stays live, but only to switch them off) |
 
+**View as.** Administrators (users with WordPress's `manage_options`) can check what an Editor, Author or Contributor sees: the toolbar's "View as" menu narrows their own five `pqm_*` capabilities to those the chosen role holds on the site right now, so menus, Settings sections, buttons, the quota note and the plugin-capability REST refusals follow that role. It only removes plugin capabilities, never adds one, and leaves WordPress's own capabilities and every role untouched. So checks on WordPress's own capabilities do not follow the view: Insert into Post also needs the right to edit the post, so in the Author view the Administrator still sees and runs Insert on every post, where a real Author can only on their own posts. The view stays on for that Administrator only, across sign-ins, until "Exit" in the toolbar. It is real, not a preview: allowed actions run, and a trigger in the Author view spends the Administrator's own monthly quota.
+
 **Single-site only.** Multisite networks are not supported: the monthly quota counter is stored as network-wide user meta, while the quota setting is per site.
 
 ## Repository layout
