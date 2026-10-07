@@ -5,9 +5,9 @@ metadata:
   type: project
 ---
 
-Since 2026-07-24, `docs/user-paths.md` is the canonical product-prioritization doc: the solo-blogger persona's two journeys (Path A: discovery → first review → habit; Path B: the ongoing quality loop), each stage annotated with EBM Current Value, Unrealized Value, and a candidate signal. Grounded in user #1's real usage (cron + ad-hoc triggers; review/takeaways/sources/seo/audit agents; rewrite unused; insight→action loop unproven).
+Since 2026-07-24, `docs/user-paths.md` is the canonical product-prioritization doc: the solo-blogger persona's two journeys (Path A: discovery → first review → habit; Path B: the ongoing quality loop), each stage annotated with EBM Current Value, Unrealized Value, and a candidate signal. No real users yet (owner, 2026-10-07): every CV claim is owner-verified in development, not observed in use; the former "user #1" statements describe the owner's intended use (cron + ad-hoc triggers; review/takeaways/sources/seo/audit agents; rewrite unused; insight→action loop unproven).
 
-Top-ranked Unrealized Value (as of writing): (1) the insight→action loop B3–B4, (2) making the no-re-import pivot *perceived* (UI messaging + open validation pass), (3) a pull-back mechanism (digest/notifications), (4) the guided-activation wizard fed by Path A.
+Top-ranked Unrealized Value: (1) the insight→action loop B3–B4, (3) a pull-back mechanism (digest/notifications); (2) the perceived no-re-import pivot and (4) guided activation were converted to CV on 2026-10-07 (owner-verified). `/prioritize` 2026-10-07 order: backlog story 26 → epic-delivery-pipeline (first release) → epic-ebm-telemetry.
 
 Since 2026-10-01 the ranked UV table is also the requirement source of the BMad initiative (`UV1`–`UV7` in `_bmad-output/initiative-post-quality-manager/`); epics and tickets cite those ids in `covers`.
 

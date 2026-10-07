@@ -3,7 +3,7 @@
 _A Product Owner tool: the two journeys a solo professional blogger takes through the product, with the Current Value (CV) delivered and the Unrealized Value (UV) still on the table at each stage, following the Evidence-Based Management (EBM) approach. Agents: read this before any product or UX decision — effort goes where UV is highest, not where code is easiest._
 
 - **Persona:** solo professional blogger, any niche (marketing, technical/IT, lifestyle). Self-hosts or controls their WordPress; comfortable following a setup guide; not necessarily an n8n or API expert.
-- **Evidence status:** grounded in real usage by user #1 (the project owner, 2026-07); no telemetry exists. Every "Signal" below is a *candidate* measure — today the evidence is self-observed. Treat CV claims as validated only where user #1's behavior confirms them.
+- **Evidence status:** no real users yet (owner, 2026-10-07) and no telemetry. CV claims are verified by the owner in development (manual passes, last one 2026-10-07: epic-ui-rebuild 5.9, backlog stories 1 and 6, stories 34–36), not observed in use. Every "Signal" below is a *candidate* measure. Treat CV as owner-verified until real usage confirms or contradicts it.
 - **Maintenance:** update this file when a stage's friction is removed (move it from UV to CV) or when real usage contradicts a claim. Backlog references point to the BMad ticket tree in `_bmad-output/` (the ranked UV table below is the initiative's requirement source, ids UV1–UV7; since 2026-10-01, ADR 0004).
 
 ---
@@ -29,22 +29,23 @@ They read the README and weigh the requirements: an n8n instance **and** a Claud
 ### A3. Install & activate
 Copy the plugin folder from a GitHub release into `wp-content/plugins/`, activate.
 
-- **CV:** standard WP install, clean activation.
-- **UV:** no welcome screen — after activation nothing points to the 3-step checklist on the n8n Workflow page; no update channel (GitHub releases don't surface in WP's updater). *(2026-07-24, pending validation: every in-plugin signpost — welcome notice, dashboard setup CTA, error notices — now routes to that checklist; a real welcome screen / activation redirect and the update channel remain open.)* *(2026-10-07, pending validation: the welcome notice now offers "Set up the workflow" and opens the setup guide directly; it shows until the setup is complete. No activation redirect — the notice greets — story 36.)*
+- **CV:** standard WP install, clean activation; a welcome notice offers "Set up the workflow" and opens the setup guide directly until the setup is complete, and every other signpost (dashboard setup CTA, error notices) routes to it (2026-07-24 and story 36, owner-verified 2026-10-07). No activation redirect by choice — the notice greets.
+- **UV:** no update channel (GitHub releases don't surface in WP's updater).
 - **Signal:** activation → n8n Workflow page visit rate.
 
 ### A4. Connect the chain (the friction wall)
 Follow the 3-step checklist: download/import the pre-configured workflow, connect three credentials in n8n (webhook Header Auth `X-PQM-Token` holding the webhook token, since 2026-10-07 / workflow v4 + WP Application Password + Claude API key), paste the production webhook URL back into Settings.
 
-- **CV:** this is already a proto-wizard — pre-filled template, import-from-URL, test ping, per-agent request preview. User #1 confirms it's a **one-time cost**, not recurring pain.
-- **UV:** the test ping only proves WP → n8n; the return path (n8n → `/save-review` with the token) is unverified until a real review succeeds (backlog: *full round-trip connection test*). Two-system context switching remains inherently confusing for a non-n8n user. *(2026-07-24, pending validation: setup now completes on one page — wizard step 3 saves the webhook URL inline and pings; ping copy states exactly what is and isn't verified. The stale token-persistence claim was removed — the activator has persisted it since activation.)* *(2026-10-07, pending validation: the checklist is replaced by a guided setup dialog — seven steps from getting an n8n instance to the first review, exact n8n menu and field names, a Copy button on every value, a Done mark per step, progress kept per site so it resumes at the first open step; it creates the WordPress Application Password through core and verifies the connection (save + ping, which also proves the webhook credential) — story 36. The owner's walk-through on n8n Cloud is the open check.)*
+- **CV:** a guided setup dialog (story 36, owner-verified 2026-10-07 on self-hosted n8n) — seven steps from getting an n8n instance to the first review, exact n8n menu and field names, a Copy button on every value, a Done mark per step, progress kept per site so it resumes at the first open step; it creates the WordPress Application Password through core and verifies the connection (save + ping, which also proves the webhook credential). Pre-filled template, import-from-URL and per-agent request preview remain. The owner expects it to be a **one-time cost**, not recurring pain.
+- **UV:** the ping only proves WP → n8n; the return path (n8n → `/save-review` with the token) is proven only when the dialog's first review lands (backlog story 2: *full round-trip connection test*). Two-system context switching remains inherently confusing for a non-n8n user. The n8n Cloud path (sign-up step, Cloud URL) is untested — no Cloud instance.
 - **Signal:** % of activations reaching a first successful `/save-review` callback — **the activation metric**.
 
 ### A5. First review (the aha moment)
 Run a review on one post from the Post Reviews page; see the score on four pillars plus top edits.
 
 - **CV:** async trigger (UI never blocks), stored result, score + issues + suggested edits visible.
-- **UV:** nothing prompts it — after setup completes, the user must find the Post Reviews page themselves; the dashboard is empty and silent before the first result. The wizard's last step should *be* "run your first review" and celebrate the result. *(2026-07-24, pending validation: shipped — wizard step 4 "First review" routes into Post Reviews, and the dashboard shows a "Run your first review" CTA until the first result lands.)* *(2026-10-07, pending validation: the setup guide's last step runs the first review on a published post from the dialog, waits for the score, then marks the setup complete and offers the Blog Profile and scheduled reviews — story 36.)*
+- **CV (story 36, owner-verified 2026-10-07):** the setup guide's last step runs the first review on a published post from the dialog, waits for the score, then marks the setup complete and offers the Blog Profile and scheduled reviews; the dashboard shows a "Run your first review" CTA until the first result lands.
+- **UV:** time to first review is not measured (UV1 telemetry).
 - **Signal:** time from activation to first stored review.
 
 ### A6. Habit formation
@@ -58,27 +59,28 @@ Pick a Blog Profile, adjust context, enable scheduled reviews.
 
 ## Path B — Existing user: the ongoing quality loop
 
-User #1's real usage today: cron batches do the routine inflow, manual per-post triggers happen ad hoc; the agents actually used are **review, takeaways/sources, seo/audit** — rewrite is not part of the habit.
+The owner's intended usage (no real users yet): cron batches do the routine inflow, manual per-post triggers happen ad hoc; the agents expected to matter are **review, takeaways/sources, seo/audit** — rewrite is not part of the habit.
 
 ### B1. Review inflow
 WP-Cron reviews batches on schedule; manual triggers fill the gaps.
 
-- **CV:** the scheduler works and is configured (validated by real usage); since 2026-07-23 cron sends the same full payload as manual triggers (brand voice, prompts, LLM map). *(2026-10-06, pending validation: a schedule can run Review, SEO or Audit — one command per schedule, posts picked by their latest result of that command; results land in the post's tab and row chips, the dashboard stays review-only — ticket 3.)*
+- **CV:** the scheduler works (owner-verified); since 2026-07-23 cron sends the same full payload as manual triggers (brand voice, prompts, LLM map). A schedule can run Review, SEO or Audit — one command per schedule, posts picked by their latest result of that command; results land in the post's tab and row chips, the dashboard stays review-only (ticket 3, owner-verified 2026-10-06).
 - **UV:** one command per schedule — running review and seo/audit both on a schedule is not possible yet; scheduled seo/audit results do not feed the dashboard counts or trend.
 - **Signal:** share of reviews originating from cron vs. manual.
 
 ### B2. Triage in the dashboard
-Scan scores, statuses, and top edits, with Yoast's SEO and readability scores alongside while Yoast is active. *(2026-10-05, pending validation: the Yoast column and the "— Pending" title marker, dropped with the legacy list in epic-ui-rebuild story 5.7, are back in the React table since story 5.10.)*
+Scan scores, statuses, and top edits, with Yoast's SEO and readability scores alongside while Yoast is active (the Yoast column and the "— Pending" title marker, story 5.10).
 
 - **CV:** the global overview exists and informs — this is the plugin's core delivered value.
-- **UV:** the dashboard reports, but doesn't *prioritize* — no "fix next" queue ordered by impact (low score × high traffic × post age); Yoast standing at review time isn't snapshotted, so past reviews lose their context (backlog). *(2026-07-24: stat cards now link into the filtered Post Reviews list — routing, not yet prioritization. Also: takeaways/sources/seo/audit results — the agents user #1 actually uses — are now visible and triggerable per post; progress chips show what actually ran instead of a fixed Review/Rewrite pair.)* *(2026-10-05, pending validation: the rebuilt Dashboard (epic-ui-rebuild story 5.6) prioritizes — a "Fix next" queue of 5 ordered by status severity, then score, then staleness, each row with Review + Open in Editor; tiles open the matching Post Reviews chip; an 8-week average-score sparkline. Traffic and Yoast inputs to the priority remain open — no analytics source yet.)*
+- **CV (epic-ui-rebuild, owner-verified 2026-10-07 in the 5.9 pass):** the Dashboard prioritizes — a "Fix next" queue of 5 ordered by status severity, then score, then staleness, each row with Review + Open in Editor; tiles open the matching Post Reviews chip; an 8-week average-score sparkline. Takeaways/sources/seo/audit results are visible and triggerable per post; progress chips show what actually ran.
+- **UV:** traffic and Yoast are not priority inputs — no analytics source yet; Yoast standing at review time isn't snapshotted, so past reviews lose their context (epic-yoast-context).
 - **Signal:** which sort/filter actions get used; % of dashboard sessions that lead to opening a post.
 
 ### B3. Act on a post
 Edit the flagged post guided by the top edits (or, in theory, run rewrite).
 
-- **CV:** suggested edits are concrete enough to guide manual editing.
-- **UV — the biggest gap in the whole product:** the loop from insight to action is unproven. User #1's honest answer is "varies / too early to say", and the rewrite agent goes unused. There is no way to mark an edit applied, no tracking of whether reviews cause edits at all. *(2026-07-24, pending validation: the deep-link now exists — "Open in Editor" is the primary action on the Review tab.)* *(2026-10-06, pending validation: "Insert into Post" puts Takeaways and Sources into the post in the owner's pattern — story 23.)* **If reviews don't lead to edits, the product's core promise is unrealized regardless of how good the scores are.**
+- **CV:** suggested edits are concrete enough to guide manual editing; "Open in Editor" is the primary action on the Review tab; "Insert into Post" puts Takeaways and Sources into the post in the owner's pattern (story 23) — owner-verified.
+- **UV — the biggest gap in the whole product:** the loop from insight to action is unproven. The owner's answer is "varies / too early to say", and the rewrite agent goes unused. There is no way to mark an edit applied, no tracking of whether reviews cause edits at all. **If reviews don't lead to edits, the product's core promise is unrealized regardless of how good the scores are.**
 - **Signal:** % of reviewed posts edited within 14 days; score delta on the following review.
 
 ### B4. Verify improvement
@@ -92,7 +94,8 @@ Re-review an edited post; compare against history.
 Tune models, effort, prompts; keep the n8n workflow current.
 
 - **CV:** since the 2026-07-23 LLM-options pivot, model/effort/prompt changes ride the webhook payload — **no re-import needed**; the version handshake shows an "update available" notice when the template itself changes.
-- **UV:** a perception gap — user #1 still experiences settings changes as "export/import the whole workflow again", the exact pain the pivot removed. Either the manual validation pass (open as `_bmad-output/backlog/story-manual-pass-lean-ux-and-locked-knobs.md`) hasn't yet built trust, or the UI doesn't say clearly enough *"saved — applies on the next command, no re-import"*. *(2026-07-24, pending validation: the UI now says it — custom save notice on Settings plus inline reassurance in the AI Model and Agent Overrides sections.)* Shipped value that isn't perceived is unrealized value. Genuine re-imports (template structure changes) also still mean manual n8n round-trips, and the handshake only reports after a real command runs.
+- **CV (UV2, owner-verified 2026-10-07 in backlog stories 1 and 6):** the UI says it — a custom save notice on Settings plus inline reassurance in the AI Model and Agent Overrides sections: *"saved — applies on the next command, no re-import"*.
+- **UV:** genuine re-imports (template structure changes) still mean manual n8n round-trips, and the handshake only reports after a real command runs.
 - **Signal:** re-imports performed per template version bump (should approach exactly 1).
 
 ---
@@ -103,15 +106,15 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 
 | # | Unrealized Value | Path stage | Why it ranks here |
 |---|---|---|---|
-| 1 | Insight → action loop (edit tracking, deep-links, proof that reviews cause edits) | B3–B4 | The core promise; currently unmeasured and unproven even for user #1 |
-| 2 | Perceived no-re-import (validate the pivot, say it in the UI) | B5 | Value already built but not realized — cheapest UV to convert to CV |
+| 1 | Insight → action loop (edit tracking, deep-links, proof that reviews cause edits) | B3–B4 | The core promise; currently unmeasured and unproven even for the owner |
+| 2 | Perceived no-re-import (validate the pivot, say it in the UI) | B5 | *(2026-10-07: converted — owner-verified, backlog stories 1 and 6)* |
 | 3 | Pull-back mechanism (digest / notifications) | A6, B1 | Retention; silent results are unrealized value by definition |
-| 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | The future wizard; converts evaluators into activated users *(2026-10-07, pending validation: the guided setup dialog, story 36)* |
+| 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | Converts evaluators into activated users *(2026-10-07: converted — the guided setup dialog, story 36, owner-verified)* |
 | 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users (backlog item exists) |
-| 6 | Cron for seo/audit commands | B1 | Direct ask from real usage *(2026-10-06, pending validation: one command per schedule shipped, ticket 3)* |
+| 6 | Cron for seo/audit commands | B1 | Owner ask *(2026-10-06: converted — one command per schedule, ticket 3; several commands per schedule remain open)* |
 | 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP |
 
-**Current Value in one line:** an installed, configured system that continuously scores the back-catalog and shows where to look — validated by real daily-adjacent usage of review, takeaways/sources, and seo/audit.
+**Current Value in one line:** an installed, configured system that continuously scores the back-catalog and shows where to look — verified by the owner in development; no real users yet, so none of it is observed in use.
 
 **Unrealized Value in one line:** proof and reinforcement that those scores change the blog — acting, verifying, and being pulled back.
 
