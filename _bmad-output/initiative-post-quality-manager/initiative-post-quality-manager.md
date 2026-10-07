@@ -2,7 +2,7 @@
 type: initiative
 title: "Post Quality Manager — continuous content quality for any WordPress blog"
 parent: none
-covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5]
+covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5, O6]
 after: []
 assignee: ""
 risk: medium
@@ -37,6 +37,7 @@ Owner requests:
 - O3: Yoast scores as SEO/Audit agent context, framed as algorithmic signals, plus a per-review Yoast snapshot in `result_data`; the Review agent stays Yoast-free (user-approved 2026-07-23)
 - O4: Chat-provider contract — the webhook in/out JSON documented so any chat tool drives the workflow without reading n8n nodes
 - O5: Model choice and cost control in a clear Settings page — provider-then-model choice across the main providers, free models, a site-wide monthly token limit, Settings organized in tabs with an unambiguous AI context section (ADR 0009, 2026-10-06)
+- O6: An Administrator checks what each default role sees — a "View as" switch in the WordPress toolbar renders the plugin as an Editor, Author or Contributor would get it, with Exit always reachable (owner, 2026-10-06; backlog story 34)
 
 ## Done when
 
