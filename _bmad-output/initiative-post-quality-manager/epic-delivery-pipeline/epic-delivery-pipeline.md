@@ -5,37 +5,51 @@ parent: initiative-post-quality-manager
 covers: [UV7]
 after: []
 assignee: ""
-risk: low
+risk: medium
 ---
 
 # Releases and the workflow template are built and checked by CI
 
-<!-- Envelope. Closes three technical-debt items migrated from tasks/enhancements.md. -->
-
 ## Description
 
-The `/release` skill and the README describe a release-please GitHub Action, but the repo has no `.github/workflows/`. Add it: release-please on Conventional Commits plus a zip artifact of `post-quality-manager/` (including `templates/`) attached to the GitHub Release. Beside it, a template regression check that validates `templates/n8n-workflow.json` — valid JSON, every expected `__PQM_*__` placeholder present, zero site-specific strings, every Code node's `jsCode` syntax-checked (a local prototype verified template v2 on 2026-07-23). Also verify `load_plugin_textdomain()` is wired so the `post-quality-manager` text domain loads translations.
+Nothing has ever been released: no tag, no GitHub Release, and `3.0.0` is declared in three places but installing the plugin means copying a folder by hand. CI exists (`.github/workflows/ci.yml`: JS lint and build, PHP 8.3 lint, the harness sweep) but nothing turns a merge into a release, nothing checks the n8n workflow template, the plugin versions or the PHP 8.0 floor, PHP translations do not load from the plugin folder, and the WordPress.org Plugin Check has never run. This epic makes a release a merge that produces a zip CI has checked, with release-please on Conventional Commits, and puts the directory's own check in CI ahead of the WordPress.org submission (backlog story 38). Incepted 2026-10-07 from `spec-delivery-pipeline` (CAP-1…CAP-7).
 
 ## Outcome
 
-Cutting a release is a merge, and a broken template never ships; the signal is a tagged GitHub Release carrying a CI-built zip.
+Cutting a release is merging one PR, and a broken template, out-of-step versions, a PHP 8.0 parse error or a Plugin Check error never ship; the signal is GitHub Release 3.0.0 carrying a CI-built zip that installs and activates on a clean WordPress 6.6.
+
+## Requirements
+
+`spec-delivery-pipeline/spec-delivery-pipeline.md` (+ `brownfield.md`) owns the requirement ids CAP-1…CAP-7; all map to UV7.
 
 ## Done when
 
-1. Merging to `main` opens or updates a release-please PR; merging that PR creates the tag, the GitHub Release and the zip.
-2. The template check fails CI on an invalid placeholder set, a site-specific string or a `jsCode` syntax error.
-3. Translations load (`load_plugin_textdomain()` verified with a test `.mo`).
+1. Merging to `main` opens or updates a release PR; merging it creates the tag and the GitHub Release with the CI-built zip attached, release notes from `docs/release-notes/<version>.md` included (CAP-1, CAP-2).
+2. CI fails on a broken workflow template, on plugin versions out of step, on PHP syntax the declared floor 8.0 cannot parse, and on a Plugin Check error (CAP-3, CAP-4, CAP-6, CAP-7).
+3. Translations in the plugin's `languages/` folder load on PHP admin pages and on React pages (CAP-5).
+4. Release 3.0.0 is published on GitHub and its zip installs and activates, with `WP_DEBUG` on and no notices, on a clean WordPress 6.6 (production delivery).
 
 ## Boundaries
 
-GitHub Actions and the template validator. Not WordPress.org packaging (parked, UV7 proper).
+GitHub Actions with `GITHUB_TOKEN` only, the template validator, the version check, Plugin Check and the translation loading path. Not: WordPress.org packaging, `readme.txt`, trademark and asset work (backlog story 38); the in-dashboard update channel (parked; story 38 provides it); real Freemius licensing (deferred-work); writing translations or a `.pot`; a JS unit-test path (open deferred-work decision); the content of the release notes (backlog story 15).
+
+- Touch point: `post-quality-manager/post-quality-manager.php` header lines — release-please annotates `Version`, entry 6 adds `Domain Path`; owner: entry 1, then entry 6.
 
 ## References
 
+- spec — _bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md (+ brownfield.md), the requirement source CAP-1…CAP-7
 - parent — _bmad-output/initiative-post-quality-manager/initiative-post-quality-manager.md, Requirement UV7
-- skill — .claude/skills/release/SKILL.md, the manual steps CI is meant to back
-- template — post-quality-manager/templates/n8n-workflow.json
+- skill — .claude/skills/release/SKILL.md, the manual steps CI replaces (entry 1 aligns it)
+- template — post-quality-manager/templates/n8n-workflow.json, and tests/harness/template-failure-harness.php (bug 31) as the existing node-runner pattern
+- ci — .github/workflows/ci.yml, the jobs the new workflows sit beside
+- backlog — _bmad-output/backlog/story-upgrade-release-notes-pack.md (story 15, gates entry 8 in prose) and _bmad-output/backlog/story-wordpress-org-directory-listing.md (story 38, needs this epic)
 
 ## Notes
 
-- The 2026-07-23 local prototype of the template check was not committed; recreate it in the story.
+- Decision (owner, 2026-10-07): tracer bullet = entry 1 (release PR + CI-built zip via a manual run); entries 3 and 4 run beside it; 2 and 6 follow it; 5 (Plugin Check fixes) waits for 2, 4 and 6 because its fixes may touch any plugin file.
+- Decision (owner, 2026-10-07): the refactor sweep (entry 7) comes before the 3.0.0 cut (entry 8) so the release ships the swept code — the one entry after the sweep is the cut itself.
+- Decision (owner, 2026-10-07): backlog story 15 gates entry 8 (the owner merges the release PR only after `docs/release-notes/3.0.0.md` is committed); `tickets.py` cannot express a backlog → epic prerequisite, so this line and entry 8's description carry it. Story 15 is also worked after entry 1 — both edit `.claude/skills/release/SKILL.md`.
+- Decision (owner, 2026-10-07): Plugin Check lands in two slices — entry 4 reports (non-blocking) and triages, entry 5 fixes every error and makes the check blocking; "split, never shrink".
+- Decision (owner, 2026-10-07): first release = 3.0.0; release-please draft release published by the release workflow after the version check; release notes as a committed file; no empty `languages/` folder (spec memlog 2026-10-07).
+- Deferred: the update channel, `readme.txt`, `src/` in the zip vs a repository link, WordPress.org assets — backlog story 38.
+- The 2026-07-23 local prototype of the template check was not committed; entry 3 recreates it.

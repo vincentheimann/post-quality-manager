@@ -74,6 +74,7 @@ The WordPress plugin, its REST contract and the n8n workflow template it ships. 
 - Resolved (owner, 2026-10-07): there are no real-user observations; the "user #1" claims in `docs/user-paths.md` were the owner's intended use and are reworded as such. CV there is owner-verified until real users exist. Done-when 5 is met by owner verification; confirmation by real usage waits for users.
 - Parked: wizard-style workflow *builder* (assemble the n8n graph from blocks) — KISS, the config-injected export is the locked MVP approach; the setup *flow* wizard already exists.
 - Parked: per-agent custom free-text model IDs — the global Custom ID exists; add per-agent only on a real need (six extra fields otherwise).
-- Parked: WordPress.org distribution (readme.txt, screenshots, i18n, GPL asset review) — UV7, after the freemium gate exists (ADR 0003: GitHub Releases first).
+- Parked: an update channel inside WordPress (GitHub Releases under Dashboard → Updates) — owner, 2026-10-07, while specifying epic-delivery-pipeline: no external users yet; revisit with the first outside install.
+- Parked → filed: WordPress.org distribution is backlog story 38 (2026-10-07), after story 10 (identity), story 15 and epic-delivery-pipeline; the gate exists since epic-freemium-and-roles (ADR 0003: GitHub Releases first).
 - Known: workflows imported before 2026-07-22 route `ping` to the Error Fallback — the test passes but n8n logs a junk execution; re-downloading the template fixes it. Not a ticket; the template-version handshake (shipped 2026-07-23) is the mitigation.
 - Open question: UV3 (digest / notifications) has no owner epic yet; it waits for UV1 telemetry to show what to pull users back to.
