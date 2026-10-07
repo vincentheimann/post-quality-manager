@@ -18,6 +18,7 @@ $GLOBALS['tw'] = [
     'now_month'      => '2026-10',
     'webhook_result' => 200,           // int status, or 'error' for WP_Error
     'webhook_calls'  => 0,
+    'webhook_args'   => null,          // the $args of the last wp_remote_post() (story 35)
 ];
 
 /* ─── WP stubs ───────────────────────────────────────────────────────── */
@@ -26,7 +27,7 @@ function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
 function get_user_meta($uid, $key, $single) { return $GLOBALS['tw']['user_meta'][$uid][$key] ?? ''; }
 function update_user_meta($uid, $key, $value) { $GLOBALS['tw']['user_meta'][$uid][$key] = $value; return true; }
 function pqm_get_settings() {
-    return array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook', 'author_quota' => 20], $GLOBALS['tw']['settings']);
+    return array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook', 'webhook_token' => 'tok-35', 'author_quota' => 20], $GLOBALS['tw']['settings']);
 }
 function wp_date($format, $ts = null) {
     if ($format === 'Y-m' && $ts === null) { return $GLOBALS['tw']['now_month']; }
@@ -43,8 +44,11 @@ function get_post($id) {
 }
 function pqm_n8n_payload($post, $command, $settings) { return ['command' => $command, 'post_id' => $post->ID]; }
 function wp_json_encode($v) { return json_encode($v); }
+/* Same shape as the real helper (unit-tested in rest-reviews-harness.php, which loads the bootstrap). */
+function pqm_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_calls']++;
+    $GLOBALS['tw']['webhook_args'] = $args;
     if ($GLOBALS['tw']['webhook_result'] === 'error') { return new WP_Error('http_request_failed', 'cURL error 7'); }
     return ['response' => ['code' => $GLOBALS['tw']['webhook_result']]];
 }
@@ -112,6 +116,7 @@ function reset_world($caps, $meta = null, $settings = []) {
     $GLOBALS['tw']['settings'] = $settings;
     $GLOBALS['tw']['webhook_result'] = 200;
     $GLOBALS['tw']['webhook_calls'] = 0;
+    $GLOBALS['tw']['webhook_args'] = null;
     $GLOBALS['tw']['now_month'] = '2026-10';
     $GLOBALS['wpdb']->inserts = [];
 }
@@ -135,6 +140,8 @@ echo "Row 1 — Author under quota\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);
 $r = trigger('review');
 check('webhook fired once', $GLOBALS['tw']['webhook_calls'] === 1);
+check('the call carries X-PQM-Token = the webhook token, plus the JSON content type (story 35)',
+    ($GLOBALS['tw']['webhook_args']['headers'] ?? null) === ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']);
 check('response is success', !is_wp_error($r) && $r->get_data()['success'] === true);
 check('count incremented to 6', stored_count() === 6);
 check('quota_remaining is 14', $r->get_data()['quota_remaining'] === 14);

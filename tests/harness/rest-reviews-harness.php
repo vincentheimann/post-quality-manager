@@ -52,7 +52,21 @@ function absint($n) { return abs((int) $n); }
 function is_admin() { return false; }
 function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
-function rest_url($p = '') { return '/wp-json/' . $p; }
+function rest_url($p = '') { return 'http://example.test:8080/blog/?rest_route=/' . ltrim($p, '/'); } // plain permalinks, port, subdirectory
+/* Story 35: pqm_n8n_payload() runs for real — post 7 is a page; post 8's type is not in REST. */
+class WP_Post {
+    public function __construct(public $ID = 0, public $post_name = '', public $post_type = 'post') {}
+}
+function rest_get_route_for_post($post) { return $post->ID === 7 ? '/wp/v2/pages/7' : ''; }
+function get_post_field($field, $id) { return '<p>Body text.</p>'; }
+function wp_strip_all_tags($s) { return strip_tags((string) $s); }
+function has_excerpt($id) { return false; }
+function wp_trim_words($s, $n = 55, $more = null) { return (string) $s; }
+function get_the_title($id) { return 'A page'; }
+function get_permalink($id) { return 'http://example.test:8080/blog/?page_id=' . $id; }
+function get_post_meta($id, $key, $single) { return ''; }
+/* WP core polyfills mb_substr (compat.php) when mbstring is missing, as on this CLI. */
+if (!function_exists('mb_substr')) { function mb_substr($s, $start, $length = null, $encoding = null) { return substr($s, $start, $length); } }
 function get_edit_post_link($id, $context = 'display') { return '/wp-admin/post.php?post=' . $id . '&action=edit'; }
 /* Site timezone pinned to Europe/Zurich (UTC+2 in October): a stored GMT value must shift on display. */
 function get_date_from_gmt($gmt, $format = 'Y-m-d H:i:s') {
@@ -269,6 +283,41 @@ foreach ($tpl['connections'] as $from => $c) {
 check('Update WP Post (Rewrite) reached only through Rewrite Parsed? (true output)', $into_update === ['Rewrite Parsed?#0']);
 preg_match('/workflow_version: (\d+),/', $nodes['Parse Input']['parameters']['jsCode'], $m);
 check('Parse Input stamp === PQM_WORKFLOW_VERSION', isset($m[1]) && (int) $m[1] === PQM_WORKFLOW_VERSION);
+
+/* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
+echo "Secured, host-agnostic connection (story 35)\n";
+check('PQM_WORKFLOW_VERSION is 4', PQM_WORKFLOW_VERSION === 4);
+$trigger = $nodes['Webhook Trigger'];
+check('Webhook Trigger checks Header Auth with the per-site credential',
+    ($trigger['parameters']['authentication'] ?? null) === 'headerAuth'
+    && ($trigger['credentials'] ?? null) === ['httpHeaderAuth' => ['name' => 'Post Quality webhook - __PQM_SITE_HOST__']]);
+$rewrite_url = $nodes['Update WP Post (Rewrite)']['parameters']['url'];
+check('rewrite PATCHes the payload\'s post_rest_url as-is (no scheme, host or /wp-json assembled)',
+    $rewrite_url === "={{ \$('Parse Input').first().json.post_rest_url }}");
+check('Parse Input passes post_rest_url through',
+    str_contains($nodes['Parse Input']['parameters']['jsCode'], "post_rest_url: body.post_rest_url || ''"));
+$raw = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json');
+preg_match_all('#https?://[^"\s\\\\]*#', $raw, $urls);
+check('the only literal URLs left are the Claude API (none aimed at the WordPress site)',
+    $urls[0] !== [] && array_unique($urls[0]) === ['https://api.anthropic.com/v1/messages']);
+preg_match_all('/__PQM_[A-Z_]+__/', $raw, $ph);
+check('site values only as __PQM_SITE_HOST__ placeholders', array_unique($ph[0]) === ['__PQM_SITE_HOST__']);
+
+/* Payload: the post's own REST address, '' when its type is not in REST */
+$payload = pqm_n8n_payload(new WP_Post(7, 'a-page', 'page'), 'rewrite', pqm_get_settings());
+check('payload post_rest_url = rest_url() of the post\'s own route (page, plain permalinks, port, subdirectory)',
+    $payload['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
+$payload = pqm_n8n_payload(new WP_Post(8, 'hidden', 'pqm_private_type'), 'rewrite', pqm_get_settings());
+check('post type not in REST → post_rest_url \'\'', $payload['post_rest_url'] === '');
+
+/* Headers: one home for the token header, used by Run, cron and ping */
+check('pqm_n8n_headers(): JSON content type + X-PQM-Token = the webhook token',
+    pqm_n8n_headers(['webhook_token' => 'tok-35']) === ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']);
+$sources = implode('', array_map(static fn($f) => file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/' . $f),
+    ['includes/class-pqm-rest-api.php', 'includes/class-pqm-cron.php', 'admin/class-pqm-admin.php']));
+check('every wp_remote_post to n8n sends pqm_n8n_headers() (Run, cron, ping)',
+    substr_count($sources, 'wp_remote_post(') === 3 && substr_count($sources, 'pqm_n8n_headers(') === 3
+    && !str_contains($sources, "'headers' => ['Content-Type'") && !str_contains($sources, "'headers' => [ 'Content-Type'"));
 
 /* ─── in_flight derivation (PQM_DB::get_in_flight_for_posts) ─────────── */
 

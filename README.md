@@ -37,12 +37,17 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 - WordPress 6.6+, PHP 8.0+
 - An n8n instance (self-hosted or cloud) and a Claude API key
+- WordPress and n8n must reach each other over the network: the plugin calls the n8n webhook, and n8n calls back the site's REST API (results, rewrites). A local or password-protected site cannot be reached from n8n Cloud. The rewrite also needs HTTPS (or a WordPress environment type of `local`): it signs in with an Application Password, which WordPress core offers only there.
 - Yoast SEO (optional — its metadata enriches the review payload, and while it is active the Post Reviews screen shows its SEO and readability scores in a Yoast SEO column)
 
 ## Installation
 
 1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it.
-2. In **Content Quality → n8n Workflow**, follow the 3-step checklist: download (or import by URL) your pre-configured workflow, connect the two credentials in n8n (WordPress Application Password + Claude API key), then paste the workflow's production webhook URL into **Content Quality → Settings**.
+2. In **Content Quality → n8n Workflow**, follow the 3-step checklist: download (or import by URL) your pre-configured workflow, connect the three credentials in n8n, then paste the workflow's production webhook URL (`/webhook/`, not `/webhook-test/`) into **Content Quality → Settings**. The credentials, and the nodes they go in:
+   - **Post Quality webhook** — Header Auth: its header **Name** field is `X-PQM-Token`, its **Value** your webhook token. Pick it in the **Webhook Trigger** only; then only your site can start the workflow.
+   - **Anthropic** — a second Header Auth: Name `x-api-key`, Value your Claude API key. Pick it in the six **Claude** nodes.
+   - **WordPress** — Basic Auth with an Application Password for a user who can edit posts. Pick it in **Update WP Post (Rewrite)**.
+   - Upgrading from a workflow imported before template version 4: the plugin already sends the token, but the old trigger does not check it — it stays unauthenticated until you re-import the workflow and add the Header Auth credential.
 3. Pick your **Blog Profile** (e.g., Technical/IT for a developer blog), adjust the pre-filled context if needed, and save. Run your first review from the **Post Reviews** page.
 
 ## REST API (`post-quality/v1`)
@@ -52,7 +57,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 | `/post-score` | GET | `pqm_view_reviews` | Post content, metadata, and SEO data for the workflow |
 | `/trigger-review` | POST | any `pqm_run_*` capability (per-command gate inside) | Fire the n8n workflow for a post |
 | `/insert-block` | POST | `edit_post` on the post + the agent's gate | Insert the latest Takeaways (first) or Sources (last) into the post, in the chosen pattern |
-| `/save-review` | POST | webhook token | Callback where n8n stores review results |
+| `/save-review` | POST | webhook token (`X-PQM-Token`) | Callback where n8n stores review results |
 | `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
 
 ## Admin pages & capabilities

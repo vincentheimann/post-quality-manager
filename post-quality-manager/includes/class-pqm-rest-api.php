@@ -513,9 +513,9 @@ class PQM_REST_API {
         // Build payload for n8n (shared with the cron batch).
         $payload = pqm_n8n_payload( $post, $command, $settings );
 
-        // Fire-and-forget request to n8n.
+        // Fire-and-forget request to n8n, authenticated with the token header.
         $response = wp_remote_post( $settings['n8n_webhook_url'], [
-            'headers' => [ 'Content-Type' => 'application/json' ],
+            'headers' => pqm_n8n_headers( $settings ),
             'body'    => wp_json_encode( $payload ),
             'timeout' => 5,
         ] );
