@@ -35,7 +35,7 @@ The person's step (hitl): create the Header Auth credential in a real n8n instan
    **When** they follow the wizard and the credentials hint
    **Then** they are told which credential the Webhook Trigger needs, which header name to use and where to copy the token from, alongside the two existing credentials
 3. **The rewrite reaches any WordPress**
-   **Given** a WordPress site served over plain HTTP, or installed in a subdirectory, or using plain permalinks
+   **Given** a WordPress site on any port, installed in a subdirectory, or using plain permalinks, served over HTTPS or in a local environment (the rewrite signs in with an Application Password, which WordPress offers only there)
    **When** a Rewrite is applied
    **Then** the post is updated; the template assembles no scheme, host or path for the WordPress site
 4. **A test URL is caught**
@@ -58,6 +58,7 @@ The person's step (hitl): create the Header Auth credential in a real n8n instan
 
 ## References
 
+- decision — docs/adr/0010-one-token-authenticates-both-directions.md
 - requirements — docs/user-paths.md, A4 "Connect the chain" and UV4/UV5
 - docs — README.md "Requirements" and "Installation"; n8n/workflow-diagram.md
 - architecture — memory/llm-options-architecture.md, workflow version handshake
@@ -68,7 +69,7 @@ The person's step (hitl): create the Header Auth credential in a real n8n instan
 - Owner request (2026-10-06): the n8n domain must stay the user's to define; add the security, best-practice and agnostic-pivot work that review surfaced as one PBI.
 - Decision (owner, 2026-10-07): one token secures both directions — the inbound Header Auth credential holds the existing webhook token (KISS, one value to copy). Alternative: mint a second inbound token; one more field, and a leaked import URL then no longer opens the trigger.
 - Decision (owner, 2026-10-07): the import URL carries the webhook token as a query argument, because n8n's "Import from URL" sends no cookies, so the token can land in server and proxy logs. With this story the same token also opens the trigger. The import mechanism stays with story 22; this story names the risk next to the import URL copy.
-- Open question: the settings defaults mint a fresh token on every call when the stored settings lack one. Confirm at build that every site has a stored token, or the inbound check fails on every call.
+- Settled at build (2026-10-07): the settings defaults mint a fresh token on every call when the stored settings lack one. Confirm at build that every site has a stored token, or the inbound check fails on every call.
 - Verified 2026-10-07: no host, domain or niche of the development site appears in the plugin, the template, the README or docs (`grep -ri postquality` hits only memory and this ticket). The agnostic sweep therefore reduces to criteria 3–5.
 - Build notes (paths recorded at refinement): the three calls to n8n are in the REST trigger callback, the cron dispatch and the admin test-ping handler, each inline; the hand-built address is the "Update WP Post (Rewrite)" node; the render-matrix harness asserts exactly seven credentialed template nodes and the credentials hint names them, so both change with the new credential. No harness covers the request headers or the save/test handlers today.
 - Sequencing with story 2: both bump `PQM_WORKFLOW_VERSION` and touch the template; whichever builds second rebases on the other. `after` stays empty so the security fix is not held behind a hitl review.
