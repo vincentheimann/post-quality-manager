@@ -31,6 +31,9 @@ function wp_parse_args($args, $defaults) { return array_merge($defaults, (array)
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
 function __($s, $d = null) { return $s; }
+function get_locale() { return 'en_US'; }
+function switch_to_locale($l) { return false; } // already the site locale
+function restore_previous_locale() { return false; }
 function _e($s, $d = null) { echo $s; }
 function esc_html__($s, $d = null) { return $s; }
 function esc_html_e($s, $d = null) { echo $s; }
@@ -547,6 +550,47 @@ $GLOBALS['tw_settings_errors_for'] = [];
 render_for(['pqm_manage_settings'], true);
 unset($_GET['settings-updated']);
 check('after a save, render_settings() prints settings_errors(pqm_settings)', $GLOBALS['tw_settings_errors_for'] === ['pqm_settings']);
+
+/* Story 26: the radio is the setting — muted preview vs. Custom-only field */
+echo "AI Prompts & Context rows (story 26)\n";
+/** The opening tag of the element with this id. */
+$tag_of = static function (string $html, string $id): string {
+    return preg_match('/<[a-z]+[^>]*\bid="' . preg_quote($id, '/') . '"[^>]*>/', $html, $m) ? $m[0] : '';
+};
+$is_hidden = static fn(string $tag): bool => (bool) preg_match('/\shidden(\s|>|=)/', $tag);
+$technical = PQM_Admin::blog_profiles()['technical']['website_context'];
+$direct    = pqm_voice_presets()['direct']['instruction'];
+
+$GLOBALS['tw_settings'] = ['blog_profile' => 'technical', 'website_context' => 'My context',
+    'brand_voice_preset' => 'direct', 'brand_voice' => 'My rules'];
+$html = render_for($admin_caps, true);
+check('preset: profile preview holds the Technical text',
+    preg_match('/<p class="description pqm-preset-text" id="pqm_profile_text"[^>]*>' . preg_quote($technical, '/') . '<\/p>/', $html) === 1);
+check('preset: voice preview holds the Direct text',
+    preg_match('/<p class="description pqm-preset-text" id="pqm_voice_text"[^>]*>' . preg_quote($direct, '/') . '<\/p>/', $html) === 1);
+check('preset: previews shown', !$is_hidden($tag_of($html, 'pqm_profile_text')) && !$is_hidden($tag_of($html, 'pqm_voice_text')));
+check('preset: Custom wrappers hidden', $is_hidden($tag_of($html, 'pqm_context_field')) && $is_hidden($tag_of($html, 'pqm_voice_field')));
+foreach (['pqm_website_context' => 'website_context', 'pqm_brand_voice' => 'brand_voice'] as $id => $key) {
+    $tag = $tag_of($html, $id);
+    check("preset: hidden $id keeps name pqm_settings[$key]", strpos($tag, 'name="pqm_settings[' . $key . ']"') !== false);
+    check("preset: hidden $id is not disabled", strpos($tag, 'disabled') === false);
+}
+check('preset: hidden textareas keep the stored custom text',
+    strpos($html, '>My context</textarea>') !== false && strpos($html, '>My rules</textarea>') !== false);
+check('previews announce changes (aria-live)',
+    strpos($tag_of($html, 'pqm_profile_text'), 'aria-live="polite"') !== false && strpos($tag_of($html, 'pqm_voice_text'), 'aria-live="polite"') !== false);
+check('both radio groups are named by a legend',
+    strpos($html, '<legend class="screen-reader-text">Blog Profile</legend>') !== false
+    && strpos($html, '<legend class="screen-reader-text">Editorial Standards</legend>') !== false);
+
+$GLOBALS['tw_settings'] = ['blog_profile' => 'custom', 'website_context' => 'My context',
+    'brand_voice_preset' => 'custom', 'brand_voice' => 'My rules'];
+$html = render_for($admin_caps, true);
+check('Custom: previews hidden', $is_hidden($tag_of($html, 'pqm_profile_text')) && $is_hidden($tag_of($html, 'pqm_voice_text')));
+check('Custom: wrappers shown', !$is_hidden($tag_of($html, 'pqm_context_field')) && !$is_hidden($tag_of($html, 'pqm_voice_field')));
+check('Custom: context description names the empty default', strpos($html, 'Empty: the AI assumes "a general audience blog".') !== false);
+check('Custom: standards description names the empty default', strpos($html, 'Empty: the AI falls back to "professional yet accessible, active voice".') !== false);
+$GLOBALS['tw_settings'] = [];
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

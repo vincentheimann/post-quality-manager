@@ -572,7 +572,7 @@ export function NextSteps() {
 						) }
 					</a>{ ' ' }
 					{ __(
-						'— it tunes the reviews to your niche and voice.',
+						'— reviews then fit your niche; Custom lets you describe your site in your own words.',
 						'post-quality-manager'
 					) }
 				</li>

@@ -43,3 +43,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0008 — The plugin, not n8n, writes Takeaways and Sources into posts](0008-plugin-writes-agent-output-into-posts.md)
 - [0009 — Agents run on several model providers through two request shapes, under one site-wide token limit](0009-multi-provider-models-and-token-limit.md)
 - [0010 — One webhook token authenticates both directions of the n8n link](0010-one-token-authenticates-both-directions.md)
+- [0011 — Two voice layers: editorial standards per site, a voice per author](0011-editorial-standards-and-author-voice.md)

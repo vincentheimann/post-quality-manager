@@ -1,10 +1,11 @@
 /**
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
- * Blog-profile / voice presets, per-agent model controls, the connection
- * ping and the workflow import-URL copy. The Dashboard and Post Reviews are
- * React pages (src/, ADR 0005) and never load this file; the setup dialog on
- * the n8n Workflow page is React too (src/setup/, story 36).
+ * Blog-profile / Editorial Standards preset choice, per-agent model controls,
+ * the connection ping and the workflow import-URL copy. The Dashboard and
+ * Post Reviews are React pages (src/, ADR 0005) and never load this file;
+ * the setup dialog on the n8n Workflow page is React too (src/setup/,
+ * story 36).
  */
 (function () {
     'use strict';
@@ -28,48 +29,13 @@
         /* Every block guards on its own elements: the Settings page renders
          * only the sections the user's capability allows (e.g. Editors get
          * the agent overrides without the AI Prompts & Context globals). */
-        var contextArea = document.getElementById('pqm_website_context');
-        var voiceArea = document.getElementById('pqm_brand_voice');
-
-        /* ─── Blog profile & voice presets ──────────────────────────
-         * Presets are one-shot fills of the two editable fields; the
-         * textareas are always the source of truth for what the AI
-         * receives. No confirmation dialogs — nothing takes effect
-         * until the settings are saved. Manual edits flip the
-         * selection back to Custom so a preset never claims text it
-         * no longer matches. */
-        if (contextArea && voiceArea) {
-            var voicePresets = pqmAdmin.voicePresets || {};
-
-            var checkRadio = function (selector, value) {
-                var radio = document.querySelector(selector + '[value="' + value + '"]');
-                if (radio) radio.checked = true;
-            };
-
-            document.querySelectorAll('.pqm-blog-profile').forEach(function (radio) {
-                radio.addEventListener('change', function () {
-                    var profile = (pqmAdmin.blogProfiles || {})[this.value];
-                    if (!profile || this.value === 'custom') return; // Custom overwrites nothing.
-                    contextArea.value = profile.website_context;
-                    voiceArea.value = voicePresets[profile.brand_voice_preset] || '';
-                    checkRadio('.pqm-voice-preset', profile.brand_voice_preset);
-                });
-            });
-
-            document.querySelectorAll('.pqm-voice-preset').forEach(function (preset) {
-                preset.addEventListener('change', function () {
-                    if (this.value === 'custom') return; // Keep whatever text is in the box.
-                    voiceArea.value = voicePresets[this.value] || '';
-                });
-            });
-
-            contextArea.addEventListener('input', function () {
-                checkRadio('.pqm-blog-profile', 'custom');
-            });
-            voiceArea.addEventListener('input', function () {
-                checkRadio('.pqm-voice-preset', 'custom');
-            });
-        }
+        /* ─── Blog profile & Editorial Standards (story 26) ──────────
+         * The radio is the setting: a preset shows its text muted (what
+         * the AI gets), Custom reveals the textarea with the stored text. */
+        bindPresetChoice('.pqm-blog-profile', document.getElementById('pqm_profile_text'),
+            document.getElementById('pqm_context_field'), pqmAdmin.blogProfiles);
+        bindPresetChoice('.pqm-voice-preset', document.getElementById('pqm_voice_text'),
+            document.getElementById('pqm_voice_field'), pqmAdmin.voicePresets);
 
         /* ─── Agent overrides: temperature sliders + reset ─────────── */
         document.querySelectorAll('.pqm-temp-range').forEach(function (range) {
@@ -100,6 +66,38 @@
                 if (modelSelect) {
                     modelSelect.value = defs.model || '';
                     modelSelect.dispatchEvent(new Event('change')); // re-sync visible knobs
+                }
+            });
+        });
+    }
+
+    /**
+     * Radio set + muted preview + Custom field: a preset shows texts[value]
+     * in the preview, Custom hides it and reveals the field (focusing its
+     * textarea after a pointer pick). Never writes into the textarea; Save
+     * is the commit point.
+     */
+    function bindPresetChoice(selector, preview, wrapper, texts) {
+        var radios = document.querySelectorAll(selector);
+        if (!preview || !wrapper || !radios.length) return; // Section not rendered for this user.
+        texts = texts || {};
+        // Focus moves only after a pointer pick: arrowing through the group
+        // fires change on every radio and must stay in the group (WCAG 3.2.2).
+        var byPointer = false;
+        var fieldset = radios[0].closest('fieldset');
+        if (fieldset) {
+            fieldset.addEventListener('pointerdown', function () { byPointer = true; });
+            fieldset.addEventListener('keydown', function () { byPointer = false; });
+        }
+        radios.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var text = this.value === 'custom' ? '' : (texts[this.value] || '');
+                preview.textContent = text;
+                preview.hidden = text === '';
+                wrapper.hidden = text !== '';
+                if (text === '' && byPointer) {
+                    var area = wrapper.querySelector('textarea');
+                    if (area) area.focus();
                 }
             });
         });

@@ -23,7 +23,7 @@ Ponytail's laziness stops at these lines, and this repo adds its own:
 - `sanitize_*` / `esc_*`, nonces, `permission_callback`, capability and feature-gate checks — every trust boundary stays guarded.
 - Error handling that prevents data loss; UI loading and error states.
 - Accessibility basics.
-- An editable preset and a visible "Custom" path (`memory/lessons.md` 2026-07-23).
+- A visible "Custom" path beside any preset — the one editable field (`memory/lessons.md` 2026-10-07, replacing 2026-07-23).
 - The check that proves non-trivial logic: it lives in `tests/harness/` (extend a harness or add one), never an ad-hoc `demo()` or one-off test file.
 
 `AGENTS.md`, `memory/lessons.md` and `docs/brand.md` win over this file wherever they disagree.

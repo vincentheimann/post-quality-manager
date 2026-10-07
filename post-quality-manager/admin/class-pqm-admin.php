@@ -173,6 +173,11 @@ class PQM_Admin
         );
 
         $settings = pqm_get_settings();
+        // Story 26: preview texts in the site locale, like the payload sends them.
+        [$profile_texts, $voice_texts] = pqm_in_site_locale(static fn() => [
+            array_map(static fn($p) => $p['website_context'], self::blog_profiles()),
+            array_map(static fn($p) => $p['instruction'], pqm_voice_presets()),
+        ]);
 
         wp_localize_script('pqm-admin', 'pqmAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
@@ -183,12 +188,9 @@ class PQM_Admin
             'defaultModel' => $settings['default_model'] === 'custom'
                 ? ($settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-4-6')
                 : $settings['default_model'],
-            'blogProfiles' => array_map(
-                static fn($p) => ['website_context' => $p['website_context'], 'brand_voice_preset' => $p['brand_voice_preset']],
-                self::blog_profiles()
-            ),
+            'blogProfiles' => $profile_texts,
             'agentDefaults' => pqm_default_settings()['agent_prompts'],
-            'voicePresets' => array_map(static fn($p) => $p['instruction'], pqm_voice_presets()),
+            'voicePresets' => $voice_texts,
             'modelRegistry' => array_map(
                 static fn($m) => ['temperature' => $m['supports_temperature'], 'effortLevels' => $m['effort_levels']],
                 pqm_model_registry()
@@ -261,8 +263,9 @@ class PQM_Admin
     /* ─── Blog Profiles (single source of truth) ─────────────────────── */
 
     /**
-     * Niche presets that pre-fill the editable context fields below.
-     * Values are suggestions only — the user can edit everything after applying.
+     * Niche presets for Website Context (story 26): a selected profile is
+     * the setting, resolved at send time by pqm_resolved_context(); 'custom'
+     * sends the stored website_context.
      */
     public static function blog_profiles(): array
     {
@@ -270,37 +273,30 @@ class PQM_Admin
             'marketing' => [
                 'label' => __('Marketing Blog', 'post-quality-manager'),
                 'website_context' => __('A marketing blog for business professionals. Readers want proven tactics, data-backed claims, and clear next steps they can apply to their own campaigns. Case studies and concrete numbers beat theory.', 'post-quality-manager'),
-                'brand_voice_preset' => 'direct',
             ],
             'technical' => [
                 'label' => __('Technical / IT Blog', 'post-quality-manager'),
                 'website_context' => __('A technical blog for software developers and IT professionals. Readers expect accurate, in-depth content: working code examples, references to official documentation, and honest trade-off discussions. Domain jargon is fine; marketing fluff is not.', 'post-quality-manager'),
-                'brand_voice_preset' => 'professional',
             ],
             'lifestyle' => [
                 'label' => __('Lifestyle Blog', 'post-quality-manager'),
                 'website_context' => __('A lifestyle blog for a general audience. Readers look for relatable stories, practical tips they can apply right away, and an authentic personal perspective.', 'post-quality-manager'),
-                'brand_voice_preset' => 'casual',
             ],
             'food' => [
                 'label' => __('Food & Recipes Blog', 'post-quality-manager'),
                 'website_context' => __('A food blog for home cooks. Readers want reliable recipes with clear steps and exact quantities, practical substitutions, and honest tips from real kitchen experience.', 'post-quality-manager'),
-                'brand_voice_preset' => 'casual',
             ],
             'travel' => [
                 'label' => __('Travel Blog', 'post-quality-manager'),
                 'website_context' => __('A travel blog for independent travelers. Readers are planning real trips: they want practical itineraries, budgets and logistics, first-hand experiences, and honest recommendations.', 'post-quality-manager'),
-                'brand_voice_preset' => 'casual',
             ],
             'health' => [
                 'label' => __('Health & Wellness Blog', 'post-quality-manager'),
                 'website_context' => __('A health and wellness blog for a general audience. Readers expect trustworthy, evidence-based guidance with cited sources, realistic advice, and a supportive, non-alarmist tone.', 'post-quality-manager'),
-                'brand_voice_preset' => 'professional',
             ],
             'custom' => [
                 'label' => __('Custom', 'post-quality-manager'),
                 'website_context' => '',
-                'brand_voice_preset' => 'custom',
             ],
         ];
     }
@@ -676,20 +672,30 @@ class PQM_Admin
 
                 <!-- AI Prompts & Context -->
                 <h2 class="pqm-section-gap"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
-                <p class="pqm-context-intro"><?php esc_html_e('Brand Voice and Website Context are sent with every AI command, so reviews and rewrites match your site. The Blog Profile is an optional shortcut that pre-fills these two fields — you always keep the final say.', 'post-quality-manager'); ?></p>
+                <p class="pqm-context-intro"><?php esc_html_e('Your Blog Profile and Editorial Standards are sent with your AI commands, so reviews and rewrites fit your site. A preset sends the text shown under it; choose Custom to write your own.', 'post-quality-manager'); ?></p>
                 <div class="notice notice-info inline pqm-inline-notice">
                     <p><strong><?php esc_html_e('Agnostic Scoring Framework', 'post-quality-manager'); ?></strong></p>
                     <p><?php esc_html_e('All posts are evaluated on 4 universal pillars: 1. Structure (flow & hierarchy), 2. Readability (accessibility), 3. Engagement (hook & actionable value), 4. Credibility (E-E-A-T and factual support).', 'post-quality-manager'); ?></p>
                 </div>
+                <?php
+                /* Story 26: the radio is the setting. A preset shows its text
+                 * muted (what the AI gets); the textarea shows only under
+                 * Custom and always posts, so custom text survives a preset.
+                 * Preview texts resolve like the payload (site locale). */
+                $profiles        = self::blog_profiles();
+                $current_profile = $settings['blog_profile'];
+                $current_preset  = $settings['brand_voice_preset'];
+                $profile_text    = pqm_resolved_context(['blog_profile' => $current_profile, 'website_context' => '']);
+                $preset_text     = pqm_resolved_voice(['brand_voice_preset' => $current_preset, 'brand_voice' => '']);
+                $preset_labels   = array_map(static fn($p) => $p['label'], pqm_voice_presets());
+                $preset_labels['custom'] = __('Custom', 'post-quality-manager');
+                ?>
                 <table class="form-table">
                     <tr>
                         <th><?php esc_html_e('Blog Profile', 'post-quality-manager'); ?></th>
                         <td>
-                            <?php
-                            $profiles = self::blog_profiles();
-                            $current_profile = $settings['blog_profile'];
-                            ?>
                             <fieldset class="pqm-profile-fieldset">
+                                <legend class="screen-reader-text"><?php esc_html_e('Blog Profile', 'post-quality-manager'); ?></legend>
                                 <?php foreach ($profiles as $val => $profile): ?>
                                     <label class="pqm-radio-label">
                                         <input type="radio" name="pqm_settings[blog_profile]" value="<?php echo esc_attr($val); ?>" <?php checked($current_profile, $val); ?> class="pqm-blog-profile" />
@@ -697,23 +703,21 @@ class PQM_Admin
                                     </label>
                                 <?php endforeach; ?>
                             </fieldset>
-                            <p class="description"><?php esc_html_e('Pre-fills the two fields below with a starting point for your niche — everything stays editable. Choose Custom to write your own; editing a field switches back to Custom automatically.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('Who you write for — sent as the Website Context with every Review, Rewrite, SEO and Audit. Custom: describe your site and readers in two or three sentences.', 'post-quality-manager'); ?></p>
+                            <p class="description pqm-preset-text" id="pqm_profile_text" aria-live="polite"<?php echo $profile_text === '' ? ' hidden' : ''; ?>><?php echo esc_html($profile_text); ?></p>
+                            <div class="pqm-custom-field" id="pqm_context_field"<?php echo $profile_text === '' ? '' : ' hidden'; ?>>
+                                <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"
+                                          aria-label="<?php esc_attr_e('Website Context', 'post-quality-manager'); ?>" aria-describedby="pqm_website_context_empty"
+                                          placeholder="<?php esc_attr_e('e.g. A blog about home automation for tech-savvy homeowners. Readers want hands-on tutorials, honest product experiences, and privacy-friendly setups.', 'post-quality-manager'); ?>"><?php echo esc_textarea($settings['website_context']); ?></textarea>
+                                <p class="description" id="pqm_website_context_empty"><?php esc_html_e('Empty: the AI assumes "a general audience blog".', 'post-quality-manager'); ?></p>
+                            </div>
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="pqm_brand_voice"><?php esc_html_e('Brand Voice & Tone', 'post-quality-manager'); ?></label></th>
+                        <th><?php esc_html_e('Editorial Standards', 'post-quality-manager'); ?></th>
                         <td>
-                            <?php
-                            $voice_presets  = pqm_voice_presets();
-                            $current_preset = $settings['brand_voice_preset'];
-                            $preset_labels  = array_map(static fn($p) => $p['label'], $voice_presets);
-                            $preset_labels['custom'] = __('Custom', 'post-quality-manager');
-                            // WYSIWYG: the textarea always shows exactly what the AI will receive.
-                            $display_voice = isset($voice_presets[$current_preset])
-                                ? $voice_presets[$current_preset]['instruction']
-                                : $settings['brand_voice'];
-                            ?>
                             <fieldset class="pqm-voice-fieldset">
+                                <legend class="screen-reader-text"><?php esc_html_e('Editorial Standards', 'post-quality-manager'); ?></legend>
                                 <?php foreach ($preset_labels as $val => $lbl): ?>
                                     <label class="pqm-radio-label">
                                         <input type="radio" name="pqm_settings[brand_voice_preset]" value="<?php echo esc_attr($val); ?>" <?php checked($current_preset, $val); ?> class="pqm-voice-preset" />
@@ -721,17 +725,14 @@ class PQM_Admin
                                     </label>
                                 <?php endforeach; ?>
                             </fieldset>
-                            <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text"
-                                      placeholder="<?php esc_attr_e('e.g. Professional yet accessible: active voice, short paragraphs, no buzzwords.', 'post-quality-manager'); ?>"><?php echo esc_textarea($display_voice); ?></textarea>
-                            <p class="description"><?php esc_html_e('How the AI should sound — this exact text is sent with every command. Pick a preset to load its instruction and adjust it, or write your own.', 'post-quality-manager'); ?></p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th><label for="pqm_website_context"><?php esc_html_e('Website Context', 'post-quality-manager'); ?></label></th>
-                        <td>
-                            <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"
-                                      placeholder="<?php esc_attr_e('e.g. A blog about home automation for tech-savvy homeowners. Readers want hands-on tutorials, honest product experiences, and privacy-friendly setups.', 'post-quality-manager'); ?>"><?php echo esc_textarea($settings['website_context']); ?></textarea>
-                            <p class="description"><?php esc_html_e('What the site is about and who reads it — the AI uses this to judge relevance, depth, and tone fit. Two or three sentences are plenty.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('The voice and rules every post follows: your own if you write alone, the shared ones for a team. Sent with every Review and Rewrite.', 'post-quality-manager'); ?></p>
+                            <p class="description pqm-preset-text" id="pqm_voice_text" aria-live="polite"<?php echo $preset_text === '' ? ' hidden' : ''; ?>><?php echo esc_html($preset_text); ?></p>
+                            <div class="pqm-custom-field" id="pqm_voice_field"<?php echo $preset_text === '' ? '' : ' hidden'; ?>>
+                                <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text"
+                                          aria-label="<?php esc_attr_e('Editorial Standards', 'post-quality-manager'); ?>" aria-describedby="pqm_brand_voice_empty"
+                                          placeholder="<?php esc_attr_e('e.g. Active voice, short paragraphs, no buzzwords. Back every statistic with a source.', 'post-quality-manager'); ?>"><?php echo esc_textarea($settings['brand_voice']); ?></textarea>
+                                <p class="description" id="pqm_brand_voice_empty"><?php esc_html_e('Empty: the AI falls back to "professional yet accessible, active voice".', 'post-quality-manager'); ?></p>
+                            </div>
                         </td>
                     </tr>
                 </table>

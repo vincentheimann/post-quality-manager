@@ -49,9 +49,9 @@ Run a review on one post from the Post Reviews page; see the score on four pilla
 - **Signal:** time from activation to first stored review.
 
 ### A6. Habit formation
-Pick a Blog Profile, adjust context, enable scheduled reviews.
+Pick a Blog Profile and an Editorial Standards preset (or Custom), enable scheduled reviews.
 
-- **CV:** profile presets pre-fill voice/context (progressive disclosure works); cron with batch size, minimum score, and post-age knobs turns the plugin from a tool into a system.
+- **CV:** a Blog Profile and an Editorial Standards preset are one click each, Custom opens the text field (progressive disclosure — story 26, 2026-10-07); cron with batch size, minimum score, and post-age knobs turns the plugin from a tool into a system.
 - **UV:** nothing pulls the blogger back — no digest, no notification, no "3 posts dropped below 60 this week". Results wait silently in wp-admin. This is where new users silently churn. *(2026-07-24: small step — after the first review the dashboard nudges enabling scheduled reviews; the actual pull-back mechanism (digest/notifications) remains open.)*
 - **Signal:** % of installs with cron enabled; dashboard visits per week after week 2.
 

@@ -1,11 +1,11 @@
 # Post Quality Manager — Agent Instructions
 
 <!-- bmad:context -->
-<!-- Verified 2026-10-01 against a3781e6. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-10-07 against ff81abd. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## Post Quality Manager
 
-WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.6+ (REST API, Options API, WP-Cron); the Dashboard and Post Reviews are React app pages on `@wordpress/components`, Settings and n8n Workflow use vanilla JS (`admin/js/pqm-admin.js`, no jQuery). Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`.
+WordPress plugin for professional bloggers in any niche: it triggers Claude agents (review, rewrite, takeaways, sources, SEO, audit) through an n8n workflow and stores the results in a WP Admin dashboard. PHP 8.0+ / WordPress 6.6+ (REST API, Options API, WP-Cron); the Dashboard and Post Reviews are React app pages on `@wordpress/components`, Settings and n8n Workflow use vanilla JS (`admin/js/pqm-admin.js`, no jQuery), and the n8n Workflow page also mounts one React island, the setup dialog (`src/setup/`). Work is delivered with the BMad Method (ADR 0004): tickets and plans live in `_bmad-output/`, the skills in `.claude/skills/bmad-*`.
 
 ## Policy
 
@@ -20,7 +20,7 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 
 - `post-quality-manager/` — the distributable plugin: `admin/` (dashboard, settings, AJAX), `includes/` (DB, REST API, cron), `templates/n8n-workflow.json` (canonical workflow template, `__PQM_*__` placeholders filled by `PQM_Admin::download_workflow()`), `post-quality-manager.php`, `uninstall.php`. The workflow calls the Claude API directly from n8n Code/HTTP nodes.
 - `n8n/workflow-diagram.md` — Mermaid overview of webhook → n8n → Claude → WordPress.
-- `_bmad-output/initiative-post-quality-manager/` — the product initiative: requirements (UV1–UV7 from `docs/user-paths.md`, O1–O4 owner requests), epic envelopes in `tickets.toml`; `_bmad-output/backlog/` — standalone tickets. Git is the ticket store; `uv run _bmad/method/scripts/tickets.py status` / `next` read them.
+- `_bmad-output/initiative-post-quality-manager/` — the product initiative: requirements (UV1–UV7 from `docs/user-paths.md`, O1–O7 owner requests), epic envelopes in `tickets.toml`; `_bmad-output/backlog/` — standalone tickets. Git is the ticket store; `uv run _bmad/method/scripts/tickets.py status` / `next` read them.
 - `_bmad/` — BMad runtime and config; team overrides in `_bmad/custom/*.toml` (committed), personal ones in `*.user.toml` (ignored).
 - `docs/adr/` — why we decided (immutable, supersede never rewrite; `/adr`); `docs/user-paths.md` — the EBM prioritization tool (`/prioritize`); `docs/brand.md` — copy rules.
 - `memory/` — what is true now: `MEMORY.md` index, one file per durable fact, `lessons.md` the self-correction log whose rules override your defaults. Read at session start; update in the same change that makes a fact true.
@@ -38,9 +38,9 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 ## Conventions that differ from defaults
 
 - Prefix every function, class and global `PQM_` / `pqm_`; use WP core APIs (`get_option`, `$wpdb` abstractions) over raw SQL; sanitize (`sanitize_text_field`) and escape (`esc_html`, `esc_attr`) everything; nonces on every form and AJAX request; `permission_callback` on every REST route.
-- Native WP admin components and classes (`.wrap`, `.notice`, `.button-primary`); PHP templates carry no inline styles, JS render helpers are being migrated to classes (backlog story 5).
+- Native WP admin components and classes (`.wrap`, `.notice`, `.button-primary`); PHP templates and JS-built markup carry no inline styles — add a class in the page's stylesheet instead.
 - The Settings page is one Settings-API form whose `sanitize_settings()` rebuilds the whole array; the n8n Workflow page is form-free — page-local saves go through dedicated AJAX merge-saves, never a second form.
-- Save is the commit point: never gate an in-form, not-yet-persisted change behind `confirm()`; every preset must stay editable and an explicit "Custom" path visible (`memory/lessons.md` 2026-07-23).
+- Save is the commit point: never gate an in-form, not-yet-persisted change behind `confirm()`. A preset is a read-only choice resolved from code; Custom is the one editable path and stays visible (`memory/lessons.md` 2026-10-07).
 - Knowledge triad, no duplication: ADR = why, `memory/` = what is true now, skill = recurring how. When a decision reveals a missing practice, propose adopting it instead of designing around its absence (`memory/lessons.md` 2026-07-24).
 - After any user correction, append the pattern to `memory/lessons.md` (format documented in the file) and, when it is an agent mistake worth a standing rule, record it with `bmad-project-context record`.
 

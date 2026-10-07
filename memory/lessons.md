@@ -13,6 +13,16 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-07] — Treating presets as text fillers instead of as the setting
+**What happened:** Story 26 built the AI Prompts & Context presets twice as mechanics around an always-visible textarea — first "fill, then Undo", then "fill when empty, otherwise offer Replace / Keep". The owner rejected both: a user picking a profile should not have to reason about text boxes, drafts or undo. The model they want is progressive disclosure — the radio *is* the setting, a selected preset shows its text read-only and muted, and the textarea appears only under Custom.
+**Root cause:** Optimizing the overwrite problem inside the existing control layout instead of asking which control layout removes the problem. Also over-reading the 2026-07-23 rule ("every preset stays editable") as "presets must fill an editable field".
+**Rule going forward:** For preset-driven settings here: a preset is a choice, not a fill — resolved from code when used, shown read-only when selected; **Custom is the one editable path and stays visible**, starting from the stored custom text, never pre-filled. The 2026-07-23 rule is replaced by this one; its spirit — never remove the Custom escape hatch — stays. When a UX fix needs an undo, an offer or a confirmation, first ask whether a different control removes the action that needs them.
+
+## [2026-10-07] — Naming a feature after the requester's context instead of the persona
+**What happened:** Story 26 renamed the site-wide voice field "Corporate Standards" because the owner described the need as a corporate company. The owner corrected it: the plugin also serves solo bloggers and small teams (startups), for whom "Corporate" says the field is not for them. Renamed to "Editorial Standards" before commit.
+**Root cause:** Taking the framing of one request ("as a corporate company…") as the product's audience, without checking the persona in `docs/user-paths.md` (solo professional blogger, any niche).
+**Rule going forward:** Name features, labels and copy for the whole persona in `docs/user-paths.md`, never for the context of the person asking. When a request names an audience narrower than the persona, check whether the name and copy still read right for a solo blogger before writing them.
+
 ## [2026-10-05] — Recommending `window.confirm()` over a WordPress `Modal`
 **What happened:** The story 5.5 plan offered the bulk confirmation as native `window.confirm()` or a `@wordpress/components` `Modal`, and recommended the native one because the minimal-code ladder's rung 4 lists the browser next to WordPress core. The owner chose `Modal` and said they prefer WordPress components by default.
 **Root cause:** Reading rung 4 as "the browser is the cheaper of two equals". The React pages exist to render from one WordPress component source (ADR 0005), so a browser-native dialog is an off-system exception there, not the minimal option.
@@ -31,7 +41,7 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 ## [2026-07-23] — Removing a user-facing "Custom" option during a UX redesign
 **What happened:** A settings-UX plan proposed replacing the Blog Profile radios (which include "Custom") with preset-only one-shot buttons, dropping the explicit Custom option. The user rejected it: presets are useful, but the custom possibility is *more* important than the presets.
 **Root cause:** Optimizing for control-model purity (action vs. state) over the user's actual priority — full ownership of the AI prompt inputs. Presets are onboarding aids; custom input is the product.
-**Rule going forward:** In any preset-driven UI here, every preset must remain fully editable AND an explicit "Custom" path must stay visible. Never remove an escape hatch to simplify a control; simplify around it.
+**Rule going forward:** In any preset-driven UI here, every preset must remain fully editable AND an explicit "Custom" path must stay visible. Never remove an escape hatch to simplify a control; simplify around it. *(Replaced 2026-10-07, see the entry above: presets are read-only choices, Custom is the one editable path — the escape hatch stays.)*
 
 ## [2026-07-23] — confirm() dialog on a pre-fill that only takes effect on Save
 **What happened:** The profile/voice preset pre-fill asked "Apply this profile?" via confirm() before overwriting the textareas. The user flagged it as too intrusive: the settings form is not persisted until Save, so the overwrite is reversible by simply not saving.
