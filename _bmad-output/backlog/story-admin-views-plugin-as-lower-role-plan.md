@@ -3,7 +3,7 @@ title: 'View as: an Administrator sees the plugin as Editor, Author or Contribut
 type: 'feature'
 ticket: '34'
 created: '2026-10-07'
-status: 'built'
+status: done
 baseline_revision: 'f05d556f1e5c5554f5c2b2c797d922096677cfc5'
 route: 'full'
 route_source: 'auto'
