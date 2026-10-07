@@ -15,6 +15,12 @@ title = "Dashboard and Post Reviews answer 'what next' on one render source"
 covers = ["UV1"]
 
 [[epic]]
+id = 4
+slug = "epic-delivery-pipeline"
+title = "Releases and the workflow template are built and checked by CI"
+covers = ["UV7"]
+
+[[epic]]
 id = 2
 slug = "epic-ebm-telemetry"
 title = "The EBM signals are measured, not self-observed"
@@ -25,9 +31,3 @@ id = 3
 slug = "epic-yoast-context"
 title = "Yoast scores inform the SEO and Audit agents and are kept per review"
 covers = ["O3"]
-
-[[epic]]
-id = 4
-slug = "epic-delivery-pipeline"
-title = "Releases and the workflow template are built and checked by CI"
-covers = ["UV7"]
