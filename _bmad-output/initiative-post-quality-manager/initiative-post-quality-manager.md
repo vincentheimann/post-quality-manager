@@ -2,7 +2,7 @@
 type: initiative
 title: "Post Quality Manager — continuous content quality for any WordPress blog"
 parent: none
-covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5, O6]
+covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5, O6, O7]
 after: []
 assignee: ""
 risk: medium
@@ -38,6 +38,7 @@ Owner requests:
 - O4: Chat-provider contract — the webhook in/out JSON documented so any chat tool drives the workflow without reading n8n nodes
 - O5: Model choice and cost control in a clear Settings page — provider-then-model choice across the main providers, free models, a site-wide monthly token limit, Settings organized in tabs with an unambiguous AI context section (ADR 0009, 2026-10-06)
 - O6: An Administrator checks what each default role sees — a "View as" switch in the WordPress toolbar renders the plugin as an Editor, Author or Contributor would get it, with Exit always reachable (owner, 2026-10-06; backlog story 34)
+- O7: Two voice layers — site-wide Editorial Standards every post follows, plus each author's own voice written on their WordPress profile and applied to their posts; Pro (ADR 0011, 2026-10-07; backlog stories 26 and 37)
 
 ## Done when
 
@@ -69,6 +70,7 @@ The WordPress plugin, its REST contract and the n8n workflow template it ships. 
 - Decision: `/prioritize` 2026-10-06 — next is one real-site walk covering epic-ui-rebuild 5.9 and backlog stories 1, 6 and 8 (UV2/UV4, the cheapest UV→CV conversions; owner pick). O5 added so backlog stories 25–30 rank instead of reading as scope creep. Within O5, story 26 (AI Prompts & Context review) ranks above story 29 (usage and token limit) (owner). The Settings stories build in the order 26 → 27 → 25 (owner).
 - Decision: `/prioritize` 2026-10-07 — the 2026-10-06 sitting is done, all green (epic-ui-rebuild 5.8/5.9 and backlog stories 1 and 6 marked done; the epic is done); UV2 and UV4 move to CV as owner-verified. Next, in this order (owner): backlog story 26 (O5, the head of the 26 → 27 → 25 Settings chain, unblocked by story 6), then `epic-delivery-pipeline` toward the first release since 3.0.0 (UV7 groundwork; story 6 no longer gates it; no real users exist, and a release is what makes them possible), then `epic-ebm-telemetry` (UV1, the largest UV; its local signals only pay off once real users exist). The epic envelopes are reordered to match.
 - Decision: backlog story 8 dropped (owner, 2026-10-06) — the freemium epic's own manual pass (story 1.8, walked green 2026-10-02) covered its gate, quota and Settings-section checks; its one uncovered check, Settings JS on the Editor's page, moved to story 1.
+- Decision (owner, 2026-10-07, ADR 0011): story 26's review surfaced the real need — editorial standards per site plus a voice per author. Story 26 builds the editorial layer; new backlog story 37 (after 26) adds the author voice on the WordPress profile page, Pro. O7 added so both rank instead of reading as scope creep.
 - Resolved (owner, 2026-10-07): there are no real-user observations; the "user #1" claims in `docs/user-paths.md` were the owner's intended use and are reworded as such. CV there is owner-verified until real users exist. Done-when 5 is met by owner verification; confirmation by real usage waits for users.
 - Parked: wizard-style workflow *builder* (assemble the n8n graph from blocks) — KISS, the config-injected export is the locked MVP approach; the setup *flow* wizard already exists.
 - Parked: per-agent custom free-text model IDs — the global Custom ID exists; add per-agent only on a real need (six extra fields otherwise).

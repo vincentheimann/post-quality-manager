@@ -17,6 +17,7 @@
 .pqm-context-intro { max-width: 720px; }
 .pqm-profile-fieldset .pqm-radio-label { display: inline-block; margin: 0 16px 6px 0; }
 .pqm-voice-fieldset { margin-bottom: 10px; }
+.form-table td .pqm-preset-text { max-width: 720px; margin-top: 10px; }
 .pqm-agents-intro { margin-bottom: 1em; }
 
 /* Agent override boxes */

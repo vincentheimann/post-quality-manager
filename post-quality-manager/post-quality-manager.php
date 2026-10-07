@@ -253,9 +253,9 @@ function pqm_llm_map(array $settings): array
 
 /* ─── Helper: Brand voice presets (single source of truth) ───────────── */
 /**
- * Preset voice instructions shared by the settings UI (labels + pre-fill)
- * and the n8n payload builder (legacy resolution). 'custom' is a UI state,
- * not a preset, so it is not listed here.
+ * Editorial Standards presets, shared by the settings UI (labels + muted
+ * preview) and pqm_resolved_voice() (the text the agents receive).
+ * 'custom' is a UI state, not a preset, so it is not listed here.
  */
 function pqm_voice_presets(): array
 {
@@ -273,6 +273,51 @@ function pqm_voice_presets(): array
             'instruction' => __('Direct and action-oriented: lead with the point; concrete next steps; cut anything that does not help the reader act.', 'post-quality-manager'),
         ],
     ];
+}
+
+/**
+ * Runs $fn in the site language (get_locale(), the site setting — not
+ * determine_locale(), the viewer's), so a preset resolves to the same text
+ * whoever triggers the command, cron included.
+ */
+function pqm_in_site_locale(callable $fn)
+{
+    $switched = switch_to_locale(get_locale());
+    try {
+        return $fn();
+    } finally {
+        if ($switched) {
+            restore_previous_locale();
+        }
+    }
+}
+
+/**
+ * The Editorial Standards text the agents receive (ADR 0011, story 26): the
+ * radio is the setting. A selected preset sends its instruction from code,
+ * in the site language; Custom (or an unknown key) sends the stored text.
+ */
+function pqm_resolved_voice(array $settings): string
+{
+    return pqm_in_site_locale(
+        static fn() => pqm_voice_presets()[$settings['brand_voice_preset']]['instruction'] ?? $settings['brand_voice']
+    );
+}
+
+/**
+ * The Website Context the agents receive: a selected Blog Profile sends its
+ * text from code, in the site language; Custom (or an unknown key) sends the
+ * stored text.
+ */
+function pqm_resolved_context(array $settings): string
+{
+    return pqm_in_site_locale(static function () use ($settings) {
+        $key = $settings['blog_profile'];
+        $profiles = PQM_Admin::blog_profiles();
+        return $key !== 'custom' && isset($profiles[$key])
+            ? $profiles[$key]['website_context']
+            : $settings['website_context'];
+    });
 }
 
 /* ─── Helper: n8n workflow JSON with site values injected ────────────── */
@@ -345,14 +390,6 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
     // with an Application Password, which core offers only there.
     $rest_route = rest_get_route_for_post($post);
 
-    // Resolve brand voice: a selected preset always means its instruction
-    // (also covers settings saved before the WYSIWYG voice field existed).
-    $voice_presets  = pqm_voice_presets();
-    $preset         = $settings['brand_voice_preset'];
-    $resolved_voice = isset($voice_presets[$preset])
-        ? $voice_presets[$preset]['instruction']
-        : $settings['brand_voice'];
-
     return [
         'callback_url'      => rest_url(PQM_REST_NAMESPACE . '/save-review'),
         'auth_token'        => $settings['webhook_token'],
@@ -372,8 +409,8 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
         'focus_keyphrase'   => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_focuskw', true) : '',
         'meta_description'  => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_metadesc', true) : '',
         'seo_title'         => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_title', true) : '',
-        'brand_voice'       => $resolved_voice,
-        'website_context'   => $settings['website_context'],
+        'brand_voice'       => pqm_resolved_voice($settings),
+        'website_context'   => pqm_resolved_context($settings),
         'agent_prompts'     => $settings['agent_prompts'],
         'llm'               => pqm_llm_map($settings),
     ];

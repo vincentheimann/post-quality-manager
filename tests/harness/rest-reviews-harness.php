@@ -42,6 +42,9 @@ function wp_parse_args($args, $defaults) { return array_merge($defaults, (array)
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
 function __($s, $d = null) { return $s; }
+function get_locale() { return 'en_US'; }
+function switch_to_locale($l) { return false; } // already the site locale
+function restore_previous_locale() { return false; }
 function esc_html__($s, $d = null) { return $s; }
 function esc_html($s) { return (string) $s; }
 function esc_attr($s) { return (string) $s; }

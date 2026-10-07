@@ -44,3 +44,6 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/backlog/story-guided-setup-dialog-plan.md`
   summary: AGENTS.md still says Settings and n8n Workflow use vanilla JS only; since story 36 the n8n Workflow page also loads the React bundle for the setup dialog island.
   evidence: Story 36 quick review (2026-10-07). AGENTS.md is the `bmad-project-context` managed block, so the fix goes through that skill (refresh), not a build edit; memory/admin-ui-rebuild.md already records the island pattern.
+- source_plan: `_bmad-output/backlog/story-ai-prompts-context-ux-review-plan.md`
+  summary: The AGENTS.md managed block still states the replaced rule "every preset must stay editable and an explicit 'Custom' path visible (memory/lessons.md 2026-07-23)" while story 26 made presets read-only choices with Custom as the one editable path.
+  evidence: Story 26 quick review. AGENTS.md wins over `_bmad/custom/minimal-code-ladder.md` (already updated), so the stale line governs the next build until `bmad-project-context` refreshes the block; agent-context files are not edited inside a build.

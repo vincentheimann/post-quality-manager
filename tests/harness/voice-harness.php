@@ -1,0 +1,164 @@
+<?php
+/**
+ * CLI harness — story 26 "AI Prompts & Context": the radio is the setting.
+ * Matrix rows 1–8 of the plan against pqm_resolved_voice() /
+ * pqm_resolved_context() (the payload's brand_voice and website_context)
+ * and sanitize_settings() (the round trip through a preset), with the
+ * locale switch stubbed to prove the site language is used and restored.
+ * Run: php voice-harness.php
+ */
+
+error_reporting(E_ALL);
+
+/* ─── WP stubs (same bootstrap as sanitize-matrix-harness.php) ───────── */
+define('ABSPATH', __DIR__ . '/');
+
+$GLOBALS['pqm_test_caps']    = [];
+$GLOBALS['pqm_test_options'] = [];
+
+/* Locale: the site setting vs. the triggering user's language. __() tags
+ * every string with the current locale so a wrong language is visible. */
+$GLOBALS['pqm_site_locale'] = 'en_US';
+$GLOBALS['pqm_locale_stack'] = ['en_US']; // top = current locale
+$GLOBALS['pqm_locale_calls'] = ['switch' => 0, 'restore' => 0];
+
+function plugin_dir_path($file) { return rtrim(dirname($file), '/\\') . '/'; }
+function plugin_dir_url($file) { return 'https://example.test/wp-content/plugins/post-quality-manager/'; }
+function register_activation_hook($f, $cb) {}
+function register_deactivation_hook($f, $cb) {}
+function add_action(...$a) {}
+function add_filter(...$a) {}
+function is_admin() { return false; }
+function current_locale() { return end($GLOBALS['pqm_locale_stack']); }
+function __($s, $d = null) { return current_locale() === 'en_US' ? $s : '[' . current_locale() . '] ' . $s; }
+function get_locale() { return $GLOBALS['pqm_site_locale']; }
+function switch_to_locale($locale) {
+    // Core returns false (and switches nothing) when $locale is already current.
+    if ($locale === current_locale()) { return false; }
+    $GLOBALS['pqm_locale_calls']['switch']++;
+    $GLOBALS['pqm_locale_stack'][] = $locale;
+    return true;
+}
+function restore_previous_locale() {
+    $GLOBALS['pqm_locale_calls']['restore']++;
+    array_pop($GLOBALS['pqm_locale_stack']);
+    return current_locale();
+}
+function apply_filters($tag, $value, ...$a) { return $value; }
+function current_user_can($cap) { return in_array($cap, $GLOBALS['pqm_test_caps'], true); }
+function get_option($name, $default = false) { return $GLOBALS['pqm_test_options'][$name] ?? $default; }
+function wp_parse_args($args, $defaults = []) { return array_merge($defaults, (array) $args); }
+function wp_generate_uuid4() { return 'freshly-generated-default-token'; }
+function esc_url_raw($url) { return trim((string) $url); }
+function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
+function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
+function absint($n) { return abs((int) $n); }
+function wp_parse_url($url, $component = -1) { return parse_url($url, $component); }
+function add_settings_error(...$a) {}
+
+require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
+
+/* ─── Helpers ────────────────────────────────────────────────────────── */
+$pass = 0;
+$fail = 0;
+function check($label, $cond) {
+    global $pass, $fail;
+    if ($cond) { $pass++; echo "  ok  $label\n"; }
+    else { $fail++; echo "FAIL  $label\n"; }
+}
+function settings(array $stored): array { return array_merge(pqm_default_settings(), $stored); }
+
+$direct    = pqm_voice_presets()['direct']['instruction'];
+$technical = PQM_Admin::blog_profiles()['technical']['website_context'];
+$custom_voice   = 'Use British English. Cite a source for every statistic.';
+$custom_context = 'A blog about home automation for tech-savvy homeowners.';
+
+/* ─── Rows 1–4: Editorial Standards → brand_voice ───────────────────── */
+echo "\nRow 1: preset selected\n";
+check('Direct instruction, whatever the stored text',
+    pqm_resolved_voice(settings(['brand_voice_preset' => 'direct', 'brand_voice' => 'Stale text'])) === $direct);
+
+echo "\nRow 2: Custom + typed text\n";
+check('the typed text',
+    pqm_resolved_voice(settings(['brand_voice_preset' => 'custom', 'brand_voice' => $custom_voice])) === $custom_voice);
+
+echo "\nRow 3: Custom, empty\n";
+check("'' (the template default applies)",
+    pqm_resolved_voice(settings(['brand_voice_preset' => 'custom', 'brand_voice' => ''])) === '');
+
+echo "\nRow 4: unknown preset key\n";
+check('the stored text (treated as Custom)',
+    pqm_resolved_voice(settings(['brand_voice_preset' => 'retired', 'brand_voice' => $custom_voice])) === $custom_voice);
+
+/* ─── Rows 5–6: Blog Profile → website_context ──────────────────────── */
+echo "\nRow 5: profile selected\n";
+check('Technical text, whatever the stored text',
+    pqm_resolved_context(settings(['blog_profile' => 'technical', 'website_context' => 'Stale text'])) === $technical);
+
+echo "\nRow 6: Custom profile + typed text\n";
+check('the typed text',
+    pqm_resolved_context(settings(['blog_profile' => 'custom', 'website_context' => $custom_context])) === $custom_context);
+check("Custom, empty: '' (the template default applies)",
+    pqm_resolved_context(settings(['blog_profile' => 'custom', 'website_context' => ''])) === '');
+check('unknown profile key: the stored text',
+    pqm_resolved_context(settings(['blog_profile' => 'retired', 'website_context' => $custom_context])) === $custom_context);
+
+/* ─── Row 7: a user in another locale triggers ──────────────────────── */
+echo "\nRow 7: trigger by a user in fr_FR, site en_US\n";
+$GLOBALS['pqm_locale_stack'] = ['en_US', 'fr_FR']; // the admin's profile language is current
+$GLOBALS['pqm_locale_calls'] = ['switch' => 0, 'restore' => 0];
+check('sanity: preset text read directly is in fr_FR', pqm_voice_presets()['direct']['instruction'] === '[fr_FR] ' . $direct);
+$both = settings(['brand_voice_preset' => 'direct', 'blog_profile' => 'technical']);
+check('brand_voice in en_US', pqm_resolved_voice($both) === $direct);
+check('website_context in en_US', pqm_resolved_context($both) === $technical);
+check('switched to the site locale once per resolution', $GLOBALS['pqm_locale_calls']['switch'] === 2);
+check('restored once per switch', $GLOBALS['pqm_locale_calls']['restore'] === 2);
+check('the user locale is current again', current_locale() === 'fr_FR');
+
+echo "\nRow 7b: already in the site locale (cron)\n";
+$GLOBALS['pqm_locale_stack'] = ['en_US'];
+$GLOBALS['pqm_locale_calls'] = ['switch' => 0, 'restore' => 0];
+check('brand_voice in en_US', pqm_resolved_voice($both) === $direct);
+check('no switch, so no restore', $GLOBALS['pqm_locale_calls'] === ['switch' => 0, 'restore' => 0]);
+
+echo "\nRow 7c: the locale is restored when resolution throws\n";
+$GLOBALS['pqm_locale_stack'] = ['en_US', 'fr_FR'];
+try {
+    pqm_in_site_locale(static function () { throw new RuntimeException('boom'); });
+} catch (RuntimeException $e) {
+}
+check('the user locale is current again', current_locale() === 'fr_FR');
+$GLOBALS['pqm_locale_stack'] = ['en_US'];
+
+/* ─── Row 8: round trip through a preset ────────────────────────────── */
+echo "\nRow 8: Custom text saved, switch to a preset, Save, switch back\n";
+$GLOBALS['pqm_test_caps'] = ['pqm_manage_settings'];
+$saved = settings([
+    'blog_profile' => 'custom', 'website_context' => $custom_context,
+    'brand_voice_preset' => 'custom', 'brand_voice' => $custom_voice,
+]);
+$GLOBALS['pqm_test_options'] = ['pqm_settings' => $saved];
+// The hidden Custom textareas still post their stored text.
+$on_preset = PQM_Admin::sanitize_settings([
+    'blog_profile'       => 'technical',
+    'brand_voice_preset' => 'direct',
+    'website_context'    => $saved['website_context'],
+    'brand_voice'        => $saved['brand_voice'],
+]);
+check('preset saved: payload sends the Technical text', pqm_resolved_context($on_preset) === $technical);
+check('preset saved: payload sends the Direct instruction', pqm_resolved_voice($on_preset) === $direct);
+check('preset saved: custom context kept', $on_preset['website_context'] === $custom_context);
+check('preset saved: custom standards kept', $on_preset['brand_voice'] === $custom_voice);
+
+$GLOBALS['pqm_test_options'] = ['pqm_settings' => $on_preset];
+$back = PQM_Admin::sanitize_settings([
+    'blog_profile'       => 'custom',
+    'brand_voice_preset' => 'custom',
+    'website_context'    => $on_preset['website_context'],
+    'brand_voice'        => $on_preset['brand_voice'],
+]);
+check('back on Custom: the custom context is sent', pqm_resolved_context($back) === $custom_context);
+check('back on Custom: the custom standards are sent', pqm_resolved_voice($back) === $custom_voice);
+
+echo "\n──────────────\n$pass passed, $fail failed\n";
+exit($fail > 0 ? 1 : 0);

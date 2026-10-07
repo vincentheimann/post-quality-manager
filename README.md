@@ -20,14 +20,14 @@ WP admin (dashboard button / WP-Cron) ──► n8n workflow ──► Claude ag
                       └── stores reviews ◄── WordPress REST API (this plugin)
 ```
 
-Content is scored on four universal pillars — **Structure, Readability, Engagement, Credibility** — so the same workflow serves a marketing blog, a technical IT blog, or a lifestyle site. Niche tailoring happens through **Blog Profiles** and editable prompts, never hardcoded.
+Content is scored on four universal pillars — **Structure, Readability, Engagement, Credibility** — so the same workflow serves a marketing blog, a technical IT blog, or a lifestyle site. Niche tailoring happens through **Blog Profiles**, **Editorial Standards** and editable prompts, never hardcoded.
 
 ## Features
 
 - **Quality dashboard** — per-post scores, statuses, and top edits with loading/error states
 - **n8n workflow generator** — a dedicated **n8n Workflow** page with the pre-configured download, an "Import from URL" link, a live preview of what each agent sends to Claude, and an update notice when the bundled workflow changes
 - **Claude model choice** — pick the model globally (Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5, or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
-- **Blog profiles** — Marketing, Technical/IT, Lifestyle, or Custom presets that pre-fill voice and context (everything stays editable)
+- **Blog profiles and Editorial Standards** — choose a Blog Profile (Marketing, Technical/IT, Lifestyle, Food & Recipes, Travel, Health & Wellness) for the Website Context and a tone preset (Professional, Casual, Direct) for the Editorial Standards every post follows (Review and Rewrite); the page shows the exact text the AI receives, and Custom opens a text field for your own
 - **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (REST API `POST /trigger-review`, async so the UI never blocks)
 - **Insert into Post** — put the suggested Takeaways or Sources into the post with one confirmed click, as a plain list or in a pattern you design in Appearance → Patterns; the previous version stays in Revisions
 - **Scheduled reviews** — WP-Cron batches with configurable frequency, batch size, minimum score, and post age
@@ -48,7 +48,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
    - **Anthropic** — a second Header Auth: Name `x-api-key`, Value your Claude API key. Pick it in the six **Claude** nodes.
    - **WordPress** — Basic Auth with an Application Password for a user who can edit posts. Pick it in **Update WP Post (Rewrite)**.
    - Upgrading from a workflow imported before template version 4: the plugin already sends the token, but the old trigger does not check it — it stays unauthenticated until you re-import the workflow and add the Header Auth credential.
-3. Pick your **Blog Profile** (e.g., Technical/IT for a developer blog), adjust the pre-filled context if needed, and save — the guide's last step links there and to scheduled reviews.
+3. In **Settings → AI Prompts & Context**, choose your **Blog Profile** (e.g., Technical/IT for a developer blog) and your **Editorial Standards** — or Custom to write your own — and save; the guide's last step links there and to scheduled reviews.
 
 ## REST API (`post-quality/v1`)
 
