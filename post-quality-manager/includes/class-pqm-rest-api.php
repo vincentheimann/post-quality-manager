@@ -11,6 +11,9 @@
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
  *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags (Dashboard app)
  *  POST /post-quality/v1/insert-block     — write the latest Takeaways / Sources into the post (story 23)
+ *  GET  /post-quality/v1/setup            — setup dialog state: progress, values to copy (story 36)
+ *  POST /post-quality/v1/setup            — tick a setup step, or mark the setup complete (story 36)
+ *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -101,6 +104,34 @@ class PQM_REST_API {
                 ],
             ],
         ] );
+
+        // Story 36: the setup dialog's state, progress and connect step.
+        register_rest_route( PQM_REST_NAMESPACE, '/setup', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [ __CLASS__, 'get_setup_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            ],
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [ __CLASS__, 'update_setup_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+                'args'                => [
+                    'step'     => [ 'required' => false, 'type' => 'string' ],
+                    'done'     => [ 'required' => false, 'type' => 'boolean' ],
+                    'complete' => [ 'required' => false, 'type' => 'boolean' ],
+                ],
+            ],
+        ] );
+
+        register_rest_route( PQM_REST_NAMESPACE, '/setup/connect', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'setup_connect_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            'args'                => [
+                'webhook_url' => [ 'required' => true, 'type' => 'string' ],
+            ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -110,6 +141,14 @@ class PQM_REST_API {
      */
     public static function check_view_reviews(): bool {
         return current_user_can( 'pqm_view_reviews' );
+    }
+
+    /**
+     * The setup dialog's routes (story 36): the n8n connection is the
+     * Admin's, like the n8n Workflow page that hosts the dialog.
+     */
+    public static function check_manage_settings(): bool {
+        return current_user_can( 'pqm_manage_settings' );
     }
 
     /**
@@ -875,5 +914,132 @@ class PQM_REST_API {
         }
 
         return new WP_REST_Response( $data, 200 );
+    }
+
+    /* ─── 9. Setup dialog (story 36) ─────────────────────────────────── */
+
+    /**
+     * The seven setup steps, in dialog order. The user ticks the first five
+     * (POST /setup); `connect` is set by a ping through POST /setup/connect
+     * and `review` reads the site's completion.
+     */
+    public const SETUP_STEPS = [ 'instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review' ];
+
+    /** Steps the user may tick or untick by hand. */
+    private const SETUP_TICKABLE = [ 'instance', 'import', 'credentials', 'link', 'publish' ];
+
+    /** Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`. */
+    private static function setup_progress(): array {
+        $stored = get_option( PQM_SETUP_OPTION, [] );
+
+        return [
+            'steps'    => is_array( $stored['steps'] ?? null ) ? $stored['steps'] : [],
+            'complete' => ! empty( $stored['complete'] ),
+        ];
+    }
+
+    /**
+     * Everything the dialog shows: per-step progress, completion (derived
+     * for sites connected before the dialog, see pqm_setup_complete()) and
+     * the values the user copies into n8n.
+     */
+    private static function setup_state(): array {
+        $settings = pqm_get_settings();
+        $progress = self::setup_progress();
+        $complete = pqm_setup_complete();
+        $user     = wp_get_current_user();
+
+        $steps = [];
+        foreach ( self::SETUP_STEPS as $step ) {
+            $steps[ $step ] = 'review' === $step ? $complete : ! empty( $progress['steps'][ $step ] );
+        }
+
+        return [
+            'steps'         => $steps,
+            'complete'      => $complete,
+            'connected'     => ! empty( $settings['n8n_webhook_url'] ),
+            'first_result'  => PQM_DB::has_result(),
+            'webhook_url'   => (string) $settings['n8n_webhook_url'],
+            'token'         => (string) $settings['webhook_token'],
+            'import_url'    => PQM_Admin::workflow_import_url(),
+            // Raw URL (no &amp;): it travels as JSON into an href.
+            'download_url'  => add_query_arg(
+                [
+                    'action'   => 'pqm_download_workflow',
+                    '_wpnonce' => wp_create_nonce( 'pqm_download_workflow' ),
+                ],
+                admin_url( 'admin-post.php' )
+            ),
+            // Core offers Application Passwords only over HTTPS or on a
+            // `local` environment; the dialog explains the manual path otherwise.
+            'app_passwords' => wp_is_application_passwords_available_for_user( $user ),
+            'user_login'    => (string) $user->user_login,
+            // Suffix of the template's credential names ("WordPress - <host>").
+            'site_host'     => pqm_site_host(),
+        ];
+    }
+
+    public static function get_setup_callback(): WP_REST_Response {
+        return new WP_REST_Response( self::setup_state(), 200 );
+    }
+
+    /**
+     * `{ step, done }` ticks or unticks one of the hand-ticked steps;
+     * `{ complete: true }` closes the setup (the dialog's first result).
+     * Answers the fresh state. Settings are never touched.
+     */
+    public static function update_setup_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $progress = self::setup_progress();
+
+        if ( true === $request->get_param( 'complete' ) ) {
+            $progress['complete'] = true;
+        } else {
+            $step = (string) $request->get_param( 'step' );
+            if ( ! in_array( $step, self::SETUP_TICKABLE, true ) ) {
+                return new WP_Error(
+                    'pqm_setup_unknown_step',
+                    __( 'This setup step is not known. Reload the page and try again.', 'post-quality-manager' ),
+                    [ 'status' => 400 ]
+                );
+            }
+            $progress['steps'][ $step ] = (bool) $request->get_param( 'done' );
+        }
+
+        update_option( PQM_SETUP_OPTION, $progress, false );
+
+        return new WP_REST_Response( self::setup_state(), 200 );
+    }
+
+    /**
+     * The connect step: save the webhook URL, then ping it — through the
+     * same two helpers as the n8n Workflow page's AJAX. A refused URL (empty,
+     * n8n test URL) is not stored; a stored URL whose ping fails stays
+     * stored and the step stays open.
+     */
+    public static function setup_connect_callback( WP_REST_Request $request ): WP_REST_Response {
+        $url   = (string) $request->get_param( 'webhook_url' );
+        $saved = PQM_Admin::save_webhook_url( $url );
+
+        if ( is_wp_error( $saved ) ) {
+            return new WP_REST_Response( [
+                'saved'   => false,
+                'ping_ok' => false,
+                'message' => $saved->get_error_message(),
+            ], 200 );
+        }
+
+        $ping     = PQM_Admin::ping_webhook( esc_url_raw( $url ) );
+        $progress = self::setup_progress();
+        $progress['steps']['connect'] = $ping['ok'];
+        update_option( PQM_SETUP_OPTION, $progress, false );
+
+        return new WP_REST_Response( [
+            'saved'   => true,
+            'ping_ok' => $ping['ok'],
+            'message' => $ping['ok']
+                ? $ping['message']
+                /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+                : sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] ),
+        ], 200 );
     }
 }
