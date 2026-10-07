@@ -3,7 +3,7 @@ title: 'AI Prompts & Context holds the editorial standards, says what the AI rec
 type: 'feature'
 ticket: 26
 created: '2026-10-07'
-status: 'built'
+status: done
 baseline_revision: '8bced4168d137dcb687d53ccf62aa3076d791667'
 route: 'full'
 route_source: 'auto'
