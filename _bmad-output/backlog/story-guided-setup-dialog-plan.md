@@ -3,7 +3,7 @@ title: 'A guided setup dialog walks a novice through connecting n8n, step by ste
 type: 'feature'
 ticket: '36'
 created: '2026-10-07'
-status: 'built'
+status: done
 baseline_revision: 'ebdc59db2c3155938ce9345fdda5f1e0e19cf14a'
 route: 'full'
 route_source: 'auto'
