@@ -5,11 +5,13 @@
  * Registers four sub-pages under a "Content Quality" top-level menu:
  * 1. Dashboard — React app: Fix-next queue, stat tiles, score sparkline, nudges
  * 2. Post Reviews — React app: post table with scores, filters, per-post actions
- * 3. n8n Workflow — setup wizard, download/import, request preview, ping
+ * 3. n8n Workflow — setup dialog (React island), download/import, request preview, ping
  * 4. Settings — connection, AI model, prompts & context, cron
  *
  * The two React pages (src/, ADR 0005) get only a PHP shell from here; the
- * Settings and n8n Workflow pages render in PHP with pqm-admin.css/.js.
+ * Settings and n8n Workflow pages render in PHP with pqm-admin.css/.js. The
+ * n8n Workflow page also mounts the setup dialog from the same bundle
+ * (story 36) — the only React on it.
  */
 
 if (!defined('ABSPATH')) {
@@ -34,6 +36,12 @@ class PQM_Admin
 
     /** Hook suffix of the Dashboard page (story 5.6), captured the same way. */
     private static ?string $dashboard_hook = null;
+
+    /** Hook suffix of the n8n Workflow page (story 36: hosts the setup dialog island). */
+    private static ?string $workflow_hook = null;
+
+    /** Query arg that opens the setup dialog on load (the welcome notice's link). */
+    public const SETUP_QUERY_ARG = 'pqm_setup';
 
     /* ─── Menu Registration ──────────────────────────────────────────── */
 
@@ -69,14 +77,14 @@ class PQM_Admin
         [__CLASS__, 'render_posts_app']
         ) ?: null;
 
-        add_submenu_page(
+        self::$workflow_hook = add_submenu_page(
             'pqm-dashboard',
             __('n8n Workflow', 'post-quality-manager'),
             __('n8n Workflow', 'post-quality-manager'),
             'pqm_manage_settings',
             'pqm-workflow',
         [__CLASS__, 'render_workflow']
-        );
+        ) ?: null;
 
         // Editors (pqm_manage_agents) reach the page for the overrides and
         // Automated Reviews sections; the global sections inside stay
@@ -100,7 +108,7 @@ class PQM_Admin
             return;
         }
 
-        // The n8n Workflow page hosts the setup wizard — no extra banner there.
+        // The n8n Workflow page hosts the setup button — no extra banner there.
         if (strpos($screen->id, 'pqm-workflow') !== false) {
             return;
         }
@@ -111,14 +119,15 @@ class PQM_Admin
             return;
         }
 
-        $settings = pqm_get_settings();
-        if (empty($settings['n8n_webhook_url'])) {
-            $workflow_url = admin_url('admin.php?page=pqm-workflow');
+        // Shown until the setup is complete (story 36); a site that was
+        // already connected and receiving results counts as set up.
+        if (!pqm_setup_complete()) {
+            $setup_url = admin_url('admin.php?page=pqm-workflow&' . self::SETUP_QUERY_ARG . '=1');
             printf(
                 '<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
-                esc_html__('Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first.', 'post-quality-manager'),
-                esc_url($workflow_url),
-                esc_html__('Open the n8n Workflow page', 'post-quality-manager')
+                esc_html__('Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first — a guide walks you through it.', 'post-quality-manager'),
+                esc_url($setup_url),
+                esc_html__('Set up the workflow', 'post-quality-manager')
             );
         }
     }
@@ -139,6 +148,13 @@ class PQM_Admin
         if ($hook === self::$posts_hook || $hook === self::$dashboard_hook) {
             self::enqueue_app();
             return;
+        }
+
+        // Story 36: the n8n Workflow page also mounts the setup dialog from
+        // the bundle; pqm-admin.js below keeps the page's own controls
+        // (ping, import-URL copy) — the two touch different DOM.
+        if ($hook === self::$workflow_hook) {
+            self::enqueue_app();
         }
 
         wp_enqueue_style(
@@ -180,8 +196,6 @@ class PQM_Admin
             'i18n' => [
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
-                'saving' => __('Saving…', 'post-quality-manager'),
-                'savedPingFailed' => __('URL saved, but the ping did not get through.', 'post-quality-manager'),
                 'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
                 'copied' => __('Copied! Paste it in n8n via "Import from URL…".', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The URL is selected — press Ctrl+C.', 'post-quality-manager'),
@@ -195,7 +209,7 @@ class PQM_Admin
      * dependency-extraction manifest (build/index.asset.php): React,
      * @wordpress/components, api-fetch and i18n all load from WordPress core
      * — the bundle ships no runtime. Missing build output is handled by
-     * render_app_shell(), which shows the build instructions instead.
+     * render_app_root(), which shows the build instructions instead.
      */
     private static function enqueue_app(): void
     {
@@ -487,27 +501,38 @@ class PQM_Admin
      */
     private static function render_app_shell(string $title, string $root_id): void
     {
-        $built = file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
         ?>
         <div class="wrap pqm-wrap">
             <h1><?php echo esc_html($title); ?></h1>
-            <?php if (!$built): ?>
-                <div class="notice notice-warning">
-                    <p><?php
-                    echo wp_kses(
-                        sprintf(
-                            /* translators: 1: npm install command, 2: npm run build command */
-                            __('This page has not been built yet. Run %1$s and then %2$s in the repository root, then reload this page.', 'post-quality-manager'),
-                            '<code>npm install</code>',
-                            '<code>npm run build</code>'
-                        ),
-                        ['code' => []]
-                    );
-                    ?></p>
-                </div>
-            <?php else: ?>
-                <div id="<?php echo esc_attr($root_id); ?>"></div>
-            <?php endif; ?>
+            <?php self::render_app_root($root_id); ?>
+        </div>
+        <?php
+    }
+
+    /**
+     * The root div the bundle mounts on (src/index.js) — or, on a fresh
+     * clone without built assets, the next step instead of a blank spot.
+     * Shared by the React pages and the setup island (story 36).
+     */
+    private static function render_app_root(string $root_id): void
+    {
+        if (file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php')) {
+            printf('<div id="%s"></div>', esc_attr($root_id));
+            return;
+        }
+        ?>
+        <div class="notice notice-warning">
+            <p><?php
+            echo wp_kses(
+                sprintf(
+                    /* translators: 1: npm install command, 2: npm run build command */
+                    __('This page has not been built yet. Run %1$s and then %2$s in the repository root, then reload this page.', 'post-quality-manager'),
+                    '<code>npm install</code>',
+                    '<code>npm run build</code>'
+                ),
+                ['code' => []]
+            );
+            ?></p>
         </div>
         <?php
     }
@@ -1002,15 +1027,25 @@ class PQM_Admin
     }
 
     /**
-     * Everything about generating and connecting the n8n workflow:
-     * download / import URL, per-agent request preview, template version
-     * status, and the connection test.
+     * The n8n "Import from URL" link: the workflow route with the webhook
+     * token. Shared by this page and the setup dialog (GET /setup).
+     */
+    public static function workflow_import_url(): string
+    {
+        return add_query_arg('token', rawurlencode(pqm_get_settings()['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
+    }
+
+    /**
+     * Everything about generating and connecting the n8n workflow: the
+     * setup dialog's mount point (story 36), download / import URL,
+     * per-agent request preview, template version status, and the
+     * connection test.
      */
     public static function render_workflow(): void
     {
         $settings     = pqm_get_settings();
         $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
-        $import_url   = add_query_arg('token', rawurlencode($settings['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
+        $import_url   = self::workflow_import_url();
         $settings_url = admin_url('admin.php?page=pqm-settings');
         $seen_version = (int) get_option('pqm_workflow_version_seen', 0);
         $registry     = pqm_model_registry();
@@ -1018,59 +1053,11 @@ class PQM_Admin
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('n8n Workflow', 'post-quality-manager'); ?></h1>
 
-            <?php if (empty($settings['n8n_webhook_url'])): ?>
-            <!-- Setup wizard: shown only until the connection is configured. -->
-            <div class="pqm-wizard" id="pqm-wizard">
-                <h2 class="pqm-wizard-title"><?php esc_html_e('Set up your n8n connection', 'post-quality-manager'); ?></h2>
-                <ol class="pqm-wizard-steps">
-                    <li class="pqm-wizard-dot is-active" data-step="1"><span>1</span> <?php esc_html_e('Download', 'post-quality-manager'); ?></li>
-                    <li class="pqm-wizard-dot" data-step="2"><span>2</span> <?php esc_html_e('Import', 'post-quality-manager'); ?></li>
-                    <li class="pqm-wizard-dot" data-step="3"><span>3</span> <?php esc_html_e('Connect & test', 'post-quality-manager'); ?></li>
-                    <li class="pqm-wizard-dot" data-step="4"><span>4</span> <?php esc_html_e('First review', 'post-quality-manager'); ?></li>
-                </ol>
-
-                <div class="pqm-wizard-step is-active" data-step="1">
-                    <p><?php esc_html_e('Download the review workflow pre-configured for this site.', 'post-quality-manager'); ?></p>
-                    <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
-                        <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
-                    </a>
-                    <?php self::render_import_url($import_url); ?>
-                </div>
-
-                <div class="pqm-wizard-step" data-step="2">
-                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect three credentials:', 'post-quality-manager'); ?></p>
-                    <?php self::render_credentials_list($settings['webhook_token']); ?>
-                    <?php self::render_credentials_hint(); ?>
-                </div>
-
-                <div class="pqm-wizard-step" data-step="3">
-                    <p><?php esc_html_e('In n8n, copy the workflow\'s production webhook URL and paste it here:', 'post-quality-manager'); ?></p>
-                    <div class="pqm-wizard-connect">
-                        <input type="url" id="pqm_wizard_webhook_url" class="regular-text"
-                               placeholder="https://your-n8n.example.com/webhook/pqm-execute"
-                               aria-label="<?php esc_attr_e('n8n webhook URL', 'post-quality-manager'); ?>" />
-                        <button type="button" class="button button-primary pqm-wizard-save-test">
-                            <?php esc_html_e('Save & test', 'post-quality-manager'); ?>
-                        </button>
-                    </div>
-                    <p class="description"><?php esc_html_e('Saves the URL and sends a test ping. The ping verifies WordPress → n8n; your first review confirms the return path.', 'post-quality-manager'); ?></p>
-                    <p class="description"><?php esc_html_e('Both sides must reach each other over the network: this site calls n8n, and n8n calls back this site\'s REST API. A local or password-protected site cannot be reached from n8n Cloud.', 'post-quality-manager'); ?></p>
-                    <span class="pqm-test-result" aria-live="polite"></span>
-                </div>
-
-                <div class="pqm-wizard-step" data-step="4">
-                    <p><?php esc_html_e('Setup complete. Run your first review on a real post — the score, issues, and suggested edits land right in the list.', 'post-quality-manager'); ?></p>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=pqm-posts')); ?>" class="button button-primary">
-                        <?php esc_html_e('Run your first review', 'post-quality-manager'); ?>
-                    </a>
-                </div>
-
-                <div class="pqm-wizard-nav">
-                    <button type="button" class="button pqm-wizard-back" disabled><?php esc_html_e('Back', 'post-quality-manager'); ?></button>
-                    <button type="button" class="button button-primary pqm-wizard-next"><?php esc_html_e('Next', 'post-quality-manager'); ?></button>
-                </div>
-            </div>
-            <?php else: // Connected — show the maintenance sections the wizard already covers. ?>
+            <?php
+            // Story 36: the setup dialog (src/setup/) mounts here — its
+            // button, and the Modal it opens. The sections below always show.
+            self::render_app_root('pqm-setup-root');
+            ?>
 
             <?php if ($seen_version > 0 && $seen_version < PQM_WORKFLOW_VERSION): ?>
             <div class="notice notice-warning inline pqm-inline-notice">
@@ -1145,7 +1132,6 @@ class PQM_Admin
                 </button>
                 <span class="pqm-test-result" aria-live="polite"></span>
             </p>
-            <?php endif; ?>
         </div>
 <?php
     }
@@ -1153,8 +1139,8 @@ class PQM_Admin
     /* ─── Workflow Generator (admin-post download) ───────────────────── */
 
     /**
-     * "Or import from URL" block shown under each workflow download button.
-     * Rendered twice on the n8n Workflow page, so classes only — no IDs.
+     * "Or import from URL" block shown under the workflow download button.
+     * Classes only, no IDs (pqm-admin.js binds the Copy button by class).
      */
     private static function render_import_url(string $import_url): void
     {
@@ -1175,26 +1161,37 @@ class PQM_Admin
 
     /**
      * The three credentials the imported workflow needs, the webhook token
-     * shown inline for the Header Auth one. Shown next to both import paths
-     * (wizard step 2 + Workflow File) — a v3 site re-imports from the latter.
+     * shown inline for the Header Auth one, each under the name the
+     * template expects (so a renamed credential matches). Shown in the Workflow File
+     * section — a v3 site re-imports from there. The setup dialog carries
+     * its own, step-by-step copy of these (src/setup/steps.js).
      */
     private static function render_credentials_list(string $token): void
     {
 ?>
-        <ul class="pqm-wizard-list">
+        <?php $host = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__) ?>
+        <ul class="pqm-credentials-list">
             <li><?php
                 printf(
-                    /* translators: 1: the header name X-PQM-Token, 2: this site's webhook token */
-                    esc_html__('Post Quality webhook — a Header Auth credential: set its Name field to %1$s and its Value to %2$s. Pick it in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'),
+                    /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: the header name X-PQM-Token, 3: this site's webhook token */
+                    esc_html__('%1$s — a Header Auth credential: set its Name field to %2$s and its Value to %3$s. Pick it in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'),
+                    '<strong>' . esc_html('Post Quality webhook - ' . $host) . '</strong>',
                     '<code>X-PQM-Token</code>',
                     '<code>' . esc_html($token) . '</code>'
                 );
             ?></li>
-            <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts. Pick it in Update WP Post (Rewrite).', 'post-quality-manager'); ?></li>
             <li><?php
                 printf(
-                    /* translators: %s: the header name x-api-key */
-                    esc_html__('Claude — a second Header Auth credential: Name %s, Value your Anthropic API key. Pick it in the six Claude nodes.', 'post-quality-manager'),
+                    /* translators: %s: credential name, e.g. "WordPress - example.com" */
+                    esc_html__('%s — a Basic Auth credential with an Application Password for a user who can edit posts. Pick it in Update WP Post (Rewrite).', 'post-quality-manager'),
+                    '<strong>' . esc_html('WordPress - ' . $host) . '</strong>'
+                );
+            ?></li>
+            <li><?php
+                printf(
+                    /* translators: 1: credential name "Anthropic - Claude", 2: the header name x-api-key */
+                    esc_html__('%1$s — a second Header Auth credential: Name %2$s, Value your Anthropic API key. Pick it in the six Claude nodes.', 'post-quality-manager'),
+                    '<strong>Anthropic - Claude</strong>',
                     '<code>x-api-key</code>'
                 );
             ?></li>
@@ -1206,14 +1203,14 @@ class PQM_Admin
      * After an import, n8n flags every credentialed node as "Credentials …
      * are not set": it links credentials by an instance-specific ID the
      * template cannot carry, and only fills a node in once it is opened.
-     * Shown next to both import paths (wizard + Workflow File).
+     * Shown in the Workflow File section.
      */
     private static function render_credentials_hint(): void
     {
 ?>
         <div class="notice notice-info inline pqm-inline-notice">
             <p><strong><?php esc_html_e('n8n says "Credentials … are not set" after the import?', 'post-quality-manager'); ?></strong>
-            <?php esc_html_e('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential. You have two Header Auth credentials, so choose in each node: the webhook one (X-PQM-Token) in the Webhook Trigger, the Anthropic one in the six Claude nodes. If you have none yet, create it from the credential field in the node. Then save and activate the workflow.', 'post-quality-manager'); ?></p>
+            <?php esc_html_e('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential. You have two Header Auth credentials, so choose in each node: Post Quality webhook (X-PQM-Token) in the Webhook Trigger, Anthropic - Claude in the six Claude nodes. If you have none yet, create it from the credential field in the node. Then save and activate the workflow.', 'post-quality-manager'); ?></p>
         </div>
 <?php
     }
@@ -1242,45 +1239,105 @@ class PQM_Admin
         exit;
     }
 
-    /* ─── AJAX: Save Webhook URL (wizard) ────────────────────────────── */
+    /* ─── Save webhook URL + ping: one home (POST /setup/connect, AJAX ping) ── */
 
     /**
-     * Merge-save only the webhook URL so wizard step 3 completes on one page.
-     * Reads the stored option and updates a single key — the Settings form's
-     * full-array sanitize contract and the form-free Workflow page both stay intact.
+     * Merge-save only the webhook URL. Reads the stored option and updates
+     * a single key — the Settings form's full-array sanitize contract and
+     * the form-free Workflow page both stay intact. Used by the setup
+     * dialog's connect route (story 36).
+     *
+     * @return true|WP_Error True once stored; the refusal otherwise.
      */
-    public static function ajax_save_webhook_url(): void
+    public static function save_webhook_url(string $url): bool|WP_Error
     {
-        check_ajax_referer('pqm_admin_action');
-
-        if (!current_user_can('pqm_manage_settings')) {
-            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
+        $url = esc_url_raw($url);
+        if ($url === '') {
+            return new WP_Error('pqm_webhook_url_empty', __('Enter your n8n webhook URL first.', 'post-quality-manager'), ['status' => 400]);
         }
 
-        $url = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
-        if (empty($url)) {
-            wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
-        }
-
-        // A stored test URL would end the wizard on a URL that misses every
-        // real run — refuse it before saving (the wizard stays on step 3).
+        // A stored test URL would finish the setup on a URL that misses
+        // every real run — refuse it before saving.
         $warning = pqm_webhook_url_warning($url);
         if ($warning !== '') {
-            wp_send_json_error($warning);
+            return new WP_Error('pqm_webhook_test_url', $warning, ['status' => 400]);
         }
 
         $settings = get_option('pqm_settings', []);
         $settings['n8n_webhook_url'] = $url;
         update_option('pqm_settings', $settings); // updated_option hook reschedules cron.
 
-        wp_send_json_success();
+        return true;
+    }
+
+    /**
+     * Send a lightweight "ping" command to the n8n webhook. With a v4
+     * import a 2xx proves two things: this site reaches n8n, and the
+     * Webhook Trigger accepted the X-PQM-Token header (story 35). Shared by
+     * the AJAX handler and the setup dialog's connect route (story 36).
+     *
+     * @return array{ok: bool, message: string}
+     */
+    public static function ping_webhook(string $url): array
+    {
+        // A test URL would answer while the n8n editor listens and then miss
+        // every real run — refuse before sending.
+        $warning = pqm_webhook_url_warning($url);
+        if ($warning !== '') {
+            return ['ok' => false, 'message' => $warning];
+        }
+
+        $response = wp_remote_post($url, [
+            'headers' => pqm_n8n_headers(pqm_get_settings()),
+            'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
+            'timeout' => 10,
+        ]);
+
+        if (is_wp_error($response)) {
+            return ['ok' => false, 'message' => sprintf(
+                /* translators: %s: connection error message */
+                __('Could not connect to n8n: %s', 'post-quality-manager'),
+                $response->get_error_message()
+            )];
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+
+        if ($code >= 200 && $code < 300) {
+            // An import older than v4 (seen 1–3) ignores the header, so its
+            // 2xx proves only the reachability; 0 = no report yet (fresh setup).
+            $seen = (int) get_option('pqm_workflow_version_seen', 0);
+            if ($seen > 0 && $seen < PQM_WORKFLOW_VERSION) {
+                return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n. Your n8n workflow is an older version that does not check the webhook credential: download or re-import it on the n8n Workflow page.', 'post-quality-manager')];
+            }
+            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n and the webhook credential is right. Your first review confirms the return path.', 'post-quality-manager')];
+        }
+
+        if ($code === 401 || $code === 403) {
+            return ['ok' => false, 'message' => sprintf(
+                /* translators: %d: HTTP status code (401 or 403) */
+                __('n8n refused the webhook credential (HTTP %d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be X-PQM-Token and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
+                $code
+            )];
+        }
+
+        if ($code === 404) {
+            return ['ok' => false, 'message' => __('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager')];
+        }
+
+        return ['ok' => false, 'message' => sprintf(
+            /* translators: %d: HTTP status code */
+            __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
+            $code
+        )];
     }
 
     /* ─── AJAX: Test Connection ──────────────────────────────────────── */
 
     /**
-     * Send a lightweight "ping" command to the n8n webhook and report the outcome.
-     * Tests the URL from the settings field so it works before saving.
+     * Ping the n8n webhook and report the outcome. Tests the URL from the
+     * Settings field so it works before saving; the n8n Workflow page sends
+     * none, so the saved URL is pinged.
      */
     public static function ajax_test_connection(): void
     {
@@ -1298,41 +1355,10 @@ class PQM_Admin
             wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
         }
 
-        // A test URL would answer while the n8n editor listens and then miss
-        // every real run — refuse before sending (the wizard stays on step 3).
-        $warning = pqm_webhook_url_warning($url);
-        if ($warning !== '') {
-            wp_send_json_error($warning);
+        $ping = self::ping_webhook($url);
+        if ($ping['ok']) {
+            wp_send_json_success($ping['message']);
         }
-
-        $response = wp_remote_post($url, [
-            'headers' => pqm_n8n_headers(pqm_get_settings()),
-            'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
-            'timeout' => 10,
-        ]);
-
-        if (is_wp_error($response)) {
-            wp_send_json_error(sprintf(
-                /* translators: %s: connection error message */
-                __('Could not connect to n8n: %s', 'post-quality-manager'),
-                $response->get_error_message()
-            ));
-        }
-
-        $code = wp_remote_retrieve_response_code($response);
-
-        if ($code >= 200 && $code < 300) {
-            wp_send_json_success(__('Ping OK — WordPress can reach n8n. Your first review confirms the return path.', 'post-quality-manager'));
-        }
-
-        if ($code === 404) {
-            wp_send_json_error(__('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager'));
-        }
-
-        wp_send_json_error(sprintf(
-            /* translators: %d: HTTP status code */
-            __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
-            $code
-        ));
+        wp_send_json_error($ping['message']);
     }
 }

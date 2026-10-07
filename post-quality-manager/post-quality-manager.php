@@ -54,7 +54,6 @@ if (is_admin()) {
     add_action('admin_enqueue_scripts', ['PQM_Admin', 'enqueue_assets']);
     add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
     add_action('wp_ajax_pqm_test_connection', ['PQM_Admin', 'ajax_test_connection']);
-    add_action('wp_ajax_pqm_save_webhook_url', ['PQM_Admin', 'ajax_save_webhook_url']);
     add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);
 }
 
@@ -274,6 +273,15 @@ function pqm_voice_presets(): array
  * n8n Workflow page download and the REST import-from-URL endpoint.
  * Returns null when the template file is missing.
  */
+/**
+ * This site's host as the template's __PQM_SITE_HOST__ placeholder gets it —
+ * also the suffix of two credential names the admin copy tells users to use.
+ */
+function pqm_site_host(): string
+{
+    return wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
+}
+
 function pqm_workflow_json(): ?string
 {
     $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow.json';
@@ -281,9 +289,7 @@ function pqm_workflow_json(): ?string
         return null;
     }
 
-    $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
-
-    return str_replace('__PQM_SITE_HOST__', $host, file_get_contents($template_path));
+    return str_replace('__PQM_SITE_HOST__', pqm_site_host(), file_get_contents($template_path));
 }
 
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */
@@ -394,4 +400,29 @@ function pqm_webhook_url_warning(string $url): string
     }
 
     return __('This is an n8n test URL: it only listens while the workflow is open in the n8n editor. Use the production URL (with /webhook/ instead of /webhook-test/) and activate the workflow.', 'post-quality-manager');
+}
+
+/* ─── Helper: setup guide progress (story 36) ────────────────────────── */
+/**
+ * Option holding the setup dialog's progress, once per site (setup is a
+ * site task one administrator may finish for another):
+ * `['steps' => [step => bool], 'complete' => bool]`, autoload off, deleted
+ * on uninstall (uninstall.php names it literally — it loads without this file).
+ */
+define('PQM_SETUP_OPTION', 'pqm_setup_progress');
+
+/**
+ * Whether the site is set up: the dialog's first review marked it, or —
+ * for sites connected before the dialog existed — n8n is connected and a
+ * real result is stored (PQM_DB::has_result(): failed runs do not count,
+ * and imports older than the version handshake do).
+ */
+function pqm_setup_complete(): bool
+{
+    $progress = get_option(PQM_SETUP_OPTION, []);
+    if (!empty($progress['complete'])) {
+        return true;
+    }
+
+    return !empty(pqm_get_settings()['n8n_webhook_url']) && PQM_DB::has_result();
 }
