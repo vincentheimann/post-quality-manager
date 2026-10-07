@@ -34,7 +34,7 @@ Copy the plugin folder from a GitHub release into `wp-content/plugins/`, activat
 - **Signal:** activation → n8n Workflow page visit rate.
 
 ### A4. Connect the chain (the friction wall)
-Follow the 3-step checklist: download/import the pre-configured workflow, connect two credentials in n8n (WP Application Password + Claude API key), paste the production webhook URL back into Settings.
+Follow the 3-step checklist: download/import the pre-configured workflow, connect three credentials in n8n (webhook Header Auth `X-PQM-Token` holding the webhook token, since 2026-10-07 / workflow v4 + WP Application Password + Claude API key), paste the production webhook URL back into Settings.
 
 - **CV:** this is already a proto-wizard — pre-filled template, import-from-URL, test ping, per-agent request preview. User #1 confirms it's a **one-time cost**, not recurring pain.
 - **UV:** the test ping only proves WP → n8n; the return path (n8n → `/save-review` with the token) is unverified until a real review succeeds (backlog: *full round-trip connection test*). Two-system context switching remains inherently confusing for a non-n8n user. *(2026-07-24, pending validation: setup now completes on one page — wizard step 3 saves the webhook URL inline and pings; ping copy states exactly what is and isn't verified. The stale token-persistence claim was removed — the activator has persisted it since activation.)*

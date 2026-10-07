@@ -338,6 +338,11 @@ class PQM_Admin
             // Whitespace-only keys trim to empty — the site stays free.
             $clean['license_key'] = trim(sanitize_text_field($input['license_key'] ?? ''));
             $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
+            // A test URL still saves (Save never loses input), with a notice.
+            $url_warning = pqm_webhook_url_warning($clean['n8n_webhook_url']);
+            if ($url_warning !== '') {
+                add_settings_error('pqm_settings', 'pqm_webhook_test_url', $url_warning, 'warning');
+            }
             $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
             $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
             $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
@@ -531,6 +536,11 @@ class PQM_Admin
             <div class="notice notice-success is-dismissible">
                 <p><?php esc_html_e('Settings saved — they apply on the next command. No n8n re-import needed.', 'post-quality-manager'); ?></p>
             </div>
+            <?php
+            // Notices the sanitizer raised (e.g. an n8n test URL). Core shows
+            // these only under Settings → *, so this page prints its own.
+            settings_errors('pqm_settings');
+            ?>
             <?php endif; ?>
 
             <?php if ($can_manage_settings && empty($settings['n8n_webhook_url'])): ?>
@@ -594,7 +604,7 @@ class PQM_Admin
                             <input type="text" id="pqm_webhook_token" name="pqm_settings[webhook_token]"
                                    value="<?php echo esc_attr($settings['webhook_token']); ?>"
                                    class="regular-text" readonly />
-                            <p class="description"><?php esc_html_e('Shared secret — n8n must send this in the X-PQM-Token header when posting results.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('Shared secret for both directions, always in the X-PQM-Token header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -1028,11 +1038,8 @@ class PQM_Admin
                 </div>
 
                 <div class="pqm-wizard-step" data-step="2">
-                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect two credentials:', 'post-quality-manager'); ?></p>
-                    <ul class="pqm-wizard-list">
-                        <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts.', 'post-quality-manager'); ?></li>
-                        <li><?php esc_html_e('Claude — your Anthropic API key.', 'post-quality-manager'); ?></li>
-                    </ul>
+                    <p><?php esc_html_e('In your n8n instance, import the downloaded file and connect three credentials:', 'post-quality-manager'); ?></p>
+                    <?php self::render_credentials_list($settings['webhook_token']); ?>
                     <?php self::render_credentials_hint(); ?>
                 </div>
 
@@ -1047,6 +1054,7 @@ class PQM_Admin
                         </button>
                     </div>
                     <p class="description"><?php esc_html_e('Saves the URL and sends a test ping. The ping verifies WordPress → n8n; your first review confirms the return path.', 'post-quality-manager'); ?></p>
+                    <p class="description"><?php esc_html_e('Both sides must reach each other over the network: this site calls n8n, and n8n calls back this site\'s REST API. A local or password-protected site cannot be reached from n8n Cloud.', 'post-quality-manager'); ?></p>
                     <span class="pqm-test-result" aria-live="polite"></span>
                 </div>
 
@@ -1073,7 +1081,8 @@ class PQM_Admin
 
             <!-- Workflow file -->
             <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
-            <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect your WordPress and Claude credentials.', 'post-quality-manager'); ?></p>
+            <p class="description"><?php esc_html_e('The review workflow tailored to this site, ready to import into n8n. After importing, connect these three credentials:', 'post-quality-manager'); ?></p>
+            <?php self::render_credentials_list($settings['webhook_token']); ?>
             <p>
                 <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
                     <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
@@ -1159,8 +1168,37 @@ class PQM_Admin
                 <button type="button" class="button pqm-copy-import-url"><?php esc_html_e('Copy', 'post-quality-manager'); ?></button>
             </div>
             <p class="pqm-copy-feedback" aria-live="polite"></p>
-            <p class="description"><?php esc_html_e('In n8n, open the workflow menu, choose "Import from URL…" and paste this link. It includes your webhook token — keep it private.', 'post-quality-manager'); ?></p>
+            <p class="description"><?php esc_html_e('In n8n, open the workflow menu, choose "Import from URL…" and paste this link. It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.', 'post-quality-manager'); ?></p>
         </div>
+<?php
+    }
+
+    /**
+     * The three credentials the imported workflow needs, the webhook token
+     * shown inline for the Header Auth one. Shown next to both import paths
+     * (wizard step 2 + Workflow File) — a v3 site re-imports from the latter.
+     */
+    private static function render_credentials_list(string $token): void
+    {
+?>
+        <ul class="pqm-wizard-list">
+            <li><?php
+                printf(
+                    /* translators: 1: the header name X-PQM-Token, 2: this site's webhook token */
+                    esc_html__('Post Quality webhook — a Header Auth credential: set its Name field to %1$s and its Value to %2$s. Pick it in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'),
+                    '<code>X-PQM-Token</code>',
+                    '<code>' . esc_html($token) . '</code>'
+                );
+            ?></li>
+            <li><?php esc_html_e('WordPress — an Application Password for a user who can edit posts. Pick it in Update WP Post (Rewrite).', 'post-quality-manager'); ?></li>
+            <li><?php
+                printf(
+                    /* translators: %s: the header name x-api-key */
+                    esc_html__('Claude — a second Header Auth credential: Name %s, Value your Anthropic API key. Pick it in the six Claude nodes.', 'post-quality-manager'),
+                    '<code>x-api-key</code>'
+                );
+            ?></li>
+        </ul>
 <?php
     }
 
@@ -1175,7 +1213,7 @@ class PQM_Admin
 ?>
         <div class="notice notice-info inline pqm-inline-notice">
             <p><strong><?php esc_html_e('n8n says "Credentials … are not set" after the import?', 'post-quality-manager'); ?></strong>
-            <?php esc_html_e('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential (if you have several of the same kind, choose one in the node; if you have none yet, create it from the credential field in the node). Then save and activate the workflow.', 'post-quality-manager'); ?></p>
+            <?php esc_html_e('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential. You have two Header Auth credentials, so choose in each node: the webhook one (X-PQM-Token) in the Webhook Trigger, the Anthropic one in the six Claude nodes. If you have none yet, create it from the credential field in the node. Then save and activate the workflow.', 'post-quality-manager'); ?></p>
         </div>
 <?php
     }
@@ -1224,6 +1262,13 @@ class PQM_Admin
             wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
         }
 
+        // A stored test URL would end the wizard on a URL that misses every
+        // real run — refuse it before saving (the wizard stays on step 3).
+        $warning = pqm_webhook_url_warning($url);
+        if ($warning !== '') {
+            wp_send_json_error($warning);
+        }
+
         $settings = get_option('pqm_settings', []);
         $settings['n8n_webhook_url'] = $url;
         update_option('pqm_settings', $settings); // updated_option hook reschedules cron.
@@ -1253,8 +1298,15 @@ class PQM_Admin
             wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
         }
 
+        // A test URL would answer while the n8n editor listens and then miss
+        // every real run — refuse before sending (the wizard stays on step 3).
+        $warning = pqm_webhook_url_warning($url);
+        if ($warning !== '') {
+            wp_send_json_error($warning);
+        }
+
         $response = wp_remote_post($url, [
-            'headers' => ['Content-Type' => 'application/json'],
+            'headers' => pqm_n8n_headers(pqm_get_settings()),
             'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
             'timeout' => 10,
         ]);

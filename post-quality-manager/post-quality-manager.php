@@ -25,7 +25,7 @@ define('PQM_REST_NAMESPACE', 'post-quality/v1');
 // Bumped whenever templates/n8n-workflow.json changes in a way that requires
 // a re-import. The template echoes its own version in every WP callback so
 // the n8n Workflow page can flag outdated imports.
-define('PQM_WORKFLOW_VERSION', 3);
+define('PQM_WORKFLOW_VERSION', 4);
 
 /* ─── Includes ───────────────────────────────────────────────────────── */
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';
@@ -324,6 +324,13 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
         ? wp_strip_all_tags(get_the_excerpt($post_id))
         : wp_trim_words($content_plain, 55, '...');
 
+    // The post's own REST address (any REST-enabled post type; rest_url()
+    // is right for any scheme, port, subdirectory and permalink setting).
+    // The rewrite PATCHes it as-is; '' when the post type is not in REST.
+    // The PATCH still needs HTTPS (or a 'local' environment): it signs in
+    // with an Application Password, which core offers only there.
+    $rest_route = rest_get_route_for_post($post);
+
     // Resolve brand voice: a selected preset always means its instruction
     // (also covers settings saved before the WYSIWYG voice field existed).
     $voice_presets  = pqm_voice_presets();
@@ -342,6 +349,7 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
         'post_type'         => $post->post_type,
         'title'             => html_entity_decode(get_the_title($post_id), ENT_QUOTES, 'UTF-8'),
         'link'              => get_permalink($post_id),
+        'post_rest_url'     => $rest_route !== '' ? rest_url($rest_route) : '',
         'excerpt'           => $excerpt,
         'content'           => mb_substr($content_plain, 0, 15000),
         'content_html'      => mb_substr($content_html, 0, 20000),
@@ -355,4 +363,35 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
         'agent_prompts'     => $settings['agent_prompts'],
         'llm'               => pqm_llm_map($settings),
     ];
+}
+
+/* ─── Helper: n8n request headers (single source of truth) ───────────── */
+/**
+ * Headers for every call from the plugin to n8n (Run, cron, test ping).
+ * The webhook token travels as X-PQM-Token, the same header n8n sends back
+ * on save-review: the template's Webhook Trigger checks it with n8n Header
+ * Auth, so knowing the URL alone starts nothing. Older imports ignore it.
+ */
+function pqm_n8n_headers(array $settings): array
+{
+    return [
+        'Content-Type' => 'application/json',
+        'X-PQM-Token'  => (string) ($settings['webhook_token'] ?? ''),
+    ];
+}
+
+/* ─── Helper: n8n test-URL warning ───────────────────────────────────── */
+/**
+ * Warning copy for an n8n test webhook URL, '' for any other URL. A
+ * /webhook-test/ URL only listens while the workflow is open in the n8n
+ * editor, so it would pass a ping and then miss every real run.
+ */
+function pqm_webhook_url_warning(string $url): string
+{
+    $path = (string) wp_parse_url($url, PHP_URL_PATH);
+    if (strpos($path, '/webhook-test/') === false) {
+        return '';
+    }
+
+    return __('This is an n8n test URL: it only listens while the workflow is open in the n8n editor. Use the production URL (with /webhook/ instead of /webhook-test/) and activate the workflow.', 'post-quality-manager');
 }

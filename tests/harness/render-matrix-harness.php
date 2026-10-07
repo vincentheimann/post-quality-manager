@@ -44,6 +44,7 @@ function esc_textarea($s) { return (string) $s; }
 function wp_kses_post($s) { return (string) $s; }
 function admin_url($p = '') { return '/wp-admin/' . $p; }
 function settings_fields($g) { echo "<!-- settings_fields:$g -->"; }
+function settings_errors($setting = '', $sanitize = false, $hide_on_update = false) { $GLOBALS['tw_settings_errors_for'][] = $setting; }
 function submit_button() { echo '<input type="submit" />'; }
 function checked($a, $b = true) { if ((string) $a === (string) $b) { echo " checked"; } }
 function selected($a, $b = true) { if ((string) $a === (string) $b) { echo " selected"; } }
@@ -372,7 +373,7 @@ $connected = $render_workflow([]);
 preg_match('/Workflow File<\/h2>.*?<h2/s', $connected, $m);
 check('connected page: the hint sits in the Workflow File section, once', str_contains($m[0] ?? '', $hint) && substr_count($connected, $hint) === 1);
 check('wizard: no second "activate" line after the hint', !str_contains($import_step, 'Then activate the workflow in n8n.'));
-check('hint names the nodes to open', str_contains($connected, 'the six Claude nodes and Update WP Post (Rewrite)'));
+check('hint names the nodes to open', str_contains($connected, 'the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite)'));
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
 $outdated = $render_workflow([]);
 $GLOBALS['tw_options'] = [];
@@ -384,9 +385,96 @@ $tpl = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manage
 $cred = [];
 foreach ($tpl['nodes'] as $n) { if (!empty($n['credentials'])) { $cred[$n['name']] = array_key_first($n['credentials']); } }
 $claude = array_filter($cred, static fn($type, $name) => $type === 'httpHeaderAuth' && str_starts_with($name, 'Claude - '), ARRAY_FILTER_USE_BOTH);
-check('template credentialed nodes = the six Claude nodes + Update WP Post (Rewrite), as the hint says',
-    count($cred) === 7 && count($claude) === 6 && ($cred['Update WP Post (Rewrite)'] ?? null) === 'httpBasicAuth');
+check('template credentialed nodes = Webhook Trigger + the six Claude nodes + Update WP Post (Rewrite), as the hint says',
+    count($cred) === 8 && count($claude) === 6 && ($cred['Update WP Post (Rewrite)'] ?? null) === 'httpBasicAuth'
+    && ($cred['Webhook Trigger'] ?? null) === 'httpHeaderAuth');
 $GLOBALS['tw_settings'] = [];
+
+/* Story 35: the third credential, the reachability prerequisite, the token's reach */
+echo "n8n Workflow page — secured connection copy (story 35)
+";
+$GLOBALS['tw_settings'] = ['n8n_webhook_url' => '', 'webhook_token' => 'tok-35'];
+$wizard = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']);
+preg_match('/<div class="pqm-wizard-step" data-step="2">.*?<div class="pqm-wizard-step" data-step="3">/s', $wizard, $m);
+$step2 = $m[0] ?? '';
+$header_auth = 'Post Quality webhook — a Header Auth credential: set its Name field to <code>X-PQM-Token</code> and its Value to <code>tok-35</code>. Pick it in the Webhook Trigger only';
+check('wizard step 2: three credentials, each with the node it goes in; the webhook one with Name field and token inline',
+    str_contains($step2, 'connect three credentials:') && str_contains($step2, $header_auth)
+    && str_contains($step2, 'WordPress — an Application Password for a user who can edit posts. Pick it in Update WP Post (Rewrite).')
+    && str_contains($step2, 'Claude — a second Header Auth credential: Name <code>x-api-key</code>, Value your Anthropic API key. Pick it in the six Claude nodes.'));
+check('hint says which Header Auth credential goes in which node',
+    str_contains($step2, 'the webhook one (X-PQM-Token) in the Webhook Trigger, the Anthropic one in the six Claude nodes.'));
+preg_match('/<div class="pqm-wizard-step" data-step="3">.*?<div class="pqm-wizard-step" data-step="4">/s', $wizard, $m);
+check('wizard step 3 states the reachability prerequisite',
+    str_contains($m[0] ?? '', 'Both sides must reach each other over the network: this site calls n8n, and n8n calls back this site\'s REST API.'));
+check('import-URL copy says the token also opens the n8n trigger',
+    str_contains($wizard, 'It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.'));
+$connected = $render_workflow(['webhook_token' => 'tok-35']);
+preg_match('/Workflow File<\/h2>.*?<h2/s', $connected, $m);
+check('connected page (where a v3 site re-imports): the same three credentials, token inline',
+    str_contains($m[0] ?? '', 'connect these three credentials:') && str_contains($m[0] ?? '', $header_auth));
+$settings_html = render_for(['pqm_manage_settings'], true);
+check('Settings token description says both directions',
+    str_contains($settings_html, 'Shared secret for both directions, always in the X-PQM-Token header: WordPress sends it to start the workflow'));
+$GLOBALS['tw_settings'] = [];
+
+/* Story 35: the ping — executed through ajax_test_connection() */
+echo "Test ping — test URL refused, token header sent (story 35)\n";
+class PQM_Json_Exit extends Exception { public function __construct(public bool $ok, public $data) { parent::__construct(); } }
+function check_ajax_referer(...$a) { return true; }
+function wp_unslash($v) { return $v; }
+function wp_send_json_error($data = null, $status = null) { throw new PQM_Json_Exit(false, $data); }
+function wp_send_json_success($data = null, $status = null) { throw new PQM_Json_Exit(true, $data); }
+function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
+function wp_remote_post($url, $args) { $GLOBALS['tw_pings'][] = [$url, $args]; return ['response' => ['code' => 200]]; }
+function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
+function is_wp_error($t) { return false; }
+function ping(string $url): PQM_Json_Exit {
+    $GLOBALS['tw_pings'] = [];
+    $_POST = ['webhook_url' => $url];
+    try { PQM_Admin::ajax_test_connection(); } catch (PQM_Json_Exit $e) { return $e; }
+    return new PQM_Json_Exit(false, 'no response sent');
+}
+$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$GLOBALS['tw_settings'] = ['webhook_token' => 'tok-35'];
+foreach (['https://n8n.example.com/webhook-test/pqm-execute', 'https://acme.app.n8n.cloud/webhook-test/pqm-execute'] as $url) {
+    $r = ping($url);
+    check("test URL $url: error with the warning copy, nothing sent", $r->ok === false && $r->data === pqm_webhook_url_warning($url)
+        && str_starts_with($r->data, 'This is an n8n test URL') && $GLOBALS['tw_pings'] === []);
+}
+foreach (['https://acme.app.n8n.cloud/webhook/pqm-execute', 'https://n8n.example.com/webhook/pqm-execute'] as $url) {
+    $r = ping($url);
+    check("production URL $url: ping sent with X-PQM-Token, success", $r->ok === true && count($GLOBALS['tw_pings']) === 1
+        && $GLOBALS['tw_pings'][0][1]['headers'] === ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']);
+}
+
+/* Story 35: the wizard's save — executed through ajax_save_webhook_url() */
+echo "Wizard save — test URL refused and not stored (story 35)\n";
+function update_option($k, $v, $autoload = null) { $GLOBALS['tw_saved'][$k] = $v; return true; }
+function save_url(string $url): PQM_Json_Exit {
+    $GLOBALS['tw_saved'] = [];
+    $_POST = ['webhook_url' => $url];
+    try { PQM_Admin::ajax_save_webhook_url(); } catch (PQM_Json_Exit $e) { return $e; }
+    return new PQM_Json_Exit(false, 'no response sent');
+}
+$test_url = 'https://acme.app.n8n.cloud/webhook-test/pqm-execute';
+$r = save_url($test_url);
+check('test URL: error with the warning copy, nothing stored',
+    $r->ok === false && $r->data === pqm_webhook_url_warning($test_url) && $GLOBALS['tw_saved'] === []);
+$r = save_url('https://acme.app.n8n.cloud/webhook/pqm-execute');
+check('production URL: stored, success',
+    $r->ok === true && ($GLOBALS['tw_saved']['pqm_settings']['n8n_webhook_url'] ?? null) === 'https://acme.app.n8n.cloud/webhook/pqm-execute');
+$_POST = [];
+$GLOBALS['tw_settings'] = [];
+
+/* Story 35: sanitizer warnings are printed on this custom page after a save */
+echo "Settings save notice (story 35)
+";
+$_GET['settings-updated'] = 'true';
+$GLOBALS['tw_settings_errors_for'] = [];
+render_for(['pqm_manage_settings'], true);
+unset($_GET['settings-updated']);
+check('after a save, render_settings() prints settings_errors(pqm_settings)', $GLOBALS['tw_settings_errors_for'] === ['pqm_settings']);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

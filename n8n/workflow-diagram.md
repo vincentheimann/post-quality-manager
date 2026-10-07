@@ -31,13 +31,28 @@ Contract details, by the workflow version that introduced them:
   and show only in the n8n execution log. `Rewrite Parsed?` keeps a failed rewrite
   away from `Update WP Post (Rewrite)`, so the post is never PATCHed (or unpublished
   to `pending`) when the agent's output could not be parsed.
+- **Authenticated trigger, host-agnostic rewrite (v4).** One token, both directions:
+  the plugin sends the webhook token as an `X-PQM-Token` header on every call (Run,
+  cron, test ping), and the `Webhook Trigger` checks it with n8n Header Auth
+  (credential `Post Quality webhook - <site host>`, header Name field `X-PQM-Token`,
+  Value = the token; picked in the Webhook Trigger only — the Anthropic Header Auth
+  credential goes in the six Claude nodes); n8n refuses a call without it (401/403) and
+  no agent runs. The same header goes back on `/save-review`. Any other client must send
+  the header too. The payload carries `post_rest_url` (the post's own REST address from
+  `rest_url()`, right for any scheme, port, subdirectory install, permalink setting and
+  REST-enabled post type), and `Update WP Post (Rewrite)` PATCHes it as-is — `''` when
+  the post type is not in REST, so the node fails and the run reports "Could not save
+  the rewrite". The rewrite still needs HTTPS (or a `local` environment type): the node
+  signs in with an Application Password, which WordPress core offers only there. Known
+  limitation: a v3 import ignores the header and the new field, so it keeps working
+  but its trigger stays unauthenticated until you re-import.
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connection into `/save-review`.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client] --> B[Parse Input<br>stamps workflow_version 3]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 4]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> CB
@@ -48,7 +63,7 @@ flowchart TD
     C -->|audit| B5[Build Audit Body] --> H5[Claude - Audit Agent] --> P5[Parse Audit Result] --> CB
 
     C -->|rewrite| B6[Build Rewrite Body] --> H6[Claude - Rewrite Agent] --> P6[Parse Rewrite Response] --> RP{Rewrite Parsed?}
-    RP -->|true| UP[Update WP Post Rewrite<br>PATCH content, excerpt, status pending] --> FR[Format Rewrite Confirmation]
+    RP -->|true| UP[Update WP Post Rewrite<br>PATCH post_rest_url: content, excerpt, status pending] --> FR[Format Rewrite Confirmation]
     RP -->|false| FR
     FR --> CB
 

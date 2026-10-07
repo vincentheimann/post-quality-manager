@@ -20,6 +20,7 @@ $GLOBALS['tw'] = [
     'db_command'    => null,           // the $command it last received (ticket 3)
     'sent_commands' => [],             // the command of each webhook payload
     'webhook_calls' => 0,              // wp_remote_post() calls
+    'webhook_headers' => [],           // the headers of each wp_remote_post() (story 35)
     'user_meta'     => [],             // user_id => [key => value]
 ];
 
@@ -27,6 +28,7 @@ $GLOBALS['tw'] = [
 function pqm_get_settings() {
     return array_merge([
         'n8n_webhook_url'   => 'https://n8n.example/webhook',
+        'webhook_token'     => 'tok-35',
         'cron_command'      => 'review',
         'cron_batch_size'   => 5,
         'cron_min_score'    => 60,
@@ -49,8 +51,11 @@ function get_post($id) {
 }
 function pqm_n8n_payload($post, $command, $settings) { $GLOBALS['tw']['sent_commands'][] = $command; return ['command' => $command, 'post_id' => $post->ID]; }
 function wp_json_encode($v) { return json_encode($v); }
+/* Same shape as the real helper (unit-tested in rest-reviews-harness.php, which loads the bootstrap). */
+function pqm_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_calls']++;
+    $GLOBALS['tw']['webhook_headers'][] = $args['headers'] ?? null;
     return ['response' => ['code' => 200]];
 }
 class WP_Role {}
@@ -88,6 +93,7 @@ function reset_world($settings = [], $is_pro = false) {
     $GLOBALS['tw']['is_pro'] = $is_pro;
     $GLOBALS['tw']['db_queries'] = 0;
     $GLOBALS['tw']['webhook_calls'] = 0;
+    $GLOBALS['tw']['webhook_headers'] = [];
     $GLOBALS['tw']['db_command'] = null;
     $GLOBALS['tw']['sent_commands'] = [];
     $GLOBALS['tw']['user_meta'] = [
@@ -102,6 +108,8 @@ reset_world(['cron_command' => 'review'], false);
 PQM_Cron::run_scheduled_review();
 check('one DB query', $GLOBALS['tw']['db_queries'] === 1);
 check('webhook fired for each batch post', $GLOBALS['tw']['webhook_calls'] === 3);
+check('every batch call carries X-PQM-Token = the webhook token (story 35)', $GLOBALS['tw']['webhook_headers']
+    === array_fill(0, 3, ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']));
 
 /* ─── Row 2: Gated command on free site ──────────────────────────────── */
 echo "Row 2 — Gated command on free site\n";

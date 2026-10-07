@@ -97,7 +97,7 @@ class PQM_Cron {
         $payload = pqm_n8n_payload( $post, $command, $settings );
 
         wp_remote_post( $settings['n8n_webhook_url'], [
-            'headers'  => [ 'Content-Type' => 'application/json' ],
+            'headers'  => pqm_n8n_headers( $settings ),
             'body'     => wp_json_encode( $payload ),
             'timeout'  => 5,
             'blocking' => false, // Fire-and-forget for cron batches.

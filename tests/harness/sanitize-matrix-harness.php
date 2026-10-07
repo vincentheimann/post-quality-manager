@@ -38,6 +38,12 @@ function esc_url_raw($url) { return trim((string) $url); }
 function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
 function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 function absint($n) { return abs((int) $n); }
+function wp_parse_url($url, $component = -1) { return parse_url($url, $component); }
+/* Story 35: the sanitizer raises a warning notice for an n8n test URL. */
+$GLOBALS['pqm_test_settings_errors'] = [];
+function add_settings_error($setting, $code, $message, $type = 'error') {
+    $GLOBALS['pqm_test_settings_errors'][] = [$setting, $code, $message, $type];
+}
 /* Story 23: PQM_Blocks::patterns() reads published wp_block posts and parses them. */
 $GLOBALS['pqm_test_patterns'] = []; // id => [title, status, content]
 function get_posts($args) {
@@ -473,6 +479,35 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
 setup(['pqm_manage_settings'], true, $stored_audit);
 $out = PQM_Admin::sanitize_settings($cron_section + ['cron_command' => 'seo']);
 check('settings-only saver, pro, posted seo: stored audit carried (story 16)', $out['cron_command'] === 'audit');
+
+/* ─── Case 13 (story 35): n8n test URL — warning helper + save notice ── */
+echo "\nCase 13: n8n test URL warning (story 35)\n";
+foreach ([
+    'https://n8n.example.com/webhook-test/pqm-execute'        => true,  // self-hosted test URL
+    'https://acme.app.n8n.cloud/webhook-test/pqm-execute'     => true,  // Cloud test URL
+    'http://192.168.1.20:5678/n8n/webhook-test/pqm-execute'  => true,  // path prefix, port
+    'https://acme.app.n8n.cloud/webhook/pqm-execute'          => false, // Cloud production
+    'https://n8n.example.com/webhook/pqm-execute'             => false, // self-hosted production
+    'http://192.168.1.20:5678/n8n/webhook/pqm-execute'       => false, // self-hosted, prefix + port
+    'https://webhook-test.example.com/webhook/pqm-execute'    => false, // only the path counts
+    ''                                                        => false,
+] as $url => $warn) {
+    $copy = pqm_webhook_url_warning($url);
+    check(($warn ? 'warns' : 'no warning') . ": '$url'", $warn ? str_starts_with($copy, 'This is an n8n test URL') : $copy === '');
+}
+$test_url = 'https://acme.app.n8n.cloud/webhook-test/pqm-execute';
+setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
+$GLOBALS['pqm_test_settings_errors'] = [];
+$out = PQM_Admin::sanitize_settings(['n8n_webhook_url' => $test_url]);
+check('test URL still saved (Save never loses input)', $out['n8n_webhook_url'] === $test_url);
+check('plus one warning notice with the helper copy',
+    $GLOBALS['pqm_test_settings_errors'] === [['pqm_settings', 'pqm_webhook_test_url', pqm_webhook_url_warning($test_url), 'warning']]);
+$GLOBALS['pqm_test_settings_errors'] = [];
+PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://acme.app.n8n.cloud/webhook/pqm-execute']);
+check('production URL: no notice', $GLOBALS['pqm_test_settings_errors'] === []);
+setup(['pqm_manage_agents'], true, array_merge($stored_option, ['n8n_webhook_url' => $test_url]));
+PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://other.example.com/webhook/x']);
+check('Editor save (URL carried, not posted): no notice', $GLOBALS['pqm_test_settings_errors'] === []);
 
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);
