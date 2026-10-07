@@ -1,0 +1,102 @@
+# tickets.toml — agreed stories of epic-delivery-pipeline, in build order (table order).
+# Incepted 2026-10-07 from spec-delivery-pipeline (CAP-1…CAP-7). Lanes: 1 → 2, 6 (release/CI wiring and the
+# plugin header); 3 and 4 beside it (own harness file / own workflow file); 5 after 2, 4, 6 (fixes may touch
+# any plugin file); 7 sweeps; 8 cuts 3.0.0 after the sweep. Backlog story 15 gates 8 in prose (see the epic's Notes).
+
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer bullet: release PR and a CI-built plugin zip"
+description = "Adds release-please on Conventional Commits, bootstrapped so the first release is 3.0.0, bumping the plugin header Version, PQM_VERSION and package.json together (never PQM_WORKFLOW_VERSION) and creating the GitHub Release as a draft; adds a release workflow that, on a draft release and on manual dispatch, builds admin/build/, zips post-quality-manager/ as post-quality-manager-<version>.zip with that root folder, appends docs/release-notes/<version>.md to the release body when present, attaches the zip and publishes the release (tag v<version>) — a manual dispatch only produces a downloadable artifact, never a tag or release; aligns .claude/skills/release/SKILL.md, README.md:101 and the ci.yml header comment with the automated flow. The version check itself is entry 2 and the real cut is entry 8."
+verify = "After merge, a release PR proposing 3.0.0 with a CHANGELOG is open on GitHub, and the zip from a manual dispatch of the release workflow installs and activates, with WP_DEBUG on and no notices, on a clean WordPress 6.6 site on Local showing version 3.0.0."
+covers = ["CAP-1", "CAP-2", "CAP-3"]
+after = []
+hitl = true
+risk = "medium"
+unknown = "Whether release-please bumps the PHP header and PQM_VERSION through its generic extra-files annotations without a custom updater; the merge → draft → publish path first runs for real in entry 8."
+references = ["spec-delivery-pipeline/brownfield.md"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "CI guards the plugin versions and the PHP 8.0 floor"
+description = "Adds a harness that fails when the plugin header Version, PQM_VERSION and package.json differ, runs it in the CI sweep and in the release workflow before publishing (so the draft release never publishes out of step), and lints every plugin PHP file on PHP 8.0 as well as 8.3 in the CI php job."
+verify = "On a branch, changing one of the three versions fails CI, and so does a PHP 8.1-only construct in a plugin file; main stays green."
+covers = ["CAP-3", "CAP-6"]
+after = [1]
+hitl = false
+risk = "low"
+unknown = "None known — no 8.1-only syntax exists in the plugin today."
+
+[[entry]]
+id = 3
+type = "story"
+title = "The workflow template is guarded in CI"
+description = "Adds a harness, run by the existing CI sweep, that fails with a message naming the cause when templates/n8n-workflow.json is invalid JSON, carries a placeholder outside the set pqm_workflow_json() fills, contains a site-specific string (a host outside an allow-list, or any credential or instance id), or any Code node's jsCode does not parse."
+verify = "Each of the four seeded breakages on a branch fails CI naming the cause; the current template passes."
+covers = ["CAP-4"]
+after = []
+hitl = false
+risk = "low"
+unknown = "The exact site-specific-string rule (proposed: an allow-list of hosts plus no credential or instance ids) is settled in the plan."
+
+[[entry]]
+id = 4
+type = "story"
+title = "Plugin Check reports in CI"
+description = "Adds a workflow running the official WordPress Plugin Check action on every push and pull request against the built plugin folder (all categories, pinned action version), non-blocking at first, and records the triaged findings — error or warning, file, fix or accepted — in the plan for entry 5."
+verify = "The Plugin Check job runs on a pull request, its report is readable in the job output, and the triage list in the plan names every reported error."
+covers = ["CAP-7"]
+after = []
+hitl = false
+risk = "low"
+unknown = "How many errors the current code reports; the triage decides what entry 5 fixes and what is accepted with a reason."
+references = ["spec-delivery-pipeline/spec-delivery-pipeline.md#cap-7"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "The plugin passes Plugin Check and the check blocks CI"
+description = "Fixes every Plugin Check error from entry 4's triage (escaping, sanitizing, $wpdb->prepare, i18n, enqueueing, direct-access guards, prefixing) without changing behaviour, then makes the Plugin Check job blocking."
+verify = "main reports zero Plugin Check errors, every harness stays green, and a seeded unescaped output on a branch fails CI."
+covers = ["CAP-7"]
+after = [2, 4, 6]
+hitl = false
+risk = "medium"
+unknown = "Scope follows entry 4's triage; a finding that needs a behaviour change becomes its own ticket."
+
+[[entry]]
+id = 6
+type = "story"
+title = "Translations load from the plugin's languages folder"
+description = "Wires the post-quality-manager text domain for PHP from the plugin's languages/ folder (Domain Path header line and a loading call on init, so WordPress 6.7+ raises no notice) and verifies the React bundle's existing wp_set_script_translations() against the same folder; no empty folder ships."
+verify = "With a test .mo and script JSON for one locale placed in languages/ on Local, a PHP admin page and a React page show the translated strings; removing them restores English, and WP_DEBUG shows no notice."
+covers = ["CAP-5"]
+after = [1]
+hitl = true
+risk = "low"
+unknown = "How the test locale files are produced (a .mo plus the script JSON named after the bundle's md5) without the Local WP-CLI story (backlog 9)."
+
+[[entry]]
+id = 7
+type = "story"
+title = "Refactor sweep"
+description = "Cleanup only, scoped when it starts from the build records and the review findings deferred during entries 1–6 (e.g. the duplicated build steps across workflows)."
+verify = "CI is green on the sweep branch and every deferred finding it takes is closed or re-filed."
+covers = []
+after = [1, 2, 3, 4, 5, 6]
+hitl = false
+risk = "low"
+unknown = "Scope is set at start."
+
+[[entry]]
+id = 8
+type = "story"
+title = "Release 3.0.0 is published"
+description = "The owner merges the open release PR once backlog story 15 has committed docs/release-notes/3.0.0.md; the release workflow publishes GitHub Release v3.0.0 with post-quality-manager-3.0.0.zip and the notes in its body; the zip is installed on the clean WordPress 6.6 site from entry 1; the temporary 3.0.0 bootstrap pin is removed; README.md installation steps and docs/user-paths.md A3 say 'download the zip from GitHub Releases' (UV7 groundwork becomes CV)."
+verify = "GitHub Release v3.0.0 exists with post-quality-manager-3.0.0.zip and the release notes; the zip installs and activates with WP_DEBUG on and no notices on the clean site showing 3.0.0; the next feat: merge opens a release PR proposing 3.1.0."
+covers = ["CAP-1", "CAP-2"]
+after = [7]
+hitl = true
+risk = "medium"
+unknown = "The merge → draft → version check → publish path runs for real for the first time here."
