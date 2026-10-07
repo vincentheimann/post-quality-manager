@@ -19,6 +19,7 @@ delete_option( 'pqm_db_version' );
 delete_option( 'pqm_workflow_version_seen' );
 delete_option( 'pqm_cron_nudge_dismissed' );
 delete_option( 'pqm_caps_version' );
+delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36); this file loads without the main plugin file.
 
 // Per-user monthly usage counters (author quota, CAP-4) — all users.
 delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );

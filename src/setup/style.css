@@ -1,0 +1,138 @@
+/**
+ * Setup dialog (story 36) — the island on the n8n Workflow page. Shares
+ * .pqm-muted and .pqm-confirm-actions with the React pages; everything
+ * else is scoped to .pqm-setup / .pqm-setup-modal.
+ */
+
+.pqm-setup {
+	margin: 12px 0 24px;
+}
+
+.pqm-setup-layout {
+	display: flex;
+	gap: 24px;
+	align-items: flex-start;
+}
+
+.pqm-setup-steps {
+	flex: 0 0 15em;
+}
+
+.pqm-setup-nav {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.pqm-setup-nav li {
+	margin: 0 0 2px;
+}
+
+.pqm-setup-nav .components-button {
+	width: 100%;
+	height: auto;
+	min-height: 36px;
+	text-align: start;
+	white-space: normal;
+	gap: 6px;
+}
+
+.pqm-setup-nav .dashicon {
+	color: #00a32a;
+}
+
+.pqm-setup-step {
+	flex: 1;
+	min-width: 0;
+}
+
+.pqm-setup-step h2 {
+	margin-top: 0;
+}
+
+.pqm-setup-list {
+	list-style: disc;
+	margin: 8px 0 8px 20px;
+}
+
+.pqm-setup-credential {
+	margin: 16px 0;
+	padding: 12px 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 2px;
+}
+
+.pqm-setup-credential h3 {
+	margin: 0 0 8px;
+}
+
+.pqm-copy-value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 6px 8px;
+	margin: 8px 0;
+}
+
+.pqm-copy-field {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 16em;
+}
+
+.pqm-copy-label {
+	font-weight: 600;
+}
+
+.pqm-copy-status {
+	flex-basis: 100%;
+	font-size: 12px;
+}
+
+.pqm-copy-status:empty {
+	display: none;
+}
+
+.pqm-setup-connect,
+.pqm-setup-run {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 8px;
+	margin: 8px 0 12px;
+}
+
+.pqm-setup-connect .components-base-control,
+.pqm-setup-run .components-base-control {
+	flex: 1;
+	min-width: 16em;
+}
+
+.pqm-setup-waiting {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.pqm-setup-done {
+	margin-top: 16px;
+	padding-top: 12px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.pqm-setup-modal .components-notice {
+	margin: 12px 0;
+}
+
+@media (max-width: 782px) {
+	.pqm-setup-layout {
+		flex-direction: column;
+	}
+
+	.pqm-setup-steps {
+		flex-basis: auto;
+		width: 100%;
+	}
+}

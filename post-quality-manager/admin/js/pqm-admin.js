@@ -2,8 +2,9 @@
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
  * Blog-profile / voice presets, per-agent model controls, the connection
- * ping, the workflow import-URL copy and the setup wizard. The Dashboard and
- * Post Reviews are React pages (src/, ADR 0005) and never load this file.
+ * ping and the workflow import-URL copy. The Dashboard and Post Reviews are
+ * React pages (src/, ADR 0005) and never load this file; the setup dialog on
+ * the n8n Workflow page is React too (src/setup/, story 36).
  */
 (function () {
     'use strict';
@@ -18,7 +19,6 @@
         initPatternLinks();
         initTestConnection();
         initImportUrlCopy();
-        initWizard();
     });
 
     /* ================================================================
@@ -273,88 +273,6 @@
                     fallbackCopy();
                 }
             });
-        });
-    }
-
-    /* ================================================================
-     *  SETUP WIZARD (workflow page)
-     * ================================================================ */
-    function initWizard() {
-        var wizard = document.getElementById('pqm-wizard');
-        if (!wizard) return;
-
-        var steps = wizard.querySelectorAll('.pqm-wizard-step');
-        var dots = wizard.querySelectorAll('.pqm-wizard-dot');
-        var backBtn = wizard.querySelector('.pqm-wizard-back');
-        var nextBtn = wizard.querySelector('.pqm-wizard-next');
-        var current = 1;
-
-        function goTo(step) {
-            current = Math.min(Math.max(step, 1), steps.length);
-            steps.forEach(function (s) { s.classList.toggle('is-active', parseInt(s.dataset.step, 10) === current); });
-            dots.forEach(function (d) {
-                var n = parseInt(d.dataset.step, 10);
-                d.classList.toggle('is-active', n === current);
-                d.classList.toggle('is-done', n < current);
-            });
-            backBtn.disabled = current === 1;
-            nextBtn.classList.toggle('pqm-hidden', current === steps.length);
-        }
-
-        backBtn.addEventListener('click', function () { goTo(current - 1); });
-        nextBtn.addEventListener('click', function () { goTo(current + 1); });
-        dots.forEach(function (d) {
-            d.addEventListener('click', function () { goTo(parseInt(d.dataset.step, 10)); });
-        });
-
-        /* ─── Step 3: save the webhook URL + ping, all on this page ── */
-        var i18n = pqmAdmin.i18n || {};
-        var saveBtn = wizard.querySelector('.pqm-wizard-save-test');
-        if (!saveBtn) return;
-        var urlField = wizard.querySelector('#pqm_wizard_webhook_url');
-        var result = saveBtn.closest('.pqm-wizard-step').querySelector('.pqm-test-result');
-
-        function ajaxPost(action, url) {
-            var form = new FormData();
-            form.append('action', action);
-            form.append('webhook_url', url);
-            form.append('_wpnonce', pqmAdmin.pageNonce);
-            return fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
-                .then(function (r) { return r.json(); });
-        }
-
-        saveBtn.addEventListener('click', function () {
-            var url = (urlField.value || '').trim();
-            if (!url) {
-                showTestResult(result, false, i18n.enterWebhookUrl);
-                return;
-            }
-            saveBtn.disabled = true;
-            showTestResult(result, null, i18n.saving);
-
-            ajaxPost('pqm_save_webhook_url', url)
-                .then(function (resp) {
-                    if (!resp.success) {
-                        throw new Error(typeof resp.data === 'string' ? resp.data : i18n.networkError);
-                    }
-                    showTestResult(result, null, i18n.testing);
-                    return ajaxPost('pqm_test_connection', url);
-                })
-                .then(function (resp) {
-                    saveBtn.disabled = false;
-                    if (resp.success) {
-                        showTestResult(result, true, typeof resp.data === 'string' ? resp.data : '');
-                        goTo(4); // Connected — straight to the first-review step.
-                    } else {
-                        // URL is saved; only the ping failed — say both.
-                        var msg = typeof resp.data === 'string' ? resp.data : i18n.networkError;
-                        showTestResult(result, false, i18n.savedPingFailed + ' ' + msg);
-                    }
-                })
-                .catch(function (err) {
-                    saveBtn.disabled = false;
-                    showTestResult(result, false, (err && err.message) ? err.message : i18n.networkError);
-                });
         });
     }
 })();

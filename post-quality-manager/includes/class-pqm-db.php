@@ -138,6 +138,19 @@ class PQM_DB {
     }
 
     /**
+     * Whether any real result has come back from n8n (story 36: the setup
+     * counts as complete) — a stored row that is neither the `processing`
+     * placeholder, nor a failed run (`error`, or the template's empty-status
+     * fallback). Any command and any template version count.
+     */
+    public static function has_result(): bool {
+        global $wpdb;
+        $table = self::table_name();
+
+        return (bool) $wpdb->get_var( "SELECT 1 FROM {$table} WHERE status NOT IN ('', 'processing', 'error') LIMIT 1" ); // phpcs:ignore WordPress.DB.PreparedSQL
+    }
+
+    /**
      * Status value meaning "never reviewed" in list filters and counts
      * (`lr.status IS NULL`) — the REST `status=none` sentinel.
      */

@@ -23,8 +23,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 
-const POLL_INTERVAL = 3000;
-const GIVE_UP_AFTER = 3 * 60 * 1000;
+export const POLL_INTERVAL = 3000;
+export const GIVE_UP_AFTER = 3 * 60 * 1000;
 
 const keyOf = ( postId, command ) => `${ postId }:${ command }`;
 

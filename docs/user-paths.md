@@ -30,21 +30,21 @@ They read the README and weigh the requirements: an n8n instance **and** a Claud
 Copy the plugin folder from a GitHub release into `wp-content/plugins/`, activate.
 
 - **CV:** standard WP install, clean activation.
-- **UV:** no welcome screen — after activation nothing points to the 3-step checklist on the n8n Workflow page; no update channel (GitHub releases don't surface in WP's updater). *(2026-07-24, pending validation: every in-plugin signpost — welcome notice, dashboard setup CTA, error notices — now routes to that checklist; a real welcome screen / activation redirect and the update channel remain open.)*
+- **UV:** no welcome screen — after activation nothing points to the 3-step checklist on the n8n Workflow page; no update channel (GitHub releases don't surface in WP's updater). *(2026-07-24, pending validation: every in-plugin signpost — welcome notice, dashboard setup CTA, error notices — now routes to that checklist; a real welcome screen / activation redirect and the update channel remain open.)* *(2026-10-07, pending validation: the welcome notice now offers "Set up the workflow" and opens the setup guide directly; it shows until the setup is complete. No activation redirect — the notice greets — story 36.)*
 - **Signal:** activation → n8n Workflow page visit rate.
 
 ### A4. Connect the chain (the friction wall)
 Follow the 3-step checklist: download/import the pre-configured workflow, connect three credentials in n8n (webhook Header Auth `X-PQM-Token` holding the webhook token, since 2026-10-07 / workflow v4 + WP Application Password + Claude API key), paste the production webhook URL back into Settings.
 
 - **CV:** this is already a proto-wizard — pre-filled template, import-from-URL, test ping, per-agent request preview. User #1 confirms it's a **one-time cost**, not recurring pain.
-- **UV:** the test ping only proves WP → n8n; the return path (n8n → `/save-review` with the token) is unverified until a real review succeeds (backlog: *full round-trip connection test*). Two-system context switching remains inherently confusing for a non-n8n user. *(2026-07-24, pending validation: setup now completes on one page — wizard step 3 saves the webhook URL inline and pings; ping copy states exactly what is and isn't verified. The stale token-persistence claim was removed — the activator has persisted it since activation.)*
+- **UV:** the test ping only proves WP → n8n; the return path (n8n → `/save-review` with the token) is unverified until a real review succeeds (backlog: *full round-trip connection test*). Two-system context switching remains inherently confusing for a non-n8n user. *(2026-07-24, pending validation: setup now completes on one page — wizard step 3 saves the webhook URL inline and pings; ping copy states exactly what is and isn't verified. The stale token-persistence claim was removed — the activator has persisted it since activation.)* *(2026-10-07, pending validation: the checklist is replaced by a guided setup dialog — seven steps from getting an n8n instance to the first review, exact n8n menu and field names, a Copy button on every value, a Done mark per step, progress kept per site so it resumes at the first open step; it creates the WordPress Application Password through core and verifies the connection (save + ping, which also proves the webhook credential) — story 36. The owner's walk-through on n8n Cloud is the open check.)*
 - **Signal:** % of activations reaching a first successful `/save-review` callback — **the activation metric**.
 
 ### A5. First review (the aha moment)
 Run a review on one post from the Post Reviews page; see the score on four pillars plus top edits.
 
 - **CV:** async trigger (UI never blocks), stored result, score + issues + suggested edits visible.
-- **UV:** nothing prompts it — after setup completes, the user must find the Post Reviews page themselves; the dashboard is empty and silent before the first result. The wizard's last step should *be* "run your first review" and celebrate the result. *(2026-07-24, pending validation: shipped — wizard step 4 "First review" routes into Post Reviews, and the dashboard shows a "Run your first review" CTA until the first result lands.)*
+- **UV:** nothing prompts it — after setup completes, the user must find the Post Reviews page themselves; the dashboard is empty and silent before the first result. The wizard's last step should *be* "run your first review" and celebrate the result. *(2026-07-24, pending validation: shipped — wizard step 4 "First review" routes into Post Reviews, and the dashboard shows a "Run your first review" CTA until the first result lands.)* *(2026-10-07, pending validation: the setup guide's last step runs the first review on a published post from the dialog, waits for the score, then marks the setup complete and offers the Blog Profile and scheduled reviews — story 36.)*
 - **Signal:** time from activation to first stored review.
 
 ### A6. Habit formation
@@ -106,7 +106,7 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 | 1 | Insight → action loop (edit tracking, deep-links, proof that reviews cause edits) | B3–B4 | The core promise; currently unmeasured and unproven even for user #1 |
 | 2 | Perceived no-re-import (validate the pivot, say it in the UI) | B5 | Value already built but not realized — cheapest UV to convert to CV |
 | 3 | Pull-back mechanism (digest / notifications) | A6, B1 | Retention; silent results are unrealized value by definition |
-| 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | The future wizard; converts evaluators into activated users |
+| 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | The future wizard; converts evaluators into activated users *(2026-10-07, pending validation: the guided setup dialog, story 36)* |
 | 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users (backlog item exists) |
 | 6 | Cron for seo/audit commands | B1 | Direct ask from real usage *(2026-10-06, pending validation: one command per schedule shipped, ticket 3)* |
 | 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP |
@@ -116,4 +116,4 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 **Unrealized Value in one line:** proof and reinforcement that those scores change the blog — acting, verifying, and being pulled back.
 
 ### Notes for the future setup wizard (Path A)
-Ordered by what the path shows: (1) welcome screen on activation linking straight into the checklist; (2) the existing n8n Workflow page steps, ending with a **full round-trip test** rather than a one-way ping; (3) "run your first review now" on a real post as the final step, landing on the populated dashboard; (4) offer Blog Profile choice and cron enablement immediately after the first result, while motivation is highest.
+Ordered by what the path shows: (1) welcome screen on activation linking straight into the checklist; (2) the existing n8n Workflow page steps, ending with a **full round-trip test** rather than a one-way ping; (3) "run your first review now" on a real post as the final step, landing on the populated dashboard; (4) offer Blog Profile choice and cron enablement immediately after the first result, while motivation is highest. *(2026-10-07: (1) as the welcome notice opening the guide, (3) and (4) shipped in the setup dialog, story 36; (2)'s round-trip test stays with story 2 — the first review proves the return path meanwhile.)*
