@@ -1,12 +1,12 @@
 ---
-id: 34
+id: 35
 type: story
 title: "The n8n connection is secured and host-agnostic end to end"
 parent: none
 covers: [UV4, UV5]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: medium
 ---
@@ -15,44 +15,62 @@ risk: medium
 
 ## Description
 
-A review of the WordPress ↔ n8n link (2026-10-06) confirmed that the n8n host is already the user's choice: the plugin stores whatever production webhook URL is pasted (`n8n_webhook_url`, empty by default), the template fixes only the webhook path `pqm-execute`, and the only host injected at download is the WordPress site's own (`__PQM_SITE_HOST__`). Nothing references the development instance (<owner-n8n>) anywhere in the repo. The same review found four gaps that keep the link from being safe and truly portable for a blogger on any n8n (Cloud, self-hosted, any domain, any scheme) and any WordPress host:
+A review of the WordPress ↔ n8n link (2026-10-06) confirmed that the n8n host is already the user's choice: the plugin stores whatever production webhook URL is pasted, the template fixes only the webhook path `pqm-execute`, and the only host injected at download is the WordPress site's own. The same review, checked against the code on 2026-10-07, found four gaps that keep the link from being safe and portable for a blogger on any n8n (Cloud or self-hosted, any domain) and any WordPress host:
 
-1. **Inbound webhook is unauthenticated.** The Webhook Trigger node has no auth, so anyone who learns the URL can spend the owner's Claude API credit and push edits to guessed post IDs. The return path already carries `X-PQM-Token`; the trigger path carries nothing. Fix: the node uses n8n Header Auth and the plugin sends the existing `webhook_token` on every trigger (`/trigger-review`, cron batch, test ping), so one token secures both directions. The wizard tells the user which header value to put in the n8n credential, in the same breath as the two existing credentials.
-2. **HTTPS is hardcoded for the WordPress host.** The rewrite path builds `https://` + the post link's host by hand (`n8n-workflow.json` WordPress HTTP node). A plain-HTTP or non-standard-port site breaks silently. Fix: the payload carries a `site_url` (scheme and port included, from `home_url()` / `rest_url()`), and every WordPress call in the template derives from it; no scheme or host is assembled in the template.
-3. **Production vs. test URL.** n8n exposes `/webhook-test/` (editor-only) and `/webhook/` (production). The wizard says "production", but a pasted test URL passes the ping while the editor listens and dies afterwards. Fix: the save/test handlers recognise a `/webhook-test/` path and warn in place; the copy explains the difference once.
-4. **Reachability is only proven one way.** The ping proves WP → n8n; a Local/intranet WordPress never receives the callback. Fix lands in story 2 (full round trip); this story only makes sure the wizard and README state the prerequisite plainly: "your WordPress site must be reachable from your n8n instance".
+1. **The inbound webhook is unauthenticated.** The n8n Webhook Trigger has no authentication, so anyone who learns its URL can spend the owner's Claude API credit and push edits to guessed post IDs. The return path already checks `X-PQM-Token`; the trigger path checks nothing. The plugin sends the token today only inside the JSON body, which the trigger does not verify. Fix: the Webhook Trigger uses n8n Header Auth, and the plugin sends the token as a header on every call to n8n — the Run trigger, the scheduled batch and the test ping.
+2. **The rewrite path assumes how the WordPress site is served.** The template builds the WordPress address for the rewrite update by hand, with a forced `https://` and a fixed `/wp-json` path. A site on plain HTTP, installed in a subdirectory, or without pretty permalinks fails to receive the rewrite. A non-standard port already survives. Fix: the plugin hands the template the address to use, as it already does for the result callback.
+3. **A test URL passes the ping and then fails.** n8n serves `/webhook-test/` only while its editor listens, and `/webhook/` in production. The wizard asks for the production URL but does not explain the difference or catch a test URL. Fix: saving or testing a `/webhook-test/` URL shows an inline warning; the copy explains the difference once.
+4. **Reachability is proven one way only.** The ping proves WordPress → n8n. A local or intranet WordPress never receives the result. The full round trip is story 2; this story makes the wizard and README state the prerequisite plainly: "your WordPress site must be reachable from your n8n instance".
 
-Plus an **agnostic sweep**: no host, domain, scheme, n8n flavour or niche is assumed anywhere in template, wizard copy, README or placeholders (`your-n8n.example.com` stays generic; the token never travels in a query string where it lands in server logs, see story 22's lead on the import URL).
+The person's step (hitl): create the Header Auth credential in a real n8n instance after importing the new template, then run criteria 1 and 3 there, on n8n Cloud and on a self-hosted instance if both are available.
 
 ## Acceptance Criteria
 
-Verify:
-
-1. A POST to the n8n webhook without the `X-PQM-Token` header (or with a wrong one) is refused by n8n; the plugin's trigger, cron batch and test ping all succeed with the stored token; rotating the token in Settings and in the n8n credential is documented as one paired step.
-2. On a WordPress site served over plain HTTP, or on a non-443 port, the rewrite/apply path updates the post; the template contains no literal `https://` or `http://` pointing at the WordPress site.
-3. Pasting a `/webhook-test/` URL in the wizard or Settings shows an inline warning naming the production URL; pasting a production URL on n8n Cloud (`*.app.n8n.cloud`) and on a self-hosted instance under any domain both save and ping without special handling.
-4. The wizard and README state the two-way reachability prerequisite; `grep -ri postquality` over the distributable plugin, template, README and docs returns nothing.
-5. The template change bumps `PQM_WORKFLOW_VERSION`; a site on the previous template sees the update notice and its old import keeps working until re-imported (unauthenticated trigger remains a documented known limitation for stale imports).
+1. **Only the plugin can start a run**
+   **Given** a site with an imported workflow of this story's version and its Header Auth credential set to the site's webhook token
+   **When** a request reaches the n8n webhook without that token in the header, or with a wrong one
+   **Then** n8n refuses it and no agent runs; a Run started from the plugin, a scheduled batch and the test ping all start normally
+2. **The wizard says what to put in the new credential**
+   **Given** an owner importing the workflow
+   **When** they follow the wizard and the credentials hint
+   **Then** they are told which credential the Webhook Trigger needs, which header name to use and where to copy the token from, alongside the two existing credentials
+3. **The rewrite reaches any WordPress**
+   **Given** a WordPress site served over plain HTTP, or installed in a subdirectory, or using plain permalinks
+   **When** a Rewrite is applied
+   **Then** the post is updated; the template assembles no scheme, host or path for the WordPress site
+4. **A test URL is caught**
+   **Given** an owner saving or testing a webhook URL in the wizard or Settings
+   **When** the URL's path is a `/webhook-test/` path
+   **Then** an inline warning says it only works while the n8n editor listens and points to the production URL; any production URL, on n8n Cloud or on a self-hosted instance under any domain, saves and pings with no warning
+5. **The reachability prerequisite is stated**
+   **Given** an owner reading the wizard or the README
+   **When** they reach the connection step or the requirements
+   **Then** both say the WordPress site must be reachable from the n8n instance
+6. **Older imports keep working**
+   **Given** a site whose n8n still runs the previous template
+   **When** the plugin is updated to this story's version
+   **Then** that import keeps running reviews unchanged, and the site sees the existing workflow-update notice once a run reports the old version; the README lists "the trigger stays unauthenticated until you re-import" as a known limitation
 
 ## Boundaries
 
-- Must not change: the callback contract (`save-review`, `X-PQM-Token`), the command whitelist (story 14), the settings sanitizer's section-wise carry rule.
-- Does not build the round-trip test (story 2) or the chat-provider contract doc (story 4); it hands them an authenticated trigger to document.
+- Must not change: the result callback contract (`save-review`, `X-PQM-Token`, the token and callback address carried in the payload), the command whitelist (story 14), the settings sanitizer's section-wise carry rule.
+- Out of scope: the round-trip test (story 2) and the chat-provider contract doc (story 4); this story hands them an authenticated trigger to document. Token rotation: the token is read-only in Settings today; a rotate action is a separate ticket if wanted.
 
 ## References
 
 - requirements — docs/user-paths.md, A4 "Connect the chain" and UV4/UV5
-- template — post-quality-manager/templates/n8n-workflow.json (Webhook Trigger node, WordPress HTTP node URL)
-- trigger — post-quality-manager/includes/class-pqm-rest-api.php (`trigger_review()` dispatch), post-quality-manager/includes/class-pqm-cron.php (batch dispatch), post-quality-manager/admin/class-pqm-admin.php (`ajax_save_webhook_url()`, `ajax_test_connection()`, wizard step 3)
-- payload — post-quality-manager/post-quality-manager.php (`pqm_n8n_payload()`, `pqm_workflow_json()` placeholder replacement)
-- token — post-quality-manager/includes/class-pqm-activator.php (`webhook_token` generation)
-- docs — README.md "Requirements" and "Setup", n8n/workflow-diagram.md
+- docs — README.md "Requirements" and "Installation"; n8n/workflow-diagram.md
+- architecture — memory/llm-options-architecture.md, workflow version handshake
 - adjacent backlog — story 2 (round-trip test, also edits the template), story 4 (webhook contract doc), story 22 (generator review; its connection-related findings fold into this story)
 
 ## Notes
 
 - Owner request (2026-10-06): the n8n domain must stay the user's to define; add the security, best-practice and agnostic-pivot work that review surfaced as one PBI.
-- Decision needed at refine: reuse `webhook_token` for both directions (KISS, one credential to paste) or mint a second inbound token. Default: reuse.
+- Decision (owner, 2026-10-07): one token secures both directions — the inbound Header Auth credential holds the existing webhook token (KISS, one value to copy). Alternative: mint a second inbound token; one more field, and a leaked import URL then no longer opens the trigger.
+- Decision (owner, 2026-10-07): the import URL carries the webhook token as a query argument, because n8n's "Import from URL" sends no cookies, so the token can land in server and proxy logs. With this story the same token also opens the trigger. The import mechanism stays with story 22; this story names the risk next to the import URL copy.
+- Open question: the settings defaults mint a fresh token on every call when the stored settings lack one. Confirm at build that every site has a stored token, or the inbound check fails on every call.
+- Verified 2026-10-07: no host, domain or niche of the development site appears in the plugin, the template, the README or docs (`grep -ri postquality` hits only memory and this ticket). The agnostic sweep therefore reduces to criteria 3–5.
+- Build notes (paths recorded at refinement): the three calls to n8n are in the REST trigger callback, the cron dispatch and the admin test-ping handler, each inline; the hand-built address is the "Update WP Post (Rewrite)" node; the render-matrix harness asserts exactly seven credentialed template nodes and the credentials hint names them, so both change with the new credential. No harness covers the request headers or the save/test handlers today.
 - Sequencing with story 2: both bump `PQM_WORKFLOW_VERSION` and touch the template; whichever builds second rebases on the other. `after` stays empty so the security fix is not held behind a hitl review.
-- hitl: a person creates the Header Auth credential in a real n8n instance (Cloud and self-hosted, if both are available) and runs criterion 1 and 3 there; the rest is harness-checkable.
 - Lesson link: memory/lessons.md 2026-03-27 (never overfit to the current site) applies to hosts and schemes as much as to prompts.
+- Risk medium (reason): it changes the trigger contract every installed workflow depends on; criterion 6 keeps old imports running, and a revert is clean.

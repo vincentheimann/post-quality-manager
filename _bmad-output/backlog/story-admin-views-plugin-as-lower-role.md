@@ -6,7 +6,7 @@ parent: none
 covers: [O6]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: false
 risk: medium
 ---
@@ -22,19 +22,19 @@ Owner request (2026-10-06). An Administrator holds every plugin capability, so t
 1. **Only Administrators get the switch**
    **Given** a signed-in user
    **When** they are in wp-admin
-   **Then** a "View as" control listing the plugin's other roles (Editor, Author, Contributor) is shown to Administrators, and to nobody else
+   **Then** a "View as" control listing the three default roles below Administrator (Editor, Author, Contributor) is shown to Administrators, and to nobody else
 2. **The plugin reads as the chosen role**
    **Given** an Administrator who chose a role
    **When** they open any plugin page or the plugin's menu
-   **Then** the menu entries, pages, Settings sections, action buttons, quota note and locked states are the ones a user of that role (with that role's current capabilities, remaps included) would get, and nothing the real role cannot see is shown
+   **Then** the menu entries, pages, Settings sections, action buttons, quota note and locked states are the ones a user of that role (with the capabilities that role holds on this site now, including changes made with a role editor) would get, and nothing the real role cannot see is shown
 3. **Refusals match the role too**
    **Given** an Administrator viewing as a role
    **When** a plugin action that role may not run is requested, in the pages or through the plugin's REST routes
    **Then** it is refused with the same answer and copy that role gets
 4. **The view is announced and reversible from anywhere in wp-admin**
    **Given** a view is on
-   **When** the Administrator is on any wp-admin page, including a plugin page the chosen role cannot open
-   **Then** a bar names the role being viewed and offers "Exit", and Exit restores the Administrator view at once
+   **When** the Administrator is on any wp-admin screen that shows the toolbar
+   **Then** a bar names the role being viewed and offers "Exit", and Exit restores the Administrator view at once; a plugin page the chosen role cannot open shows the refusal that role gets, and every other wp-admin screen still offers Exit
 5. **The view sticks to one Administrator**
    **Given** a view is on
    **When** that Administrator opens other pages or signs in again, or another user signs in
@@ -43,6 +43,10 @@ Owner request (2026-10-06). An Administrator holds every plugin capability, so t
    **Given** a view is on
    **When** the Administrator uses any non-plugin screen (Posts, Users, Plugins, …)
    **Then** their WordPress capabilities are exactly as without the view, and the toolbar differs only by the bar
+7. **Uninstall leaves no view behind**
+   **Given** one or more Administrators left a view on
+   **When** the plugin is uninstalled
+   **Then** no stored view remains for any user
 
 ## Boundaries
 
@@ -59,11 +63,15 @@ Owner request (2026-10-06). An Administrator holds every plugin capability, so t
 
 ## Notes
 
-- Assumption: the bar is a node in the WordPress toolbar (the top admin bar), which is visible on every wp-admin screen. It is the only place that stays reachable when the chosen role cannot open any plugin page (Contributor), so Exit can never be lost. The alternative, a notice at the top of the plugin's pages only, loses Exit in the Contributor view.
-- Assumption: only the plugin's own capabilities are simulated — the five `pqm_` ones — for the Administrator who chose the view. No WordPress core capability changes, so the Administrator keeps editing posts and users as usual; nothing is written to the site's roles.
-- Assumption: a simulated view is real, not read-only — an action the role may run (an Author's Review, an Editor's Settings save) runs with that role's rights. The one side effect: a trigger in the Author view spends the Administrator's own monthly quota, because the quota applies to anyone without the paid-agents capability. Alternative: a "look, don't touch" view where every write is refused with a note; more code, less faithful.
-- Assumption: the choice persists per Administrator until Exit (survives page loads and new sign-ins), stored on the user, deleted on uninstall. The alternative, a per-page-load query argument, is lost on every click.
-- Assumption: the switch exists on the free plan as well. ADR 0003 lists "role management" among paid features; this switch manages no role, it only lets the Administrator check the site's current mapping.
+- Decision (owner, 2026-10-07): the bar is a node in the WordPress toolbar (the top admin bar), which is visible on every wp-admin screen. It is the only place that stays reachable when the chosen role cannot open any plugin page (Contributor), so Exit can never be lost. The alternative, a notice at the top of the plugin's pages only, loses Exit in the Contributor view.
+- Decision (owner, 2026-10-07): only the plugin's own capabilities are simulated — the five `pqm_` ones — for the Administrator who chose the view. No WordPress core capability changes, so the Administrator keeps editing posts and users as usual; nothing is written to the site's roles.
+- Decision (owner, 2026-10-07): a simulated view is real, not read-only — an action the role may run (an Author's Review, an Editor's Settings save) runs with that role's rights. The one side effect: a trigger in the Author view spends the Administrator's own monthly quota, because the quota applies to anyone without the paid-agents capability. Alternative: a "look, don't touch" view where every write is refused with a note; more code, less faithful.
+- Decision (owner, 2026-10-07): the choice persists per Administrator until Exit (survives page loads and new sign-ins), stored on the user, deleted on uninstall. Uninstall removes user meta by exact key, so the new key is added to that list (criterion 7). The alternative, a per-page-load query argument, is lost on every click.
+- Decision (owner, 2026-10-07): the switch exists on the free plan as well. memory/freemium-and-roles.md lists "role management" among paid features (ADR 0003 itself does not); this switch manages no role, it only lets the Administrator check the site's current mapping.
+- Decision (owner, 2026-10-07): "Administrator" means a user holding the core `manage_options` capability. The plugin never branches on role names (the render-matrix harness asserts it), and none of the five `pqm_` capabilities singles out Administrators, since `pqm_manage_settings` can be granted to others.
+- Decision (owner, 2026-10-07): the chosen role's `pqm_` capabilities are read from that role as stored on the site at each request. The plugin keeps no role map of its own; a role editor changes the WordPress role, so the view follows it.
+- Side effect of a real view (refinement, 2026-10-07): in the Editor view, a Settings save and the dashboard's scheduled-reviews nudge dismissal write real site-wide data, exactly as a real Editor's would.
+- WordPress core fact (refinement, 2026-10-07): a wp-admin page the user may not open ends in WordPress's own refusal screen, which carries no toolbar. In the Contributor view, typing a plugin page's address shows that screen; Exit stays on every other wp-admin screen. Criterion 4 says so.
 - Decision (owner, 2026-10-06): the control lists the three default roles only — Editor, Author, Contributor — never custom roles.
 - Decision (owner, 2026-10-06): no plan simulation; the view never changes the site's Free/Pro state.
 - Decision (owner, 2026-10-06): the switch is for Administrators only, not for every holder of the settings capability.
