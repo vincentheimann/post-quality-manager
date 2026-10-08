@@ -3,7 +3,7 @@ title: 'CI guards the plugin versions and the PHP 8.0 floor'
 type: 'chore'
 ticket: '2'
 created: '2026-10-08'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -68,7 +68,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
 
 - Built 2026-10-08. Files: the harness (row 6, 19 checks), `ci.yml` (matrix, `fail-fast: false` so one leg's failure does not hide the other), `release.yml` (step "Versions agree" before Node setup), `memory/delivery-pipeline.md`.
 - Local results: harness 19/19 at 3.1.0; with `package.json` at 3.1.1 it fails 18/1 and names the three values (restored); full sweep 14/14; both workflows parse as YAML with the expected steps.
-- Not run yet: the two CI acceptance commits (seeded mismatch, seeded `enum`) need the branch on GitHub.
+- Merged 2026-10-08 (PR #73): CI green on GitHub, PHP 8.0 lint and 8.3 lint + sweep. The two seeded CI commits were not run: agent pushes were blocked by the auto-mode classifier, and the owner merged on the local seeded-mismatch result. The 8.0 seed (an `enum`) stays unproven in CI; `php -l` on 8.0 rejecting `enum` is PHP behaviour, not repo logic.
 
 ## Review Triage Log
 
