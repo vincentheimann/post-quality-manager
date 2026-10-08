@@ -12,6 +12,7 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       post-quality-manager
+ * Domain Path:       /languages
  */
 
 if (!defined('ABSPATH')) {
@@ -46,6 +47,17 @@ register_activation_hook(__FILE__, ['PQM_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['PQM_Cron', 'clear_scheduled_events']);
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PQM_Activator', 'maybe_upgrade']);
+
+/* ─── Translations ───────────────────────────────────────────────────── */
+// Registers languages/ for the text domain on init, never earlier: since
+// WordPress 6.7 the files load just in time, and an earlier load raises a
+// "too early" notice. The React bundle reads the same folder
+// (wp_set_script_translations in PQM_Admin::enqueue_assets).
+function pqm_load_textdomain(): void
+{
+    load_plugin_textdomain('post-quality-manager', false, dirname(plugin_basename(__FILE__)) . '/languages');
+}
+add_action('init', 'pqm_load_textdomain');
 
 /* ─── REST API ───────────────────────────────────────────────────────── */
 add_action('rest_api_init', ['PQM_REST_API', 'register_routes']);
