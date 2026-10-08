@@ -5,7 +5,8 @@
  * still parses the way WordPress reads it (get_file_data + its
  * _cleanup_header_comment trimming), the start/end block encloses exactly the
  * Version line, and only PQM_VERSION carries the inline annotation.
- * The header == PQM_VERSION == package.json check is entry 2, not here.
+ * Story 4.2 adds row 6: header Version == PQM_VERSION == package.json; the
+ * release workflow runs this harness before it builds and publishes.
  * Story 4.6 adds rows 4-5: the Domain Path header and the init-time loader,
  * and the tests/i18n/ fixtures still parse and still name live strings.
  */
@@ -78,6 +79,13 @@ $jsSrc = implode("\n", array_map('file_get_contents', array_merge(glob($root . '
 foreach (array_keys($jsMessages) as $msgid) {
     check("JS msgid '$msgid' is still a string in src/", str_contains($jsSrc, "__( '" . $msgid . "'"));
 }
+
+echo "Row 6 — the three release versions agree\n";
+preg_match("/define\('PQM_VERSION',\s*'([^']*)'\)/", $define('PQM_VERSION'), $m);
+$constant = $m[1] ?? null;
+$package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true)['version'] ?? null;
+check("header $version == PQM_VERSION $constant == package.json $package",
+    $version !== null && $version === $constant && $constant === $package);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

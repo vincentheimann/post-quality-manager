@@ -5,7 +5,9 @@
 # builds the released commit itself when zipping the post-quality-manager/
 # subfolder. The node job lints src/ and tests/js/ first
 # (npm run lint:js) and runs the JS unit tests (npm run test:unit); the php
-# job lints every plugin PHP file and runs the full tests/harness sweep.
+# job lints every plugin PHP file on 8.0 (the header's Requires PHP floor)
+# and 8.3, and runs the full tests/harness sweep on 8.3 only (harnesses may
+# use newer PHP than the plugin).
 
 name: CI
 
@@ -49,19 +51,24 @@ jobs:
           path: post-quality-manager/admin/build/
 
   php:
-    name: PHP lint and harness sweep
+    name: PHP ${{ matrix.php }} lint and harness sweep
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.0', '8.3']
     steps:
       - uses: actions/checkout@v4
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
 
       - name: Lint plugin PHP
         run: find post-quality-manager -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Harness sweep
+        if: matrix.php == '8.3'
         run: |
           for f in tests/harness/*.php; do
             echo "== $f"

@@ -50,6 +50,12 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
+      # Header Version, PQM_VERSION and package.json must agree before
+      # anything is built or published; on a mismatch the release stays a
+      # draft. PHP ships on ubuntu-latest.
+      - name: Versions agree
+        run: php tests/harness/release-header-harness.php
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
