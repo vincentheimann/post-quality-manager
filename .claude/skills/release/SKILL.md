@@ -14,6 +14,6 @@ Releases are cut by `.github/workflows/release.yml`: release-please keeps one re
 5. Watch the Release workflow on `main`: the `package` job builds from the tag, attaches `post-quality-manager-<version>.zip` and publishes the draft. If it fails, the release stays a draft with its tag: fix the cause and re-run the job.
 6. Download the zip from the published release: its single root folder is `post-quality-manager/`, `admin/build/` is inside, and it installs and activates on a clean WordPress 6.6 showing the new version.
 
-After 3.0.0 ships: remove `release-as` from `release-please-config.json`, so later versions follow the commits.
+Versions follow the commits (`feat` → minor, `fix` → patch). To force a version, set `release-as` in `release-please-config.json` for that one release, and remove it as soon as the release is out.
 
 To check packaging without releasing, run the Release workflow by manual dispatch on any branch: it uploads the zip as a workflow artifact (unzip it once to get the upload file) and creates no tag and no release.
