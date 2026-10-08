@@ -1,0 +1,35 @@
+# WordPress Plugin Check (story 4.4) on the built plugin folder — the same
+# post-quality-manager/ release.yml zips, with admin/build/ inside — in all
+# categories. Report only: the job is continue-on-error until story 4.5
+# fixes every error and makes it blocking. Findings show as file
+# annotations, in the job log, and as the plugin-check-results artifact.
+
+name: Plugin Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  plugin-check:
+    name: Plugin Check (report only)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Plugin Check
+        uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
+        with:
+          build-dir: ./post-quality-manager
