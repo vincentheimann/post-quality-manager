@@ -50,3 +50,11 @@ Defaults only: role editors remap any capability, per role or per user, and ever
 - On a free site the agent sections render visible but locked (disabled fieldset), for Admins too; stored cron settings keep running.
 - Exception: while stored cron is on, the Enable toggle stays live outside the lock as an off-switch only, for `pqm_manage_agents` holders, plan-independent.
 - Saves carry every section the saver could not post — role-hidden, plan-locked, or absent from a pro-site POST — from stored values, never defaults.
+
+## Roles tab — the rights matrix (CAP-6, story 42)
+- Where: Settings → Roles; rendered and saved for core `manage_options` holders only (never a `pqm_` capability). Pro: editable. Free: the roles' current grants, locked with upgrade copy; Save writes no role; a lapsed license reverts nothing.
+- Rows: every role `wp_roles()` returns, custom roles included. Rows of roles holding `manage_options` are fixed with every capability and re-granted on Save (capability-keyed, no role-name check). Columns: the five capabilities above under plain-action labels (View reviews · Run Review and Key Takeaways · Run paid agents · Manage agents · Manage settings), `pqm_` slugs never shown; headline "What each role can do"; nothing finer.
+- Save: part of the one Settings form; the matrix is stored in `pqm_settings` and applied to roles with `add_cap`/`remove_cap`. Per-user direct grants are never touched. A saver who cannot see the tab (Editor with `pqm_manage_agents`) carries the stored matrix unchanged.
+- Upgrade: `maybe_upgrade()` re-applies the saved matrix and adds only a capability new since `CAPS_VERSION`; shipped defaults apply only when nothing is saved.
+- Copy: removing `pqm_view_reviews` shows an inline hint that the role loses the plugin menu (no confirm); the paid-agents column notes that holding it lifts the monthly quota.
+- Retired by the same story: "View as" (class, toolbar nodes, handler, `user_has_cap` filter, harness); uninstall keeps deleting `pqm_view_as` meta for one release.

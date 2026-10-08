@@ -30,6 +30,10 @@ Owner mandate (ADR 0003, 2026-09-22) combining two requests that share one mecha
   - **intent:** Commands declare tier, capability and display label up front in the registry the gate reads.
   - **success:** Adding a command takes a registry entry plus its n8n template branch and nothing else for the gate, the REST enums and the UI labels to follow; the harnesses fail when registry, REST enums and template drift apart.
 
+- **CAP-6**
+  - **intent:** An Administrator sets, on a Roles tab of the plugin's Settings, which of the five plugin capabilities each role on the site holds; the plugin applies the matrix to the site's roles and keeps it across upgrades. Pro feature; replaces the toolbar "View as" switch (ADR 0012).
+  - **success:** After Save every listed role holds exactly the checked capabilities and every page, section, button and REST refusal follows on the next request; rows of roles holding core `manage_options` cannot be changed; a capability-version upgrade re-applies the saved matrix and adds only a capability new since; on a free site the tab shows the roles' current grants locked with upgrade copy and Save writes no role.
+
 ## Constraints
 
 - One zip, one build: paid is a license key flipping the gate, never a separate pro package.
@@ -41,6 +45,8 @@ Owner mandate (ADR 0003, 2026-09-22) combining two requests that share one mecha
 - The Freemius SDK and its revenue share are accepted, but confined behind the provider-agnostic `is_pro()` source.
 - Gated-feature presentation: role refusal is checked first and hides the feature; plan refusal renders it visible but locked with upgrade copy.
 - A Settings save never wipes what the saver could not post: role-hidden, plan-locked or absent sections carry their stored values, never defaults.
+- The Roles tab renders and saves for core `manage_options` holders only, never behind a plugin capability, so it cannot be delegated away or hidden from an Administrator.
+- The saved rights matrix, not the shipped default map, is what an upgrade re-applies; the defaults are only the fallback when nothing is saved.
 
 ## Non-goals
 
@@ -48,7 +54,8 @@ Owner mandate (ADR 0003, 2026-09-22) combining two requests that share one mecha
 - Real license validation before the Freemius product exists (ADR 0006).
 - Multisite support.
 - A second build or a trimmed free n8n template.
-- An in-plugin role editor — capabilities are remappable with existing role-editor tools.
+- Per-user grants and WordPress core capabilities in the Roles tab — it edits roles and the five plugin capabilities only; role-editor tools still work for the rest.
+- A live "preview as a role" simulation — "View as" (story 34) is retired by story 42; the matrix shows what each role gets.
 - New agents, template changes, or version-handshake changes.
 - Covering inference costs or reselling API access.
 
