@@ -1,7 +1,7 @@
 # Post Quality Manager — Agent Instructions
 
 <!-- bmad:context -->
-<!-- Verified 2026-10-07 against ff81abd. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
+<!-- Verified 2026-10-08 against d7b4e5d. Managed by bmad-project-context; edits inside this block are replaced on refresh. Keep anything you want preserved outside the markers. -->
 
 ## Post Quality Manager
 
@@ -15,17 +15,18 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 - Bug reports: find the root cause and fix it without hand-holding; no symptom patches, no temporary fixes.
 - AI prompts in the n8n workflow stay niche-agnostic — universal pillars Structure, Readability, Engagement, Credibility; niche tailoring comes from user settings (Blog Profile, brand voice), never from code (`memory/lessons.md` 2026-03-27).
 - Read `docs/brand.md` before writing any admin UI text, label or copy; read `docs/user-paths.md` before any product or UX decision.
+- Versions belong to release-please: the `Version:` header, `PQM_VERSION` and `package.json` carry its markers and are never bumped by hand; merging its release PR tags and publishes the CI-built zip, and every release stays a pre-release until the public launch (`"prerelease": true` in `release-please-config.json`).
 
 ## Where things are
 
-- `post-quality-manager/` — the distributable plugin: `admin/` (dashboard, settings, AJAX), `includes/` (DB, REST API, cron), `templates/n8n-workflow.json` (canonical workflow template, `__PQM_*__` placeholders filled by `PQM_Admin::download_workflow()`), `post-quality-manager.php`, `uninstall.php`. The workflow calls the Claude API directly from n8n Code/HTTP nodes.
+- `post-quality-manager/` — the distributable plugin: `admin/class-pqm-admin.php` (admin pages, Settings API, the two AJAX handlers), `admin/build/` (compiled React app, git-ignored, built by CI), `admin/js/pqm-admin.js` + `admin/css/`, `includes/` (DB, REST API `post-quality/v1`, cron), `templates/n8n-workflow.json` (canonical workflow template, `__PQM_*__` placeholders filled by `PQM_Admin::download_workflow()`), `post-quality-manager.php`, `uninstall.php`. React sources live in `src/` (`dashboard/`, `post-reviews/`, `setup/`, shared `kit/`). The workflow calls the Claude API directly from n8n Code/HTTP nodes.
 - `n8n/workflow-diagram.md` — Mermaid overview of webhook → n8n → Claude → WordPress.
 - `_bmad-output/initiative-post-quality-manager/` — the product initiative: requirements (UV1–UV7 from `docs/user-paths.md`, O1–O7 owner requests), epic envelopes in `tickets.toml`; `_bmad-output/backlog/` — standalone tickets. Git is the ticket store; `uv run _bmad/method/scripts/tickets.py status` / `next` read them.
 - `_bmad/` — BMad runtime and config; team overrides in `_bmad/custom/*.toml` (committed), personal ones in `*.user.toml` (ignored).
 - `docs/adr/` — why we decided (immutable, supersede never rewrite; `/adr`); `docs/user-paths.md` — the EBM prioritization tool (`/prioritize`); `docs/brand.md` — copy rules.
 - `memory/` — what is true now: `MEMORY.md` index, one file per durable fact, `lessons.md` the self-correction log whose rules override your defaults. Read at session start; update in the same change that makes a fact true.
-- `.claude/skills/` — BMad skills (`bmad`, `bmad-build`, `bmad-spec`, `bmad-ticket`, `bmad-review`, `bmad-code-review`, `bmad-retrospective`, `bmad-project-context`, `bmad-customize`) plus project skills `/adr`, `/prioritize`, `/release`.
-- `_archives/turbo-drill/` — unrelated finished quiz-app project. Ignore entirely.
+- `.claude/skills/` — BMad skills (`bmad`, `bmad-build`, `bmad-spec`, `bmad-ticket`, `bmad-review`, `bmad-code-review`, `bmad-retrospective`, `bmad-project-context`, `bmad-customize`, `bmad-walkthrough`; `bmod-*` are module records) plus project skills `/adr`, `/prioritize`, `/release`.
+- `.github/workflows/ci.yml` (JS lint, unit tests and build; PHP 8.0 and 8.3 lint plus harness sweep; Plugin Check on the built artifact) and `release.yml` (release-please → CI-built zip → GitHub Release); `docs/release-notes/unreleased.md` holds the lines `/release` moves into `<version>.md` at launch.
 
 ## Running and verifying
 
@@ -35,12 +36,13 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 - When a REST route or the webhook payload changes, check `post-quality-manager/templates/n8n-workflow.json` for a matching change, and vice versa. Never put site-specific values in the template.
 - BMad scripts run with `uv run` (`uv` 0.11+ installed); never run a workflow source file directly — `bmad-build`'s `SKILL.md` renders it first.
 - Definition of Done: KISS; `php -l` / `node --check` clean; every harness in `tests/harness/` and `npm run test:unit` green; no WP debug errors or warnings; REST endpoints answer correctly with permissions; UI loading/error states handled; a change existing sites meet without being told (a new default, a new permission, a removed screen, a workflow re-import) adds one line to `docs/release-notes/unreleased.md` in the same PR; durable facts updated in `memory/`, significant decisions recorded via `/adr`, `docs/user-paths.md` adjusted when Unrealized Value became Current Value. Ask "would a staff engineer approve this?" before presenting.
+- Report a PR's CI state from `gh pr checks <n> --repo vincentheimann/post-quality-manager` (the check runs the owner sees), never from workflow-run conclusions; to make a CI finding non-blocking, put `continue-on-error` on the reporting step, not the job (`memory/lessons.md` 2026-10-08).
 
 ## Conventions that differ from defaults
 
 - Prefix every function, class and global `PQM_` / `pqm_`; use WP core APIs (`get_option`, `$wpdb` abstractions) over raw SQL; sanitize (`sanitize_text_field`) and escape (`esc_html`, `esc_attr`) everything; nonces on every form and AJAX request; `permission_callback` on every REST route.
-- Native WP admin components and classes (`.wrap`, `.notice`, `.button-primary`); PHP templates and JS-built markup carry no inline styles — add a class in the page's stylesheet instead.
-- The Settings page is one Settings-API form whose `sanitize_settings()` rebuilds the whole array; the n8n Workflow page is form-free — page-local saves go through dedicated AJAX merge-saves, never a second form.
+- Native WP admin components and classes (`.wrap`, `.notice`, `.button-primary`); PHP templates and JS-built markup carry no inline styles — add a class in the page's stylesheet instead. The one exception is a value computed at runtime (a tooltip position, a `width: n%` score bar), which stays inline.
+- The Settings page is one Settings-API form, Roles tab included, whose `sanitize_settings()` rebuilds the whole array; the n8n Workflow page is form-free — its page-local save is a single-key merge-save (`save_webhook_url()` behind `POST /setup/connect`), never a second form, and REST writes bypass `sanitize_settings()`, so they sanitize in place.
 - Save is the commit point: never gate an in-form, not-yet-persisted change behind `confirm()`. A preset is a read-only choice resolved from code; Custom is the one editable path and stays visible (`memory/lessons.md` 2026-10-07).
 - Knowledge triad, no duplication: ADR = why, `memory/` = what is true now, skill = recurring how. When a decision reveals a missing practice, propose adopting it instead of designing around its absence (`memory/lessons.md` 2026-07-24).
 - After any user correction, append the pattern to `memory/lessons.md` (format documented in the file) and, when it is an agent mistake worth a standing rule, record it with `bmad-project-context record`.
@@ -51,5 +53,6 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 - Workflows imported before 2026-07-22 route `ping` to the Error Fallback; the template-version handshake on the n8n Workflow page is how users learn to re-download.
 - The former companion "Post Quality API" plugin was retired 2026-07-23; this plugin's `post-quality/v1/post-score` endpoint is canonical. Do not re-create the standalone plugin.
 - Prefer a clarifying question to a large speculative change; use subagents for research and exploration to keep the main context clean.
+- Before proposing a change to an external system's settings (GitHub repo or Actions, n8n, hosting), read the current value through its API and confirm the mechanism in the tool's docs or source; never ask to apply a combination the documentation does not state as valid (`memory/lessons.md` 2026-10-08).
 
 <!-- /bmad:context -->

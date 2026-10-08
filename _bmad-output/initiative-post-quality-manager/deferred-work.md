@@ -41,17 +41,3 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
   summary: When n8n is unreachable (502 `pqm_n8n_error`) or answers non-2xx, the failed-start message tells every user to "Check your Webhook URL in Settings" / "Check that the workflow is active in n8n", which Authors and Editors without `pqm_manage_settings` cannot do; ticket 32's AC1 asks for a next step the clicking user can take.
   evidence: Ticket 32 quick review. Pre-existing copy in `trigger_review_callback()` (the `pqm_n8n_error` branch) and `requestRun()` in `src/kit/runs.js`; the approved plan made only the `pqm_not_configured` copy role-aware and its frozen Never list forbids other `/trigger-review` copy changes. Fix candidate: the same `current_user_can( 'pqm_manage_settings' )` split, with "ask an administrator" for others (server) and a `viewer.can_manage_settings` branch in `requestRun()`'s non-2xx copy (client). Owner call: fold into ticket 32 or a follow-up.
 
-- source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/backlog/story-guided-setup-dialog-plan.md`
-  summary: AGENTS.md still says Settings and n8n Workflow use vanilla JS only; since story 36 the n8n Workflow page also loads the React bundle for the setup dialog island.
-  evidence: Story 36 quick review (2026-10-07). AGENTS.md is the `bmad-project-context` managed block, so the fix goes through that skill (refresh), not a build edit; memory/admin-ui-rebuild.md already records the island pattern.
-- source_plan: `_bmad-output/backlog/story-ai-prompts-context-ux-review-plan.md`
-  summary: The AGENTS.md managed block still states the replaced rule "every preset must stay editable and an explicit 'Custom' path visible (memory/lessons.md 2026-07-23)" while story 26 made presets read-only choices with Custom as the one editable path.
-  evidence: Story 26 quick review. AGENTS.md wins over `_bmad/custom/minimal-code-ladder.md` (already updated), so the stale line governs the next build until `bmad-project-context` refreshes the block; agent-context files are not edited inside a build.
-
-- source_plan: `_bmad-output/backlog/story-upgrade-release-notes-pack-plan.md`
-  summary: Record story 15's Definition of Done clause (one line in `docs/release-notes/unreleased.md` for any change existing sites meet without being told) through `bmad-project-context refresh`, since it was hand-edited inside AGENTS.md's managed block.
-  evidence: AGENTS.md:4 says edits inside the block are replaced on refresh, and memory/bmad-setup.md forbids hand-edits inside the markers; the clause also lives in `_bmad/custom/bmad-build.toml`, so builds keep it either way. The refresh is already owed (provenance line still "Verified 2026-10-07 against ff81abd").
-
-- source_plan: `_bmad-output/initiative-post-quality-manager/epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md`
-  summary: Drop the AGENTS.md managed-block line "`_archives/turbo-drill/` — unrelated finished quiz-app project. Ignore entirely." through `bmad-project-context refresh`; entry 4.9 deleted the folder.
-  evidence: Entry 4.9 quick review (2026-10-08). AGENTS.md:28 still names the deleted folder and every session loads it via CLAUDE.md; the line sits inside the managed block (markers L3/L55), so a build does not hand-edit it. Same owed refresh as the entries above.
