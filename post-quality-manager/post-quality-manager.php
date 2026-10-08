@@ -4,7 +4,7 @@
  * Plugin URI:        https://github.com/vincentheimann/post-quality-manager
  * Description:       Content quality dashboard — store review results from n8n workflows, schedule automated reviews, and get a global overview of your blog content quality.
  * x-release-please-start-version
- * Version:           3.1.0
+ * Version:           3.1.1
  * x-release-please-end
  * Requires at least: 6.6
  * Requires PHP:      8.0
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
-define('PQM_VERSION', '3.1.0'); // x-release-please-version
+define('PQM_VERSION', '3.1.1'); // x-release-please-version
 define('PQM_PLUGIN_FILE', __FILE__);
 define('PQM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PQM_PLUGIN_URL', plugin_dir_url(__FILE__));

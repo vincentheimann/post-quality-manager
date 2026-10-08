@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.1.0...v3.1.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **release:** publish as a pre-release while the config says so ([1c2abb3](https://github.com/vincentheimann/post-quality-manager/commit/1c2abb38f355300393c7d196c0f442a2423a9e98))
+
 ## [3.1.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.0.1...v3.1.0) (2026-10-08)
 
 
