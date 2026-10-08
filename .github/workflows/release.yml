@@ -1,0 +1,99 @@
+# Release pipeline (epic-delivery-pipeline, story 4.1).
+#
+# On every push to main, release-please opens or updates one release PR from
+# the Conventional Commits (config: release-please-config.json). Merging that
+# PR tags v<version> and creates a *draft* GitHub Release. Events made with
+# GITHUB_TOKEN start no other workflow and drafts never fire `release`, so the
+# package job runs here, gated on release_created: it builds admin/build/ from
+# the tag, zips post-quality-manager/ as post-quality-manager-<version>.zip,
+# attaches it, appends docs/release-notes/<version>.md when present, and
+# publishes. If packaging fails the release stays a draft: re-run the job.
+#
+# A manual dispatch runs only the package job on the chosen ref and uploads the
+# zip as a workflow artifact: no tag, no release.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release PR
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v5
+
+  package:
+    name: Package plugin zip
+    needs: release-please
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.release-please.outputs.release_created == 'true')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # On a release, build the tagged commit; on a dispatch, the dispatched ref.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Assert built assets exist
+        run: |
+          test -f post-quality-manager/admin/build/index.js
+          test -f post-quality-manager/admin/build/index.asset.php
+
+      - name: Zip the plugin folder
+        id: zip
+        run: |
+          V=$(node -p "require('./package.json').version")
+          zip -rq "post-quality-manager-$V.zip" post-quality-manager
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "file=post-quality-manager-$V.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.file }}
+          path: ${{ steps.zip.outputs.file }}
+          if-no-files-found: error
+
+      - name: Attach zip, append release notes, publish
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          ZIP: ${{ steps.zip.outputs.file }}
+          NOTES: docs/release-notes/${{ steps.zip.outputs.version }}.md
+        run: |
+          gh release upload "$TAG" "$ZIP" --clobber
+          BODY="$RUNNER_TEMP/release-body.md"
+          gh release view "$TAG" --json body --jq .body > "$BODY"
+          if [ -f "$NOTES" ]; then
+            printf '\n' >> "$BODY"
+            cat "$NOTES" >> "$BODY"
+          fi
+          gh release edit "$TAG" --notes-file "$BODY" --draft=false
