@@ -7,7 +7,8 @@
 # package job runs here, gated on release_created: it builds admin/build/ from
 # the tag, zips post-quality-manager/ as post-quality-manager-<version>.zip,
 # attaches it, appends docs/release-notes/<version>.md when present, and
-# publishes. If packaging fails the release stays a draft: re-run the job.
+# publishes, as a pre-release while the config's "prerelease" key is true.
+# If packaging fails the release stays a draft: re-run the job.
 #
 # A manual dispatch runs only the package job on the chosen ref and uploads the
 # zip as a workflow artifact: no tag, no release.
@@ -102,4 +103,8 @@ jobs:
             printf '\n' >> "$BODY"
             cat "$NOTES" >> "$BODY"
           fi
-          gh release edit "$TAG" --notes-file "$BODY" --draft=false
+          # release-please flags a release as pre-release only for a
+          # suffixed or 0.x version (src/manifest.ts), so the config's
+          # "prerelease" key is applied here. The launch PR removes the key.
+          PRE=$(jq -r '.prerelease // false' release-please-config.json)
+          gh release edit "$TAG" --notes-file "$BODY" --draft=false --prerelease="$PRE"
