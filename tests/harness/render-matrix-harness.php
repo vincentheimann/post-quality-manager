@@ -47,6 +47,8 @@ function esc_textarea($s) { return (string) $s; }
 function wp_kses_post($s) { return (string) $s; }
 /* Story 36: the build notice (CI's php job runs unbuilt) goes through wp_kses. */
 function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; }
+/* Story 27: the tab-hash guard prints inline under the tab bar. */
+function wp_print_inline_script_tag($data, $attributes = []) { echo "<script>$data</script>"; }
 function admin_url($p = '') { return '/wp-admin/' . $p; }
 function settings_fields($g) { echo "<!-- settings_fields:$g -->"; }
 function settings_errors($setting = '', $sanitize = false, $hide_on_update = false) { $GLOBALS['tw_settings_errors_for'][] = $setting; }
@@ -590,6 +592,84 @@ check('Custom: previews hidden', $is_hidden($tag_of($html, 'pqm_profile_text')) 
 check('Custom: wrappers shown', !$is_hidden($tag_of($html, 'pqm_context_field')) && !$is_hidden($tag_of($html, 'pqm_voice_field')));
 check('Custom: context description names the empty default', strpos($html, 'Empty: the AI assumes "a general audience blog".') !== false);
 check('Custom: standards description names the empty default', strpos($html, 'Empty: the AI falls back to "professional yet accessible, active voice".') !== false);
+$GLOBALS['tw_settings'] = [];
+
+/* Story 27: the Settings tabs — which tabs per role and plan, each heading in its panel */
+echo "Settings tabs (story 27)\n";
+$headings = [
+    'License' => '>License</h2>', 'n8n Connection' => '>n8n Connection</h2>', 'AI Model' => '>AI Model</h2>',
+    'AI Prompts & Context' => '>AI Prompts & Context</h2>', 'Agent-Specific Overrides' => '>Agent-Specific Overrides',
+    'Automated Reviews' => '>Automated Reviews (Cron)', 'Monthly Quota' => '>Monthly Quota</h2>',
+];
+/** slug => the panel's HTML, from its opening tag to the next panel or the submit button. */
+function tab_panels(string $html): array {
+    preg_match_all('/<div class="pqm-tab-panel(?: is-active)?" id="pqm-panel-([a-z]+)">/', $html, $m, PREG_OFFSET_CAPTURE);
+    $panels = [];
+    foreach ($m[1] as $i => [$slug]) {
+        $from = $m[0][$i][1];
+        $to = $m[0][$i + 1][1] ?? strpos($html, '<input type="submit" />');
+        $panels[$slug] = substr($html, $from, $to - $from);
+    }
+    return $panels;
+}
+$tab_cases = [
+    'Admin'         => [$admin_caps, ['connection' => ['License', 'n8n Connection'],
+        'ai' => ['AI Model', 'AI Prompts & Context', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'], 'usage' => ['Monthly Quota']]],
+    'Editor'        => [$editor_caps, ['ai' => ['Agent-Specific Overrides'], 'automation' => ['Automated Reviews']]],
+    'Settings-only' => [['pqm_manage_settings'], ['connection' => ['License', 'n8n Connection'],
+        'ai' => ['AI Model', 'AI Prompts & Context'], 'usage' => ['Monthly Quota']]],
+];
+foreach ($tab_cases as $who => [$caps, $expect]) {
+    foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
+        $html   = render_for($caps, $pro);
+        $panels = tab_panels($html);
+        $slugs  = array_keys($expect);
+        preg_match_all('/<a href="#tab-([a-z]+)" id="pqm-tab-\1" class="nav-tab( nav-tab-active)?">/', $html, $m);
+        check("$who, $plan: tabs " . implode(', ', $slugs) . ', panels the same, in order', $m[1] === $slugs && array_keys($panels) === $slugs);
+        check("$who, $plan: the first tab and only its panel start active",
+            $m[2] === array_merge([' nav-tab-active'], array_fill(0, count($slugs) - 1, ''))
+            && substr_count($html, 'pqm-tab-panel is-active') === 1 && str_contains($html, '<div class="pqm-tab-panel is-active" id="pqm-panel-' . $slugs[0] . '">'));
+        check("$who, $plan: the hash guard names the first tab and sits before the panels",
+            ($guard = strpos($html, 'location.hash !== "#tab-' . $slugs[0] . '"')) !== false
+            && $guard < strpos($html, 'class="pqm-tab-panel'));
+        $want = $placed = [];
+        foreach ($expect as $slug => $names) { foreach ($names as $name) { $want[$name] = $slug; } }
+        foreach ($headings as $name => $needle) {
+            $in = array_keys(array_filter($panels, static fn($p) => str_contains($p, $needle)));
+            if ($in || str_contains($html, $needle)) { $placed[$name] = count($in) === 1 && substr_count($html, $needle) === 1 ? $in[0] : 'misplaced'; }
+        }
+        ksort($want);
+        ksort($placed);
+        check("$who, $plan: each heading sits once, in its panel; the others are absent", $placed === $want);
+        check("$who, $plan: no empty panel, each one closed before the next",
+            array_filter($panels, static fn($p, $slug) => str_contains($p, '<h2') && substr_count($p, '<div') === substr_count($p, '</div>')
+                && str_ends_with(rtrim($p), "</div><!-- #pqm-panel-$slug -->"), ARRAY_FILTER_USE_BOTH) === $panels);
+        $anchors = array_intersect_key(['AI Prompts & Context' => 'pqm-context-settings',
+            'Automated Reviews' => 'pqm-cron-settings', 'Monthly Quota' => 'pqm-quota-settings'], $want);
+        check("$who, $plan: the deep-link anchors sit in their sections' panels", array_filter($anchors,
+            static fn($id, $name) => str_contains($panels[$want[$name]] ?? '', "id=\"$id\""), ARRAY_FILTER_USE_BOTH) === $anchors);
+        if (isset($expect['automation'])) {
+            /** Whether the panel holds one locked fieldset that also closes inside it. */
+            $locked_in = static function (string $p) use ($locked_fieldset): bool {
+                $open = strpos($p, $locked_fieldset);
+                return substr_count($p, $locked_fieldset) === 1 && strpos($p, '</fieldset>', $open) !== false;
+            };
+            check("$who, $plan: " . ($pro ? 'no locked fieldset' : 'the Overrides lock sits in AI, the Cron lock in Automation'), $pro
+                ? !str_contains($html, $locked_fieldset)
+                : substr_count($html, $locked_fieldset) === 2 && $locked_in($panels['ai']) && $locked_in($panels['automation']));
+        }
+    }
+}
+check('tab labels: Connection, AI, Automation, Usage & Limits',
+    preg_match_all('/class="nav-tab(?: nav-tab-active)?">([^<]+)<\/a>/', render_for($admin_caps, true), $m) === 4
+    && $m[1] === ['Connection', 'AI', 'Automation', 'Usage & Limits']);
+$css = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/css/pqm-admin.css');
+preg_match_all('/^([^{}\n]*\.pqm-tab-panel[^{]*)\{[^}]*display:\s*none/m', $css, $m);
+// .pqm-tabs-pending is set only by the inline script, so it is JS-only too.
+check('JS off: the tab bar hides (.no-js) and panels hide only under .js or .pqm-tabs-pending', str_contains($css, '.no-js .pqm-tabs { display: none; }')
+    && $m[1] !== [] && array_filter($m[1], static fn($sel) => str_starts_with(trim($sel), '.js ')
+        || str_starts_with(trim($sel), '.pqm-tabs-pending ')) === $m[1]);
+check('n8n Workflow page: the Settings link opens the AI tab', str_contains($render_workflow([]), 'href="/wp-admin/admin.php?page=pqm-settings#tab-ai"'));
 $GLOBALS['tw_settings'] = [];
 
 echo "\n$pass passed, $fail failed\n";

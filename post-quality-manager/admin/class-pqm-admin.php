@@ -548,6 +548,19 @@ class PQM_Admin
         $can_manage_settings = current_user_can('pqm_manage_settings');
         $can_manage_agents = current_user_can('pqm_manage_agents');
         $is_pro = PQM_Features::is_pro();
+        // Story 27: tabs over the one form (pqm-admin.js switches them, so
+        // every save still posts every section). A tab exists only when one
+        // of its sections renders; the server marks the first one active.
+        $tabs = array_filter([
+            'connection' => $can_manage_settings ? __('Connection', 'post-quality-manager') : '',
+            'ai'         => $can_manage_settings || $can_manage_agents ? __('AI', 'post-quality-manager') : '',
+            'automation' => $can_manage_agents ? __('Automation', 'post-quality-manager') : '',
+            'usage'      => $can_manage_settings ? __('Usage & Limits', 'post-quality-manager') : '',
+        ]);
+        $first_tab = array_key_first($tabs);
+        $panel_open = static function (string $slug) use ($first_tab): void {
+            printf('<div class="pqm-tab-panel%s" id="pqm-panel-%s">', $slug === $first_tab ? ' is-active' : '', esc_attr($slug));
+        };
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
@@ -573,10 +586,27 @@ class PQM_Admin
             </div>
             <?php endif; ?>
 
+            <?php // Hidden without JS (.no-js): every section then shows. ?>
+            <nav class="nav-tab-wrapper pqm-tabs" aria-label="<?php esc_attr_e('Settings sections', 'post-quality-manager'); ?>">
+                <?php foreach ($tabs as $slug => $tab_label): ?>
+                <a href="#tab-<?php echo esc_attr($slug); ?>" id="pqm-tab-<?php echo esc_attr($slug); ?>" class="nav-tab<?php echo $slug === $first_tab ? ' nav-tab-active' : ''; ?>"><?php echo esc_html($tab_label); ?></a>
+                <?php endforeach; ?>
+            </nav>
+            <?php
+            // The server can't see the hash, so it marks the first tab active.
+            // When the hash names another, hide every panel until
+            // pqm-admin.js (footer) opens the right one, instead of painting
+            // the first panel and then swapping it.
+            wp_print_inline_script_tag(sprintf(
+                'if (location.hash && location.hash !== %s) document.documentElement.classList.add("pqm-tabs-pending");',
+                wp_json_encode('#tab-' . $first_tab)
+            ));
+            ?>
+
             <form method="post" action="options.php">
                 <?php settings_fields('pqm_settings_group'); ?>
 
-                <?php if ($can_manage_settings): ?>
+                <?php if ($can_manage_settings): $panel_open('connection'); ?>
                 <!-- License (CAP-2: the key is the only plan switch — same zip) -->
                 <h2><?php esc_html_e('License', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php
@@ -638,7 +668,11 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                </div><!-- #pqm-panel-connection -->
+                <?php endif; // pqm_manage_settings ?>
 
+                <?php if (isset($tabs['ai'])): $panel_open('ai'); ?>
+                <?php if ($can_manage_settings): ?>
                 <!-- AI Model -->
                 <h2 class="pqm-section-gap"><?php esc_html_e('AI Model', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php esc_html_e('Which Claude model runs your commands. Model changes apply on the next command — no n8n re-import needed.', 'post-quality-manager'); ?></p>
@@ -671,7 +705,7 @@ class PQM_Admin
                 </table>
 
                 <!-- AI Prompts & Context -->
-                <h2 class="pqm-section-gap"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
+                <h2 id="pqm-context-settings" class="pqm-section-gap"><?php esc_html_e('AI Prompts & Context', 'post-quality-manager'); ?></h2>
                 <p class="pqm-context-intro"><?php esc_html_e('Your Blog Profile and Editorial Standards are sent with your AI commands, so reviews and rewrites fit your site. A preset sends the text shown under it; choose Custom to write your own.', 'post-quality-manager'); ?></p>
                 <div class="notice notice-info inline pqm-inline-notice">
                     <p><strong><?php esc_html_e('Agnostic Scoring Framework', 'post-quality-manager'); ?></strong></p>
@@ -885,7 +919,11 @@ class PQM_Admin
                     </details>
                 <?php endforeach; ?>
                 <?php if (!$is_pro): ?></fieldset><?php endif; ?>
+                <?php endif; // pqm_manage_agents ?>
+                </div><!-- #pqm-panel-ai -->
+                <?php endif; // AI tab ?>
 
+                <?php if ($can_manage_agents): $panel_open('automation'); ?>
                 <!-- Automated Reviews (paid: locked, not hidden, on a free site) -->
                 <?php
                 // Ticket 13: while stored cron is on, a free site keeps the
@@ -985,9 +1023,10 @@ class PQM_Admin
                     </tr>
                 </table>
                 <?php if (!$is_pro): ?></fieldset><?php endif; ?>
+                </div><!-- #pqm-panel-automation -->
                 <?php endif; // pqm_manage_agents ?>
 
-                <?php if ($can_manage_settings): ?>
+                <?php if ($can_manage_settings): $panel_open('usage'); ?>
                 <!-- Author Quota -->
                 <h2 id="pqm-quota-settings" class="pqm-section-gap"><?php esc_html_e('Monthly Quota', 'post-quality-manager'); ?></h2>
                 <table class="form-table">
@@ -1001,6 +1040,7 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                </div><!-- #pqm-panel-usage -->
                 <?php endif; // pqm_manage_settings ?>
 
                 <?php submit_button(); ?>
@@ -1047,7 +1087,7 @@ class PQM_Admin
         $settings     = pqm_get_settings();
         $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
         $import_url   = self::workflow_import_url();
-        $settings_url = admin_url('admin.php?page=pqm-settings');
+        $settings_url = admin_url('admin.php?page=pqm-settings#tab-ai'); // the model changes it names
         $seen_version = (int) get_option('pqm_workflow_version_seen', 0);
         $registry     = pqm_model_registry();
 ?>

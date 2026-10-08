@@ -509,5 +509,73 @@ setup(['pqm_manage_agents'], true, array_merge($stored_option, ['n8n_webhook_url
 PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://other.example.com/webhook/x']);
 check('Editor save (URL carried, not posted): no notice', $GLOBALS['pqm_test_settings_errors'] === []);
 
+/* ─── Case 14 (story 27): the tabs share one form — a save from any tab
+       posts every section, so the other tabs' keys stay as stored ────── */
+echo "\nCase 14: save from one tab — every key outside it === stored\n";
+/**
+ * The POST a pro site's Settings form sends, rendered from the stored values
+ * $s: every section ($agents_only = the Editor's two sections). Disabled
+ * knobs and options do not post, an unchecked checkbox posts nothing.
+ */
+function form_post(array $s, bool $agents_only = false): array {
+    $post = [];
+    if (!$agents_only) {
+        foreach (['license_key', 'n8n_webhook_url', 'webhook_token', 'notification_url', 'default_model', 'custom_model',
+                  'blog_profile', 'brand_voice_preset', 'website_context', 'brand_voice', 'author_quota'] as $key) {
+            $post[$key] = (string) $s[$key];
+        }
+    }
+    foreach ($s['agent_prompts'] as $agent => $a) {
+        $caps = pqm_model_caps(pqm_effective_model($agent, $s));
+        $row  = ['model' => $a['model'], 'instructions' => $a['instructions']];
+        if (in_array($a['effort'], $caps['effort_levels'], true)) { $row['effort'] = $a['effort']; }
+        if ($caps['supports_temperature']) { $row['temperature'] = number_format((float) $a['temperature'], 1); }
+        if (isset($a['pattern'])) { $row['pattern'] = (string) $a['pattern']; }
+        $post['agent_prompts'][$agent] = $row;
+    }
+    if ($s['cron_enabled']) { $post['cron_enabled'] = '1'; }
+    foreach (['cron_frequency', 'cron_batch_size', 'cron_command', 'cron_min_score', 'cron_max_age_days'] as $key) {
+        $post[$key] = (string) $s[$key];
+    }
+    return $post;
+}
+$TABS = [
+    'connection' => ['license_key', 'n8n_webhook_url', 'webhook_token', 'notification_url'],
+    'ai'         => ['default_model', 'custom_model', 'blog_profile', 'brand_voice_preset', 'brand_voice', 'website_context', 'agent_prompts'],
+    'automation' => $CRON_KEYS,
+    'usage'      => ['author_quota'],
+];
+$tab_keys = array_merge(...array_values($TABS));
+sort($tab_keys);
+$all_keys = array_keys(pqm_default_settings());
+sort($all_keys);
+check('every settings key sits in exactly one tab', $tab_keys === $all_keys);
+foreach ([
+    'Admin'  => [['pqm_manage_agents', 'pqm_manage_settings'], false, [
+        'connection' => [['notification_url' => ''], static fn($o) => $o['notification_url'] === ''],
+        'ai'         => [['blog_profile' => 'marketing'], static fn($o) => $o['blog_profile'] === 'marketing'],
+        'automation' => [['cron_batch_size' => '3'], static fn($o) => $o['cron_batch_size'] === 3],
+        'usage'      => [['author_quota' => '30'], static fn($o) => $o['author_quota'] === 30],
+    ]],
+    'Editor' => [['pqm_manage_agents'], true, [
+        'ai'         => [['agent_prompts' => ['seo' => ['instructions' => 'editor seo']]],
+                         static fn($o) => $o['agent_prompts']['seo']['instructions'] === 'editor seo'],
+        'automation' => [['cron_frequency' => 'daily'], static fn($o) => $o['cron_frequency'] === 'daily'],
+    ]],
+] as $who => [$caps, $agents_only, $edits]) {
+    setup($caps, true, $stored_option);
+    $stored = pqm_get_settings();
+    $out = PQM_Admin::sanitize_settings(form_post($stored, $agents_only));
+    check("$who, pro: the untouched form saves every key as stored",
+        array_filter($all_keys, static fn($key) => $out[$key] === $stored[$key]) === $all_keys);
+    foreach ($edits as $tab => [$change, $applied]) {
+        $out = PQM_Admin::sanitize_settings(array_replace_recursive(form_post($stored, $agents_only), $change));
+        $outside = array_merge(...array_values(array_diff_key($TABS, [$tab => true])));
+        $same = array_filter($outside, static fn($key) => $out[$key] === $stored[$key]);
+        check("$who, pro, one field changed in $tab: applied", $applied($out));
+        check("$who, pro, one field changed in $tab: every key outside it === stored", $same === $outside);
+    }
+}
+
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);
