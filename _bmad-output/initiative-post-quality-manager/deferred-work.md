@@ -47,3 +47,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/story-ai-prompts-context-ux-review-plan.md`
   summary: The AGENTS.md managed block still states the replaced rule "every preset must stay editable and an explicit 'Custom' path visible (memory/lessons.md 2026-07-23)" while story 26 made presets read-only choices with Custom as the one editable path.
   evidence: Story 26 quick review. AGENTS.md wins over `_bmad/custom/minimal-code-ladder.md` (already updated), so the stale line governs the next build until `bmad-project-context` refreshes the block; agent-context files are not edited inside a build.
+
+- source_plan: `_bmad-output/backlog/story-upgrade-release-notes-pack-plan.md`
+  summary: Record story 15's Definition of Done clause (one line in `docs/release-notes/unreleased.md` for any change existing sites meet without being told) through `bmad-project-context refresh`, since it was hand-edited inside AGENTS.md's managed block.
+  evidence: AGENTS.md:4 says edits inside the block are replaced on refresh, and memory/bmad-setup.md forbids hand-edits inside the markers; the clause also lives in `_bmad/custom/bmad-build.toml`, so builds keep it either way. The refresh is already owed (provenance line still "Verified 2026-10-07 against ff81abd").
