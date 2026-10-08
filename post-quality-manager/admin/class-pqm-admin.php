@@ -577,7 +577,7 @@ class PQM_Admin
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
 
-            <?php if (!empty($_GET['settings-updated'])): ?>
+            <?php if (!empty($_GET['settings-updated'])): // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- core's redirect flag after options.php saves; it only shows a notice. ?>
             <!-- Custom save notice: settings ride the webhook payload, so no n8n re-import is ever needed. -->
             <div class="notice notice-success is-dismissible">
                 <p><?php esc_html_e('Settings saved — they apply on the next command. No n8n re-import needed.', 'post-quality-manager'); ?></p>

@@ -119,6 +119,7 @@ $wpdb = new class {
         return array_diff($this->statuses, ['', 'processing', 'error']) ? '1' : null;
     }
     public function query($sql) { return true; }
+    public function prepare($sql, ...$args) { return $sql; }
 };
 
 /** Fresh site state: only what the test names is stored (options, review row statuses). */

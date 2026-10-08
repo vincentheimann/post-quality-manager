@@ -206,8 +206,8 @@ $p = null;
 foreach ($wpdb->prepared as $q) {
     if (strpos($q['sql'], 'ORDER BY reviewed_at DESC LIMIT %d') !== false) { $p = $q; }
 }
-check('query is post_id = %d ... ORDER BY reviewed_at DESC LIMIT %d', $p !== null && strpos($p['sql'], 'WHERE post_id = %d') !== false);
-check('prepared with [7, 50]', $p !== null && $p['args'] === [7, 50]);
+check('query is FROM %i WHERE post_id = %d ... ORDER BY reviewed_at DESC LIMIT %d', $p !== null && strpos($p['sql'], 'FROM %i WHERE post_id = %d') !== false);
+check('prepared with [wp_pqm_reviews, 7, 50]', $p !== null && $p['args'] === ['wp_pqm_reviews', 7, 50]);
 
 /* Row: no reviews — 200 with an empty array */
 echo "No reviews\n";

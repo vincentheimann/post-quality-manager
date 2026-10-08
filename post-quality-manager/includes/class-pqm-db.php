@@ -55,7 +55,8 @@ class PQM_DB {
 
         return $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT * FROM {$table} WHERE post_id = %d ORDER BY reviewed_at DESC LIMIT %d",
+                'SELECT * FROM %i WHERE post_id = %d ORDER BY reviewed_at DESC LIMIT %d',
+                $table,
                 $post_id,
                 $limit
             ),
@@ -304,7 +305,7 @@ class PQM_DB {
                 {$having_sql}
             ) AS counted
         ";
-        $total = (int) $wpdb->get_var( $count_sql ); // phpcs:ignore WordPress.DB.PreparedSQL
+        $total = (int) $wpdb->get_var( $count_sql ); // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant.
 
         $pages  = (int) ceil( $total / $args['per_page'] );
         $offset = ( $args['page'] - 1 ) * $args['per_page'];
@@ -329,7 +330,7 @@ class PQM_DB {
             LIMIT %d OFFSET %d
         ";
 
-        $items = $wpdb->get_results(
+        $items = $wpdb->get_results( // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant; ORDER BY comes from $order_map.
             $wpdb->prepare( $items_sql, $args['per_page'], $offset ), // phpcs:ignore WordPress.DB.PreparedSQL
             ARRAY_A
         ) ?: [];
@@ -361,7 +362,7 @@ class PQM_DB {
             GROUP BY lr.status
         ";
 
-        $rows = $wpdb->get_results( $sql, ARRAY_A ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL
+        $rows = $wpdb->get_results( $sql, ARRAY_A ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- no input: table names and constants only.
 
         $counts = [
             'all'            => 0,
@@ -408,14 +409,18 @@ class PQM_DB {
         $table = self::table_name();
 
         $rows = $wpdb->get_results(
-            "SELECT r.post_id, r.overall_score, r.status, r.reviewed_at
-             FROM {$table} r
-             INNER JOIN {$wpdb->posts} p ON p.ID = r.post_id
-             WHERE r.command = 'review' AND r.status <> 'processing'
-               AND p.post_status IN ('publish', 'pending') AND p.post_type = 'post'
-             ORDER BY r.reviewed_at ASC",
+            $wpdb->prepare(
+                "SELECT r.post_id, r.overall_score, r.status, r.reviewed_at
+                 FROM %i r
+                 INNER JOIN %i p ON p.ID = r.post_id
+                 WHERE r.command = 'review' AND r.status <> 'processing'
+                   AND p.post_status IN ('publish', 'pending') AND p.post_type = 'post'
+                 ORDER BY r.reviewed_at ASC",
+                $table,
+                $wpdb->posts
+            ),
             ARRAY_A
-        ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL
+        ) ?: [];
 
         $now    = time();
         $latest = []; // post_id => latest row as of the current week end

@@ -309,7 +309,7 @@ check('handler action matches PQM_View_As::ACTION', PQM_View_As::ACTION === 'pqm
 echo "Uninstall — no pqm_view_as meta remains\n";
 define('WP_UNINSTALL_PLUGIN', true);
 $GLOBALS['tw_metadata_deletes'] = [];
-$GLOBALS['wpdb'] = new class { public $prefix = 'wp_'; public function query($q) { return true; } };
+$GLOBALS['wpdb'] = new class { public $prefix = 'wp_'; public function query($q) { return true; } public function prepare($q, ...$a) { return $q; } };
 function delete_option($k) { return true; }
 function delete_metadata(...$a) { $GLOBALS['tw_metadata_deletes'][] = $a; return true; }
 function get_users($args) { return []; }
