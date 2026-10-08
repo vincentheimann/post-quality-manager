@@ -3,7 +3,7 @@ title: 'An Administrator sets each role''s plugin rights on a Roles tab, and Vie
 type: 'feature'
 ticket: '42'
 created: '2026-10-08'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

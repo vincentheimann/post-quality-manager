@@ -1,7 +1,7 @@
 # tickets.toml — agreed stories of epic-delivery-pipeline, in build order (table order).
 # Incepted 2026-10-07 from spec-delivery-pipeline (CAP-1…CAP-7). Lanes: 1 → 2, 6 (release/CI wiring and the
 # plugin header); 3 and 4 beside it (own harness file / own workflow file); 5 after 2, 4, 6 (fixes may touch
-# any plugin file); 7 sweeps; 8 cuts 3.0.0 after the sweep. Backlog story 15 gates 8 in prose (see the epic's Notes),
+# any plugin file); 7 sweeps; 9 readies the repository to go public; 8 is the first public release after both. Backlog story 15 gates 8 in prose (see the epic's Notes),
 # and backlog story 10 (naming decision) gates 6 in prose: the text domain is the slug (/prioritize 2026-10-08).
 
 [[entry]]
@@ -91,13 +91,25 @@ risk = "low"
 unknown = "Scope is set at start."
 
 [[entry]]
-id = 8
+id = 9
 type = "story"
-title = "Release 3.0.0 is published"
-description = "The owner merges the open release PR once backlog story 15 has committed docs/release-notes/3.0.0.md; the release workflow publishes GitHub Release v3.0.0 with post-quality-manager-3.0.0.zip and the notes in its body; the zip is installed on the clean WordPress 6.6 site from entry 1; the temporary 3.0.0 bootstrap pin is removed; README.md installation steps and docs/user-paths.md A3 say 'download the zip from GitHub Releases' (UV7 groundwork becomes CV)."
-verify = "GitHub Release v3.0.0 exists with post-quality-manager-3.0.0.zip and the release notes; the zip installs and activates with WP_DEBUG on and no notices on the clean site showing 3.0.0; the next feat: merge opens a release PR proposing 3.1.0."
-covers = ["CAP-1", "CAP-2"]
+title = "The repository is ready to go public"
+description = "Adds a GPL-2.0-or-later LICENSE file at the repository root (the license the plugin header already declares), runs a secret scan over the whole git history and settles every finding with the owner (rotate, then accept or rewrite), and removes the unrelated _archives/turbo-drill/ folder; the owner switches the repository to public only in entry 8."
+verify = "GitHub shows the repository's license as GPL-2.0; the secret scan report over the full history lists no live secret; no file of the turbo-drill project is tracked on main."
+covers = []
 after = [7]
 hitl = true
 risk = "medium"
-unknown = "The merge → draft → version check → publish path runs for real for the first time here."
+unknown = "What the history scan finds; a live secret is rotated first, and a history rewrite is the owner's call, never the agent's."
+
+[[entry]]
+id = 8
+type = "story"
+title = "The first public release is published"
+description = "A launch PR removes \"prerelease\": true from release-please-config.json, sets release-as to the launch version (above every test build released so far) and renames backlog story 15's unreleased notes to docs/release-notes/<version>.md; the owner switches the repository to public and merges the release PR that follows; the release workflow publishes GitHub Release v<version>, not as a pre-release, with post-quality-manager-<version>.zip and the notes in its body; the owner installs the zip on the clean WordPress 6.6 site from entry 1; release-as is removed after the release; README.md installation steps and docs/user-paths.md A3 say 'download the zip from GitHub Releases' (UV7 groundwork becomes CV)."
+verify = "GitHub Release v<version> is reachable without signing in, shown as Latest and not as a pre-release, with the zip and the release notes in its body; the zip installs and activates with WP_DEBUG on and no notices on the clean site showing that version; the next feat: merge opens a release PR proposing the next minor version."
+covers = ["CAP-1", "CAP-2"]
+after = [7, 9]
+hitl = true
+risk = "medium"
+unknown = "The merge → release path runs for the first time without the pre-release flag; the launch version 4.0.0 is set through release-as and must stay above every test build."

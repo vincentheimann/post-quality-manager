@@ -16,7 +16,7 @@ Nothing has ever been released: no tag, no GitHub Release, and `3.0.0` is declar
 
 ## Outcome
 
-Cutting a release is merging one PR, and a broken template, out-of-step versions, a PHP 8.0 parse error or a Plugin Check error never ship; the signal is GitHub Release 3.0.0 carrying a CI-built zip that installs and activates on a clean WordPress 6.6.
+Cutting a release is merging one PR, and a broken template, out-of-step versions, a PHP 8.0 parse error or a Plugin Check error never ship; the signal is the first public GitHub Release carrying a CI-built zip that installs and activates on a clean WordPress 6.6.
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Cutting a release is merging one PR, and a broken template, out-of-step versions
 1. Merging to `main` opens or updates a release PR; merging it creates the tag and the GitHub Release with the CI-built zip attached, release notes from `docs/release-notes/<version>.md` included (CAP-1, CAP-2).
 2. CI fails on a broken workflow template, on plugin versions out of step, on PHP syntax the declared floor 8.0 cannot parse, and on a Plugin Check error (CAP-3, CAP-4, CAP-6, CAP-7).
 3. Translations in the plugin's `languages/` folder load on PHP admin pages and on React pages (CAP-5).
-4. Release 3.0.0 is published on GitHub and its zip installs and activates, with `WP_DEBUG` on and no notices, on a clean WordPress 6.6 (production delivery).
+4. The first public release is published on GitHub and its zip installs and activates, with `WP_DEBUG` on and no notices, on a clean WordPress 6.6 (production delivery).
 
 ## Boundaries
 
@@ -51,5 +51,8 @@ GitHub Actions with `GITHUB_TOKEN` only, the template validator, the version che
 - Decision (owner, 2026-10-07): backlog story 15 gates entry 8 (the owner merges the release PR only after `docs/release-notes/3.0.0.md` is committed); `tickets.py` cannot express a backlog → epic prerequisite, so this line and entry 8's description carry it. Story 15 is also worked after entry 1 — both edit `.claude/skills/release/SKILL.md`.
 - Decision (owner, 2026-10-07): Plugin Check lands in two slices — entry 4 reports (non-blocking) and triages, entry 5 fixes every error and makes the check blocking; "split, never shrink".
 - Decision (owner, 2026-10-07): first release = 3.0.0; release-please draft release published by the release workflow after the version check; release notes as a committed file; no empty `languages/` folder (spec memlog 2026-10-07).
+- Decision (owner, 2026-10-08): 3.0.0 shipped early as a pre-release test build, and every release stays a pre-release until the public launch, so entry 8 becomes the first public release. Story 15 still gates it.
+- Decision (owner, 2026-10-08, story 15 refinement): story 15's notes accumulate in `docs/release-notes/unreleased.md` and `/release` moves them to `docs/release-notes/<version>.md` before the owner merges the launch release PR.
+- Decision (owner, 2026-10-08): the first public release is 4.0.0 (a major: the quota, the role rights and the workflow re-import change existing sites), set through `release-as` in entry 8. The repository goes public in entry 8, because a release on a private repository cannot be downloaded without signing in; entry 9 (LICENSE file, history secret scan, `_archives/turbo-drill/` removed) runs before it, after the sweep.
 - Deferred: the update channel, `readme.txt`, `src/` in the zip vs a repository link, WordPress.org assets — backlog story 38.
 - The 2026-07-23 local prototype of the template check was not committed; entry 3 recreates it.
