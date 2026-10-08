@@ -3,7 +3,7 @@ title: 'The workflow template is guarded in CI'
 type: 'chore'
 ticket: '3'
 created: '2026-10-08'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
