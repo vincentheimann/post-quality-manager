@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.1.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.0.1...v3.1.0) (2026-10-08)
+
+
+### Features
+
+* **i18n:** load translations from the plugin's languages folder ([4092421](https://github.com/vincentheimann/post-quality-manager/commit/409242197aa5815641ae22555a59ecc40c8834a2))
+
 ## [3.0.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.0.0...v3.0.1) (2026-10-08)
 
 
