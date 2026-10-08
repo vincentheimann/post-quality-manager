@@ -3,7 +3,7 @@ title: 'Plugin Check reports in CI'
 type: 'chore'
 ticket: '4'
 created: '2026-10-08'
-status: 'built'
+status: done
 route: 'one-shot'
 route_source: 'auto'
 review: 'quick'
