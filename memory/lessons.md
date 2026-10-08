@@ -62,3 +62,8 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 **What happened:** We initially hardcoded "Neuroscience" and "Marketing" as scoring dimensions in the n8n AI workflow, making the plugin highly specific to one niche. We had to do a massive refactoring to replace them with universally applicable pillars.
 **Root cause:** Overfitting the prompt to the specific use-case of the current website instead of thinking about the plugin as a distributable, agnostic WordPress tool.
 **Rule going forward:** Always build AI prompts and data schemas using universally accepted content pillars (Structure, Readability, Engagement, Credibility). Any niche-specific grading should be handled dynamically via user settings (like the Brand Voice preset), not hardcoded in the core prompts.
+
+## [2026-10-08] — Enumerating an out-of-scope project's files in a walkthrough
+**What happened:** The entry 4.9 walkthrough narrative listed every file name of the deleted `_archives/turbo-drill/` folder as part of the "Archive removal" block. The owner stopped it: that project is out of scope, and only its removal belongs to this one.
+**Root cause:** Treating "what the commit touched" as "what the reviewer needs to see". The ticket asked for the folder to go; its contents were never this project's material, so naming them gives the reviewer nothing and pulls a foreign project into this repo's records.
+**Rule going forward:** When a change removes or quarantines material that belongs to another project, the records of this project (plans, narratives, memory, PR text) name the folder and the count, never its files or contents. Stay scoped to this project's artifacts in every write-up.
