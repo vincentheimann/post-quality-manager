@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-08] — Proposing a repo-settings change before verifying it
+**What happened:** To stop release-please counting each merged PR twice, the agent recommended a GitHub setting ("Default message") that was already the cause. It then asked to PATCH the repo's merge-commit settings to a combination the UI does not offer and the API docs neither allow nor forbid, without having read how release-please parses commits. The owner asked whether it had thought the command through. Reading release-please's source confirmed the mechanism, and showed that an option already enabled (rebase merging) solved the problem without any experiment.
+**Root cause:** Answering from a remembered mental model of GitHub and release-please instead of checking the current setting and the tool's source. Also narrowing the options to the two first framed (squash or merge commit) instead of listing every merge method the repo already allows.
+**Rule going forward:** Before proposing a change to an external system's settings (GitHub repo, Actions, n8n, hosting), read the current value through its API, confirm the mechanism in the tool's docs or source, and list every option that is already available. Never ask to apply a setting combination the documentation does not state as valid; say it is unverified and offer the documented alternative first.
+
 ## [2026-10-07] — Treating presets as text fillers instead of as the setting
 **What happened:** Story 26 built the AI Prompts & Context presets twice as mechanics around an always-visible textarea — first "fill, then Undo", then "fill when empty, otherwise offer Replace / Keep". The owner rejected both: a user picking a profile should not have to reason about text boxes, drafts or undo. The model they want is progressive disclosure — the radio *is* the setting, a selected preset shows its text read-only and muted, and the textarea appears only under Custom.
 **Root cause:** Optimizing the overwrite problem inside the existing control layout instead of asking which control layout removes the problem. Also over-reading the 2026-07-23 rule ("every preset stays editable") as "presets must fill an editable field".
