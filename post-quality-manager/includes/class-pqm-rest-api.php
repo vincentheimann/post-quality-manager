@@ -413,9 +413,10 @@ class PQM_REST_API {
 
         // Remember which template version the running workflow was imported
         // from — the n8n Workflow page compares it against PQM_WORKFLOW_VERSION.
+        // 0 (a v1 import sends none) leaves the last report as it is.
         $wf_version = absint( $request->get_param( 'workflow_version' ) );
-        if ( $wf_version > 0 && $wf_version !== (int) get_option( 'pqm_workflow_version_seen', 0 ) ) {
-            update_option( 'pqm_workflow_version_seen', $wf_version, false );
+        if ( $wf_version > 0 ) {
+            pqm_record_workflow_version( $wf_version, 'command' );
         }
 
         $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
@@ -632,6 +633,10 @@ class PQM_REST_API {
                 [ 'status' => 500 ]
             );
         }
+
+        // n8n is importing it: the last report no longer says what runs
+        // there, so the n8n Workflow page shows "not checked yet" until a ping.
+        delete_option( 'pqm_workflow_version_seen' );
 
         $response = new WP_REST_Response( json_decode( $json ) );
         // Older n8n versions fetch import URLs from the browser, not the server.
@@ -1014,7 +1019,10 @@ class PQM_REST_API {
      * The connect step: save the webhook URL, then ping it — through the
      * same two helpers as the n8n Workflow page's AJAX. A refused URL (empty,
      * n8n test URL) is not stored; a stored URL whose ping fails stays
-     * stored and the step stays open.
+     * stored and the step stays open. A ping that gets through records the
+     * replied workflow version (the URL was just saved) and answers the
+     * page's refreshed `status_html`, plus `outdated` when an older workflow
+     * answered: the step still ticks, the dialog shows a warning (D2).
      */
     public static function setup_connect_callback( WP_REST_Request $request ): WP_REST_Response {
         $url   = (string) $request->get_param( 'webhook_url' );
@@ -1033,13 +1041,23 @@ class PQM_REST_API {
         $progress['steps']['connect'] = $ping['ok'];
         update_option( PQM_SETUP_OPTION, $progress, false );
 
-        return new WP_REST_Response( [
-            'saved'   => true,
-            'ping_ok' => $ping['ok'],
-            'message' => $ping['ok']
-                ? $ping['message']
+        if ( ! $ping['ok'] ) {
+            return new WP_REST_Response( [
+                'saved'   => true,
+                'ping_ok' => false,
                 /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-                : sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] ),
+                'message' => sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] ),
+            ], 200 );
+        }
+
+        pqm_record_workflow_version( $ping['version'], 'test' );
+
+        return new WP_REST_Response( [
+            'saved'       => true,
+            'ping_ok'     => true,
+            'outdated'    => $ping['outdated'],
+            'message'     => $ping['message'],
+            'status_html' => PQM_Admin::render_workflow_status(),
         ], 200 );
     }
 }

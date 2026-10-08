@@ -74,6 +74,11 @@ function wp_schedule_event(...$a) { return true; }
 function wp_clear_scheduled_hook(...$a) {}
 function home_url($p = '') { return 'https://example.com' . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
+/* The workflow version report: written by the ping, read by the status block. */
+function update_option($k, $v, $autoload = null) { $GLOBALS['tw_options'][$k] = $v; return true; }
+function delete_option($k) { unset($GLOBALS['tw_options'][$k]); return true; }
+define('MINUTE_IN_SECONDS', 60);
+function human_time_diff($from, $to = 0) { return round((($to ?: time()) - $from) / 3600) . ' hours'; }
 
 /* Story 23: the Pattern field lists published wp_block posts holding a List. */
 $GLOBALS['tw_patterns'] = []; // id => [title, status, content]
@@ -418,14 +423,23 @@ $GLOBALS['tw_settings'] = [];
 
 /* Story 35: the ping — executed through ajax_test_connection() */
 echo "Test ping — test URL refused, token header sent (story 35)\n";
-class PQM_Json_Exit extends Exception { public function __construct(public bool $ok, public $data) { parent::__construct(); } }
-function check_ajax_referer(...$a) { return true; }
+class PQM_Json_Exit extends Exception { public function __construct(public bool $ok, public $data, public $status = null) { parent::__construct(); } }
+/* Records the nonce action; a bad nonce dies like core's (-1, HTTP 403) before any payload. */
+function check_ajax_referer($action = -1, ...$a) {
+    $GLOBALS['tw_referer'][] = $action;
+    if (!empty($GLOBALS['tw_bad_nonce'])) { throw new PQM_Json_Exit(false, -1, 403); }
+    return true;
+}
 function wp_unslash($v) { return $v; }
-function wp_send_json_error($data = null, $status = null) { throw new PQM_Json_Exit(false, $data); }
-function wp_send_json_success($data = null, $status = null) { throw new PQM_Json_Exit(true, $data); }
+function wp_send_json_error($data = null, $status = null) { throw new PQM_Json_Exit(false, $data, $status); }
+function wp_send_json_success($data = null, $status = null) { throw new PQM_Json_Exit(true, $data, $status); }
 function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
-function wp_remote_post($url, $args) { $GLOBALS['tw_pings'][] = [$url, $args]; return ['response' => ['code' => $GLOBALS['tw_ping_code'] ?? 200]]; }
+function wp_remote_post($url, $args) {
+    $GLOBALS['tw_pings'][] = [$url, $args];
+    return $GLOBALS['tw_ping_error'] ?? ['response' => ['code' => $GLOBALS['tw_ping_code'] ?? 200], 'body' => $GLOBALS['tw_ping_body'] ?? ''];
+}
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
+function wp_remote_retrieve_body($r) { return $r['body']; }
 if (!class_exists('WP_Error')) {
     class WP_Error {
         public function __construct(public $code = '', public $message = '', public $data = null) {}
@@ -463,17 +477,154 @@ foreach ([401, 403] as $code) {
         && $r->data === "n8n refused the webhook credential (HTTP $code). In n8n, open the Webhook Trigger's Header Auth credential: its Name must be X-PQM-Token and its Value this site's webhook token. Then try again.");
 }
 $GLOBALS['tw_ping_code'] = 200;
-$proved = 'this site reaches n8n and the webhook credential is right';
-foreach ([0 => true, PQM_WORKFLOW_VERSION => true, 1 => false, PQM_WORKFLOW_VERSION - 1 => false] as $seen => $credential_proved) {
-    $GLOBALS['tw_options'] = $seen ? ['pqm_workflow_version_seen' => $seen] : [];
-    $r = ping($prod);
-    check($credential_proved
-        ? "2xx, version seen $seen: says the credential is right"
-        : "2xx, version seen $seen (pre-v4 import): reachability only, points to re-importing",
-        $r->ok === true && ($credential_proved
-            ? str_contains($r->data, $proved)
-            : !str_contains($r->data, $proved) && str_contains($r->data, 'download or re-import it on the n8n Workflow page')));
+$GLOBALS['tw_options'] = [];
+$_POST = [];
+$GLOBALS['tw_settings'] = [];
+
+/* Workflow version handshake (v5): the status block and the ping that refreshes it */
+echo "Workflow version status and the ping handshake\n";
+$status_of = static function (string $html): string {
+    return preg_match('/<div class="pqm-workflow-status">.*?<p class="description">.*?<\/p>\s*<\/div>/s', $html, $m) ? $m[0] : '';
+};
+$notice = 'Workflow update available.';
+$saved  = 'https://n8n.example/webhook'; // the stub's stored n8n_webhook_url
+$seen   = static fn() => $GLOBALS['tw_options']['pqm_workflow_version_seen'] ?? null;
+
+/* Row: fresh / just served — option absent */
+$GLOBALS['tw_options'] = [];
+$page = $render_workflow([]);
+$block = $status_of($page);
+$island = max((int) strpos($page, 'id="pqm-setup-root"'), (int) strpos($page, 'This page has not been built yet.')); // built or not
+check('fresh: one status block, right under the setup island, before Workflow File',
+    $block !== '' && substr_count($page, 'class="pqm-workflow-status"') === 1 && $island > 0
+    && $island < strpos($page, 'pqm-workflow-status') && strpos($page, 'pqm-workflow-status') < strpos($page, 'Workflow File</h2>'));
+check('fresh: "not checked yet — send a test ping", no notice', !str_contains($block, $notice)
+    && str_contains($block, 'Template version: ' . PQM_WORKFLOW_VERSION . ' · Your n8n workflow: not checked yet — send a test ping once it is imported and active.'));
+check('the page renders the block through the one renderer', str_contains($page, PQM_Admin::render_workflow_status()));
+
+/* Row: legacy int option from a pre-v5 plugin — notice for N < current, no time */
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
+$block = PQM_Admin::render_workflow_status();
+check('legacy int ' . (PQM_WORKFLOW_VERSION - 1) . ': notice, "version N, reported by a command", no time',
+    str_contains($block, $notice) && str_contains($block, 'Your n8n workflow: version ' . (PQM_WORKFLOW_VERSION - 1) . ', reported by a command.')
+    && !str_contains($block, 'ago') && !str_contains($block, 'just now'));
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => (string) PQM_WORKFLOW_VERSION];
+check('legacy int = current (stored as a string by WP): no notice', !str_contains(PQM_Admin::render_workflow_status(), $notice));
+
+/* Row: a command's report, hours old */
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200]];
+$block = PQM_Admin::render_workflow_status();
+check('command report, 2 h old: "checked 2 hours ago by a command", no notice', !str_contains($block, $notice)
+    && str_contains($block, 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked 2 hours ago by a command.'));
+
+/* Row: ping, v5 reply, saved URL — starting from the "update available" state */
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
+check('before the ping: the notice shows', str_contains($status_of($render_workflow([])), $notice));
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
+$r = ping(''); // the n8n Workflow page sends no URL: the saved one is pinged
+$report = $seen();
+check('v5 reply, saved URL: pinged the saved URL, stored {5, via test, at now}', $GLOBALS['tw_pings'][0][0] === $saved
+    && is_array($report) && $report['version'] === PQM_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
+check('v5 reply: message says reachable, credential right, workflow up to date', $r->ok === true
+    && $r->data['message'] === 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.');
+check('v5 reply: outdated false (the page shows a success)', ($r->data['outdated'] ?? null) === false);
+check('v5 reply: status_html = the renderer\'s block, notice gone, "version 5, checked just now by a test ping"',
+    ($r->data['status_html'] ?? '') === PQM_Admin::render_workflow_status() && !str_contains($r->data['status_html'], $notice)
+    && str_contains($r->data['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.'));
+$r = ping($saved);
+check('Settings field holding the saved URL: recorded too, status_html sent', $r->ok === true && isset($r->data['status_html']) && $seen()['via'] === 'test');
+
+/* Row: ping, older reply (v1–v4: n8n's default body, or not JSON) */
+foreach (['n8n default body' => '{"message":"Workflow was started"}', 'non-JSON body' => 'Workflow was started', 'empty body' => ''] as $label => $body) {
+    $GLOBALS['tw_options'] = [];
+    $GLOBALS['tw_ping_body'] = $body;
+    $r = ping('');
+    check("older reply ($label): stored {0, via test}", ($seen()['version'] ?? null) === 0 && $seen()['via'] === 'test');
+    check("older reply ($label): reachability only, points to re-importing, never claims the credential",
+        $r->ok === true && !str_contains($r->data['message'], 'credential')
+        && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, then send another ping.');
+    check("older reply ($label): outdated true (the page shows a warning, not a success)", ($r->data['outdated'] ?? null) === true);
+    check("older reply ($label): status_html shows the notice and \"an older version\"",
+        str_contains($r->data['status_html'], $notice)
+        && str_contains($r->data['status_html'], 'Your n8n workflow: an older version that does not report its number, checked just now by a test ping.'));
 }
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERSION - 1) . '}';
+$r = ping('');
+check('reply with an older number: older-version message, the notice, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
+    && str_contains($r->data['message'], 'an older version') && str_contains($r->data['status_html'], $notice) && $r->data['outdated'] === true);
+
+/* Row: ping, unsaved URL (Settings field ≠ saved) — message only */
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
+$r = ping('https://other.example/webhook/pqm-execute');
+check('unsaved URL: up-to-date message, outdated false, nothing stored, no status_html', $r->ok === true
+    && str_contains($r->data['message'], 'your workflow is up to date') && !isset($r->data['status_html']) && $r->data['outdated'] === false
+    && $seen() === PQM_WORKFLOW_VERSION - 1);
+
+/* Row: ping fails — messages unchanged, nothing stored */
+$before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
+foreach ([401, 403, 404, 500] as $code) {
+    $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $before];
+    $GLOBALS['tw_ping_code'] = $code;
+    $r = ping('');
+    check("ping fails (HTTP $code): error string, nothing stored", $r->ok === false && is_string($r->data) && $seen() === $before);
+}
+$GLOBALS['tw_ping_code'] = 200;
+$GLOBALS['tw_ping_error'] = new WP_Error('http_request_failed', 'cURL error 28: Operation timed out');
+$r = ping('');
+check('ping fails (WP_Error): "Could not connect" string, nothing stored',
+    $r->ok === false && $r->data === 'Could not connect to n8n: cURL error 28: Operation timed out' && $seen() === $before);
+unset($GLOBALS['tw_ping_error'], $GLOBALS['tw_ping_body']);
+
+/* Row: tab regains focus — ajax_workflow_status() answers the block, never pings (D1) */
+$status_read = static function (): PQM_Json_Exit {
+    $GLOBALS['tw_pings'] = [];
+    $GLOBALS['tw_referer'] = [];
+    try { PQM_Admin::ajax_workflow_status(); } catch (PQM_Json_Exit $e) { return $e; }
+    return new PQM_Json_Exit(false, 'no response sent');
+};
+$stored = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200];
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $stored];
+$r = $status_read();
+check('status read: checks the page nonce (pqm_admin_action)', $GLOBALS['tw_referer'] === ['pqm_admin_action']);
+check('status read: answers {status_html} = the renderer\'s block, nothing else', $r->ok === true
+    && $r->data === ['status_html' => PQM_Admin::render_workflow_status()] && str_contains($r->data['status_html'], 'checked 2 hours ago by a command'));
+check('status read: never pings n8n, writes nothing', $GLOBALS['tw_pings'] === [] && $GLOBALS['tw_options'] === ['pqm_workflow_version_seen' => $stored]);
+unset($GLOBALS['tw_options']['pqm_workflow_version_seen']);
+check('status read after a serve (option gone): "not checked yet"', str_contains($status_read()->data['status_html'], 'not checked yet'));
+$GLOBALS['tw']['caps'] = ['pqm_manage_agents', 'pqm_view_reviews'];
+$r = $status_read();
+check('status read without pqm_manage_settings: 403 error, no block', $r->ok === false && $r->status === 403 && is_string($r->data));
+$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$GLOBALS['tw_bad_nonce'] = true;
+$r = $status_read();
+check('status read with a bad or expired nonce: dies (-1, 403) before any block', $r->ok === false && $r->data === -1 && $r->status === 403);
+unset($GLOBALS['tw_bad_nonce']);
+check('the status read is hooked as wp_ajax_pqm_workflow_status, beside the ping',
+    str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php'),
+        "add_action('wp_ajax_pqm_workflow_status', ['PQM_Admin', 'ajax_workflow_status']);"));
+
+/* Row: the webhook URL changes — the report described the old URL's workflow */
+$report = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()];
+$old = ['n8n_webhook_url' => 'https://old.example/webhook/pqm-execute', 'cron_enabled' => false];
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report];
+PQM_Admin::on_settings_updated('pqm_settings', $old, ['n8n_webhook_url' => 'https://new.example/webhook/pqm-execute'] + $old);
+check('settings saved with another webhook URL: report forgotten ("not checked yet")', $seen() === null);
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report];
+PQM_Admin::on_settings_updated('pqm_settings', $old, ['cron_enabled' => true] + $old);
+check('settings saved with the same webhook URL: report kept', $seen() === $report);
+PQM_Admin::on_settings_updated('blogname', 'a', 'b');
+check('another option updated: report untouched', $seen() === $report);
+check('updated_option is hooked with its three args (old and new value)',
+    str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php'),
+        "add_action('updated_option', ['PQM_Admin', 'on_settings_updated'], 10, 3);"));
+
+/* The setup dialog swaps the block after its connect (pqm-admin.js: tests/js/workflow-status.test.js) */
+$steps_js = file_get_contents(dirname(__DIR__, 2) . '/src/setup/steps.js');
+check('the setup dialog replaces .pqm-workflow-status with status_html and warns when outdated',
+    str_contains($steps_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($steps_js, 'outerHTML = data.status_html')
+    && (bool) preg_match("/data\\.outdated \\) \\{\\s*status = 'warning';/", $steps_js));
+
 $GLOBALS['tw_options'] = [];
 $_POST = [];
 $GLOBALS['tw_settings'] = [];
@@ -537,7 +688,7 @@ $wpdb->has_result = '1';
 check('legacy connected + a result stored, no progress option: no notice', $notice_for($manager, [], []) === '');
 check('result stored but URL emptied since: notice shows again', str_contains($notice_for($manager, ['n8n_webhook_url' => ''], []), $link));
 $wpdb->has_result = null;
-check('version handshake seen but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['pqm_workflow_version_seen' => 4]), $link));
+check('version handshake seen (a ping\'s report) but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]), $link));
 check('progress complete (the dialog\'s first review): no notice', $notice_for($manager, ['n8n_webhook_url' => ''], [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]) === '');
 check('non-manager: no notice', $notice_for(['pqm_manage_agents', 'pqm_view_reviews'], ['n8n_webhook_url' => ''], []) === '');
 $GLOBALS['tw_screen'] = 'content-quality_page_pqm-workflow';

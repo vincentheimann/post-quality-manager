@@ -456,12 +456,24 @@ class PQM_Admin
     }
 
     /**
-     * Reschedule cron after settings are saved (hooked via updated_option).
+     * After settings are saved (hooked via updated_option): reschedule cron,
+     * and forget the workflow report when the webhook URL changed — it
+     * described the workflow at the old URL. Covers the Settings form and
+     * the setup dialog (`save_webhook_url()`), whose ping then records anew.
+     *
+     * @param mixed $old_value
+     * @param mixed $value
      */
-    public static function on_settings_updated(string $option): void
+    public static function on_settings_updated(string $option, $old_value = null, $value = null): void
     {
-        if ($option === 'pqm_settings') {
-            PQM_Cron::schedule();
+        if ($option !== 'pqm_settings') {
+            return;
+        }
+        PQM_Cron::schedule();
+
+        if ((is_array($old_value) ? ($old_value['n8n_webhook_url'] ?? '') : '')
+            !== (is_array($value) ? ($value['n8n_webhook_url'] ?? '') : '')) {
+            delete_option('pqm_workflow_version_seen');
         }
     }
 
@@ -1088,7 +1100,6 @@ class PQM_Admin
         $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
         $import_url   = self::workflow_import_url();
         $settings_url = admin_url('admin.php?page=pqm-settings#tab-ai'); // the model changes it names
-        $seen_version = (int) get_option('pqm_workflow_version_seen', 0);
         $registry     = pqm_model_registry();
 ?>
         <div class="wrap pqm-wrap">
@@ -1098,14 +1109,8 @@ class PQM_Admin
             // Story 36: the setup dialog (src/setup/) mounts here — its
             // button, and the Modal it opens. The sections below always show.
             self::render_app_root('pqm-setup-root');
+            echo self::render_workflow_status(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
             ?>
-
-            <?php if ($seen_version > 0 && $seen_version < PQM_WORKFLOW_VERSION): ?>
-            <div class="notice notice-warning inline pqm-inline-notice">
-                <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
-                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your plugin settings stay as they are.', 'post-quality-manager'); ?></p>
-            </div>
-            <?php endif; ?>
 
             <!-- Workflow file -->
             <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
@@ -1118,16 +1123,6 @@ class PQM_Admin
             </p>
             <?php self::render_import_url($import_url); ?>
             <?php self::render_credentials_hint(); ?>
-            <p class="description">
-                <?php
-                printf(
-                    /* translators: 1: bundled template version, 2: version last reported by n8n or a dash */
-                    esc_html__('Template version: %1$s · Your n8n instance last reported: %2$s', 'post-quality-manager'),
-                    esc_html((string) PQM_WORKFLOW_VERSION),
-                    $seen_version > 0 ? esc_html((string) $seen_version) : esc_html__('— (reports after the first command)', 'post-quality-manager')
-                );
-                ?>
-            </p>
 
             <!-- Per-agent request preview -->
             <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
@@ -1166,7 +1161,7 @@ class PQM_Admin
 
             <!-- Connection test -->
             <h2 class="pqm-section-gap"><?php esc_html_e('Connection Test', 'post-quality-manager'); ?></h2>
-            <p class="description"><?php esc_html_e('Sends a lightweight ping to the saved n8n webhook URL. This verifies WordPress → n8n only; the return path is confirmed by your first successful review.', 'post-quality-manager'); ?></p>
+            <p class="description"><?php esc_html_e('Sends a lightweight ping to the saved n8n webhook URL and checks which workflow version answers. This verifies WordPress → n8n only; the return path is confirmed by your first successful review.', 'post-quality-manager'); ?></p>
             <p>
                 <button type="button" class="button pqm-test-connection">
                     <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
@@ -1175,6 +1170,68 @@ class PQM_Admin
             </p>
         </div>
 <?php
+    }
+
+    /**
+     * The workflow's version status: the "update available" notice when the
+     * last report is older than the bundled template, and the line saying
+     * which version answered, when and how. One renderer for the page load
+     * and the ping replies (AJAX ping, POST /setup/connect), whose
+     * `status_html` the page swaps in for `.pqm-workflow-status`.
+     */
+    public static function render_workflow_status(): string
+    {
+        $report = pqm_workflow_report();
+
+        if ($report === null) {
+            $line = sprintf(
+                /* translators: %s: bundled template version */
+                __('Template version: %s · Your n8n workflow: not checked yet — send a test ping once it is imported and active.', 'post-quality-manager'),
+                PQM_WORKFLOW_VERSION
+            );
+        } else {
+            $version = $report['version'] > 0
+                /* translators: %d: workflow version number */
+                ? sprintf(__('version %d', 'post-quality-manager'), $report['version'])
+                : __('an older version that does not report its number', 'post-quality-manager');
+
+            if ($report['at'] === 0) {
+                // Stored by a pre-v5 plugin: a command reported it, time unknown.
+                $how = __('reported by a command', 'post-quality-manager');
+            } else {
+                $when = time() - $report['at'] < MINUTE_IN_SECONDS
+                    ? __('just now', 'post-quality-manager')
+                    /* translators: %s: time span, e.g. "3 hours" */
+                    : sprintf(__('%s ago', 'post-quality-manager'), human_time_diff($report['at']));
+                $how = $report['via'] === 'test'
+                    /* translators: %s: when, e.g. "just now" or "3 hours ago" */
+                    ? sprintf(__('checked %s by a test ping', 'post-quality-manager'), $when)
+                    /* translators: %s: when, e.g. "just now" or "3 hours ago" */
+                    : sprintf(__('checked %s by a command', 'post-quality-manager'), $when);
+            }
+
+            $line = sprintf(
+                /* translators: 1: bundled template version, 2: "version 4" or "an older version…", 3: e.g. "checked just now by a test ping" */
+                __('Template version: %1$s · Your n8n workflow: %2$s, %3$s.', 'post-quality-manager'),
+                PQM_WORKFLOW_VERSION,
+                $version,
+                $how
+            );
+        }
+
+        ob_start();
+?>
+        <div class="pqm-workflow-status">
+            <?php if ($report !== null && $report['version'] < PQM_WORKFLOW_VERSION): ?>
+            <div class="notice notice-warning inline pqm-inline-notice">
+                <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
+                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your plugin settings stay as they are.', 'post-quality-manager'); ?></p>
+            </div>
+            <?php endif; ?>
+            <p class="description"><?php echo esc_html($line); ?></p>
+        </div>
+<?php
+        return (string) ob_get_clean();
     }
 
     /* ─── Workflow Generator (admin-post download) ───────────────────── */
@@ -1271,6 +1328,10 @@ class PQM_Admin
             wp_die(esc_html__('Workflow template not found. Please reinstall the plugin.', 'post-quality-manager'));
         }
 
+        // The user is about to re-import: the last report no longer says
+        // what runs in n8n, so the page shows "not checked yet" until a ping.
+        delete_option('pqm_workflow_version_seen');
+
         $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
 
         nocache_headers();
@@ -1312,12 +1373,19 @@ class PQM_Admin
     }
 
     /**
-     * Send a lightweight "ping" command to the n8n webhook. With a v4
-     * import a 2xx proves two things: this site reaches n8n, and the
-     * Webhook Trigger accepted the X-PQM-Token header (story 35). Shared by
-     * the AJAX handler and the setup dialog's connect route (story 36).
+     * Send a lightweight "ping" command to the n8n webhook. A v5+ Webhook
+     * Trigger answers `{"ok":true,"workflow_version":N}`; with an up-to-date
+     * import a 2xx then proves that this site reaches n8n and that the
+     * trigger accepted the X-PQM-Token header (story 35). An older import
+     * answers without a version (n8n's default body): reachability only.
+     * Shared by the AJAX handler and the setup dialog's connect route
+     * (story 36); the callers decide whether to record the version.
      *
-     * @return array{ok: bool, message: string}
+     * @return array{ok: bool, message: string, version: ?int, outdated: bool}
+     *         `version` is the replied workflow version (0 = an older
+     *         workflow that does not report it), null when the ping failed.
+     *         `outdated`: a 2xx from a workflow older than the bundled
+     *         template — connected, but shown as a warning (D2).
      */
     public static function ping_webhook(string $url): array
     {
@@ -1325,7 +1393,7 @@ class PQM_Admin
         // every real run — refuse before sending.
         $warning = pqm_webhook_url_warning($url);
         if ($warning !== '') {
-            return ['ok' => false, 'message' => $warning];
+            return ['ok' => false, 'message' => $warning, 'version' => null, 'outdated' => false];
         }
 
         $response = wp_remote_post($url, [
@@ -1339,19 +1407,21 @@ class PQM_Admin
                 /* translators: %s: connection error message */
                 __('Could not connect to n8n: %s', 'post-quality-manager'),
                 $response->get_error_message()
-            )];
+            ), 'version' => null, 'outdated' => false];
         }
 
         $code = wp_remote_retrieve_response_code($response);
 
         if ($code >= 200 && $code < 300) {
-            // An import older than v4 (seen 1–3) ignores the header, so its
-            // 2xx proves only the reachability; 0 = no report yet (fresh setup).
-            $seen = (int) get_option('pqm_workflow_version_seen', 0);
-            if ($seen > 0 && $seen < PQM_WORKFLOW_VERSION) {
-                return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n. Your n8n workflow is an older version that does not check the webhook credential: download or re-import it on the n8n Workflow page.', 'post-quality-manager')];
+            // The reply says which workflow answered. Without a version (or
+            // not JSON) it is a v1–v4 import, which may ignore the header:
+            // its 2xx proves only the reachability.
+            $body    = json_decode((string) wp_remote_retrieve_body($response), true);
+            $version = is_array($body) ? absint($body['workflow_version'] ?? 0) : 0;
+            if ($version >= PQM_WORKFLOW_VERSION) {
+                return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false];
             }
-            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n and the webhook credential is right. Your first review confirms the return path.', 'post-quality-manager')];
+            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true];
         }
 
         if ($code === 401 || $code === 403) {
@@ -1359,18 +1429,18 @@ class PQM_Admin
                 /* translators: %d: HTTP status code (401 or 403) */
                 __('n8n refused the webhook credential (HTTP %d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be X-PQM-Token and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
                 $code
-            )];
+            ), 'version' => null, 'outdated' => false];
         }
 
         if ($code === 404) {
-            return ['ok' => false, 'message' => __('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager')];
+            return ['ok' => false, 'message' => __('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager'), 'version' => null, 'outdated' => false];
         }
 
         return ['ok' => false, 'message' => sprintf(
             /* translators: %d: HTTP status code */
             __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
             $code
-        )];
+        ), 'version' => null, 'outdated' => false];
     }
 
     /* ─── AJAX: Test Connection ──────────────────────────────────────── */
@@ -1378,7 +1448,10 @@ class PQM_Admin
     /**
      * Ping the n8n webhook and report the outcome. Tests the URL from the
      * Settings field so it works before saving; the n8n Workflow page sends
-     * none, so the saved URL is pinged.
+     * none, so the saved URL is pinged. Success answers `{message, outdated}`,
+     * plus `status_html` when the saved URL answered: only then is the
+     * replied version recorded (an unsaved URL may be another workflow).
+     * Errors answer the message string.
      */
     public static function ajax_test_connection(): void
     {
@@ -1388,18 +1461,44 @@ class PQM_Admin
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
-        $url = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
+        $saved_url = pqm_get_settings()['n8n_webhook_url'];
+        $url       = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
         if (empty($url)) {
-            $url = pqm_get_settings()['n8n_webhook_url'];
+            $url = $saved_url;
         }
         if (empty($url)) {
             wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
         }
 
         $ping = self::ping_webhook($url);
-        if ($ping['ok']) {
-            wp_send_json_success($ping['message']);
+        if (!$ping['ok']) {
+            wp_send_json_error($ping['message']);
         }
-        wp_send_json_error($ping['message']);
+
+        $data = ['message' => $ping['message'], 'outdated' => $ping['outdated']];
+        if ($url === $saved_url) {
+            pqm_record_workflow_version($ping['version'], 'test');
+            $data['status_html'] = self::render_workflow_status();
+        }
+        wp_send_json_success($data);
+    }
+
+    /* ─── AJAX: Workflow status (re-read on tab focus) ───────────────── */
+
+    /**
+     * Answer the n8n Workflow page's status block, `{status_html}`, as it
+     * renders now. The open page asks whenever its tab regains focus, so a
+     * download, an import from URL or a command's report made meanwhile
+     * shows without a reload (D1). Reads only — never pings n8n.
+     */
+    public static function ajax_workflow_status(): void
+    {
+        check_ajax_referer('pqm_admin_action');
+
+        if (!current_user_can('pqm_manage_settings')) {
+            wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
+        }
+
+        wp_send_json_success(['status_html' => self::render_workflow_status()]);
     }
 }

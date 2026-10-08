@@ -61,6 +61,7 @@
 /* Test connection feedback */
 .pqm-test-result, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }
 .pqm-test-result.is-success, .pqm-copy-feedback.is-success { color: #166534; font-weight: 500; }
+.pqm-test-result.is-warning { color: #92400e; font-weight: 500; }
 .pqm-test-result.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
 td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
 

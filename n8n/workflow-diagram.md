@@ -46,13 +46,17 @@ Contract details, by the workflow version that introduced them:
   signs in with an Application Password, which WordPress core offers only there. Known
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
+- **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
+  `{"ok":true,"workflow_version":5}` (its Response Data option, no extra node), so the
+  plugin's test ping learns which workflow runs. An older import answers n8n's default
+  body without a version, and the plugin reports it as an older version.
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connection into `/save-review`.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 4]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 5]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> CB

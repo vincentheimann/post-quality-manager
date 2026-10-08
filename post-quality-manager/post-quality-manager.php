@@ -25,9 +25,10 @@ define('PQM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PQM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('PQM_REST_NAMESPACE', 'post-quality/v1');
 // Bumped whenever templates/n8n-workflow.json changes in a way that requires
-// a re-import. The template echoes its own version in every WP callback so
-// the n8n Workflow page can flag outdated imports.
-define('PQM_WORKFLOW_VERSION', 4);
+// a re-import, together with the template's Parse Input stamp and its Webhook
+// Trigger reply. The workflow reports its version on a test ping (v5+) and in
+// every WP callback, so the n8n Workflow page can flag outdated imports.
+define('PQM_WORKFLOW_VERSION', 5);
 
 /* ─── Includes ───────────────────────────────────────────────────────── */
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-activator.php';
@@ -59,8 +60,9 @@ if (is_admin()) {
     add_action('admin_init', ['PQM_Admin', 'register_settings']);
     add_action('admin_notices', ['PQM_Admin', 'admin_notices']);
     add_action('admin_enqueue_scripts', ['PQM_Admin', 'enqueue_assets']);
-    add_action('updated_option', ['PQM_Admin', 'on_settings_updated']);
+    add_action('updated_option', ['PQM_Admin', 'on_settings_updated'], 10, 3);
     add_action('wp_ajax_pqm_test_connection', ['PQM_Admin', 'ajax_test_connection']);
+    add_action('wp_ajax_pqm_workflow_status', ['PQM_Admin', 'ajax_workflow_status']);
     add_action('admin_post_pqm_download_workflow', ['PQM_Admin', 'download_workflow']);
     // Priority 100: after core's toolbar menus (New, Edit run at 70/80).
     add_action('admin_bar_menu', ['PQM_View_As', 'admin_bar'], 100);
@@ -345,6 +347,41 @@ function pqm_workflow_json(): ?string
     }
 
     return str_replace('__PQM_SITE_HOST__', pqm_site_host(), file_get_contents($template_path));
+}
+
+/* ─── Helper: the workflow's version report ──────────────────────────── */
+/**
+ * What the n8n workflow last reported about itself:
+ * ['version' => int, 'via' => 'test'|'command', 'at' => timestamp].
+ * Version 0 = an older workflow that does not report its number (a v1–v4
+ * trigger answering a test ping). Null when nothing was reported since the
+ * template was last served. A pre-v5 plugin stored a bare int from a
+ * command's callback: read as that, with no time.
+ */
+function pqm_workflow_report(): ?array
+{
+    $report = get_option('pqm_workflow_version_seen', null);
+    if (is_numeric($report) && (int) $report > 0) {
+        return ['version' => (int) $report, 'via' => 'command', 'at' => 0];
+    }
+    if (!is_array($report)) {
+        return null;
+    }
+
+    return [
+        'version' => absint($report['version'] ?? 0),
+        'via'     => ($report['via'] ?? '') === 'test' ? 'test' : 'command',
+        'at'      => absint($report['at'] ?? 0),
+    ];
+}
+
+/**
+ * Store the version the workflow just reported, how ('test' = a test ping,
+ * 'command' = a command's result callback), and when.
+ */
+function pqm_record_workflow_version(int $version, string $via): void
+{
+    update_option('pqm_workflow_version_seen', ['version' => $version, 'via' => $via, 'at' => time()], false);
 }
 
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */

@@ -35,6 +35,7 @@ function get_option($k, $d = false) {
     return $GLOBALS['tw']['options'][$k] ?? (['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d);
 }
 function update_option($k, $v, $autoload = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
+function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); return true; }
 function get_post($id) { return (int) $id === 7 ? (object) ['ID' => 7] : null; }
 function current_time($type, $gmt = 0) { return '2026-10-06 12:00:00'; }
 function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
@@ -251,7 +252,9 @@ check('201 response', $res instanceof WP_REST_Response && $res->get_status() ===
 check('stored status is error', $row['status'] === 'error');
 check('stored result carries the message', $row['result_data'] === json_encode(['error' => 'Review Agent could not get an answer from the model: Your credit balance is too low.']));
 check('score 0, command kept', $row['overall_score'] === 0 && $row['command'] === 'review');
-check('seen workflow version recorded as 3', ($GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null) === 3);
+$seen = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
+check('workflow version recorded as {3, via command, at now}', is_array($seen) && $seen['version'] === 3 && $seen['via'] === 'command'
+    && abs($seen['at'] - time()) <= 5 && pqm_workflow_report() === $seen);
 
 /* Row: success — error_message '' is ignored, status/result stored as posted */
 echo "Save completed run\n";
@@ -260,6 +263,31 @@ $result = ['overall_score' => 72, 'structure' => ['score' => 80], 'top_edits' =>
 [, $without] = save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 3]);
 check('stored status and result as posted', $with['status'] === 'ship' && $with['overall_score'] === 72 && $with['result_data'] === json_encode($result));
 check('stored row identical to a body without error_message', $with === $without);
+
+/* Rows: the workflow version report — callback writer, legacy read, forget on serve */
+echo "Workflow version report\n";
+$ping_report = ['version' => 5, 'via' => 'test', 'at' => 1700000000];
+$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report];
+save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result]);
+check('callback without workflow_version (0): last report untouched', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $ping_report);
+save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
+check('callback with workflow_version 5: replaces a ping\'s report, via command',
+    $GLOBALS['tw']['options']['pqm_workflow_version_seen']['via'] === 'command' && pqm_workflow_report()['version'] === 5);
+foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
+    $GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $legacy];
+    check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', pqm_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);
+}
+$GLOBALS['tw']['options'] = [];
+check('option absent: no report', pqm_workflow_report() === null);
+$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report];
+$res = PQM_REST_API::workflow_callback();
+check('GET /workflow (n8n Import from URL): serves the template and forgets the report',
+    $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen'])
+    && pqm_workflow_report() === null);
+$admin_src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
+check('Download forgets the report only once the template is found (after the not-found wp_die)',
+    (bool) preg_match("/function download_workflow\(\).*?pqm_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
+$GLOBALS['tw']['options'] = [];
 
 /* ─── Template contract (static checks on templates/n8n-workflow.json) ── */
 echo "Template contract\n";
@@ -289,8 +317,11 @@ check('Parse Input stamp === PQM_WORKFLOW_VERSION', isset($m[1]) && (int) $m[1] 
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('PQM_WORKFLOW_VERSION is 4', PQM_WORKFLOW_VERSION === 4);
+check('PQM_WORKFLOW_VERSION is 5', PQM_WORKFLOW_VERSION === 5);
 $trigger = $nodes['Webhook Trigger'];
+check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":PQM_WORKFLOW_VERSION} (the ping handshake)',
+    !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData
+    && json_decode($trigger['parameters']['options']['responseData'] ?? '', true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
 check('Webhook Trigger checks Header Auth with the per-site credential',
     ($trigger['parameters']['authentication'] ?? null) === 'headerAuth'
     && ($trigger['credentials'] ?? null) === ['httpHeaderAuth' => ['name' => 'Post Quality webhook - __PQM_SITE_HOST__']]);

@@ -428,10 +428,21 @@ function Connect( { state, onConnected } ) {
 		} ).then(
 			( data ) => {
 				setBusy( false );
-				setOutcome( {
-					status: data.ping_ok ? 'success' : 'error',
-					message: data.message,
-				} );
+				// An older workflow answered: connected (the step ticks),
+				// but never shown as a success.
+				let status = 'success';
+				if ( ! data.ping_ok ) {
+					status = 'error';
+				} else if ( data.outdated ) {
+					status = 'warning';
+				}
+				setOutcome( { status, message: data.message } );
+				// The page's version status sits outside this island: swap
+				// in the block the ping refreshed.
+				const block = document.querySelector( '.pqm-workflow-status' );
+				if ( block && data.status_html ) {
+					block.outerHTML = data.status_html;
+				}
 				if ( data.saved ) {
 					onConnected( url.trim(), !! data.ping_ok );
 				}
@@ -487,7 +498,7 @@ function Connect( { state, onConnected } ) {
 			) }
 			<p className="pqm-muted">
 				{ __(
-					'A ping that gets through proves this site reaches n8n and the webhook credential is right. Your first review confirms the way back.',
+					'A ping answered by an up-to-date workflow proves this site reaches n8n and the webhook credential is right. Your first review confirms the way back.',
 					'post-quality-manager'
 				) }
 			</p>

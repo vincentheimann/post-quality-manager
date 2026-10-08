@@ -2,8 +2,8 @@
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
  * The Settings tabs, blog-profile / Editorial Standards preset choice,
- * per-agent model controls, the connection ping and the workflow import-URL
- * copy. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
+ * per-agent model controls, the connection ping, the workflow status refresh
+ * and the workflow import-URL copy. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
  * never load this file; the setup dialog on the n8n Workflow page is React
  * too (src/setup/, story 36).
  */
@@ -20,6 +20,7 @@
         initModelControls();
         initPatternLinks();
         initTestConnection();
+        initWorkflowStatusRefresh();
         initImportUrlCopy();
     });
 
@@ -304,7 +305,13 @@
                 fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
                     .then(function (r) { return r.json(); })
                     .then(function (resp) {
-                        showTestResult(result, !!resp.success, typeof resp.data === 'string' ? resp.data : i18n.networkError);
+                        // Errors answer a string; success answers {message,
+                        // outdated}, plus status_html when the saved URL was
+                        // pinged. An older workflow is connected but warned.
+                        var data = resp.data || {};
+                        var msg = typeof resp.data === 'string' ? resp.data : data.message;
+                        showTestResult(result, !!resp.success, typeof msg === 'string' ? msg : i18n.networkError, !!data.outdated);
+                        swapWorkflowStatus(data.status_html);
                     })
                     .catch(function () {
                         showTestResult(result, false, i18n.networkError);
@@ -316,11 +323,50 @@
         });
     }
 
-    function showTestResult(el, ok, msg) {
+    /**
+     * ok: true / false / null (pending); warning turns a success amber
+     * (a ping answered by an older workflow).
+     */
+    function showTestResult(el, ok, msg, warning) {
         if (!el) return;
         el.textContent = msg;
-        el.classList.toggle('is-success', ok === true);
+        el.classList.toggle('is-success', ok === true && !warning);
+        el.classList.toggle('is-warning', ok === true && !!warning);
         el.classList.toggle('is-error', ok === false);
+    }
+
+    /** Replace the n8n Workflow page's status block with a fresh server render. */
+    function swapWorkflowStatus(html) {
+        var status = document.querySelector('.pqm-workflow-status');
+        if (status && typeof html === 'string') {
+            status.outerHTML = html;
+        }
+    }
+
+    /* ================================================================
+     *  WORKFLOW STATUS REFRESH (workflow page, D1)
+     *  A download, an import from URL or a command's report may land
+     *  while the user is away: re-read the block whenever the tab
+     *  regains focus. Reads WordPress only, never pings n8n; a failed
+     *  read leaves the block as it is.
+     * ================================================================ */
+    function initWorkflowStatusRefresh() {
+        if (!document.querySelector('.pqm-workflow-status')) return;
+
+        window.addEventListener('focus', function () {
+            var form = new FormData();
+            form.append('action', 'pqm_workflow_status');
+            form.append('_wpnonce', pqmAdmin.pageNonce);
+
+            fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    if (resp && resp.success && resp.data) {
+                        swapWorkflowStatus(resp.data.status_html);
+                    }
+                })
+                .catch(function () { /* silent: keep the block */ });
+        });
     }
 
     /* ================================================================
