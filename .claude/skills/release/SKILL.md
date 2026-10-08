@@ -9,7 +9,7 @@ Releases are cut by `.github/workflows/release.yml`: release-please keeps one re
 
 1. Review the open release PR ("release <version>"): the header `Version`, `PQM_VERSION`, `package.json` and `package-lock.json` all carry the proposed version; `PQM_WORKFLOW_VERSION`, `Requires at least` and `Requires PHP` are untouched.
 2. Check that `CHANGELOG.md` in the PR reflects the Conventional Commits merged since the last release.
-3. Check that `docs/release-notes/<version>.md` exists on `main` (story 15 writes `3.0.0.md`); the `package` job appends it to the release body.
+3. Check that `docs/release-notes/<version>.md` exists on `main` (story 15 writes the first one); the `package` job appends it to the release body.
 4. The owner merges the release PR.
 5. Watch the Release workflow on `main`: the `package` job builds from the tag, attaches `post-quality-manager-<version>.zip` and publishes the draft. If it fails, the release stays a draft with its tag: fix the cause and re-run the job.
 6. Download the zip from the published release: its single root folder is `post-quality-manager/`, `admin/build/` is inside, and it installs and activates on a clean WordPress 6.6 showing the new version.

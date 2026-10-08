@@ -330,12 +330,6 @@ check('rewrite PATCHes the payload\'s post_rest_url as-is (no scheme, host or /w
     $rewrite_url === "={{ \$('Parse Input').first().json.post_rest_url }}");
 check('Parse Input passes post_rest_url through',
     str_contains($nodes['Parse Input']['parameters']['jsCode'], "post_rest_url: body.post_rest_url || ''"));
-$raw = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json');
-preg_match_all('#https?://[^"\s\\\\]*#', $raw, $urls);
-check('the only literal URLs left are the Claude API (none aimed at the WordPress site)',
-    $urls[0] !== [] && array_unique($urls[0]) === ['https://api.anthropic.com/v1/messages']);
-preg_match_all('/__PQM_[A-Z_]+__/', $raw, $ph);
-check('site values only as __PQM_SITE_HOST__ placeholders', array_unique($ph[0]) === ['__PQM_SITE_HOST__']);
 
 /* Payload: the post's own REST address, '' when its type is not in REST */
 $payload = pqm_n8n_payload(new WP_Post(7, 'a-page', 'page'), 'rewrite', pqm_get_settings());

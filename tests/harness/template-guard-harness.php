@@ -2,8 +2,9 @@
 /**
  * Template guard harness for story 4.3 (CAP-4) — fails, naming the cause,
  * when post-quality-manager/templates/n8n-workflow.json is invalid JSON,
- * carries a placeholder pqm_workflow_json() does not fill, contains a
- * site-specific string, or has a Code node whose jsCode does not parse.
+ * carries a placeholder pqm_workflow_json() does not fill (or lacks one it
+ * fills), contains a site-specific string or any literal URL but the Claude
+ * API's, or has a Code node whose jsCode does not parse.
  * Code nodes are compiled by Node.js, never run. Needs Node.js on PATH;
  * fails loudly without it. No n8n, no WP install.
  */
@@ -42,11 +43,20 @@ $unknown = array_values(array_diff(array_unique($m[0]), FILLED_PLACEHOLDERS));
 check('every placeholder is one pqm_workflow_json() fills'
     . ($unknown ? ' — unknown: ' . implode(', ', $unknown) . ' (fill it in pqm_workflow_json() and list it in FILLED_PLACEHOLDERS)' : ''),
     !$unknown);
+$absent = array_values(array_diff(FILLED_PLACEHOLDERS, $m[0]));
+check('every placeholder pqm_workflow_json() fills is in the template'
+    . ($absent ? ' — missing: ' . implode(', ', $absent) : ''),
+    !$absent);
 
 echo "Site-specific strings\n";
 preg_match_all('#https?://([^/"\s\\\\:?]+)#i', $raw, $m);
 $hosts = array_values(array_diff(array_unique(array_map('strtolower', $m[1])), ALLOWED_HOSTS));
 check('every literal URL host is allow-listed' . ($hosts ? ' — not allowed: ' . implode(', ', $hosts) : ''), !$hosts);
+preg_match_all('#https?://[^"\s\\\\]*#', $raw, $m);
+$urls = array_values(array_unique($m[0]));
+check('the only literal URL is the Claude API (https://api.anthropic.com/v1/messages)'
+    . ($urls !== ['https://api.anthropic.com/v1/messages'] ? ' — found: ' . ($urls ? implode(', ', $urls) : 'none') : ''),
+    $urls === ['https://api.anthropic.com/v1/messages']);
 
 preg_match_all('/\blocalhost\b|\b\d{1,3}(?:\.\d{1,3}){3}\b/i', $raw, $m);
 check('no localhost or IP address' . ($m[0] ? ' — found: ' . implode(', ', array_unique($m[0])) : ''), !$m[0]);

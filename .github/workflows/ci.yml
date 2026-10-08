@@ -1,13 +1,20 @@
 # CI for the Post Quality Manager repo (story 5.1 tracer bullet).
 #
-# Built assets never live in git: the node job builds them on every push/PR
-# and uploads the result as an artifact for inspection only — release.yml
-# builds the released commit itself when zipping the post-quality-manager/
-# subfolder. The node job lints src/ and tests/js/ first
-# (npm run lint:js) and runs the JS unit tests (npm run test:unit); the php
-# job lints every plugin PHP file on 8.0 (the header's Requires PHP floor)
+# Built assets never live in git: the build job builds them on every push/PR
+# and uploads the result as the admin-build artifact, which the plugin-check
+# job consumes — release.yml builds the released commit itself when zipping
+# the post-quality-manager/ subfolder. The build job lints src/ and tests/js/
+# first (npm run lint:js) and runs the JS unit tests (npm run test:unit); the
+# php job lints every plugin PHP file on 8.0 (the header's Requires PHP floor)
 # and 8.3, and runs the full tests/harness sweep on 8.3 only (harnesses may
 # use newer PHP than the plugin).
+#
+# WordPress Plugin Check (stories 4.4, 4.5) runs on the built plugin folder —
+# the same post-quality-manager/ release.yml zips, with admin/build/ restored
+# from the artifact — in all categories. Blocking: any error fails the job;
+# warnings never do (the action fails on errors only). Accepted warnings are
+# triaged in the 4.5 plan. Findings show as file annotations, in the job log,
+# and as the plugin-check-results artifact.
 
 name: CI
 
@@ -74,3 +81,24 @@ jobs:
             echo "== $f"
             php "$f" || exit 1
           done
+
+  plugin-check:
+    name: Plugin Check
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download built assets
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-build
+          path: post-quality-manager/admin/build
+
+      - name: Plugin Check
+        uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
+        with:
+          build-dir: ./post-quality-manager
+          # readme.txt is written by backlog story 38 (WordPress.org listing),
+          # which removes this ignore.
+          ignore-codes: no_plugin_readme

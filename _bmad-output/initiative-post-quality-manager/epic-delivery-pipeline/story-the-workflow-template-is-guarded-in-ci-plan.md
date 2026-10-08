@@ -64,7 +64,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
 
 ## Implementation Notes
 
-- Deferred to the refactor sweep (entry 7): `rest-reviews-harness.php` "Template contract" keeps its narrower URL and placeholder checks (exact URL list, exact placeholder set); consolidate with this harness's rules there.
+- Deferred to the refactor sweep (entry 7): `rest-reviews-harness.php` "Template contract" keeps its narrower URL and placeholder checks (exact URL list, exact placeholder set); consolidate with this harness's rules there. Closed by the refactor sweep (entry 7, 2026-10-08): the URL and placeholder rows moved into this harness.
 - The multi-provider backlog story (`story-ai-model-provider-and-model-picker.md`) will need to extend `ALLOWED_HOSTS`.
 - `spec-delivery-pipeline/brownfield.md` L17 is stale (`PQM_WORKFLOW_VERSION` "currently 4", now 5); left as is, the spec is a record of 2026-10-07.
 

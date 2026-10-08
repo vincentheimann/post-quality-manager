@@ -87,6 +87,8 @@ jobs:
           name: ${{ steps.zip.outputs.file }}
           path: ${{ steps.zip.outputs.file }}
           if-no-files-found: error
+          # A re-run of the package job replaces the artifact instead of failing.
+          overwrite: true
 
       - name: Attach zip, append release notes, publish
         if: needs.release-please.outputs.release_created == 'true'
