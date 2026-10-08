@@ -3,7 +3,7 @@ title: "The first public release's notes cover every silent upgrade behavior"
 type: 'chore'
 ticket: '15'
 created: '2026-10-08'
-status: 'built'
+status: done
 baseline_revision: 'f06a8bb9a5a718168bf21ecd4294f6afdb643da3'
 route: 'full'
 route_source: 'auto'
