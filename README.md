@@ -98,7 +98,7 @@ Access is driven entirely by five `pqm_*` capabilities, remappable with any role
 
 Development follows the [BMad Method](https://github.com/bmad-code-org/BMAD-METHOD) (ADR 0004): [CLAUDE.md](CLAUDE.md) is the agent entry point, [AGENTS.md](AGENTS.md) holds the engineering guidelines (KISS, WP security practices, `PQM_` prefixes, Definition of Done), `memory/` the versioned project memory and lessons log, and `_bmad-output/` the ticket tree — one initiative whose requirements are the EBM value analysis in [docs/user-paths.md](docs/user-paths.md). Changes go through `bmad-build` (plan → implement → review); larger work through `bmad-spec` and `bmad-ticket`. Project skills `/prioritize`, `/adr` and `/release` live in `.claude/skills/`; significant decisions are recorded in [docs/adr/](docs/adr/). Agent prerequisites: `uv` and Node (for `npx skills`).
 
-Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branches; releases are GitHub Releases cut by release-please: merging its release PR tags the version and publishes a CI-built zip (`/release` checks it).
+Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branches and are merged by rebase (every branch commit reaches the CHANGELOG); releases are GitHub Releases cut by release-please: merging its release PR tags the version and publishes a CI-built zip (`/release` checks it).
 
 ## License
 
