@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-08] — Reporting CI green from workflow runs instead of the PR's checks
+**What happened:** Story 4.4 made Plugin Check non-blocking with `continue-on-error: true` on the job. The agent read `gh run list`, saw every workflow run conclude `success`, and told the owner PR #77 was all green. The owner saw both Plugin Check checks failing on the PR.
+**Root cause:** A job-level `continue-on-error` only stops the workflow run from failing; the job's check run still concludes `failure`, and that is what the PR shows. The agent checked a different layer from the one the owner looks at.
+**Rule going forward:** Report a PR's CI state from `gh pr checks <n> --repo …` (the check runs the owner sees), never from workflow-run conclusions alone. To make a CI finding non-blocking, put `continue-on-error` on the step that reports it, not on the job.
+
 ## [2026-10-08] — Proposing a repo-settings change before verifying it
 **What happened:** To stop release-please counting each merged PR twice, the agent recommended a GitHub setting ("Default message") that was already the cause. It then asked to PATCH the repo's merge-commit settings to a combination the UI does not offer and the API docs neither allow nor forbid, without having read how release-please parses commits. The owner asked whether it had thought the command through. Reading release-please's source confirmed the mechanism, and showed that an option already enabled (rebase merging) solved the problem without any experiment.
 **Root cause:** Answering from a remembered mental model of GitHub and release-please instead of checking the current setting and the tool's source. Also narrowing the options to the two first framed (squash or merge commit) instead of listing every merge method the repo already allows.
