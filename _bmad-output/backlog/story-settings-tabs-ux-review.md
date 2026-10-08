@@ -4,7 +4,7 @@ type: story
 title: "The tabbed Settings page passes a full UX and behavior review"
 parent: none
 covers: [O5]
-after: [27]
+after: [27, 30]
 assignee: ""
 refined: false
 hitl: true
@@ -32,3 +32,4 @@ Verify: a findings document approved by the owner exists, and each finding is fi
 
 - Decision (owner, 2026-10-06): the review runs on Claude Fable 5.1.
 - Story 26 reviews the AI Prompts & Context section and lands before story 27 (owner, 2026-10-06), so this review only checks that section's tab placement.
+- Decision (owner, 2026-10-08, `/prioritize` D4): also waits on story 30, so the tabs are reviewed once — after the AI Model and Usage tabs exist.

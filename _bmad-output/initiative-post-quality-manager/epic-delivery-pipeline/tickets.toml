@@ -1,7 +1,8 @@
 # tickets.toml — agreed stories of epic-delivery-pipeline, in build order (table order).
 # Incepted 2026-10-07 from spec-delivery-pipeline (CAP-1…CAP-7). Lanes: 1 → 2, 6 (release/CI wiring and the
 # plugin header); 3 and 4 beside it (own harness file / own workflow file); 5 after 2, 4, 6 (fixes may touch
-# any plugin file); 7 sweeps; 8 cuts 3.0.0 after the sweep. Backlog story 15 gates 8 in prose (see the epic's Notes).
+# any plugin file); 7 sweeps; 8 cuts 3.0.0 after the sweep. Backlog story 15 gates 8 in prose (see the epic's Notes),
+# and backlog story 10 (naming decision) gates 6 in prose: the text domain is the slug (/prioritize 2026-10-08).
 
 [[entry]]
 id = 1

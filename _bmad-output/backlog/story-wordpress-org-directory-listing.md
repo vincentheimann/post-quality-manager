@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15]
+after: [10, 15, 41, 9]
 assignee: ""
 refined: false
 hitl: true
@@ -15,7 +15,7 @@ risk: medium
 
 ## Description
 
-UV7 proper (A1–A2: discoverability and the update channel). Once the plugin has an identity (story 10: name, slug, icon, banner, screenshots, copy) and CI-cut releases (`epic-delivery-pipeline`), it is submitted to the WordPress.org plugin directory and, after approval, deployed to its SVN from the GitHub release. The free tier (Review + Key Takeaways, ADR 0003) is what the directory hosts; Pro stays a hosted license. Everything the plugin review team checks is listed below so the gaps close before submission, not during a weeks-long review loop.
+UV7 proper (A1–A2: discoverability and the update channel). Once the plugin has an identity (story 10: name, slug, tagline, wording rules; story 41: icon, banner, screenshots, copy sweep) and CI-cut releases (`epic-delivery-pipeline`), it is submitted to the WordPress.org plugin directory and, after approval, deployed to its SVN from the GitHub release. The free tier (Review + Key Takeaways, ADR 0003) is what the directory hosts; Pro stays a hosted license. Everything the plugin review team checks is listed below so the gaps close before submission, not during a weeks-long review loop.
 
 ## Acceptance Criteria
 
@@ -66,5 +66,6 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 ## Notes
 
 - Decision (owner, 2026-10-07): filed during the delivery-pipeline inception; blocked by story 10 (identity) and story 15 (release notes feed the readme changelog); also needs `epic-delivery-pipeline` done (the zip and the version check) — tickets.py cannot express a backlog → epic prerequisite, so this line carries it.
+- Decision (owner, 2026-10-08, `/prioritize` D1/D6): also waits on story 41 (the asset set AC5 needs) and story 9 (the agent re-run of every manual check is the pre-production gate before submission).
 - Open question: whether to run Plugin Check in CI already inside `epic-delivery-pipeline` (recommended: yes, as a non-blocking report first, blocking once clean) — settle at that epic's inception.
 - Open question: `src/` inside the zip or a readme link to the repo for the minified bundle — the review team accepts either; the link keeps the zip small.

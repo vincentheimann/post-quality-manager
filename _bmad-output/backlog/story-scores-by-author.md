@@ -3,7 +3,7 @@ id: 39
 type: story
 title: "An Administrator sees scores by author and spots who needs help"
 parent: none
-covers: []
+covers: [O8]
 after: []
 assignee: ""
 refined: false
@@ -73,4 +73,4 @@ Owner request (2026-10-08). On a site with several authors — a small team or a
 - Decision (owner, 2026-10-08): Pro plan, like the other multi-author feature (author voice, ADR 0011).
 - Decision (owner, 2026-10-08): the plugin ranks by the numbers and stops there — no trend per author, no flag, no coaching copy. Deciding who needs help is a human decision; a human judges and reviews.
 - Decision (owner, 2026-10-08): an author with few scored posts ranks with the others; the post count in the row is the context the Administrator needs.
-- `covers: []`: no O-code or UV names this need yet. O6 and O7 were added when owner requests landed so their stories rank in `/prioritize` instead of reading as scope creep; an O8 ("quality by author for multi-author sites") is the same move, owner's call.
+- Covers O8, added 2026-10-08 (`/prioritize` D3): "quality by author on multi-author sites" — the same move as O6 and O7, so this story ranks instead of reading as scope creep. Ranked right after story 37 (the other multi-author story, same persona).

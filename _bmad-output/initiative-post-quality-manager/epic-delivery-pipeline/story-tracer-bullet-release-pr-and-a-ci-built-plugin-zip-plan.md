@@ -3,7 +3,7 @@ title: 'Tracer bullet: release PR and a CI-built plugin zip'
 type: 'feature'
 ticket: '1'
 created: '2026-10-08'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

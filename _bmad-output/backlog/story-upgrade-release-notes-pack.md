@@ -3,7 +3,7 @@ id: 15
 type: story
 title: "The next release's notes cover every silent upgrade behavior"
 parent: none
-covers: []
+covers: [UV7]
 after: []
 assignee: ""
 refined: false

@@ -3,7 +3,7 @@ id: 22
 type: story
 title: "The n8n workflow generator is reviewed end to end with the plugin"
 parent: none
-covers: []
+covers: [UV5, O4, O5]
 after: []
 assignee: ""
 refined: false
@@ -34,3 +34,4 @@ Verify: a findings document lists every plugin↔workflow contract point with it
 - Owner request (2026-10-05): "ensure it is in a well ecosystem with the WordPress plugin, that best practices are applied and that no bug or bottleneck are identified."
 - Starting leads, not yet verified: injection replaces only `__PQM_SITE_HOST__`, so check what else the user must wire up by hand after import (credentials, callback URL, token) and whether that matches the wizard copy. The import URL puts the webhook token in a query string, so check whether it ends up in server and proxy logs.
 - Story 4's contract doc and this review read the same Code nodes; doing this first gives story 4 a verified contract to document.
+- Decision (`/prioritize` 2026-10-08): covers UV5/O4/O5 — it unblocks stories 2, 4 and 25; ranked first after `epic-delivery-pipeline`.
