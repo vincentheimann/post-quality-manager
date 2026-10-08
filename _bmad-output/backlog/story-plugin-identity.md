@@ -6,12 +6,14 @@ parent: none
 covers: [UV7]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: low
 ---
 
 # The plugin's name, slug, tagline and wording rules are decided
+
+> **Delivered 2026-10-08:** the owner decided in session and the agent recorded it as the **Naming** section of `docs/brand.md` — full name *Post Quality Manager*, short form *Post Quality* (menu, cross-references), slug and text domain `post-quality-manager` kept (checked free on WordPress.org 2026-10-08, auto-derived from the header at submission), provider-neutral tagline (124 chars), page headings name the screen not the product, "Content Quality" retired as a name, "PQM" code-only. No code changed; story 41 applies the rules.
 
 ## Description
 

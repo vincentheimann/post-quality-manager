@@ -27,6 +27,6 @@ Built by story 4.1 (tracer bullet, 2026-10-08):
 - **CHANGELOG fix (2026-10-08):** release PR #64 listed `feat(release): release PR and a CI-built plugin zip` twice, because merge commit `a5edbce` (PR #63) predates rebase-only merging. The duplicate line was deleted from `CHANGELOG.md` and from the v3.0.0 release text after the release; release-please never rewrites a released section.
 - `ci.yml`'s `admin-build` artifact is for inspection only; `release.yml` builds the released commit itself.
 
-WordPress.org distribution is backlog story 38 (after story 10 identity and story 15; also needs this epic). Its review rules — readme.txt with External services disclosure, GPL and human-readable code, no trademarks in the name, Plugin Check clean — are in that ticket.
+WordPress.org distribution is backlog story 38 (after story 10 identity — done 2026-10-08, see [[naming]]; story 41 assets and copy sweep; story 15; also needs this epic). Entry 4.6 (text domain) is unblocked: the slug `post-quality-manager` is confirmed. Its review rules — readme.txt with External services disclosure, GPL and human-readable code, no trademarks in the name, Plugin Check clean — are in that ticket.
 
 Related: [[user-paths]], [[freemium-and-roles]], [[bmad-setup]].
