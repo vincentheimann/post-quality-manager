@@ -51,3 +51,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/story-upgrade-release-notes-pack-plan.md`
   summary: Record story 15's Definition of Done clause (one line in `docs/release-notes/unreleased.md` for any change existing sites meet without being told) through `bmad-project-context refresh`, since it was hand-edited inside AGENTS.md's managed block.
   evidence: AGENTS.md:4 says edits inside the block are replaced on refresh, and memory/bmad-setup.md forbids hand-edits inside the markers; the clause also lives in `_bmad/custom/bmad-build.toml`, so builds keep it either way. The refresh is already owed (provenance line still "Verified 2026-10-07 against ff81abd").
+
+- source_plan: `_bmad-output/initiative-post-quality-manager/epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md`
+  summary: Drop the AGENTS.md managed-block line "`_archives/turbo-drill/` — unrelated finished quiz-app project. Ignore entirely." through `bmad-project-context refresh`; entry 4.9 deleted the folder.
+  evidence: Entry 4.9 quick review (2026-10-08). AGENTS.md:28 still names the deleted folder and every session loads it via CLAUDE.md; the line sits inside the managed block (markers L3/L55), so a build does not hand-edit it. Same owed refresh as the entries above.

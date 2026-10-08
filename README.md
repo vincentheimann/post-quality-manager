@@ -92,7 +92,6 @@ Access is driven entirely by five `pqm_*` capabilities, remappable on the Settin
 - `docs/brand.md` — brand voice and copy rules for admin UI text
 - `docs/user-paths.md` — new-user and existing-user journeys with their EBM Current/Unrealized Value; the Product Owner's guide to where effort goes next
 - `_bmad-output/` — the product initiative, its epics, the backlog tickets and build plans (BMad Method, git-backed); `_bmad/` — BMad runtime and team overrides
-- `_archives/` — legacy material kept for history; not part of the plugin
 
 ## Development
 
@@ -102,4 +101,4 @@ Contributions follow Conventional Commits on `feat/`–`fix/`–`chore/` branche
 
 ## License
 
-GPL-2.0-or-later
+GPL-2.0-or-later, see [`LICENSE`](LICENSE).
