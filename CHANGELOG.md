@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.1.1...v3.2.0) (2026-10-08)
+
+
+### Features
+
+* **roles:** set each role's plugin rights on a Settings Roles tab; retire View as ([c7e510b](https://github.com/vincentheimann/post-quality-manager/commit/c7e510b49b8717fa79746d53f6718344e0968b7a))
+
 ## [3.1.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.1.0...v3.1.1) (2026-10-08)
 
 
