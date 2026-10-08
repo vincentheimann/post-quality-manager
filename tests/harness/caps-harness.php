@@ -7,7 +7,10 @@
  * semantics, the why_not() role×command×plan matrix, and the
  * hidden/gated/allowed split of the registry. Story 14 appends the
  * registry-as-whitelist rows: score/apply explicit free-tier entries and
- * the fail-closed fallback for unknown commands.
+ * the fail-closed fallback for unknown commands. Story 42 (Roles tab) adds
+ * the register rule — a cap's defaults only while no manage_options role
+ * holds it, so activation and upgrade never reset a role — and the View as
+ * retirement (its harness is gone; uninstall still deletes the meta).
  */
 
 error_reporting(E_ALL);
@@ -32,6 +35,7 @@ class WP_Role {
     }
     public function add_cap($cap, $grant = true) { $this->capabilities[$cap] = $grant; }
     public function remove_cap($cap) { unset($this->capabilities[$cap]); }
+    public function has_cap($cap) { return !empty($this->capabilities[$cap]); }
 }
 /* Bug 20: users with direct grants (their own capabilities meta). */
 class WP_User {
@@ -339,16 +343,115 @@ PQM_Activator::maybe_upgrade();
 check('equal version: no grant — every role byte-identical (hand edit kept)', role_caps_snapshot() === $before);
 check('equal version: no option write', $GLOBALS['tw']['option_writes'] === 0);
 
+/* Story 42 rewrote this case: a lower version grants only a capability no
+ * manage_options role holds yet (one new in this version); a cap an
+ * Administrator removed from a role by hand or on the Roles tab stays removed. */
 reset_world();
+$GLOBALS['tw']['roles']['administrator']->add_cap('manage_options');
 PQM_Features::register_capabilities();
 /* Ceiling: with CAPS_VERSION = 1 this stores 0 — distinct from 'absent' only once CAPS_VERSION > 1. */
 $GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) (PQM_Features::CAPS_VERSION - 1)];
 $GLOBALS['tw']['option_writes'] = 0;
-unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // a cap the older map lacked
+unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // set on the Roles tab
+foreach ($GLOBALS['tw']['roles'] as $role) { $role->remove_cap('pqm_manage_agents'); } // as if new in this version
+$before = role_caps_snapshot();
 PQM_Activator::maybe_upgrade();
-check('lower version: re-grants (author holds pqm_view_reviews again)', holders_of('pqm_view_reviews') === $default_map['pqm_view_reviews']);
+check('lower version: the hand-removed cap stays removed (author lacks pqm_view_reviews)',
+    holders_of('pqm_view_reviews') === ['administrator', 'editor']);
+check('lower version: a cap no manage_options role holds is granted to exactly its default roles',
+    holders_of('pqm_manage_agents') === $default_map['pqm_manage_agents']);
+$before['administrator']['pqm_manage_agents'] = $before['editor']['pqm_manage_agents'] = true;
+check('lower version: nothing else changes on any role', role_caps_snapshot() == $before);
 check('lower version: stores CAPS_VERSION, one write',
     $GLOBALS['tw']['options']['pqm_caps_version'] === PQM_Features::CAPS_VERSION && $GLOBALS['tw']['option_writes'] === 1);
+
+/* ─── Row 9 (story 42): activation and upgrade keep the roles as set ─── */
+echo "Row 9 — register_capabilities() grants a cap's defaults only while no manage_options role holds it\n";
+/** A site as WordPress ships it: core caps, administrator holds manage_options, a custom role. */
+function reset_real_site() {
+    reset_world(['administrator', 'editor', 'author', 'contributor', 'writer']);
+    $GLOBALS['tw']['roles']['administrator']->add_cap('manage_options');
+    foreach (['administrator', 'editor', 'author', 'contributor', 'writer'] as $name) {
+        $GLOBALS['tw']['roles'][$name]->add_cap('edit_posts');
+    }
+}
+/* activate()'s capability step (create_table() needs a WP install); PHP 8.1+ invokes a private method as is. */
+$activate_caps = new ReflectionMethod('PQM_Activator', 'register_capabilities');
+
+reset_real_site();
+$activate_caps->invoke(null);
+foreach ($default_map as $cap => $granted_roles) {
+    check("fresh install: $cap granted to exactly its default roles", holders_of($cap) === $granted_roles);
+}
+
+/* Roles set on the tab: Author stripped of View reviews, Editor given
+ * Manage settings, the custom role given Run Review and Key Takeaways. */
+$set_on_tab = static function () {
+    reset_real_site();
+    PQM_Features::register_capabilities();
+    $GLOBALS['tw']['roles']['author']->remove_cap('pqm_view_reviews');
+    $GLOBALS['tw']['roles']['editor']->add_cap('pqm_manage_settings');
+    $GLOBALS['tw']['roles']['writer']->add_cap('pqm_run_free_agents');
+    $GLOBALS['tw']['users'] = ['direct' => new WP_User(['author' => true, 'pqm_run_paid_agents' => true])];
+    unset($GLOBALS['tw']['users_query']);
+};
+$set_on_tab();
+$before = role_caps_snapshot();
+$activate_caps->invoke(null);
+check('re-activation: every role byte-identical (Author still lacks View reviews)', role_caps_snapshot() === $before);
+$activate_caps->invoke(null);
+check('second re-activation: still byte-identical', role_caps_snapshot() === $before);
+foreach (['absent' => null, 'lower' => (string) (PQM_Features::CAPS_VERSION - 1)] as $label => $stored) {
+    $set_on_tab();
+    $GLOBALS['tw']['options'] = $stored === null ? [] : ['pqm_caps_version' => $stored];
+    $before = role_caps_snapshot();
+    PQM_Activator::maybe_upgrade();
+    check("upgrade, stored version $label: every role byte-identical", role_caps_snapshot() === $before);
+}
+check('no per-user grant read or touched (no user query)',
+    !isset($GLOBALS['tw']['users_query']) && $GLOBALS['tw']['users']['direct']->caps === ['author' => true, 'pqm_run_paid_agents' => true]);
+
+/* Capability-keyed, never a role name: any manage_options role counts. */
+reset_real_site();
+$GLOBALS['tw']['roles']['writer']->add_cap('manage_options');
+$GLOBALS['tw']['roles']['writer']->add_cap('pqm_view_reviews');
+PQM_Features::register_capabilities();
+check('a custom manage_options role holding a cap keeps its defaults from being granted',
+    holders_of('pqm_view_reviews') === ['writer'] && holders_of('pqm_run_free_agents') === ['administrator', 'editor', 'author']);
+/* Documented ceiling: a cap stripped from every manage_options role is granted again. */
+reset_real_site();
+PQM_Features::register_capabilities();
+$GLOBALS['tw']['roles']['administrator']->remove_cap('pqm_manage_settings');
+PQM_Features::register_capabilities();
+check('ceiling: stripped from every manage_options role, the defaults come back', holders_of('pqm_manage_settings') === ['administrator']);
+
+/* ─── Row 10 (story 42): View as is retired ──────────────────────────── */
+echo "Row 10 — no View as left in the plugin; uninstall still deletes its meta\n";
+$plugin_php = '';
+$files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
+foreach ($files as $file) {
+    if ($file->getExtension() === 'php') { $plugin_php .= file_get_contents($file->getPathname()); }
+}
+check('class file gone', !file_exists($base . '/includes/class-pqm-view-as.php'));
+/* View as identifiers only — never generic hook names (user_has_cap,
+ * admin_bar_menu), which a future feature may legitimately use. */
+check('no PQM_View_As, class-pqm-view-as, filter_caps or pqm_view_as switch action in any plugin PHP file',
+    !str_contains($plugin_php, 'PQM_View_As') && !str_contains($plugin_php, 'class-pqm-view-as')
+    && !str_contains($plugin_php, 'filter_caps') && !str_contains($plugin_php, 'action=pqm_view_as')
+    && !str_contains($plugin_php, 'admin_post_pqm_view_as'));
+define('WP_UNINSTALL_PLUGIN', true);
+$GLOBALS['tw_metadata_deletes'] = [];
+$GLOBALS['wpdb'] = new class { public $prefix = 'wp_'; public function query($q) { return true; } public function prepare($q, ...$a) { return $q; } };
+function delete_option($option) { return true; }
+function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $delete_all = false) {
+    $GLOBALS['tw_metadata_deletes'][] = [$meta_type, $object_id, $meta_key, $meta_value, $delete_all];
+    return true;
+}
+function wp_clear_scheduled_hook($hook, $args = [], $wp_error = false) { return 0; }
+reset_world();
+require $base . '/uninstall.php';
+check('uninstall deletes the leftover pqm_view_as meta for all users',
+    in_array(['user', 0, 'pqm_view_as', '', true], $GLOBALS['tw_metadata_deletes'], true));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

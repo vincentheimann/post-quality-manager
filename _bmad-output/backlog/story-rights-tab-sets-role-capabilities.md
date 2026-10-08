@@ -32,18 +32,18 @@ Owner pivot (2026-10-08, ADR 0012). The toolbar "View as" switch (story 34) was 
    **When** the Administrator saves the Settings form
    **Then** each listed role holds exactly its checked capabilities, roles holding `manage_options` hold all five regardless of what was posted, direct per-user grants are untouched, and a user of a changed role sees the new menu, sections, buttons and REST refusals on their next request without signing in again
    **And** the page returns on the Roles tab with the success notice (story 27 behavior)
-4. **Nobody else's save touches the matrix**
-   **Given** a saved matrix
-   **When** a user who cannot see the Roles tab saves the Settings form
-   **Then** the stored matrix and every role's capabilities are unchanged (the story-5 carry rule)
+4. **Nobody else's save touches the roles**
+   **Given** roles set on the tab
+   **When** a user who cannot see the Roles tab saves the Settings form, or the settings option is written programmatically (setup dialog)
+   **Then** every role's capabilities are unchanged
 5. **Free sites see it locked**
    **Given** the Roles tab on a free site
    **When** it renders and the form is saved
-   **Then** the matrix shows the roles' current grants, locked with the plan upgrade copy; Save writes no role and keeps the stored matrix; when a license lapses, the roles stay as they were set
-6. **An upgrade keeps a customised matrix**
-   **Given** a site with a saved matrix and a stored capability version behind `CAPS_VERSION`
-   **When** the plugin's upgrade step runs on init
-   **Then** the saved matrix is re-applied to the roles and only a capability that did not exist in the saved matrix gets its shipped default; a site with no saved matrix gets the shipped defaults as today
+   **Then** the matrix shows the roles' current grants, locked with the plan upgrade copy; Save writes no role; when a license lapses, the roles stay as they were set
+6. **Activation and upgrades keep the roles as set**
+   **Given** a role stripped of a capability on the tab
+   **When** the plugin is deactivated and reactivated, or its upgrade step runs on init with a stored capability version behind `CAPS_VERSION`
+   **Then** that role still lacks the capability; a capability's shipped defaults are granted only when no role holding `manage_options` has it yet (a fresh install, or a capability new in this version)
 7. **The tab explains two consequences**
    **Given** the Roles tab
    **When** a role loses "View reviews"
@@ -55,13 +55,13 @@ Owner pivot (2026-10-08, ADR 0012). The toolbar "View as" switch (story 34) was 
    **Then** no "View as" or "Viewing as" node is in the toolbar, every plugin capability resolves as the user's own, the `admin-post` switch action answers as an unknown action, and the stored choice has no effect
    **And** uninstall still deletes the stored `pqm_view_as` user meta
 9. **Uninstall leaves nothing**
-   **Given** a saved matrix
+   **Given** roles set on the tab
    **When** the plugin is uninstalled
-   **Then** every plugin capability is stripped from every role and user (as today) and the matrix goes with the settings option
+   **Then** every plugin capability is stripped from every role and user (as today); the tab stores nothing else
 10. **The harness proves the invariants**
     **Given** the plugin's PHP harnesses
     **When** they run
-    **Then** one covers that a role holding `manage_options` can never lose a plugin capability through a save, that a save changes exactly the roles it should and no per-user grant, and that the upgrade step re-applies a saved matrix instead of the defaults; the View-as harness is removed
+    **Then** one covers that a role holding `manage_options` can never lose a plugin capability through a save, that a save changes exactly the roles it should and no per-user grant, and that activation and upgrade leave an already-registered capability's roles untouched; the View-as harness is removed
 
 ## Boundaries
 
@@ -85,9 +85,9 @@ Owner pivot (2026-10-08, ADR 0012). The toolbar "View as" switch (story 34) was 
 - Decision (owner, 2026-10-08): every role on the site, custom ones included; rows pinned by holding `manage_options`, never by role name, so the plugin keeps its rule of never branching on role names.
 - Decision (owner, 2026-10-08): the five existing capabilities only. Finer visibility (per page, per Settings tab) is a later story if asked.
 - Decision (owner, 2026-10-08): the tab is gated on core `manage_options`, not a plugin capability, so an Administrator can never lose the tab through the tab.
-- Decision (owner, 2026-10-08): the matrix lives in the settings option and is the source of truth; roles are written from it on save and on upgrade. Today `maybe_upgrade()` re-grants the shipped defaults, which would silently undo an Administrator's removals; criterion 6 replaces that.
+- Decision (owner, 2026-10-08, plan checkpoint; supersedes the earlier "matrix in the settings option" decision): the site's roles are the only store. Save writes them directly; nothing is stored in the settings option and no carry rule is needed. `register_capabilities()` grants a capability's defaults only when no role holding `manage_options` has it yet, so activation (which also re-granted today) and upgrade never reset a set role. Ceiling: a role editor stripping a capability from every Administrator role makes the next activation re-grant its defaults.
 - Decision (owner, 2026-10-08): View as is retired in this story, not a separate ticket; no "Preview as" replacement. The Exit problem reported on 2026-10-08 was not reproduced from the code (Exit is gated on `manage_options`, which the view never removes); it needs no fix once the feature is gone.
 - Decision (owner, 2026-10-08): the tab is labelled **Roles**, WordPress's own word (Users screen Role column; role plugins name their screen Roles) — never "Rights" or "Access"; "Permissions" was the runner-up. It sits last, after Usage & Limits. Inside: headline "What each role can do", rows carry the role display names, columns are plain actions — View reviews · Run Review and Key Takeaways · Run paid agents · Manage agents · Manage settings — and `pqm_` slugs never appear. "Rights matrix" stays the internal name in docs and code.
-- Assumption: a role deleted from the site after a save is dropped from the matrix on the next save; a role added later appears with no capability checked.
+- Assumption: a role deleted from the site disappears from the tab; a role added later appears with the capabilities it holds now, none if it is new. A Save writes only the cells changed on the form, so a role created or edited elsewhere after the page loaded is left alone (review loop 1, 2026-10-08).
 - Release notes (story 15 pack): name the removal of View as and that a stored view choice is ignored.
-- Risk medium (reason): the save writes the site's roles, which every gate reads. A mistake is visible at once and a role editor can repair it, but the pinned-row and carry rules are the only things standing between a mis-post and an Administrator or Editor losing access; the harness in criterion 10 covers them.
+- Risk medium (reason): the save writes the site's roles, which every gate reads. A mistake is visible at once and a role editor can repair it, but the pinned rows, the Pro-and-Administrator-only write and the changed-cells-only rule are the only things standing between a mis-post and an Administrator or Editor losing access; the harness in criterion 10 covers them.

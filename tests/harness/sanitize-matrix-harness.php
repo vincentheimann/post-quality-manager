@@ -63,6 +63,20 @@ function parse_blocks($content) {
         'list'            => [$list],
     ][$content] ?? [];
 }
+/* Story 42: the Roles tab writes the site's roles; every add_cap/remove_cap is logged. */
+class WP_Role {
+    public $name;
+    public $capabilities;
+    public function __construct($name, $capabilities = []) { $this->name = $name; $this->capabilities = $capabilities; }
+    public function add_cap($cap, $grant = true) { $GLOBALS['pqm_test_role_calls'][] = "add {$this->name} $cap"; $this->capabilities[$cap] = $grant; }
+    public function remove_cap($cap) { $GLOBALS['pqm_test_role_calls'][] = "remove {$this->name} $cap"; unset($this->capabilities[$cap]); }
+    public function has_cap($cap) { return !empty($this->capabilities[$cap]); }
+}
+$GLOBALS['pqm_test_roles'] = [];
+$GLOBALS['pqm_test_role_calls'] = [];
+function wp_roles() { return (object) ['role_objects' => $GLOBALS['pqm_test_roles']]; }
+/* Per-user grants are never read: any user query would be recorded here. */
+function get_users($args = []) { $GLOBALS['pqm_test_user_queries'][] = $args; return []; }
 
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
@@ -576,6 +590,190 @@ foreach ([
         check("$who, pro, one field changed in $tab: every key outside it === stored", $same === $outside);
     }
 }
+
+/* ─── Case 15 (story 42): the Roles tab writes the site's roles ──────── */
+echo "\nCase 15: Roles tab — written only by a manage_options saver, pro, tab posted\n";
+$PQM_CAPS = array_keys(PQM_Features::capabilities());
+/** The four core roles with the shipped map plus core caps, and a custom role `writer`; resets the call log. */
+function roles_world() {
+    $map = PQM_Features::capabilities();
+    $core = [
+        'administrator' => ['manage_options' => true, 'edit_posts' => true],
+        'editor'        => ['edit_others_posts' => true, 'edit_posts' => true],
+        'author'        => ['edit_posts' => true],
+        'contributor'   => ['edit_posts' => true],
+        'writer'        => ['read' => true],
+    ];
+    $GLOBALS['pqm_test_roles'] = [];
+    foreach ($core as $name => $caps) {
+        foreach ($map as $cap => $holders) {
+            if (in_array($name, $holders, true)) { $caps[$cap] = true; }
+        }
+        $GLOBALS['pqm_test_roles'][$name] = new WP_Role($name, $caps);
+    }
+    $GLOBALS['pqm_test_role_calls'] = [];
+}
+$GLOBALS['pqm_test_user_queries'] = []; // accumulates over the whole case
+/** Each role's capabilities, as stored. */
+function roles_snapshot() { return array_map(static fn($role) => $role->capabilities, $GLOBALS['pqm_test_roles']); }
+/**
+ * The Roles tab as the browser posts it, rendered from the roles as they are
+ * now (pro): the marker, each unpinned row's roles_shown (what it rendered checked; a
+ * pinned row posts none) and every checked, enabled box (pinned rows
+ * are disabled, so never posted). $overrides replaces a row's boxes.
+ */
+function roles_post(array $overrides = []) {
+    $roles = [];
+    $shown = [];
+    foreach ($GLOBALS['pqm_test_roles'] as $name => $role) {
+        if ($role->has_cap('manage_options')) { continue; } // a pinned row posts no roles_shown and no boxes (disabled)
+        $checked = array_values(array_filter(array_keys(PQM_Features::capabilities()), [$role, 'has_cap']));
+        $shown[$name] = implode(',', $checked);
+        if ($checked) { $roles[$name] = $checked; }
+    }
+    return ['roles_posted' => '1', 'roles_shown' => $shown, 'roles' => array_replace($roles, $overrides)];
+}
+$SITE_ADMIN = ['manage_options', 'pqm_manage_agents', 'pqm_manage_settings'];
+
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$before = roles_snapshot();
+$out = PQM_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+$expect = $before;
+unset($expect['author']['pqm_view_reviews']);
+check('Admin, pro, uncheck Author · View reviews: Author lacks it', !$GLOBALS['pqm_test_roles']['author']->has_cap('pqm_view_reviews'));
+check('… every other role byte-identical, Author otherwise unchanged', roles_snapshot() === $expect);
+check('… exactly one role call: remove author pqm_view_reviews', $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_view_reviews']);
+check('… none of roles, roles_shown, roles_posted stored in the option',
+    !array_key_exists('roles', $out) && !array_key_exists('roles_shown', $out) && !array_key_exists('roles_posted', $out));
+$out_keys = array_keys($out);
+$default_keys = array_keys(pqm_default_settings());
+sort($out_keys);
+sort($default_keys);
+check('… the option keeps exactly the settings keys (shape unchanged)', $out_keys === $default_keys);
+
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$before = roles_snapshot();
+PQM_Admin::sanitize_settings(roles_post());
+check('untouched tab saved: no role call at all', $GLOBALS['pqm_test_role_calls'] === [] && roles_snapshot() === $before);
+PQM_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+$GLOBALS['pqm_test_role_calls'] = [];
+PQM_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+check('the sanitizer running twice (first save of the option): second run makes no role call', $GLOBALS['pqm_test_role_calls'] === []);
+
+/* Pinned rows: capability-keyed, whatever the POST says. */
+foreach ([
+    'omits the Administrator row'            => ['roles_posted' => '1', 'roles' => []],
+    'posts the Administrator row unchecked'  => ['roles_posted' => '1', 'roles' => ['administrator' => []]],
+    'posts only View reviews for it'         => ['roles_posted' => '1', 'roles' => ['administrator' => ['pqm_view_reviews']]],
+] as $label => $post) {
+    roles_world();
+    setup($SITE_ADMIN, true, $stored_option);
+    PQM_Admin::sanitize_settings($post);
+    check("pinned: a POST that $label leaves the Administrator holding all five",
+        array_values(array_filter($PQM_CAPS, [$GLOBALS['pqm_test_roles']['administrator'], 'has_cap'])) === $PQM_CAPS);
+}
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$GLOBALS['pqm_test_roles']['administrator']->remove_cap('pqm_manage_agents'); // a role editor removed it
+$GLOBALS['pqm_test_roles']['writer']->add_cap('manage_options');               // a custom site-admin role
+$GLOBALS['pqm_test_role_calls'] = [];
+$post = roles_post();
+$post['roles'] = []; // every enabled box cleared
+PQM_Admin::sanitize_settings($post);
+check('pinned: Save re-grants a missing cap to the Administrator', $GLOBALS['pqm_test_roles']['administrator']->has_cap('pqm_manage_agents'));
+check('pinned by capability, not role name: the custom manage_options role gets all five',
+    array_values(array_filter($PQM_CAPS, [$GLOBALS['pqm_test_roles']['writer'], 'has_cap'])) === $PQM_CAPS);
+check('every box cleared: Editor, Author hold no pqm cap; their core caps stay',
+    array_intersect_key(roles_snapshot()['editor'] + roles_snapshot()['author'], array_flip($PQM_CAPS)) === []
+    && roles_snapshot()['editor'] === ['edit_others_posts' => true, 'edit_posts' => true]
+    && roles_snapshot()['author'] === ['edit_posts' => true]);
+
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$before = roles_snapshot();
+PQM_Admin::sanitize_settings(roles_post(['writer' => ['pqm_run_free_agents']]));
+check('custom role: writer gains pqm_run_free_agents only', roles_snapshot()['writer'] === ['read' => true, 'pqm_run_free_agents' => true]);
+check('custom role: the other roles byte-identical', array_diff_key(roles_snapshot(), ['writer' => 1]) === array_diff_key($before, ['writer' => 1]));
+
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+PQM_Admin::sanitize_settings(roles_post(['author' => ['pqm_view_reviews', 'manage_options', 'edit_others_posts', ['nested']], 'ghost' => $PQM_CAPS]));
+check('only the five pqm caps are written: a posted core cap is ignored, an unknown role skipped',
+    $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_run_free_agents'] && !isset($GLOBALS['pqm_test_roles']['ghost']));
+
+/* Stale page (review loop 1): the panel is in the one form, so every pro
+ * Administrator save posts it, from any tab. Only the cells that differ
+ * from what the row rendered are written. */
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$loaded = roles_post(); // the page as it loaded
+$GLOBALS['pqm_test_roles']['author']->add_cap('pqm_run_paid_agents');      // granted elsewhere after load
+$GLOBALS['pqm_test_roles']['editor']->remove_cap('pqm_manage_agents');     // removed elsewhere after load
+$GLOBALS['pqm_test_roles']['reviewer'] = new WP_Role('reviewer', ['read' => true, 'pqm_view_reviews' => true]); // created after load
+$GLOBALS['pqm_test_role_calls'] = [];
+$before = roles_snapshot();
+PQM_Admin::sanitize_settings($loaded);
+check('stale page, no box changed: no role call, every role as it is now',
+    $GLOBALS['pqm_test_role_calls'] === [] && roles_snapshot() === $before);
+check('stale page: a cap granted elsewhere after load survives a save that did not touch that cell',
+    $GLOBALS['pqm_test_roles']['author']->has_cap('pqm_run_paid_agents'));
+check('stale page: a cap removed elsewhere after load stays removed',
+    !$GLOBALS['pqm_test_roles']['editor']->has_cap('pqm_manage_agents'));
+check('stale page: a role absent from the POST (created since) keeps its caps',
+    $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'pqm_view_reviews' => true]);
+$changed = $loaded;
+$changed['roles']['author'] = array_values(array_diff($changed['roles']['author'], ['pqm_view_reviews']));
+PQM_Admin::sanitize_settings($changed);
+check('stale page: an Administrator who unchecks a box still removes it, and only that cell is written',
+    $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_view_reviews']
+    && $GLOBALS['pqm_test_roles']['author']->has_cap('pqm_run_paid_agents'));
+$GLOBALS['pqm_test_role_calls'] = [];
+$forged = $loaded;
+$forged['roles']['reviewer'] = $PQM_CAPS; // boxes for a row the page never rendered
+PQM_Admin::sanitize_settings($forged);
+check('stale page: a row with no roles_shown entry (forged) is never touched',
+    $GLOBALS['pqm_test_role_calls'] === [] && $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'pqm_view_reviews' => true]);
+$GLOBALS['pqm_test_role_calls'] = [];
+$checked_box = $loaded;
+$checked_box['roles']['contributor'] = ['pqm_view_reviews']; // contributor rendered with nothing checked
+PQM_Admin::sanitize_settings($checked_box);
+check('stale page: a box checked on a row that rendered empty is granted',
+    $GLOBALS['pqm_test_role_calls'] === ['add contributor pqm_view_reviews']);
+
+/* A role pinned at load (no roles_shown posted) that lost manage_options before Save is skipped. */
+roles_world();
+setup($SITE_ADMIN, true, $stored_option);
+$GLOBALS['pqm_test_roles']['writer']->add_cap('manage_options');
+foreach ($PQM_CAPS as $cap) { $GLOBALS['pqm_test_roles']['writer']->add_cap($cap); }
+$pinned_at_load = roles_post(); // writer rendered pinned: no roles_shown, no boxes
+$GLOBALS['pqm_test_roles']['writer']->remove_cap('manage_options'); // lost it before Save
+$GLOBALS['pqm_test_role_calls'] = [];
+PQM_Admin::sanitize_settings($pinned_at_load);
+check('pinned at load, manage_options lost before Save: the role keeps its pqm caps, no role call',
+    !isset($pinned_at_load['roles_shown']['writer']) && $GLOBALS['pqm_test_role_calls'] === []
+    && array_values(array_filter($PQM_CAPS, [$GLOBALS['pqm_test_roles']['writer'], 'has_cap'])) === $PQM_CAPS);
+
+/* Nobody else's save touches a role. */
+roles_world();
+$all_cleared = roles_post();
+$all_cleared['roles'] = [];
+foreach ([
+    'Editor (pqm_manage_agents, no manage_options), tab forged'  => [['pqm_manage_agents'], true, $all_cleared],
+    'settings-only (pqm_manage_settings), tab forged'             => [['pqm_manage_settings'], true, $all_cleared],
+    'Admin, free site, tab forged'                                => [$SITE_ADMIN, false, $all_cleared],
+    'Admin, free site, locked tab (nothing posted)'               => [$SITE_ADMIN, false, []],
+    'Admin, pro, boxes without the marker'                        => [$SITE_ADMIN, true, ['roles' => []]],
+    'Admin, pro, programmatic update_option (setup dialog)'       => [$SITE_ADMIN, true, null],
+] as $label => [$caps, $pro, $post]) {
+    roles_world();
+    setup($caps, $pro, $stored_option);
+    $before = roles_snapshot();
+    PQM_Admin::sanitize_settings($post ?? array_merge(pqm_get_settings(), ['n8n_webhook_url' => 'https://n8n.example.com/webhook/new']));
+    check("$label: roles unchanged, no role call", roles_snapshot() === $before && $GLOBALS['pqm_test_role_calls'] === []);
+}
+check('no save ever queried users (per-user grants untouched)', $GLOBALS['pqm_test_user_queries'] === []);
 
 echo "\n──────────────\n$pass passed, $fail failed\n";
 exit($fail > 0 ? 1 : 0);

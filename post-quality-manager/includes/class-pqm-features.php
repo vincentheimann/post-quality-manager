@@ -18,7 +18,8 @@ class PQM_Features {
 
     /**
      * Bump when capabilities() changes; PQM_Activator::maybe_upgrade()
-     * re-registers the caps on the first init of an upgraded install.
+     * then registers any capability new in it on the first init of an
+     * upgraded install (register_capabilities() leaves registered ones alone).
      */
     const CAPS_VERSION = 1;
 
@@ -38,11 +39,25 @@ class PQM_Features {
     }
 
     /**
-     * Grant the default map via WP_Role::add_cap(). Idempotent; roles
-     * missing on this site (e.g. removed by another plugin) are skipped.
+     * Grant the default map via WP_Role::add_cap(), per capability, only
+     * while no role holding manage_options has it yet (a fresh install, or a
+     * capability new in this version). Once registered, the site's roles are
+     * the one store (Settings → Roles, story 42): activation and upgrade never
+     * reset them. Ceiling: a role editor stripping a capability from every
+     * manage_options role makes the next activation grant its defaults again.
+     * Idempotent; roles missing on this site are skipped.
      */
     public static function register_capabilities(): void {
+        $admin_roles = array_filter(
+            wp_roles()->role_objects,
+            static fn( $role ) => $role->has_cap( 'manage_options' )
+        );
         foreach ( self::capabilities() as $cap => $role_names ) {
+            foreach ( $admin_roles as $admin_role ) {
+                if ( $admin_role->has_cap( $cap ) ) {
+                    continue 2;
+                }
+            }
             foreach ( $role_names as $role_name ) {
                 $role = get_role( $role_name );
                 if ( $role instanceof WP_Role ) {

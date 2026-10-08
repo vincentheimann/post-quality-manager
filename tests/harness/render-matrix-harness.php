@@ -101,6 +101,24 @@ function parse_blocks($content) {
     ][$content] ?? [];
 }
 
+/* Story 42: the Roles tab lists the site's roles (display names translated). */
+class WP_Role {
+    public $name;
+    public $capabilities;
+    public function __construct($name, $capabilities = []) { $this->name = $name; $this->capabilities = $capabilities; }
+    public function has_cap($cap) { return !empty($this->capabilities[$cap]); }
+}
+$GLOBALS['tw_roles'] = []; // slug => [display name, capabilities]
+function wp_roles() {
+    $roles = (object) ['role_objects' => [], 'role_names' => []];
+    foreach ($GLOBALS['tw_roles'] as $slug => [$name, $caps]) {
+        $roles->role_objects[$slug] = new WP_Role($slug, $caps);
+        $roles->role_names[$slug] = $name;
+    }
+    return $roles;
+}
+function translate_user_role($name, $domain = 'default') { return "[$name]"; } // marks the translated label
+
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
@@ -365,6 +383,8 @@ $GLOBALS['tw'] = ['caps' => ['pqm_manage_settings'], 'pro' => true];
 check('settings-only role resolves to pqm_manage_settings', PQM_Admin::settings_page_capability() === 'pqm_manage_settings');
 $GLOBALS['tw'] = ['caps' => ['pqm_manage_agents'], 'pro' => true];
 check('agents-only role resolves to pqm_manage_agents', PQM_Admin::settings_page_capability() === 'pqm_manage_agents');
+$GLOBALS['tw'] = ['caps' => ['manage_options'], 'pro' => true];
+check('neither pqm cap (story 42): resolves to manage_options, so the Roles tab stays reachable', PQM_Admin::settings_page_capability() === 'manage_options');
 
 /* n8n Workflow page: the credentials hint sits next to both import paths */
 echo "n8n Workflow page — credentials hint\n";
@@ -751,6 +771,7 @@ $headings = [
     'License' => '>License</h2>', 'n8n Connection' => '>n8n Connection</h2>', 'AI Model' => '>AI Model</h2>',
     'AI Prompts & Context' => '>AI Prompts & Context</h2>', 'Agent-Specific Overrides' => '>Agent-Specific Overrides',
     'Automated Reviews' => '>Automated Reviews (Cron)', 'Monthly Quota' => '>Monthly Quota</h2>',
+    'What each role can do' => '>What each role can do',
 ];
 /** slug => the panel's HTML, from its opening tag to the next panel or the submit button. */
 function tab_panels(string $html): array {
@@ -769,6 +790,10 @@ $tab_cases = [
     'Editor'        => [$editor_caps, ['ai' => ['Agent-Specific Overrides'], 'automation' => ['Automated Reviews']]],
     'Settings-only' => [['pqm_manage_settings'], ['connection' => ['License', 'n8n Connection'],
         'ai' => ['AI Model', 'AI Prompts & Context'], 'usage' => ['Monthly Quota']]],
+    // Story 42: core manage_options adds Roles, last.
+    'Site admin'    => [array_merge($admin_caps, ['manage_options']), ['connection' => ['License', 'n8n Connection'],
+        'ai' => ['AI Model', 'AI Prompts & Context', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'],
+        'usage' => ['Monthly Quota'], 'roles' => ['What each role can do']]],
 ];
 foreach ($tab_cases as $who => [$caps, $expect]) {
     foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
@@ -805,9 +830,12 @@ foreach ($tab_cases as $who => [$caps, $expect]) {
                 $open = strpos($p, $locked_fieldset);
                 return substr_count($p, $locked_fieldset) === 1 && strpos($p, '</fieldset>', $open) !== false;
             };
-            check("$who, $plan: " . ($pro ? 'no locked fieldset' : 'the Overrides lock sits in AI, the Cron lock in Automation'), $pro
+            $roles_tab = isset($expect['roles']); // story 42: its own lock, in its own panel
+            check("$who, $plan: " . ($pro ? 'no locked fieldset' : 'the Overrides lock sits in AI, the Cron lock in Automation'
+                . ($roles_tab ? ', the Roles lock in Roles' : '')), $pro
                 ? !str_contains($html, $locked_fieldset)
-                : substr_count($html, $locked_fieldset) === 2 && $locked_in($panels['ai']) && $locked_in($panels['automation']));
+                : substr_count($html, $locked_fieldset) === 2 + (int) $roles_tab && $locked_in($panels['ai']) && $locked_in($panels['automation'])
+                    && (!$roles_tab || $locked_in($panels['roles'])));
         }
     }
 }
@@ -822,6 +850,98 @@ check('JS off: the tab bar hides (.no-js) and panels hide only under .js or .pqm
         || str_starts_with(trim($sel), '.pqm-tabs-pending ')) === $m[1]);
 check('n8n Workflow page: the Settings link opens the AI tab', str_contains($render_workflow([]), 'href="/wp-admin/admin.php?page=pqm-settings#tab-ai"'));
 $GLOBALS['tw_settings'] = [];
+
+/* Story 42: the Roles tab — manage_options only, the site's roles × the five caps */
+echo "Roles tab (story 42)\n";
+$site_admin_caps = array_merge($admin_caps, ['manage_options']);
+$GLOBALS['tw_roles'] = [
+    // A role editor left the Administrator without two caps: the pinned row still shows all five.
+    'administrator' => ['Administrator', ['manage_options' => true, 'pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_manage_settings' => true]],
+    'editor'        => ['Editor', ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true, 'pqm_manage_agents' => true]],
+    'author'        => ['Author', ['pqm_run_free_agents' => true]], // View reviews removed on the tab
+    'writer'        => ['Writer', ['pqm_view_reviews' => false]],   // custom role, an explicit deny
+];
+$role_columns = ['View reviews', 'Run Review and Key Takeaways', 'Run paid agents', 'Manage agents', 'Manage settings'];
+$role_hint_text = 'Without this, the role does not see Dashboard or Post Reviews.</span>';
+$quota_note = 'A role with Run paid agents is not subject to the monthly quota';
+$marker = '<input type="hidden" name="pqm_settings[roles_posted]" value="1" />';
+check('tab labels with manage_options: Connection, AI, Automation, Usage & Limits, Roles',
+    preg_match_all('/class="nav-tab(?: nav-tab-active)?">([^<]+)<\/a>/', render_for($site_admin_caps, true), $m) === 5
+    && $m[1] === ['Connection', 'AI', 'Automation', 'Usage & Limits', 'Roles']);
+foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
+    $html  = render_for($site_admin_caps, $pro);
+    $panel = tab_panels($html)['roles'] ?? '';
+    check("$plan: the panel opens with the headline", str_contains($panel, '>What each role can do'));
+    preg_match_all('/<th scope="col">([^<]+)<\/th>/', $panel, $m);
+    check("$plan: columns Role + the five plain-action labels, in capabilities() order", $m[1] === array_merge(['Role'], $role_columns));
+    preg_match_all('/<th scope="row">([^<]+)/', $panel, $m);
+    check("$plan: one row per site role, translated display names, custom role included", array_map('trim', $m[1]) === ['[Administrator]', '[Editor]', '[Author]', '[Writer]']);
+    $visible = strip_tags($panel);
+    check("$plan: no pqm_ slug in the visible text", !str_contains($visible, 'pqm_'));
+    check("$plan: no \"rights\" or manage_options wording in the visible text (brand.md jargon rule)",
+        !preg_match('/\bright(s)?\b/i', $visible) && !str_contains($visible, 'manage_options') && !str_contains($visible, "site's options"));
+    check("$plan: the intro explains locked rows in plain words",
+        str_contains($panel, 'Saving applies these choices to every user with that role. Locked rows belong to roles that run the whole site, such as Administrator: you cannot take anything away from them.'));
+    preg_match_all('/<input type="checkbox" name="pqm_settings\[roles\]\[([a-z_]+)\]\[\]" value="(pqm_[a-z_]+)"\s+aria-label="([^"]*)"(?: aria-describedby="([^"]*)")?( checked)?( disabled)? \/>/', $panel, $boxes, PREG_SET_ORDER);
+    $grid = [];
+    foreach ($boxes as $box) { $grid[$box[1]][$box[2]] = [!empty($box[5]), !empty($box[6]), $box[3], $box[4] ?? '']; }
+    check("$plan: 4 rows × 5 checkboxes, columns in capabilities() order",
+        count($boxes) === 20 && array_map('array_keys', $grid) === array_fill_keys(['administrator', 'editor', 'author', 'writer'], array_keys(PQM_Features::capabilities())));
+    if ($pro) {
+        check('licensed: the manage_options row is all checked and disabled, even for the caps its role lacks',
+            array_map(static fn($c) => [$c[0], $c[1]], $grid['administrator'] ?? []) === array_fill_keys(array_keys(PQM_Features::capabilities()), [true, true]));
+    } else {
+        check('free site: the manage_options row is disabled and shows its current grants, like every row',
+            array_map(static fn($c) => [$c[0], $c[1]], $grid['administrator'] ?? []) === [
+                'pqm_view_reviews' => [true, true], 'pqm_run_free_agents' => [true, true], 'pqm_run_paid_agents' => [false, true],
+                'pqm_manage_agents' => [false, true], 'pqm_manage_settings' => [true, true]]);
+    }
+    preg_match_all('/<input type="hidden" name="pqm_settings\[roles_shown\]\[([a-z_]+)\]" value="([^"]*)" \/>/', $panel, $m);
+    $shown = array_combine($m[1], $m[2]);
+    $checked_in = static fn($slug) => implode(',', array_keys(array_filter($grid[$slug] ?? [], static fn($c) => $c[0])));
+    check("$plan: each unpinned row posts roles_shown = exactly the caps it rendered checked; the pinned row posts none",
+        array_keys($shown) === ['editor', 'author', 'writer']
+        && $shown === array_combine(array_keys($shown), array_map($checked_in, array_keys($shown)))
+        && $shown['writer'] === '' && $shown['author'] === 'pqm_run_free_agents');
+    $held = static fn($slug) => array_map(static fn($c) => $c[0], $grid[$slug] ?? []);
+    check("$plan: other rows checked exactly where the role holds the cap now, none disabled",
+        $held('editor') === ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true, 'pqm_manage_agents' => true, 'pqm_manage_settings' => false]
+        && $held('author') === ['pqm_view_reviews' => false, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => false, 'pqm_manage_agents' => false, 'pqm_manage_settings' => false]
+        && !in_array(true, $held('writer'), true)
+        && array_filter(array_merge(...array_map('array_values', array_values(array_diff_key($grid, ['administrator' => 1])))), static fn($c) => $c[1]) === []);
+    check("$plan: each box is named by role and column (aria-label)", ($grid['author']['pqm_run_paid_agents'][2] ?? '') === '[Author]: Run paid agents');
+    check("$plan: the hint sits right after each row's View reviews box, nowhere else, linked by aria-describedby",
+        substr_count($panel, $role_hint_text) === 4
+        && preg_match_all('/value="pqm_view_reviews"[^>]*aria-describedby="(pqm-role-hint-[a-z_]+)"[^>]*\/><span class="pqm-role-hint" id="\1">' . preg_quote($role_hint_text, '/') . '/', $panel) === 4
+        && count(array_filter(array_merge(...array_map('array_values', array_values($grid))), static fn($c) => $c[3] !== '')) === 4);
+    check("$plan: the paid-agents quota note sits under the table",
+        ($note = strpos($panel, $quota_note)) !== false && $note > strpos($panel, '</table>'));
+    check("$plan: one roles_posted marker, before the table", substr_count($panel, $marker) === 1 && strpos($panel, $marker) < strpos($panel, '<table'));
+    if ($pro) {
+        check('licensed: no lock, no locked note, no fieldset in the panel',
+            !str_contains($panel, 'dashicons-lock') && !str_contains($panel, 'pqm-locked-note') && !str_contains($panel, '<fieldset'));
+    } else {
+        $open = strpos($panel, $locked_fieldset);
+        check('free site: lock icon in the headline and the upgrade note, before the lock',
+            (bool) preg_match('/>What each role can do <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"><\/span><\/h2>/', $panel)
+            && ($up = strpos($panel, '<p class="description pqm-locked-note">Available with Pro. Upgrade to choose what each role can do — until then, every role keeps what is shown here.</p>')) !== false && $up < $open);
+        check('free site: one disabled fieldset wraps the marker, roles_shown, the table and the note (nothing posts)',
+            $open !== false && $open < strpos($panel, $marker) && $open < strpos($panel, 'pqm_settings[roles_shown]')
+            && strpos($panel, '</fieldset>', $open) > strpos($panel, $quota_note));
+    }
+}
+foreach (['Admin without manage_options' => $admin_caps, 'Editor' => $editor_caps, 'Settings-only' => ['pqm_manage_settings']] as $who => $caps) {
+    foreach ([true, false] as $pro) {
+        $html = render_for($caps, $pro);
+        check("$who, " . ($pro ? 'licensed' : 'free site') . ': no Roles tab, panel or field in the markup',
+            !str_contains($html, 'tab-roles') && !str_contains($html, 'pqm-panel-roles') && !str_contains($html, 'pqm_settings[roles')
+            && !str_contains($html, 'What each role can do'));
+    }
+}
+check('CSS: the hint is hidden unless its View reviews box is unchecked (no JS)',
+    (bool) preg_match('/^\.pqm-role-hint \{ display: none;/m', $css)
+    && (bool) preg_match('/^\.pqm-roles-table input:not\(:checked\) \+ \.pqm-role-hint \{ display: inline; \}/m', $css));
+$GLOBALS['tw_roles'] = [];
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

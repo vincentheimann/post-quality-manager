@@ -64,7 +64,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 ## Admin pages & capabilities
 
-Access is driven entirely by five `pqm_*` capabilities, remappable with any role editor — no code change needed. Activation grants them to these roles by default (Contributor gets none):
+Access is driven entirely by five `pqm_*` capabilities, remappable on the Settings → Roles tab or with any role editor — no code change needed. Activation grants them to these roles by default (Contributor gets none):
 
 | Capability | Default roles |
 |---|---|
@@ -80,7 +80,7 @@ Access is driven entirely by five `pqm_*` capabilities, remappable with any role
 | n8n Workflow | `pqm_manage_settings` |
 | Settings | `pqm_manage_agents` or `pqm_manage_settings` — the page shows only the sections the user may manage: License, n8n Connection, AI Model, AI Prompts & Context, and Monthly Quota need `pqm_manage_settings`; Agent-Specific Overrides and Automated Reviews need `pqm_manage_agents` and stay locked until the site is on the Pro plan (one exception: on a free site with scheduled reviews still on, the Automated Reviews Enable toggle stays live, but only to switch them off) |
 
-**View as.** Administrators (users with WordPress's `manage_options`) can check what an Editor, Author or Contributor sees: the toolbar's "View as" menu narrows their own five `pqm_*` capabilities to those the chosen role holds on the site right now, so menus, Settings sections, buttons, the quota note and the plugin-capability REST refusals follow that role. It only removes plugin capabilities, never adds one, and leaves WordPress's own capabilities and every role untouched. So checks on WordPress's own capabilities do not follow the view: Insert into Post also needs the right to edit the post, so in the Author view the Administrator still sees and runs Insert on every post, where a real Author can only on their own posts. The view stays on for that Administrator only, across sign-ins, until "Exit" in the toolbar. It is real, not a preview: allowed actions run, and a trigger in the Author view spends the Administrator's own monthly quota.
+**Roles tab.** Administrators (users with WordPress's `manage_options`) set what each role can do under Settings → Roles: one row per role on the site, custom roles included, and one checkbox per capability above (View reviews, Run Review and Key Takeaways, Run paid agents, Manage agents, Manage settings). Saving the Settings form writes the boxes changed on the form to the roles themselves (a role change made elsewhere since the page loaded is kept), so menus, Settings sections, buttons and REST refusals follow on the role's next request; nothing is stored in the plugin's settings, and per-user grants and WordPress's own capabilities are never touched. Rows of roles holding `manage_options` cannot be changed on the tab, and each Pro save gives those roles all five. The tab is a Pro feature: on a free site it shows the current grants, locked, and saving changes no role. Activation and upgrades grant a capability's defaults only while no `manage_options` role holds it yet (a fresh install, or a capability new in a version), so the roles as set are never reset. The former toolbar "View as" switch is retired; a stored view choice is ignored.
 
 **Single-site only.** Multisite networks are not supported: the monthly quota counter is stored as network-wide user meta, while the quota setting is per site.
 

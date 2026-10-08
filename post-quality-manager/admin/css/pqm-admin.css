@@ -52,6 +52,11 @@
 }
 .pqm-section-lock { color: #787c82; vertical-align: text-bottom; }
 .pqm-locked-note { margin: 4px 0 12px; }
+
+/* Roles tab (story 42): the hint shows only while its View reviews box is unchecked — no JS. */
+.pqm-roles-table { margin: 8px 0; }
+.pqm-role-hint { display: none; margin-left: 6px; color: #50575e; font-size: 12px; }
+.pqm-roles-table input:not(:checked) + .pqm-role-hint { display: inline; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
 
 /* ─── n8n Workflow page: per-agent request preview ─────────── */

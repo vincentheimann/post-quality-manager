@@ -16,12 +16,12 @@ Replace the simulation with the setting. A **Roles tab** on the plugin's Setting
 - **Every role on the site**, custom roles included. Rows of roles holding core `manage_options` are fixed with every capability; pinning is capability-keyed, never a role-name check.
 - **The five existing capabilities only**; no per-page or per-tab capability until a site asks.
 - **Gated on core `manage_options`**, not on a plugin capability, so the tab can never be delegated away or hidden from an Administrator.
-- **The saved matrix is the source of truth**: it lives in the settings option, is applied to roles on save through the one Settings form, and is what an upgrade re-applies; the shipped default map is only the fallback when nothing is saved.
+- **The site's roles are the only store** (plan checkpoint, same day): Save writes the roles directly through the one Settings form; nothing is kept in the settings option. Activation and upgrade grant a capability's shipped defaults only when no role holding `manage_options` has it yet, so they never reset a role that was set. Rejected: a copy of the matrix in the settings option re-applied on upgrade — two sources of truth, and a role-editor change silently undone.
 - **"View as" is removed** in the same story: class, toolbar nodes, handler, capability filter and harness. No "Preview as" replacement. Story 34 stays done as history; the spec non-goal "an in-plugin role editor" is retired.
 
 ## Consequences
 
 - Easier: an Administrator sees and changes what each role gets in one table, on the plugin's own page; custom roles get first-class access; no second sign-in and no simulation code in the capability path.
-- Harder: the plugin now writes the site's roles, so the pinned-row and carry rules (a save by someone who cannot see the tab keeps the matrix) must hold, and the harness must prove them; the upgrade step changes from "re-grant defaults" to "re-apply the saved matrix"; a Free site keeps whatever rights a lapsed Pro license set.
+- Harder: the plugin now writes the site's roles, so the pinned rows, the Pro-and-Administrator-only write, and the rule that Save writes only the cells changed on the form must hold, and the harness must prove them; activation and upgrade change from "re-grant defaults" to "grant only what no Administrator role holds yet", so stripping a capability from every Administrator role makes the next activation re-grant it; a Free site keeps whatever rights a lapsed Pro license set.
 - Not done until a site reports a need: finer capabilities, per-user grants in the tab, a live preview of a role.
 - Supersedes the "in-plugin role editor" non-goal of the freemium spec; ADR 0003's role map and gate are unchanged.

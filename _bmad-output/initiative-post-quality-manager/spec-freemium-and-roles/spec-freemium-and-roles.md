@@ -32,7 +32,7 @@ Owner mandate (ADR 0003, 2026-09-22) combining two requests that share one mecha
 
 - **CAP-6**
   - **intent:** An Administrator sets, on a Roles tab of the plugin's Settings, which of the five plugin capabilities each role on the site holds; the plugin applies the matrix to the site's roles and keeps it across upgrades. Pro feature; replaces the toolbar "View as" switch (ADR 0012).
-  - **success:** After Save every listed role holds exactly the checked capabilities and every page, section, button and REST refusal follows on the next request; rows of roles holding core `manage_options` cannot be changed; a capability-version upgrade re-applies the saved matrix and adds only a capability new since; on a free site the tab shows the roles' current grants locked with upgrade copy and Save writes no role.
+  - **success:** After Save every listed role holds exactly the checked capabilities and every page, section, button and REST refusal follows on the next request; rows of roles holding core `manage_options` cannot be changed; activation and a capability-version upgrade leave the roles as set, granting a capability's shipped defaults only when no role holding `manage_options` has it yet; on a free site the tab shows the roles' current grants locked with upgrade copy and Save writes no role.
 
 ## Constraints
 
@@ -46,7 +46,7 @@ Owner mandate (ADR 0003, 2026-09-22) combining two requests that share one mecha
 - Gated-feature presentation: role refusal is checked first and hides the feature; plan refusal renders it visible but locked with upgrade copy.
 - A Settings save never wipes what the saver could not post: role-hidden, plan-locked or absent sections carry their stored values, never defaults.
 - The Roles tab renders and saves for core `manage_options` holders only, never behind a plugin capability, so it cannot be delegated away or hidden from an Administrator.
-- The saved rights matrix, not the shipped default map, is what an upgrade re-applies; the defaults are only the fallback when nothing is saved.
+- The site's roles are the only store of the rights: nothing is kept in the settings option, and activation or upgrade grants a capability's shipped defaults only when no role holding `manage_options` has it yet, never resetting a role that was set.
 
 ## Non-goals
 

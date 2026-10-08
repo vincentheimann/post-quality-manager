@@ -12,7 +12,7 @@ Effective access = plugin capability (role columns) **and** plan tier, both read
 | `pqm_manage_agents` | ✓ | ✓ | — | — |
 | `pqm_manage_settings` | ✓ | — | — | — |
 
-Defaults only: role editors remap any capability, per role or per user, and every check follows. `CAPS_VERSION` bumps re-register the defaults on upgrade (`maybe_upgrade()` on `init`); deactivation keeps caps; uninstall strips them from every role and every user's direct grants.
+Defaults only: role editors remap any capability, per role or per user, and every check follows. Activation and `CAPS_VERSION` bumps (`maybe_upgrade()` on `init`) grant a capability's defaults only while no `manage_options` role holds it (story 42); deactivation keeps caps; uninstall strips them from every role and every user's direct grants.
 
 ## Features
 
@@ -54,7 +54,7 @@ Defaults only: role editors remap any capability, per role or per user, and ever
 ## Roles tab — the rights matrix (CAP-6, story 42)
 - Where: Settings → Roles; rendered and saved for core `manage_options` holders only (never a `pqm_` capability). Pro: editable. Free: the roles' current grants, locked with upgrade copy; Save writes no role; a lapsed license reverts nothing.
 - Rows: every role `wp_roles()` returns, custom roles included. Rows of roles holding `manage_options` are fixed with every capability and re-granted on Save (capability-keyed, no role-name check). Columns: the five capabilities above under plain-action labels (View reviews · Run Review and Key Takeaways · Run paid agents · Manage agents · Manage settings), `pqm_` slugs never shown; headline "What each role can do"; nothing finer.
-- Save: part of the one Settings form; the matrix is stored in `pqm_settings` and applied to roles with `add_cap`/`remove_cap`. Per-user direct grants are never touched. A saver who cannot see the tab (Editor with `pqm_manage_agents`) carries the stored matrix unchanged.
-- Upgrade: `maybe_upgrade()` re-applies the saved matrix and adds only a capability new since `CAPS_VERSION`; shipped defaults apply only when nothing is saved.
+- Save: part of the one Settings form; the roles are written directly with `add_cap`/`remove_cap`, only for the cells the Administrator changed on the form, so a role change made elsewhere after the page loaded survives; nothing is stored in `pqm_settings`. Per-user direct grants are never touched. A save by someone who cannot see the tab, or a programmatic option write, changes no role.
+- Activation and upgrade: `register_capabilities()` grants a capability's shipped defaults only when no role holding `manage_options` has it yet (fresh install, capability new in a version); a role set on the tab is never reset.
 - Copy: removing `pqm_view_reviews` shows an inline hint that the role loses the plugin menu (no confirm); the paid-agents column notes that holding it lifts the monthly quota.
 - Retired by the same story: "View as" (class, toolbar nodes, handler, `user_has_cap` filter, harness); uninstall keeps deleting `pqm_view_as` meta for one release.

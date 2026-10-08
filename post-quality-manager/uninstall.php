@@ -23,7 +23,7 @@ delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36); this file
 
 // Per-user monthly usage counters (author quota, CAP-4) — all users.
 delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );
-// Each Administrator's "View as" choice (PQM_View_As::META_KEY, story 34).
+// Leftover from the retired View as (story 34, removed by story 42): kept one release.
 delete_metadata( 'user', 0, 'pqm_view_as', '', true );
 
 // WordPress loads this file on its own, so pull in the capability map directly.

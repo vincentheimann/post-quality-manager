@@ -319,12 +319,17 @@ class PQM_Admin
 
     /**
      * Capability that opens (and saves) the Settings page for the current
-     * user: either pqm_manage_settings or pqm_manage_agents grants access —
-     * the sections inside follow their own gates.
+     * user: pqm_manage_settings if held, else pqm_manage_agents if held, else
+     * core manage_options — so a site administrator whose role lost both
+     * plugin caps still reaches the Roles tab (story 42: never behind a
+     * plugin capability). The sections inside follow their own gates.
      */
     public static function settings_page_capability(): string
     {
-        return current_user_can('pqm_manage_settings') ? 'pqm_manage_settings' : 'pqm_manage_agents';
+        if (current_user_can('pqm_manage_settings')) {
+            return 'pqm_manage_settings';
+        }
+        return current_user_can('pqm_manage_agents') ? 'pqm_manage_agents' : 'manage_options';
     }
 
     public static function sanitize_settings($input): array
@@ -452,7 +457,78 @@ class PQM_Admin
             $clean['agent_prompts'] = $existing['agent_prompts'];
         }
 
+        // Roles tab (story 42): written to the site's roles, never stored in
+        // the option (roles_posted, roles_shown and roles never reach $clean).
+        // Only for a manage_options saver on a pro site whose request posted
+        // the tab — the marker is absent for anyone without the tab, inside
+        // the locked (free) fieldset and from programmatic update_option()
+        // calls, so none of those touches a role.
+        if (current_user_can('manage_options') && PQM_Features::is_pro() && !empty($input['roles_posted'])) {
+            self::save_roles((array) ($input['roles'] ?? []), (array) ($input['roles_shown'] ?? []));
+        }
+
         return $clean;
+    }
+
+    /**
+     * Plugin capability => its Roles-tab column label, in capabilities()
+     * order. Plain actions only: a pqm_ slug never reaches the screen.
+     */
+    private static function role_cap_labels(): array
+    {
+        return [
+            'pqm_view_reviews'    => __('View reviews', 'post-quality-manager'),
+            'pqm_run_free_agents' => __('Run Review and Key Takeaways', 'post-quality-manager'),
+            'pqm_run_paid_agents' => __('Run paid agents', 'post-quality-manager'),
+            'pqm_manage_agents'   => __('Manage agents', 'post-quality-manager'),
+            'pqm_manage_settings' => __('Manage settings', 'post-quality-manager'),
+        ];
+    }
+
+    /**
+     * Apply the cells the Administrator changed on the Roles tab. The panel
+     * is in the one Settings form, so every pro Administrator save posts it,
+     * from any tab: writing the posted state would undo a role change made
+     * elsewhere after the page loaded. So a cell is written only where the
+     * posted box differs from what that row rendered (roles_shown), and a
+     * role with no roles_shown entry (created after the page loaded, or a
+     * forged row) is never touched. A role holding manage_options holds all
+     * five whatever was posted. Only the five pqm_ caps on roles are touched
+     * (never core caps, never per-user grants), and only where the role's
+     * state changes — idempotent, so options.php running the sanitizer twice
+     * on a first save is harmless.
+     *
+     * @param array $posted role slug => list of checked capabilities.
+     * @param array $shown  role slug => comma-separated capabilities the row rendered checked.
+     */
+    private static function save_roles(array $posted, array $shown): void
+    {
+        $caps = array_keys(PQM_Features::capabilities());
+        foreach (wp_roles()->role_objects as $role_slug => $role) {
+            // Pinned by capability, never by role name.
+            if ($role->has_cap('manage_options')) {
+                foreach ($caps as $cap) {
+                    if (!$role->has_cap($cap)) {
+                        $role->add_cap($cap);
+                    }
+                }
+                continue;
+            }
+            if (!isset($shown[$role_slug]) || !is_string($shown[$role_slug])) {
+                continue;
+            }
+            $was     = array_map('trim', explode(',', $shown[$role_slug]));
+            $checked = (array) ($posted[$role_slug] ?? []);
+            foreach ($caps as $cap) {
+                $want = in_array($cap, $checked, true);
+                if ($want === in_array($cap, $was, true)) {
+                    continue; // Cell untouched on the form: leave the role as it is now.
+                }
+                if ($want !== $role->has_cap($cap)) {
+                    $want ? $role->add_cap($cap) : $role->remove_cap($cap);
+                }
+            }
+        }
     }
 
     /**
@@ -568,6 +644,8 @@ class PQM_Admin
             'ai'         => $can_manage_settings || $can_manage_agents ? __('AI', 'post-quality-manager') : '',
             'automation' => $can_manage_agents ? __('Automation', 'post-quality-manager') : '',
             'usage'      => $can_manage_settings ? __('Usage & Limits', 'post-quality-manager') : '',
+            // Story 42: core manage_options, never a pqm_ cap, so the tab can't remove itself.
+            'roles'      => current_user_can('manage_options') ? __('Roles', 'post-quality-manager') : '',
         ]);
         $first_tab = array_key_first($tabs);
         $panel_open = static function (string $slug) use ($first_tab): void {
@@ -1054,6 +1132,64 @@ class PQM_Admin
                 </table>
                 </div><!-- #pqm-panel-usage -->
                 <?php endif; // pqm_manage_settings ?>
+
+                <?php if (isset($tabs['roles'])): $panel_open('roles'); ?>
+                <!-- Roles (story 42, Pro: locked, not hidden, on a free site). The site's roles are the store: sanitize_settings() writes them. -->
+                <h2 class="pqm-section-gap"><?php
+                    esc_html_e('What each role can do', 'post-quality-manager');
+                    if (!$is_pro): ?> <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"></span><?php endif;
+                ?></h2>
+                <?php if (!$is_pro): ?>
+                <p class="description pqm-locked-note"><?php esc_html_e('Available with Pro. Upgrade to choose what each role can do — until then, every role keeps what is shown here.', 'post-quality-manager'); ?></p>
+                <fieldset disabled class="pqm-locked-section">
+                <?php endif; ?>
+                <p class="description"><?php esc_html_e('Saving applies these choices to every user with that role. Locked rows belong to roles that run the whole site, such as Administrator: you cannot take anything away from them.', 'post-quality-manager'); ?></p>
+                <?php /* Tells "tab posted with every box cleared" from "tab not
+                       posted"; inert (never posted) inside the locked fieldset. */ ?>
+                <input type="hidden" name="pqm_settings[roles_posted]" value="1" />
+                <table class="widefat striped pqm-roles-table">
+                    <thead>
+                        <tr>
+                            <th scope="col"><?php esc_html_e('Role', 'post-quality-manager'); ?></th>
+                            <?php foreach (self::role_cap_labels() as $cap_label): ?>
+                            <th scope="col"><?php echo esc_html($cap_label); ?></th>
+                            <?php endforeach; ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php $wp_roles = wp_roles();
+                    foreach ($wp_roles->role_objects as $role_slug => $role):
+                        // Pinned by capability, never by role name; sanitize_settings() re-grants all five.
+                        // Pro shows a pinned row all-checked; Free shows its current grants, like every row.
+                        $pinned = $role->has_cap('manage_options');
+                        $role_label = translate_user_role($wp_roles->role_names[$role_slug] ?? $role_slug);
+                        $row_checked = array_values(array_filter(
+                            array_keys(self::role_cap_labels()),
+                            static fn($cap) => ($pinned && $is_pro) || $role->has_cap($cap)
+                        ));
+                        $hint_id = 'pqm-role-hint-' . $role_slug;
+                    ?>
+                        <tr>
+                            <th scope="row"><?php echo esc_html($role_label);
+                                /* What this row rendered checked: Save writes only the cells that differ.
+                                   None for a pinned row, so one that loses manage_options before Save is skipped. */
+                                if (!$pinned): ?>
+                                <input type="hidden" name="pqm_settings[roles_shown][<?php echo esc_attr($role_slug); ?>]" value="<?php echo esc_attr(implode(',', $row_checked)); ?>" /><?php endif; ?></th>
+                            <?php foreach (self::role_cap_labels() as $cap => $cap_label): ?>
+                            <td><input type="checkbox" name="pqm_settings[roles][<?php echo esc_attr($role_slug); ?>][]" value="<?php echo esc_attr($cap); ?>"
+                                       aria-label="<?php echo esc_attr($role_label . ': ' . $cap_label); ?>"<?php
+                                if ($cap === 'pqm_view_reviews'): ?> aria-describedby="<?php echo esc_attr($hint_id); ?>"<?php endif;
+                                checked(in_array($cap, $row_checked, true)); disabled($pinned); ?> /><?php
+                                if ($cap === 'pqm_view_reviews'): ?><span class="pqm-role-hint" id="<?php echo esc_attr($hint_id); ?>"><?php esc_html_e('Without this, the role does not see Dashboard or Post Reviews.', 'post-quality-manager'); ?></span><?php endif; ?></td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <p class="description"><?php esc_html_e('A role with Run paid agents is not subject to the monthly quota (Usage & Limits).', 'post-quality-manager'); ?></p>
+                <?php if (!$is_pro): ?></fieldset><?php endif; ?>
+                </div><!-- #pqm-panel-roles -->
+                <?php endif; // manage_options ?>
 
                 <?php submit_button(); ?>
             </form>

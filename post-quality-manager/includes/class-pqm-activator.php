@@ -1,7 +1,10 @@
 <?php
 /**
  * Plugin activation — creates the reviews database table and registers the
- * plugin capabilities; maybe_upgrade() re-registers them on upgraded installs.
+ * plugin capabilities; maybe_upgrade() does the same on upgraded installs.
+ * Either grants a capability's defaults only while no role holding
+ * manage_options has it yet, so roles set on Settings → Roles (story 42) are
+ * never reset.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -37,7 +40,9 @@ class PQM_Activator {
     }
 
     /**
-     * Grant the default pqm_* capability map and remember which version of it ran.
+     * Grant the default pqm_* capability map — per capability, only while no
+     * role holding manage_options has it yet (a fresh install, or a capability
+     * new in this version) — and remember which version of it ran.
      */
     private static function register_capabilities(): void {
         PQM_Features::register_capabilities();
