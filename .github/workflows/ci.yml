@@ -1,9 +1,9 @@
 # CI for the Post Quality Manager repo (story 5.1 tracer bullet).
 #
 # Built assets never live in git: the node job builds them on every push/PR
-# and uploads the result as an artifact — the release pipeline (epic
-# epic-delivery-pipeline) later consumes it when zipping the
-# post-quality-manager/ subfolder. The node job lints src/ and tests/js/ first
+# and uploads the result as an artifact for inspection only — release.yml
+# builds the released commit itself when zipping the post-quality-manager/
+# subfolder. The node job lints src/ and tests/js/ first
 # (npm run lint:js) and runs the JS unit tests (npm run test:unit); the php
 # job lints every plugin PHP file and runs the full tests/harness sweep.
 
