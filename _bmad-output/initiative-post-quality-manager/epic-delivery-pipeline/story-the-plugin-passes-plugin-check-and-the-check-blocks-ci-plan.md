@@ -3,7 +3,7 @@ title: 'The plugin passes Plugin Check and the check blocks CI'
 type: 'chore'
 ticket: '5'
 created: '2026-10-08'
-status: 'in-progress'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
