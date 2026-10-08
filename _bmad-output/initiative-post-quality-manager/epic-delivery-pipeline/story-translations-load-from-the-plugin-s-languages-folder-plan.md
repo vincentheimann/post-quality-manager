@@ -3,7 +3,7 @@ title: "Translations load from the plugin's languages folder"
 type: 'feature'
 ticket: '6'
 created: '2026-10-08'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
