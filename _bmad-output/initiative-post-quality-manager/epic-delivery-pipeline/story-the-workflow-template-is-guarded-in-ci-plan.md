@@ -69,6 +69,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
 - `spec-delivery-pipeline/brownfield.md` L17 is stale (`PQM_WORKFLOW_VERSION` "currently 4", now 5); left as is, the spec is a record of 2026-10-07.
 
 - Built 2026-10-08. Local results: harness 26/26 on the current template; each of the 8 seeded breakages (invalid JSON, unknown placeholder, site host, localhost, `versionId`, credential `id`, `webhookId`, `jsCode` syntax error) exits 1 with only the matching check failing and the cause named (template restored from git after each); full sweep 15/15 green.
+- CI (PR #76): the branch is green on push and pull_request. The red proof ran on throwaway branch `chore/template-guard-ci-seed` (rebase merging would land a seed + revert pair on `main`). A first seed in Parse Review Result was stopped earlier by `template-failure-harness.php`, which executes that node; the second seed in Build SEO Body, a node no other harness runs, failed the 8.3 sweep with `FAIL Build SEO Body jsCode parses — Unexpected token ';'` while the older template harnesses stayed green (run 37781135834). The other seeds were proven locally only.
 
 ## Review Triage Log
 
