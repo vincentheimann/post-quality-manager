@@ -31,9 +31,10 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 
 - `php -l <file>` on every touched PHP file (PHP 8.3 CLI installed via winget; use the full path in a stale shell); `node --check` on every touched JS file.
 - CLI regression harnesses live in `tests/harness/` (plain PHP + WP stubs, no WP install): run them all (`for f in tests/harness/*.php; do php "$f" || break; done`) after touching gate, quota, or settings code, and add or extend one whenever a story's plan carries an I/O & Edge-Case Matrix. Real WP Admin behavior is still verified manually (loading and error states included) and with REST calls (200, correct JSON, `permission_callback`).
+- JS unit tests live in `tests/js/` (Jest + jsdom through `@wordpress/scripts`, no new dependency): `npm run test:unit` after touching `post-quality-manager/admin/js/`, and add or extend a test when a plan's matrix has rows only a browser can show.
 - When a REST route or the webhook payload changes, check `post-quality-manager/templates/n8n-workflow.json` for a matching change, and vice versa. Never put site-specific values in the template.
 - BMad scripts run with `uv run` (`uv` 0.11+ installed); never run a workflow source file directly — `bmad-build`'s `SKILL.md` renders it first.
-- Definition of Done: KISS; `php -l` / `node --check` clean; every harness in `tests/harness/` green; no WP debug errors or warnings; REST endpoints answer correctly with permissions; UI loading/error states handled; durable facts updated in `memory/`, significant decisions recorded via `/adr`, `docs/user-paths.md` adjusted when Unrealized Value became Current Value. Ask "would a staff engineer approve this?" before presenting.
+- Definition of Done: KISS; `php -l` / `node --check` clean; every harness in `tests/harness/` and `npm run test:unit` green; no WP debug errors or warnings; REST endpoints answer correctly with permissions; UI loading/error states handled; durable facts updated in `memory/`, significant decisions recorded via `/adr`, `docs/user-paths.md` adjusted when Unrealized Value became Current Value. Ask "would a staff engineer approve this?" before presenting.
 
 ## Conventions that differ from defaults
 

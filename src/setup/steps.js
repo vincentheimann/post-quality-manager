@@ -565,7 +565,7 @@ export function NextSteps() {
 			</p>
 			<ul className="pqm-setup-list">
 				<li>
-					<a href="admin.php?page=pqm-settings">
+					<a href="admin.php?page=pqm-settings#pqm-context-settings">
 						{ __(
 							'Choose a Blog Profile',
 							'post-quality-manager'

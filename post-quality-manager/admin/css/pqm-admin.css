@@ -10,6 +10,13 @@
 /* ─── Settings ────────────────────────────────────────────── */
 .pqm-wrap .form-table th { width: 220px; }
 
+/* Tabs (story 27): without JS every section shows and the tab bar hides;
+   with JS only the active panel shows, its first heading without the gap. */
+.no-js .pqm-tabs { display: none; }
+.js .pqm-tab-panel:not(.is-active) { display: none; }
+.pqm-tabs-pending .pqm-tab-panel { display: none; } /* until the JS reads the hash */
+.js .pqm-tab-panel > h2:first-child { margin-top: 1em; }
+
 .pqm-hidden { display: none; }
 .pqm-section-gap { margin-top: 2em; }
 .pqm-inline-notice { margin-bottom: 20px; }

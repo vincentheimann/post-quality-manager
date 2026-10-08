@@ -48,7 +48,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
    - **Anthropic** — a second Header Auth: Name `x-api-key`, Value your Claude API key. Pick it in the six **Claude** nodes.
    - **WordPress** — Basic Auth with an Application Password for a user who can edit posts. Pick it in **Update WP Post (Rewrite)**.
    - Upgrading from a workflow imported before template version 4: the plugin already sends the token, but the old trigger does not check it — it stays unauthenticated until you re-import the workflow and add the Header Auth credential.
-3. In **Settings → AI Prompts & Context**, choose your **Blog Profile** (e.g., Technical/IT for a developer blog) and your **Editorial Standards** — or Custom to write your own — and save; the guide's last step links there and to scheduled reviews.
+3. In the **AI** tab of Settings, under **AI Prompts & Context**, choose your **Blog Profile** (e.g., Technical/IT for a developer blog) and your **Editorial Standards** — or Custom to write your own — and save; the guide's last step links there and to scheduled reviews.
 
 ## REST API (`post-quality/v1`)
 

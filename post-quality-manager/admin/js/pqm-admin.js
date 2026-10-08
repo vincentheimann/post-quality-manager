@@ -1,11 +1,11 @@
 /**
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
- * Blog-profile / Editorial Standards preset choice, per-agent model controls,
- * the connection ping and the workflow import-URL copy. The Dashboard and
- * Post Reviews are React pages (src/, ADR 0005) and never load this file;
- * the setup dialog on the n8n Workflow page is React too (src/setup/,
- * story 36).
+ * The Settings tabs, blog-profile / Editorial Standards preset choice,
+ * per-agent model controls, the connection ping and the workflow import-URL
+ * copy. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
+ * never load this file; the setup dialog on the n8n Workflow page is React
+ * too (src/setup/, story 36).
  */
 (function () {
     'use strict';
@@ -15,12 +15,96 @@
      * ================================================================ */
     document.addEventListener('DOMContentLoaded', function () {
 
+        initSettingsTabs();
         initSettingsPage();
         initModelControls();
         initPatternLinks();
         initTestConnection();
         initImportUrlCopy();
     });
+
+    /* ================================================================
+     *  SETTINGS TABS (story 27)
+     *  Tabs switch panels over the one form, so a save still posts every
+     *  section. The active tab lives in the hash (#tab-<slug>, never an
+     *  element id, so the page does not jump) and rides the referer back
+     *  after a save. Section anchors (#pqm-cron-settings…) open their
+     *  panel and scroll. Skipped: a hashchange listener — add it when a
+     *  same-page link changes the hash.
+     * ================================================================ */
+    function initSettingsTabs() {
+        var nav = document.querySelector('.pqm-tabs');
+        if (!nav) return;
+        var tabs = Array.prototype.slice.call(nav.querySelectorAll('.nav-tab'));
+        var form = document.querySelector('.pqm-wrap form[action="options.php"]');
+        var referer = form && form.querySelector('input[name="_wp_http_referer"]');
+
+        function panelOf(tab) {
+            return document.getElementById('pqm-panel-' + tab.hash.slice('#tab-'.length));
+        }
+
+        function activate(tab, record) {
+            tabs.forEach(function (t) {
+                var on = t === tab;
+                t.classList.toggle('nav-tab-active', on);
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.tabIndex = on ? 0 : -1;
+                panelOf(t).classList.toggle('is-active', on);
+            });
+            if (!record) return;
+            history.replaceState(null, '', tab.hash);
+            // options.php redirects to the referer and keeps its fragment.
+            if (referer) referer.value = referer.value.split('#')[0] + tab.hash;
+        }
+
+        nav.setAttribute('role', 'tablist');
+        tabs.forEach(function (tab, i) {
+            var panel = panelOf(tab);
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', panel.id);
+            panel.setAttribute('role', 'tabpanel');
+            panel.setAttribute('aria-labelledby', tab.id);
+            tab.addEventListener('click', function (e) {
+                e.preventDefault();
+                activate(tab, true);
+            });
+            tab.addEventListener('keydown', function (e) {
+                if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return; // Alt+Arrow = Back/Forward
+                var step = document.documentElement.dir === 'rtl' ? -1 : 1; // RTL tabs run right to left
+                var next = { ArrowLeft: i - step, ArrowRight: i + step, Home: 0, End: tabs.length - 1 }[e.key];
+                if (next === undefined) return;
+                e.preventDefault();
+                next = tabs[(next + tabs.length) % tabs.length];
+                activate(next, true);
+                next.focus();
+            });
+        });
+
+        // A field the browser rejects on submit must be visible to get its
+        // message: open the first invalid field's panel (one per submit).
+        var opening = false;
+        if (form) {
+            form.addEventListener('invalid', function (e) {
+                var panel = e.target.closest('.pqm-tab-panel');
+                if (opening || !panel) return;
+                opening = true;
+                setTimeout(function () { opening = false; });
+                activate(tabs.filter(function (t) { return panelOf(t) === panel; })[0], true);
+            }, true);
+        }
+
+        // Hash → tab: a tab hash names its panel, a section id resolves to the
+        // panel holding it; anything else (unknown, a tab this role lacks)
+        // keeps the server's first tab.
+        var hash = location.hash.slice(1);
+        var target = hash ? document.getElementById(hash) : null; // no element carries a tab-… id
+        var found = tabs.filter(function (t) {
+            return t.hash === '#' + hash || (target && panelOf(t).contains(target));
+        })[0];
+        activate(found || tabs[0], !!found);
+        document.documentElement.classList.remove('pqm-tabs-pending'); // set inline under the tab bar
+        if (found && target) target.scrollIntoView();
+    }
 
     /* ================================================================
      *  SETTINGS PAGE (presets, agent overrides)
