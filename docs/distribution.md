@@ -7,13 +7,13 @@ _Every field a platform asks for before the plugin can be listed, sold or found,
 | Field | Value | Source / owner |
 |---|---|---|
 | Plugin Name | Post Quality Manager | docs/brand.md § Naming |
-| Plugin URI | https://postquality.com | ADR 0013; story 45 changes it from the GitHub URL |
+| Plugin URI | https://postquality.com (set by story 45, 2026-10-09) | ADR 0013 |
 | Description | The tagline in docs/brand.md (124 chars) | story 41 replaces the current header text with it |
 | Version | release-please owns it | AGENTS.md Policy |
 | Requires at least | 6.6 | memory/admin-ui-rebuild.md (WordPress floor) |
 | Requires PHP | 8.0 | epic-delivery-pipeline entry 4.2 |
 | Author | Vincent Heimann | ADR 0013 D2 (private person) |
-| Author URI | https://postquality.com | ADR 0013; story 45 |
+| Author URI | https://postquality.com (set by story 45, 2026-10-09) | ADR 0013 |
 | License / License URI | GPL-2.0-or-later / https://www.gnu.org/licenses/gpl-2.0.html | LICENSE, entry 4.9 |
 | Text Domain / Domain Path | post-quality-manager / /languages | docs/brand.md § Naming; entry 4.6 |
 
@@ -110,8 +110,9 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 |---|---|---|
 | Domain | postquality.com, bought 2026-10-09 in the owner's name | ADR 0013 |
 | Mailbox | hello@postquality.com, a forwarding address on the domain | ADR 0013 D9; OWNER: set up the forwarding at the registrar |
-| Hosting at launch | GitHub Pages with the custom domain, HTTPS | story 45 |
-| Pages at launch | front page (link to the listing), pricing, docs, privacy, terms, refund, support | stories 45 and 46 |
+| Hosting at launch | GitHub Pages from the public repository github.com/vincentheimann/postquality.com (Jekyll, minima, no build step), custom domain set in Pages, HTTPS enforced once the certificate is issued | story 45 (built 2026-10-09) |
+| Pages at launch | /, /pricing/, /docs/, /privacy/, /terms/, /refund/, /support/ — policies copied from `docs/policies/`, which stays the source of truth | stories 45 and 46 |
+| DNS for Pages | 4 A + 4 AAAA on the apex, CNAME www → vincentheimann.github.io (records in the story 45 plan) | OWNER: add at the registrar; the apex still resolved to the registrar's address on 2026-10-09 |
 | Landing page | Astro, after real buyers | story 50 |
 
 ## Open markers on 2026-10-09

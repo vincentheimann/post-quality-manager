@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Post Quality Manager
- * Plugin URI:        https://github.com/vincentheimann/post-quality-manager
+ * Plugin URI:        https://postquality.com
  * Description:       Content quality dashboard — store review results from n8n workflows, schedule automated reviews, and get a global overview of your blog content quality.
  * x-release-please-start-version
  * Version:           3.2.0
@@ -9,6 +9,7 @@
  * Requires at least: 6.6
  * Requires PHP:      8.0
  * Author:            Vincent Heimann
+ * Author URI:        https://postquality.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       post-quality-manager
