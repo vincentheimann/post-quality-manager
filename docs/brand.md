@@ -74,6 +74,7 @@ _Owner decision 2026-10-08 (backlog story 10). The WordPress.org slug is a one-w
 | Slug, plugin folder, text domain, zip root, release asset | `post-quality-manager` | `post-quality-manager-3.1.0.zip` |
 | `readme.txt` short description | The tagline above, verbatim (124 chars, limit 150) | — |
 | Prefixes, constants, option keys, capabilities, CSS/JS handles, the `X-PQM-Token` header | `pqm` / `PQM` | code-only |
+| Domain, support mailbox, `Plugin URI` / `Author URI` | `postquality.com` (owner, 2026-10-09, ADR 0013) | https://postquality.com, hello@postquality.com |
 
 ### Rules
 
@@ -83,4 +84,5 @@ _Owner decision 2026-10-08 (backlog story 10). The WordPress.org slug is a one-w
 - **The tagline is provider-neutral.** It names no workflow engine and no model vendor; "AI" stays as the discovery keyword. The long description may mention n8n and the AI providers as integrations ("through your own n8n workflow"), never as part of the name.
 - **No third-party trademark in the name, slug, tagline or imagery** — not "WordPress", "Claude", "n8n", "OpenAI", "Google" (story 38 AC5). The pattern "X for Y" is acceptable in a description; "Y – X" is not.
 - **One name per sentence.** Do not pair full name and short form in the same sentence; introduce with the full name, continue with the short form.
+- **The domain is the short form.** `postquality.com` is a URL, not a third spelling of the name: pages on it still introduce the product as Post Quality Manager.
 

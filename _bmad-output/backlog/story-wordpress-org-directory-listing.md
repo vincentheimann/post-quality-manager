@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9]
+after: [10, 15, 41, 9, 44, 46, 47]
 assignee: ""
 refined: false
 hitl: true
@@ -69,3 +69,6 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 - Decision (owner, 2026-10-08, `/prioritize` D1/D6): also waits on story 41 (the asset set AC5 needs) and story 9 (the agent re-run of every manual check is the pre-production gate before submission).
 - Open question: whether to run Plugin Check in CI already inside `epic-delivery-pipeline` (recommended: yes, as a non-blocking report first, blocking once clean) — settle at that epic's inception.
 - Open question: `src/` inside the zip or a readme link to the repo for the minified bundle — the review team accepts either; the link keeps the zip small.
+- Inputs filed 2026-10-09 (release-readiness pack): story 47 (the distribution data sheet: `Contributors`, tags, `Donate link`, `Tested up to`, the SVN secret name) feeds AC2 and AC5; story 46 (policies) feeds AC3's External services and privacy text; story 44 (real licensing) decides what AC6's "without a license" means; story 45 gives `Plugin URI` a home other than GitHub. `/prioritize` decides which of them join `after`.
+- Decision (owner, 2026-10-09, `/prioritize`): 44, 46 and 47 join `after`. Real licensing gates this listing, not entry 4.8: a public GitHub release reaches almost nobody (A1), the directory is where real users come from, so the stub license must be gone before submission. Spike 43's D1 can still pull 44 ahead of 4.8.
+- Decision (owner, 2026-10-09, spike 43, ADR 0013): D1 pulled story 44 ahead of entry 4.8 too, so the stub license never reaches a public release; this listing's AC6 is checked against real Freemius licensing.

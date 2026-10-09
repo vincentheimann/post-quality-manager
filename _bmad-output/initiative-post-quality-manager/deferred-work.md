@@ -4,6 +4,8 @@ Work consciously postponed during the initiative, with the decision that deferre
 
 ## Real Freemius licensing integration (deferred 2026-10-02, story 3)
 
+ticket: `_bmad-output/backlog/story-real-license-unlocks-pro.md` (story 44, filed 2026-10-09; the provider choice is re-confirmed by spike 43 first).
+
 Story 3 shipped the license provider as a **stub**: `PQM_License::is_pro()` treats any non-empty `license_key` in `pqm_settings` as pro — owner decision of 2026-10-02 ("nothing to protect until a paid product exists; third parties at the end of the epic", ticket note of 2026-10-01). Still to do when the paid product becomes real:
 
 - **Freemius SDK integration**, confined behind `PQM_License` — only that class's internals change; `PQM_Features::is_pro()`, the `pqm_is_pro` filter contract, gate callers, `why_not()`/`plan_allows()` all stay as they are.
