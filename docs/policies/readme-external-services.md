@@ -1,0 +1,27 @@
+# readme.txt text drafted by story 46
+
+_Two blocks for story 38 to paste: the External services section of `readme.txt`, and the suggested privacy-policy text the plugin registers with `wp_add_privacy_policy_content()`. Keep them in step with `privacy.md`._
+
+## External services (readme.txt section)
+
+```
+== External services ==
+
+This plugin sends content to two services that you set up and control. Nothing is sent before you enter a webhook address in the plugin's settings, and nothing is sent to the plugin's author.
+
+**Your n8n instance.** When you run a command on a post, or a schedule you set runs one, the plugin calls the n8n webhook you configured with the post's title, excerpt, content and link, the command, your site's callback address, the settings text you wrote in the plugin (Editorial Standards, Website Context, per-agent instructions, model choice), the webhook token, and the post's Yoast SEO fields when Yoast is active. Your workflow can read the same post data through the plugin's REST API and writes the result back. n8n is run by you, self-hosted or on n8n Cloud: terms https://n8n.io/legal/ and privacy https://n8n.io/legal/privacy/.
+
+**Your AI provider.** The workflow sends the post text and your settings text to the AI provider whose API key you configured in n8n (Anthropic by default; OpenAI or Google if you choose them in the workflow). Their terms and privacy policies apply: Anthropic https://www.anthropic.com/legal/consumer-terms and https://www.anthropic.com/legal/privacy; OpenAI https://openai.com/policies/; Google https://ai.google.dev/terms. The plugin never holds the API key.
+
+**Freemius (Pro licenses and optional usage data).** Pro licenses are sold and checked through Freemius; with a license key entered, your site's address, the plugin version and the key are sent to verify it. On activation the plugin asks whether to share anonymous usage data with the author (site address, WordPress, PHP and plugin versions, activation state, deactivation reason). This is off until you opt in and the free features do not depend on it. Terms https://freemius.com/terms/ and privacy https://freemius.com/privacy/.
+
+Full policy: https://postquality.com/privacy
+```
+
+## Suggested privacy-policy text (`wp_add_privacy_policy_content()`)
+
+Registered on `admin_init`, shown to site owners under Settings → Privacy → Policy Guide:
+
+```
+Post Quality Manager sends post content to services you configure. When a review is run, the post's title, excerpt, content and link, your Editorial Standards and Website Context text, and (if Yoast SEO is active) its SEO fields are sent to your own n8n instance, which forwards them to the AI provider you chose. The results are stored on this site in the plugin's reviews table until the plugin is deleted. The plugin keeps a monthly count of AI actions per user. It sets no cookies and collects nothing about site visitors. If a Pro license is entered, the site address, plugin version and license key are sent to Freemius to verify the license; usage data is shared with the plugin's author only if an administrator opted in.
+```

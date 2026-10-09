@@ -76,7 +76,8 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 | Trial | none (the free tier is the trial) | ADR 0013 D4 |
 | Money-back guarantee | 14 days | ADR 0013 D6 |
 | Support contact | hello@postquality.com, 2 business days | ADR 0013 D9 |
-| Terms / refund / privacy URLs | on https://postquality.com | story 46 writes them, story 45 publishes them |
+| Terms / refund / privacy URLs | https://postquality.com/terms, /refund, /privacy, /support; drafts in `docs/policies/` (story 46, 2026-10-09) | story 45 publishes them |
+| Third-party legal links in the readme | CHECK: n8n, Anthropic, OpenAI, Google and Freemius terms and privacy URLs named in `docs/policies/readme-external-services.md` | story 38 opens each before pasting |
 | Opt-in screen | Freemius's standard screen, plugin name only | ADR 0013 D8 |
 | SDK version and vendor folder | CHECK: the current Freemius WordPress SDK at build time | story 44 plan |
 | Test purchase | CHECK: whether Freemius offers a sandbox; otherwise a real purchase refunded under the guarantee | story 44 Notes |

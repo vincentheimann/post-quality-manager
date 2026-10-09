@@ -27,6 +27,8 @@ Related: [[freemium-and-roles]] (the gate and the stub), [[delivery-pipeline]] (
 
 **Spike 43 built 2026-10-09 (owner took every default) → ADR [0013](../docs/adr/0013-pro-sold-through-freemius-before-public-release.md):** D1 = real licensing before the first public release, so story 44 now gates entry 4.8 as well as story 38; order 43 → 48 and 47 → 44 → 4.8. Freemius fees checked that day: 3.8% + 50¢ plus gateway fees, plus 2.3% for WordPress products. The inputs with no default (D2, D5, D9) were given the same day; see above.
 
+**Story 46 built 2026-10-09 (owner wording approval open):** `docs/policies/` holds privacy, terms, refund, support and the readme External services + `wp_add_privacy_policy_content()` block; facts traced to `pqm_webhook_payload()`, `GET /post-score`, the reviews table, the usage meta and `uninstall.php`. Story 45 publishes them at /privacy, /terms, /refund, /support; story 44 enters those URLs in Freemius; story 38 pastes the readme block after checking the third-party links.
+
 **Story 48 built 2026-10-09:** `SECURITY.md`, `CONTRIBUTING.md` (outside PRs by prior agreement in an issue), issue forms + config, PR template with the Definition of Done; repository description, website and topics set. Branch protection, private vulnerability reporting and Discussions wait for the public switch (free plan refuses them on a private repo), as a named step of entry 4.8.
 
 **Story 47 built 2026-10-09:** `docs/distribution.md` is the one place listing every platform field with its value or owner; stories 38, 44, 45, 46 and 48 read it and write back. Open owner markers there: wordpress.org username, story 41 assets, Freemius account, mail forwarding, Discussions.
