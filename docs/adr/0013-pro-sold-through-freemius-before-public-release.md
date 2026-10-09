@@ -23,7 +23,7 @@ Pro can be bought from the first public release on, through Freemius, as one yea
 - **D8 Telemetry:** the Freemius opt-in (its standard activation screen, installs, versions, deactivation reasons) is the A1/A2 signal source; `epic-ebm-telemetry` stays local-only; both are disclosed in the privacy text (story 46). Nothing leaves a site before consent (WordPress.org guideline 7).
 - **D9 Support:** Free gets the WordPress.org support forum, best effort; Pro gets email at hello@postquality.com, answered within 2 business days.
 - **D10 Plan names:** "Free" and "Pro", as the UI already says.
-- **Public home:** the domain postquality.com, bought 2026-10-09, carries the plugin's URLs (Plugin URI, Author URI, policies, pricing, "Get Pro") and the support mailbox as a forwarding address. At launch the site is a few static pages on GitHub Pages (story 45); a proper landing page in Astro is built only after real users have bought the plugin (story 50). The WordPress.org listing and the Freemius checkout and customer portal do the rest.
+- **Public home:** the domain postquality.com, bought 2026-10-09, carries the plugin's URLs (Plugin URI, Author URI, policies, pricing, "Get Pro") and the support mailbox as a forwarding address. At launch the site is a few static pages on GitHub Pages (story 45); a proper landing page in Astro is built only after real users have bought the plugin (story 50). The WordPress.org listing and the Freemius checkout and customer portal do the rest. *Amended 2026-10-09 (owner): the site is built in Astro and hosted on Netlify before the first sale (backlog story 50), replacing the GitHub Pages pages; the URLs stay the same.*
 
 ## Consequences
 

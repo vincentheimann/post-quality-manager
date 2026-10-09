@@ -111,9 +111,9 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 |---|---|---|
 | Domain | postquality.com, bought 2026-10-09 in the owner's name | ADR 0013 |
 | Mailbox | hello@postquality.com, a forwarding address on the domain | ADR 0013 D9; OWNER: set up the forwarding at the registrar |
-| Hosting at launch | GitHub Pages from the public repository github.com/vincentheimann/postquality.com (Jekyll, minima, no build step), custom domain set in Pages, HTTPS enforced once the certificate is issued | story 45 (built 2026-10-09) |
+| Hosting at launch | Netlify, building the Astro site in github.com/vincentheimann/postquality.com (`npm run build`, publish `dist`, static, no adapter); GitHub Pages switched off for that repository; HTTPS by Netlify once DNS resolves. The Jekyll pages on GitHub Pages (story 45) were never reachable and are replaced | story 50 (owner decision 2026-10-09); OWNER: Netlify account and repository import |
 | Pages at launch | /, /pricing/, /docs/, /privacy/, /terms/, /refund/, /support/ — policies copied from `docs/policies/`, which stays the source of truth | stories 45 and 46 |
-| DNS for Pages | 4 A + 4 AAAA on the apex, CNAME www → vincentheimann.github.io (records in the story 45 plan) | OWNER: add at the registrar; the apex still resolved to the registrar's address on 2026-10-09 |
+| DNS for the site | at Infomaniak: apex `ALIAS @ → apex-loadbalancer.netlify.com` if offered, else `A @ → 75.2.60.5`; `CNAME www → <site>.netlify.app`; remove the parking `A` to 128.65.195.180; keep MX and the Freemius DKIM CNAMEs. Exact values from Netlify's "Pending DNS verification" | story 50; OWNER: add once the Netlify site exists. The GitHub Pages records of story 45 are not added |
 | Landing page | Astro, after real buyers | story 50 |
 
 ## Open markers on 2026-10-09

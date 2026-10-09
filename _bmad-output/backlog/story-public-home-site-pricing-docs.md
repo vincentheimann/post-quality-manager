@@ -32,7 +32,7 @@ Verify: postquality.com serves over HTTPS from GitHub Pages with the custom doma
 - decision — docs/adr/0013-pro-sold-through-freemius-before-public-release.md (domain, prices, mailbox, the static-first choice)
 - naming — docs/brand.md § Naming (full name on first mention, no third-party trademark; the domain row)
 - policies — _bmad-output/backlog/story-support-privacy-terms-refund-policies.md (story 46)
-- landing — _bmad-output/backlog/story-astro-landing-page.md (story 50, after real buyers)
+- landing — _bmad-output/backlog/story-astro-landing-page.md (story 50: the Astro site on Netlify that replaces these pages)
 - code — post-quality-manager/post-quality-manager.php (Plugin URI, Author URI)
 
 ## Notes
@@ -40,3 +40,4 @@ Verify: postquality.com serves over HTTPS from GitHub Pages with the custom doma
 - Filed 2026-10-09 (release-readiness pack, see story 43). The owner configures the registrar (DNS, mail forwarding; hitl); an agent drafts the pages from existing content.
 - Decision (owner, 2026-10-09, ADR 0013): the domain is postquality.com and the mailbox hello@postquality.com; the landing page waits for real buyers (story 50), so story 41's assets are not a prerequisite here and `after` drops 41.
 - Story 38 can submit with `Plugin URI` still on GitHub; this story is needed before the first sale because the checkout and the policies need a home.
+- Decision (owner, 2026-10-09): the owner prefers a dedicated site to GitHub Pages. Story 50 (Astro on Netlify) is pulled forward and replaces these pages; the GitHub Pages DNS records are not added. This story keeps what it delivered: the content and URLs (`/`, `/pricing/`, `/docs/`, the four policies) that story 50 carries over, and the plugin header links. Its "serves over HTTPS from GitHub Pages" criterion moves to story 50 AC1; the owner marks it done on that basis.
