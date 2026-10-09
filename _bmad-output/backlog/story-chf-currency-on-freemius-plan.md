@@ -1,7 +1,7 @@
 ---
 title: "CHF is offered as a third checkout currency on Freemius"
 ticket: 52
-status: built
+status: done
 ---
 
 Dashboard setting, no plugin code. Applied 2026-10-09 by the Chrome agent on the owner's prompt: CHF added to the Pro plan (ID 71340) with the three annual site-pack prices at the same figures as USD and EUR (49 / 99 / 199; Freemius had pre-filled converted figures 41 / 83 / 166, corrected). Pricing IDs 97905 (1 site), 97906 (5 sites), 97907 (unlimited). Read back after reload; the sandbox checkout shows Fr49.00 / Fr99.00 / Fr199.00 with the currency switched to CHF. Plans still unreleased.
