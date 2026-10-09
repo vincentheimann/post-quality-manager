@@ -78,6 +78,7 @@ function wp_roles() { return (object) ['role_objects' => $GLOBALS['pqm_test_role
 /* Per-user grants are never read: any user query would be recorded here. */
 function get_users($args = []) { $GLOBALS['pqm_test_user_queries'][] = $args; return []; }
 
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Fixtures ───────────────────────────────────────────────────────── */
@@ -249,39 +250,43 @@ setup(['pqm_manage_agents', 'pqm_manage_settings'], false, $stored_off);
 $out = PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://n8n.example.com/webhook/pqm']);
 check('cron_enabled false carried (not re-enabled)', $out['cron_enabled'] === false);
 
-/* ─── Case 5b (story 3): license_key sanitize + trim + carry ─────────── */
+/* ─── Case 5b (story 3): license_key sanitize + trim + carry — unread
+       since story 44, but the stored settings contract is unchanged ────── */
 echo "\nCase 5b: license_key — admin saver sanitizes + trims, non-admin carries\n";
 setup(['pqm_manage_agents', 'pqm_manage_settings'], false, $stored_option);
 $out = PQM_Admin::sanitize_settings(['license_key' => '  PQM-NEW-KEY  ']);
 check('admin key trimmed and stored', $out['license_key'] === 'PQM-NEW-KEY');
 $out = PQM_Admin::sanitize_settings(['license_key' => '   ']);
-check('whitespace-only key becomes empty (site stays free)', $out['license_key'] === '');
+check('whitespace-only key becomes empty', $out['license_key'] === '');
 $out = PQM_Admin::sanitize_settings(['license_key' => '<b>PQM-KEY</b>']);
 check('key passes sanitize_text_field (tags stripped)', $out['license_key'] === 'PQM-KEY');
 $out = PQM_Admin::sanitize_settings(['license_key' => '']);
-check('admin clearing the field empties the key (revert to free)', $out['license_key'] === '');
+check('admin posting an empty key empties it', $out['license_key'] === '');
 setup(['pqm_manage_agents'], false, $stored_option);
 $out = PQM_Admin::sanitize_settings(['license_key' => 'EDITOR-SMUGGLED-KEY']);
 check('non-admin saver cannot set the key — stored key survives byte-identical',
     $out['license_key'] === 'PQM-STORED-KEY');
 
-/* ─── Case 5c (story 3): same-save interplay — sanitizer reads the
-       pre-save plan state (stored key), not the key being posted ───────── */
-echo "\nCase 5c: filter pass-through — plan state during sanitize comes from the stored key\n";
+/* ─── Case 5c (story 44): filter pass-through — the plan comes from the
+       SDK's license, never from a stored or posted license_key ─────────── */
+echo "\nCase 5c: filter pass-through — plan state during sanitize comes from the SDK license\n";
 $stored_free = array_merge($stored_option, ['license_key' => '']);
-setup(['pqm_manage_agents', 'pqm_manage_settings'], null, $stored_free);
-$out = PQM_Admin::sanitize_settings(['license_key' => 'PQM-NEW-KEY', 'cron_batch_size' => '99']);
-check('entering a key on a free site: posted key stored', $out['license_key'] === 'PQM-NEW-KEY');
-check('…but this save still carries cron from stored (pre-save state is free)',
-    $out['cron_batch_size'] === 7 && $out['cron_enabled'] === true);
 setup(['pqm_manage_agents', 'pqm_manage_settings'], null, $stored_option);
+pqm_fs()->pro = false;
+$out = PQM_Admin::sanitize_settings(['license_key' => 'PQM-NEW-KEY', 'cron_batch_size' => '99']);
+check('stub-era key stored + key posted, no SDK license: cron still carried (site is free)',
+    $out['cron_batch_size'] === 7 && $out['cron_enabled'] === true);
+$out = PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://n8n.example.com/webhook/pqm']);
+check('the next admin save clears the stub-era key (no License Key field posts it)', $out['license_key'] === '');
+setup(['pqm_manage_agents', 'pqm_manage_settings'], null, $stored_free);
+pqm_fs()->pro = true;
 $out = PQM_Admin::sanitize_settings([
-    'license_key' => '', 'cron_enabled' => '1', 'cron_frequency' => 'weekly',
+    'cron_enabled' => '1', 'cron_frequency' => 'weekly',
     'cron_batch_size' => '9', 'cron_min_score' => '55', 'cron_max_age_days' => '45',
     'agent_prompts' => ['review' => ['instructions' => 'stored instr', 'temperature' => '0.7', 'model' => 'claude-haiku-4-5', 'effort' => 'low']],
 ]);
-check('clearing the key on a pro site: key emptied', $out['license_key'] === '');
-check('…and this save still applies cron (pre-save state is pro)', $out['cron_batch_size'] === 9);
+check('SDK license valid, no key stored: this save applies cron (site is pro)', $out['cron_batch_size'] === 9);
+pqm_fs()->pro = false;
 
 /* ─── Case 6: result is always a complete settings array ─────────────── */
 echo "\nCase 6: every default key present in every branch's output\n";

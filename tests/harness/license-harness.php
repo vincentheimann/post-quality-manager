@@ -1,15 +1,19 @@
 <?php
 /**
- * CLI harness for story 3 (license provider behind is_pro()) — WP stubs,
- * no WP install. Exercises the plan's I/O & Edge-Case Matrix rows against
- * PQM_License::is_pro() and the PQM_Features::is_pro() delegation:
- * key present/absent/whitespace, the pqm_is_pro filter override, and the
- * downstream gate (plan_allows / gated_commands) flipping with the key.
+ * CLI harness for the license provider behind is_pro() — WP stubs, no WP
+ * install, no Freemius SDK (tests/harness/fs-stub.php stands in for it).
+ * Story 3 built the seam; story 44 fills it with the SDK's license state.
+ * Exercises the story 44 plan's I/O & Edge-Case Matrix rows against
+ * PQM_License::is_pro() / has_lapsed() and the PQM_Features::is_pro()
+ * delegation: valid, absent and expired licenses, the pqm_is_pro filter
+ * override, and a stub-era stored key that no longer unlocks anything.
  */
 
 error_reporting(E_ALL);
 
 define('ABSPATH', __DIR__ . '/');
+
+require __DIR__ . '/fs-stub.php';
 
 /* ─── Mutable test world ─────────────────────────────────────────────── */
 $GLOBALS['tw'] = [
@@ -45,16 +49,20 @@ function check($label, $cond) {
     if ($cond) { $pass++; echo "  ok  $label\n"; }
     else { $fail++; echo "  FAIL $label\n"; }
 }
-function reset_world($settings = [], $filter_pro = null, $caps = []) {
+/* $pro: SDK can_use_premium_code(); $has_license: SDK has_any_license(). */
+function reset_world($pro = false, $has_license = false, $settings = [], $filter_pro = null, $caps = []) {
     $GLOBALS['tw'] = ['settings' => $settings, 'filter_pro' => $filter_pro, 'user_caps' => $caps];
+    pqm_fs()->pro = $pro;
+    pqm_fs()->has_license = $has_license;
 }
 $all_run_caps = ['pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true];
 $paid_commands = ['rewrite', 'sources', 'seo', 'audit'];
 
-/* ─── Row 1: Key entered → pro ───────────────────────────────────────── */
-echo "Row 1 — Non-empty key flips the site to pro\n";
-reset_world(['license_key' => 'PQM-ANY-KEY'], null, $all_run_caps);
+/* ─── Row 1: Valid license → pro ─────────────────────────────────────── */
+echo "Row 1 — A valid license puts the site on pro\n";
+reset_world(true, true, [], null, $all_run_caps);
 check('PQM_License::is_pro() true', PQM_License::is_pro() === true);
+check('has_lapsed() false', PQM_License::has_lapsed() === false);
 check('PQM_Features::is_pro() delegates (filter pass-through)', PQM_Features::is_pro() === true);
 check("plan_allows('seo') true", PQM_Features::plan_allows('seo') === true);
 check('gated_commands() empty', PQM_Features::gated_commands() === []);
@@ -62,35 +70,41 @@ foreach ($paid_commands as $cmd) {
     check("why_not('$cmd') null for a capable user", PQM_Features::why_not($cmd) === null);
 }
 
-/* ─── Row 2: Key removed → reverts to free ───────────────────────────── */
-echo "Row 2 — Empty key: site is (back to) free\n";
-reset_world(['license_key' => ''], null, $all_run_caps);
+/* ─── Row 2: No license → free ───────────────────────────────────────── */
+echo "Row 2 — No license (SDK skipped or registered without one): free\n";
+reset_world(false, false, [], null, $all_run_caps);
 check('PQM_License::is_pro() false', PQM_License::is_pro() === false);
+check('has_lapsed() false (nothing to renew)', PQM_License::has_lapsed() === false);
 check('PQM_Features::is_pro() false', PQM_Features::is_pro() === false);
 check("plan_allows('seo') false", PQM_Features::plan_allows('seo') === false);
-check('every paid command is plan-gated again', PQM_Features::gated_commands() === $paid_commands);
+check('every paid command is plan-gated', PQM_Features::gated_commands() === $paid_commands);
 check("why_not('seo') is 'plan'", PQM_Features::why_not('seo') === 'plan');
 check('free commands untouched', PQM_Features::plan_allows('review') === true
     && PQM_Features::why_not('takeaways') === null);
 
-/* missing settings key (pre-upgrade option) reads as free, no notice */
-reset_world([], null, $all_run_caps);
-check('absent license_key reads as free', PQM_License::is_pro() === false);
-
-/* ─── Row 3: Whitespace-only key stays free ──────────────────────────── */
-echo "Row 3 — Whitespace-only key trims to empty\n";
-reset_world(['license_key' => '   '], null, $all_run_caps);
-check('PQM_License::is_pro() false on whitespace', PQM_License::is_pro() === false);
+/* ─── Row 3: Expired or cancelled license → free, lapsed ─────────────── */
+echo "Row 3 — Expired or cancelled license: free, has_lapsed() true\n";
+reset_world(false, true, [], null, $all_run_caps);
+check('PQM_License::is_pro() false', PQM_License::is_pro() === false);
+check('has_lapsed() true', PQM_License::has_lapsed() === true);
 check("plan_allows('rewrite') false", PQM_Features::plan_allows('rewrite') === false);
+check('every paid command is plan-gated again', PQM_Features::gated_commands() === $paid_commands);
 
 /* ─── Row 4: Filter override wraps the provider ──────────────────────── */
 echo "Row 4 — pqm_is_pro filter (dev override) always wins\n";
-reset_world(['license_key' => ''], true, $all_run_caps);
-check('no key + filter true → pro (mu-plugin demo path preserved)', PQM_Features::is_pro() === true);
+reset_world(false, false, [], true, $all_run_caps);
+check('no license + filter true → pro (mu-plugin demo path preserved)', PQM_Features::is_pro() === true);
 check("plan_allows('seo') true under the override", PQM_Features::plan_allows('seo') === true);
 check('provider itself still reports free', PQM_License::is_pro() === false);
-reset_world(['license_key' => 'PQM-ANY-KEY'], false, $all_run_caps);
-check('key + filter false → filter wins (filter wraps the provider)', PQM_Features::is_pro() === false);
+reset_world(true, true, [], false, $all_run_caps);
+check('valid license + filter false → filter wins (filter wraps the provider)', PQM_Features::is_pro() === false);
+
+/* ─── Row 5: Stub-era key is never read ──────────────────────────────── */
+echo "Row 5 — A stored stub-era key no longer unlocks pro\n";
+reset_world(false, false, ['license_key' => 'anything'], null, $all_run_caps);
+check('license_key = anything, no SDK license → free', PQM_License::is_pro() === false);
+check('PQM_Features::is_pro() false', PQM_Features::is_pro() === false);
+check('not lapsed either (the key is not a license)', PQM_License::has_lapsed() === false);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

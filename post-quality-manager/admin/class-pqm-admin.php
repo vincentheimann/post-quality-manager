@@ -350,7 +350,8 @@ class PQM_Admin
         if (current_user_can('pqm_manage_settings')) {
             // Admin-only sections: License, n8n Connection, AI Model,
             // AI Prompts & Context, Monthly Quota.
-            // Whitespace-only keys trim to empty — the site stays free.
+            // license_key is unused since story 44 (the SDK holds the license):
+            // no field posts it, so an admin save clears a stub-era key.
             $clean['license_key'] = trim(sanitize_text_field($input['license_key'] ?? ''));
             $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
             // A test URL still saves (Save never loses input), with a notice.
@@ -697,24 +698,26 @@ class PQM_Admin
                 <?php settings_fields('pqm_settings_group'); ?>
 
                 <?php if ($can_manage_settings): $panel_open('connection'); ?>
-                <!-- License (CAP-2: the key is the only plan switch — same zip) -->
+                <!-- License (story 44): the plan as the Freemius SDK reports it; the
+                     key lives on the SDK's own screens, and this is the one upsell. -->
                 <h2><?php esc_html_e('License', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php
-                    echo esc_html($is_pro
-                        ? __('Current plan: Pro — all agents, per-agent overrides, and scheduled reviews are unlocked.', 'post-quality-manager')
-                        : __('Current plan: Free — Review and Key Takeaways are included. Enter a license key to unlock the rest.', 'post-quality-manager'));
+                    if ($is_pro) {
+                        esc_html_e('Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.', 'post-quality-manager');
+                    } elseif (PQM_License::has_lapsed()) {
+                        printf(
+                            /* translators: %s: link to the Account page */
+                            esc_html__('Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. %s', 'post-quality-manager'),
+                            '<a href="' . esc_url(pqm_fs()->get_account_url()) . '">' . esc_html__('Renew on the Account page', 'post-quality-manager') . '</a>'
+                        );
+                    } else {
+                        printf(
+                            /* translators: %s: link to the pricing page */
+                            esc_html__('Current plan: Free — Review and Key Takeaways are included. %s', 'post-quality-manager'),
+                            '<a href="' . esc_url('https://postquality.com/pricing') . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
+                        );
+                    }
                 ?></p>
-                <table class="form-table">
-                    <tr>
-                        <th><label for="pqm_license_key"><?php esc_html_e('License Key', 'post-quality-manager'); ?></label></th>
-                        <td>
-                            <input type="text" id="pqm_license_key" name="pqm_settings[license_key]"
-                                   value="<?php echo esc_attr($settings['license_key']); ?>"
-                                   class="regular-text" autocomplete="off" />
-                            <p class="description"><?php esc_html_e('Your Post Quality Manager license key. It applies when you save — clear it to switch the site back to Free.', 'post-quality-manager'); ?></p>
-                        </td>
-                    </tr>
-                </table>
 
                 <!-- n8n Connection -->
                 <h2 class="pqm-section-gap"><?php esc_html_e('n8n Connection', 'post-quality-manager'); ?></h2>

@@ -98,6 +98,7 @@ class WP_Error {
 function is_wp_error($t) { return $t instanceof WP_Error; }
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Runner ─────────────────────────────────────────────────────────── */
@@ -318,16 +319,20 @@ check('the unused AJAX save is gone (no handler, no hook)', !str_contains($src, 
 check('ajax_test_connection() calls ping_webhook()', (bool) preg_match('/function ajax_test_connection\(\).*?self::ping_webhook\(/s', $src));
 check('wp_remote_post appears once in the admin class (the ping helper)', substr_count($src, 'wp_remote_post(') === 1);
 
-/* Row: uninstall — the progress option is removed */
+/* Row: uninstall — the progress option is removed, through the SDK hook (story 44) */
 echo "Uninstall\n";
-define('WP_UNINSTALL_PLUGIN', true);
+check('the SDK after_uninstall hook calls PQM_Activator::uninstall()',
+    (pqm_fs()->actions['after_uninstall'] ?? []) === [['PQM_Activator', 'uninstall']]);
+$icon = (pqm_fs()->filters['plugin_icon'] ?? [null])[0];
+check('the SDK plugin_icon filter returns a bundled icon file (no remote fetch)',
+    is_callable($icon) && is_file($icon()));
 $GLOBALS['tw_deleted'] = [];
 function delete_option($k) { $GLOBALS['tw_deleted'][] = $k; return true; }
 function delete_metadata(...$a) { return true; }
 function wp_roles() { return (object) ['role_objects' => []]; }
 function get_users($args) { return []; }
 function wp_clear_scheduled_hook(...$a) {}
-require dirname(__DIR__, 2) . '/post-quality-manager/uninstall.php';
+PQM_Activator::uninstall();
 check('uninstall deletes the setup progress option (PQM_SETUP_OPTION)', in_array(PQM_SETUP_OPTION, $GLOBALS['tw_deleted'], true));
 
 echo "\n$pass passed, $fail failed\n";

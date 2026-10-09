@@ -7,3 +7,7 @@
 # The index is LF; keep every text file LF in the working tree too, so
 # wp-scripts lint-js (prettier) sees the same endings on Windows and in CI.
 * text=auto eol=lf
+
+# Vendored third-party code (the Freemius SDK, story 44) is committed byte for
+# byte as its tagged release ships it, CRLF files included: no normalization.
+post-quality-manager/vendor/** -text

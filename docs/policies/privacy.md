@@ -32,9 +32,9 @@ The plugin runs in WP Admin only. It sets no cookies, loads nothing from third p
 
 Pro licenses are sold and managed by Freemius, Inc., which acts as the seller of record. When you buy, Freemius collects your name, email, billing address and payment details under its own privacy policy (https://freemius.com/privacy/). The plugin's author receives your name, email and the license details, used only to provide support and updates.
 
-With a license key entered, the plugin checks the license with Freemius: your site's address, the plugin version and the license key are sent for that check.
+With a license key entered, the plugin checks the license with Freemius: your site's address, the plugin version and the license key are sent for that check. Activating a license also connects the site to your Freemius account, which sends the details listed below; only the plugins-and-themes list is optional there.
 
-**Optional usage data.** On activation the plugin asks whether you want to share usage data (site address, WordPress and PHP versions, plugin version, active or inactive state, and the reason you give if you deactivate). This is off until you say yes, you can change it at any time under the plugin's settings, and the free features work the same either way. The author uses it to count installs and understand why people leave.
+**Optional usage data.** On activation the plugin asks whether you want to share usage data: the first and last name and email address of the WordPress user who opts in (always included), the site address and title, WordPress, PHP and plugin versions, site language, active or inactive state, the reason you give if you deactivate, and a list of the site's plugins and themes (names, slugs, versions, active or not), which is on by default and can be unticked on that screen. This is off until you say yes, the screen can be skipped, you can change it at any time under the plugin's settings, and the free features work the same either way. The author uses it to count installs and understand why people leave.
 
 ## 3. The website postquality.com
 

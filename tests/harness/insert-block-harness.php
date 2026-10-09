@@ -184,6 +184,7 @@ class PQM_Stub_WPDB {
 }
 $wpdb = new PQM_Stub_WPDB();
 
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Runner + fixtures ──────────────────────────────────────────────── */

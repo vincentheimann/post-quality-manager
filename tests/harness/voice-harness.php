@@ -56,6 +56,7 @@ function absint($n) { return abs((int) $n); }
 function wp_parse_url($url, $component = -1) { return parse_url($url, $component); }
 function add_settings_error(...$a) {}
 
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */

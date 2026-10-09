@@ -96,6 +96,7 @@ class WP_Role {}
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-db.php';       // processing placeholder (story 5.4)

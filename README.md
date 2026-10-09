@@ -86,7 +86,7 @@ Access is driven entirely by five `pqm_*` capabilities, remappable on the Settin
 
 ## Repository layout
 
-- `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, `templates/` with the n8n workflow template, entry point, uninstall)
+- `post-quality-manager/` — the distributable plugin (`admin/`, `includes/`, `templates/` with the n8n workflow template, entry point, `vendor/freemius/` with the licensing SDK)
 - `n8n/` — Mermaid diagram of the workflow
 - `docs/adr/` — Architecture Decision Records (why significant decisions were made)
 - `docs/brand.md` — brand voice and copy rules for admin UI text

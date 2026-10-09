@@ -46,13 +46,14 @@ The deferred-work item "Real Freemius licensing integration" (2026-10-02) become
 
 ## Boundaries
 
-- Must not change: the tiers and the command registry, the one-zip rule, the stored settings keys, the free-tier behavior.
-- Out of scope: a self-hosted license server; a separate Pro zip; site packs or lifetime plans beyond what the provider offers natively.
+- Must not change: the tiers and the command registry, the stored settings keys, the free-tier behavior.
+- Out of scope: a self-hosted license server; the stripping markers, the Free template and the CI check on the Free build (story 54, ADR 0014); site packs or lifetime plans beyond what the provider offers natively.
 
 ## References
 
 - decision — docs/adr/0006-license-provider-ships-as-stub.md (the seam this story fills)
-- decision — docs/adr/0003-freemium-plan-and-role-based-access.md (per-site license, one zip)
+- decision — docs/adr/0003-freemium-plan-and-role-based-access.md (per-site license)
+- decision — docs/adr/0014-two-builds-from-one-source.md (the SDK is initialised for two builds; the stripping itself is story 54)
 - code — post-quality-manager/includes/class-pqm-license.php (the only class whose internals change)
 - code — post-quality-manager/admin/class-pqm-admin.php, License section (the free-state copy and the key field)
 - deferred — _bmad-output/initiative-post-quality-manager/deferred-work.md, "Real Freemius licensing integration"
@@ -68,3 +69,5 @@ The deferred-work item "Real Freemius licensing integration" (2026-10-02) become
 - Decision (owner, 2026-10-09, ADR 0013): seller = the owner as a private person (Vincent Heimann); prices 49 / 99 / 199 a year for 1 / 5 / unlimited sites, USD and EUR; support hello@postquality.com within 2 business days; policy URLs on postquality.com (story 45). The Freemius product can be created with these.
 - Freemius product created 2026-10-09 (IDs, public key, sandbox checkout link and plan unique name `pro` in `docs/distribution.md`); plans stay unreleased until this story's last step. AC1 uses the sandbox checkout. The SDK is vendored at a tagged release, pinned in the plan.
 - Amended (owner, 2026-10-09): CHF joins USD and EUR as a checkout currency (story 52, ADR 0013 D5 amended); set it in the same product-setup sitting.
+- Decision (owner, 2026-10-09, ADR 0014): two builds from one source. This story integrates the SDK with the two-build settings (`is_premium`, the Pro suffix, the Free build's update source) and keeps AC3's single "Get Pro" place; the markers that strip the paid code, the Free template and the CI check on the Free build are story 54, which sits between this story and story 38. AC5 is run on the Pro build here; story 54 runs it on the Free build.
+- Built 2026-10-09 (plan beside this file): SDK 2.13.4 vendored, `PQM_License` reads `can_use_premium_code()`, License section shows Pro / lapsed / Free + "Get Pro", uninstall behind the SDK's `after_uninstall` hook. Pro plan expiration confirmed as "Block features after expiry" through the Chrome agent the same day (AC2's dashboard half). Open: the owner's Local pass (AC1, AC2 opt-in skip, lapse, delete) and the final step, releasing the plans.

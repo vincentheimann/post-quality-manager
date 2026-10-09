@@ -120,6 +120,7 @@ function wp_roles() {
 function translate_user_role($name, $domain = 'default') { return "[$name]"; } // marks the translated label
 
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Runner ─────────────────────────────────────────────────────────── */
@@ -174,6 +175,28 @@ echo "Admin, licensed\n";
 $html = render_for($admin_caps, true);
 foreach (array_merge($admin_sections, $editor_sections) as $s) { check("shows: $s", strpos($html, $s) !== false); }
 check('no locked fieldset', strpos($html, $locked_fieldset) === false);
+
+/* Row (story 44): License section — plan from the SDK, no key field, one upsell */
+echo "License section (story 44)\n";
+$get_pro = '<a href="https://postquality.com/pricing">Get Pro</a>';
+$html = render_for($admin_caps, true);
+check('Pro: plan line says Pro, no Get Pro, no lapse copy',
+    strpos($html, 'Current plan: Pro') !== false && strpos($html, $get_pro) === false && strpos($html, 'has lapsed') === false);
+check('no License Key field in any plan', strpos($html, 'pqm_settings[license_key]') === false
+    && strpos(render_for($admin_caps, false), 'pqm_settings[license_key]') === false);
+pqm_fs()->has_license = false;
+$html = render_for($admin_caps, false);
+check('Free: plan line says Free + the one Get Pro link to the pricing page',
+    strpos($html, 'Current plan: Free') !== false && substr_count($html, $get_pro) === 1 && strpos($html, 'has lapsed') === false);
+pqm_fs()->has_license = true; // expired or cancelled: a license the SDK no longer lets unlock Pro
+$html = render_for($admin_caps, false);
+check('Lapsed: lapse copy + renew link to the SDK Account page, no Get Pro',
+    strpos($html, 'your Pro license has lapsed') !== false
+    && strpos($html, '<a href="' . pqm_fs()->get_account_url() . '">Renew on the Account page</a>') !== false
+    && strpos($html, $get_pro) === false);
+pqm_fs()->has_license = false;
+check('Editor: no License section', strpos(render_for($editor_caps, true), '>License</h2>') === false
+    && strpos(render_for($editor_caps, false), $get_pro) === false);
 
 /* Row (ticket 16): settings-only role — the agent sections need
  * pqm_manage_agents: no heading, no fieldset, no field; admin sections stay */

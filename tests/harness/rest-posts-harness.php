@@ -142,6 +142,7 @@ class PQM_Stub_WPDB {
 }
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
+require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Runner ─────────────────────────────────────────────────────────── */
@@ -581,10 +582,11 @@ check('/dashboard gated by check_view_reviews (no pqm_view_reviews → 401/403)'
 
 /**
  * One /dashboard request: $rows feed the trend query; $settings become
- * pqm_settings; $dismissed sets pqm_cron_nudge_dismissed.
+ * pqm_settings; $dismissed sets pqm_cron_nudge_dismissed; $pro is the license.
  */
-function dashboard_with(array $caps, array $settings, array $rows, bool $dismissed = false): array {
+function dashboard_with(array $caps, array $settings, array $rows, bool $dismissed = false, bool $pro = true): array {
     $GLOBALS['tw']['caps'] = $caps;
+    pqm_fs()->pro = $pro; // the SDK stand-in's license (story 44)
     $GLOBALS['tw']['options'] = ['pqm_settings' => $settings, 'pqm_cron_nudge_dismissed' => $dismissed ? 1 : false];
     fresh_wpdb([$rows], []);
     $res = PQM_REST_API::dashboard_callback();
@@ -597,7 +599,7 @@ function ago(int $weeks, int $days = 0): string {
 }
 
 $admin = ['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
-$connected_pro = ['n8n_webhook_url' => 'https://n8n.example/webhook', 'license_key' => 'PQM-KEY', 'cron_enabled' => false];
+$connected_pro = ['n8n_webhook_url' => 'https://n8n.example/webhook', 'cron_enabled' => false];
 $one_scored = [['post_id' => '1', 'overall_score' => '70', 'status' => 'ship', 'reviewed_at' => ago(0, 1)]];
 
 /* Row: trend on known rows — each point = average of latest results as of that week's end */
@@ -669,7 +671,7 @@ $src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/clas
 check('dismiss handler persists only for pqm_manage_agents (static)',
     (bool) preg_match("/'pqm_dismiss_cron_nudge'\\)\\s*&& current_user_can\\('pqm_manage_agents'\\)/", $src));
 $cases = [
-    'free plan'            => dashboard_with($admin, ['license_key' => ''] + $connected_pro, $one_scored),
+    'free plan'            => dashboard_with($admin, $connected_pro, $one_scored, false, false),
     'settings-only role (cannot see the cron section)' => dashboard_with(['pqm_view_reviews', 'pqm_manage_settings'], $connected_pro, $one_scored),
     'author (no pqm_manage_agents)' => dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents'], $connected_pro, $one_scored),
     'cron already on'      => dashboard_with($admin, ['cron_enabled' => true] + $connected_pro, $one_scored),
@@ -682,6 +684,7 @@ foreach ($cases as $label => $r) {
         $r['data']['cron_nudge'] === false && !array_key_exists('cron_nudge_dismiss_url', $r['data']));
 }
 $GLOBALS['tw']['options'] = [];
+pqm_fs()->pro = false;
 
 /* ─── Yoast column and Pending marker (story 5.10) ───────────────────── */
 

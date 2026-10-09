@@ -21,7 +21,6 @@ define('ABSPATH', __DIR__ . '/');
 $GLOBALS['tw'] = [
     'roles'        => [],     // role_name => WP_Role (stub) objects
     'current_role' => null,   // whose capabilities current_user_can() reads
-    'license_key'  => '',     // non-empty = pro (PQM_License stub contract)
     'filter_pro'   => null,   // null = pqm_is_pro filter not hooked, bool = override
 ];
 
@@ -56,7 +55,7 @@ function current_user_can($cap) {
     $role = get_role($GLOBALS['tw']['current_role']);
     return $role instanceof WP_Role && !empty($role->capabilities[$cap]);
 }
-function pqm_get_settings() { return ['license_key' => $GLOBALS['tw']['license_key']]; }
+function pqm_get_settings() { return []; }
 function apply_filters($tag, $value) {
     if ($tag === 'pqm_is_pro' && $GLOBALS['tw']['filter_pro'] !== null) {
         return $GLOBALS['tw']['filter_pro'];
@@ -76,6 +75,7 @@ function update_option($option, $value, $autoload = null) {
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
+require __DIR__ . '/fs-stub.php';
 require $base . '/includes/class-pqm-license.php';
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-activator.php';
@@ -91,9 +91,9 @@ function reset_world($role_names = ['administrator', 'editor', 'author', 'contri
     $GLOBALS['tw'] = [
         'roles'        => [],
         'current_role' => $current_role,
-        'license_key'  => $is_pro ? 'PQM-ANY-KEY' : '',
         'filter_pro'   => null,
     ];
+    pqm_fs()->pro = $is_pro; // the SDK stand-in's license (story 44)
     foreach ($role_names as $name) {
         $GLOBALS['tw']['roles'][$name] = new WP_Role($name);
     }
@@ -426,7 +426,7 @@ PQM_Features::register_capabilities();
 check('ceiling: stripped from every manage_options role, the defaults come back', holders_of('pqm_manage_settings') === ['administrator']);
 
 /* ─── Row 10 (story 42): View as is retired ──────────────────────────── */
-echo "Row 10 — no View as left in the plugin; uninstall still deletes its meta\n";
+echo "Row 10 — no View as left in the plugin; uninstall (the SDK hook since story 44) removes everything\n";
 $plugin_php = '';
 $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
 foreach ($files as $file) {
@@ -439,19 +439,38 @@ check('no PQM_View_As, class-pqm-view-as, filter_caps or pqm_view_as switch acti
     !str_contains($plugin_php, 'PQM_View_As') && !str_contains($plugin_php, 'class-pqm-view-as')
     && !str_contains($plugin_php, 'filter_caps') && !str_contains($plugin_php, 'action=pqm_view_as')
     && !str_contains($plugin_php, 'admin_post_pqm_view_as'));
-define('WP_UNINSTALL_PLUGIN', true);
 $GLOBALS['tw_metadata_deletes'] = [];
-$GLOBALS['wpdb'] = new class { public $prefix = 'wp_'; public function query($q) { return true; } public function prepare($q, ...$a) { return $q; } };
-function delete_option($option) { return true; }
+$GLOBALS['tw_option_deletes'] = [];
+$GLOBALS['tw_cleared_hooks'] = [];
+$GLOBALS['wpdb'] = new class {
+    public $prefix = 'wp_';
+    public $queries = [];
+    public function query($q) { $this->queries[] = $q; return true; }
+    public function prepare($q, ...$a) { return vsprintf(str_replace('%i', '`%s`', $q), $a); }
+};
+function delete_option($option) { $GLOBALS['tw_option_deletes'][] = $option; return true; }
 function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $delete_all = false) {
     $GLOBALS['tw_metadata_deletes'][] = [$meta_type, $object_id, $meta_key, $meta_value, $delete_all];
     return true;
 }
-function wp_clear_scheduled_hook($hook, $args = [], $wp_error = false) { return 0; }
+function wp_clear_scheduled_hook($hook, $args = [], $wp_error = false) { $GLOBALS['tw_cleared_hooks'][] = $hook; return 0; }
 reset_world();
-require $base . '/uninstall.php';
+PQM_Features::register_capabilities();
+PQM_Activator::uninstall(); // story 44: the SDK's after_uninstall hook calls it
 check('uninstall deletes the leftover pqm_view_as meta for all users',
     in_array(['user', 0, 'pqm_view_as', '', true], $GLOBALS['tw_metadata_deletes'], true));
+/* Story 44: the cleanup moved from uninstall.php into PQM_Activator::uninstall(), unchanged. */
+check('uninstall drops the pqm_reviews table', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_pqm_reviews`']);
+check('uninstall deletes every pqm_ option',
+    $GLOBALS['tw_option_deletes'] === ['pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen',
+        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress']);
+check('uninstall deletes the pqm_monthly_usage meta for all users',
+    in_array(['user', 0, 'pqm_monthly_usage', '', true], $GLOBALS['tw_metadata_deletes'], true));
+check('uninstall strips every pqm_ cap from every role', array_filter(array_map(
+    static fn($role) => array_filter(array_keys($role->capabilities), static fn($c) => str_starts_with($c, 'pqm_')),
+    $GLOBALS['tw']['roles'])) === []);
+check('uninstall clears the review cron', $GLOBALS['tw_cleared_hooks'] === ['pqm_cron_review_posts']);
+check('no uninstall.php left (WordPress would run it instead of the SDK hook)', !file_exists($base . '/uninstall.php'));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

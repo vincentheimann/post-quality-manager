@@ -4,7 +4,7 @@
  * plugin capabilities; maybe_upgrade() does the same on upgraded installs.
  * Either grants a capability's defaults only while no role holding
  * manage_options has it yet, so roles set on Settings → Roles (story 42) are
- * never reset.
+ * never reset. uninstall() removes everything the plugin stored.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -26,6 +26,36 @@ class PQM_Activator {
             $settings['webhook_token'] = wp_generate_uuid4();
             update_option( 'pqm_settings', $settings );
         }
+    }
+
+    /**
+     * Run on plugin deletion, from the Freemius SDK's `after_uninstall` hook
+     * (story 44: WordPress would skip that hook if an uninstall.php existed).
+     * Drops the custom database table, removes plugin options and strips the
+     * pqm_* capabilities from every role and every user's direct grants.
+     */
+    public static function uninstall(): void {
+        global $wpdb;
+
+        $table_name = $wpdb->prefix . 'pqm_reviews';
+        $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $table_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+        delete_option( 'pqm_settings' );
+        delete_option( 'pqm_db_version' );
+        delete_option( 'pqm_workflow_version_seen' );
+        delete_option( 'pqm_cron_nudge_dismissed' );
+        delete_option( 'pqm_caps_version' );
+        delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36), named literally: the harnesses load this class without the main plugin file.
+
+        // Per-user monthly usage counters (author quota, CAP-4) — all users.
+        delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );
+        // Leftover from the retired View as (story 34, removed by story 42): kept one release.
+        delete_metadata( 'user', 0, 'pqm_view_as', '', true );
+
+        PQM_Features::remove_capabilities();
+
+        // Clear any scheduled cron events.
+        wp_clear_scheduled_hook( 'pqm_cron_review_posts' );
     }
 
     /**

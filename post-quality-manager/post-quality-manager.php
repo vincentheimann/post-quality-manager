@@ -20,6 +20,52 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/* ─── Licensing: Freemius SDK (ADR 0013, story 44) ───────────────────── */
+// Loads first, before plugins_loaded. PQM_License reads the license state
+// from it; the SDK's own screens (opt-in, license activation, Account) carry
+// the key. Nothing is sent before the opt-in choice (is_org_compliant).
+// The function_exists guard is also the harness seam: tests/harness/fs-stub.php
+// defines pqm_fs() first, so no harness loads the SDK.
+if (!function_exists('pqm_fs')) {
+    function pqm_fs()
+    {
+        global $pqm_fs;
+
+        if (!isset($pqm_fs)) {
+            require_once __DIR__ . '/vendor/freemius/start.php';
+
+            $pqm_fs = fs_dynamic_init([
+                'id'                  => '41144',
+                'slug'                => 'post-quality-manager',
+                'type'                => 'plugin',
+                'public_key'          => 'pk_ca2d449d0ee2b01bbdbdeb9bf3789',
+                'is_premium'          => true,
+                'premium_suffix'      => 'Pro',
+                'has_premium_version' => true,
+                'has_addons'          => false,
+                'has_paid_plans'      => true,
+                'is_org_compliant'    => true,
+                // Account only: no pricing, contact, support or affiliation
+                // submenu; the one upsell is the Settings → License section.
+                'menu'                => [
+                    'slug'        => 'pqm-dashboard',
+                    'account'     => true,
+                    'pricing'     => false,
+                    'contact'     => false,
+                    'support'     => false,
+                    'affiliation' => false,
+                    'addons'      => false,
+                ],
+            ]);
+        }
+
+        return $pqm_fs;
+    }
+
+    pqm_fs();
+    do_action('pqm_fs_loaded');
+}
+
 /* ─── Constants ──────────────────────────────────────────────────────── */
 define('PQM_VERSION', '3.3.0'); // x-release-please-version
 define('PQM_PLUGIN_FILE', __FILE__);
@@ -42,9 +88,15 @@ require_once PQM_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once PQM_PLUGIN_DIR . 'includes/class-pqm-cron.php';
 require_once PQM_PLUGIN_DIR . 'admin/class-pqm-admin.php';
 
-/* ─── Activation / Deactivation ──────────────────────────────────────── */
+/* ─── Activation / Deactivation / Uninstall ──────────────────────────── */
 register_activation_hook(__FILE__, ['PQM_Activator', 'activate']);
 register_deactivation_hook(__FILE__, ['PQM_Cron', 'clear_scheduled_events']);
+// The SDK owns the uninstall hook (WordPress would run an uninstall.php
+// instead), and calls this after its own cleanup, opted in or not.
+pqm_fs()->add_action('after_uninstall', ['PQM_Activator', 'uninstall']);
+// A local icon for the SDK's screens, so it never fetches one from Freemius
+// (before the opt-in choice) nor writes one into vendor/. Story 51 replaces it.
+pqm_fs()->add_filter('plugin_icon', static fn() => PQM_PLUGIN_DIR . 'vendor/freemius/assets/img/plugin-icon.png');
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 
@@ -82,7 +134,8 @@ add_filter('cron_schedules', ['PQM_Cron', 'add_custom_schedules']);
 function pqm_default_settings(): array
 {
     return [
-        // Stub licensing (CAP-2): any non-empty key = pro, via PQM_License.
+        // Unused since story 44 (the Freemius SDK holds the license); kept so
+        // the stored settings shape stays unchanged.
         'license_key' => '',
         'n8n_webhook_url' => '',
         'webhook_token' => wp_generate_uuid4(),
@@ -496,7 +549,8 @@ function pqm_webhook_url_warning(string $url): string
  * Option holding the setup dialog's progress, once per site (setup is a
  * site task one administrator may finish for another):
  * `['steps' => [step => bool], 'complete' => bool]`, autoload off, deleted
- * on uninstall (uninstall.php names it literally — it loads without this file).
+ * on uninstall (PQM_Activator::uninstall() names it literally: the harnesses
+ * load that class without this file).
  */
 define('PQM_SETUP_OPTION', 'pqm_setup_progress');
 

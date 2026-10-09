@@ -68,9 +68,10 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 |---|---|---|
 | Account | created 2026-10-09 on hello@postquality.com (personal address as recovery) | ADR 0013 D2 |
 | Product ID / public key | 41144 / `pk_ca2d449d0ee2b01bbdbdeb9bf3789` (the public key ships in the plugin; the secret key and API token stay in the Freemius dashboard, never in the repository) | story 44 |
-| Plan IDs | Free 71338 · Pro 71340, unique name `pro` | story 44 reads `pro` from the SDK |
+| Plan IDs | Free 71338 · Pro 71340, unique name `pro` | story 44: the plugin reads no plan name, any license that unlocks premium code is Pro (one paid plan) |
 | Pricing IDs | USD: 1 site 97893, 5 sites 97894, unlimited 97895 · EUR: 1 site 97896, 5 sites 97897, unlimited 97898 · CHF: 1 site 97905, 5 sites 97906, unlimited 97907 (story 52) | set 2026-10-09 |
 | Release plans | OFF until story 44 ships; releasing is its last step | story 44 |
+| Pro plan expiration behaviour | "Block features after expiry" (internal value `block_features_annually`; Plans → Pro → Features section), read back after a full reload 2026-10-09: an expired or cancelled license stops unlocking Pro (`can_use_premium_code()` false), the site returns to Free. The other two choices ("…only when paying monthly", "Keep features, only block updates and support") are not used | ADR 0013 D7; set (as the plan default) 2026-10-09 |
 | Sandbox checkout | https://checkout.freemius.com/plugin/41144/plan/71340/?sandbox=true (not yet opened) | story 44 AC1 |
 | Store settings | title Post Quality, URL https://postquality.com, terms https://postquality.com/terms; emails From and Support = hello@postquality.com as "Post Quality"; no privacy-URL field exists (the privacy page is linked from the site and the readme instead) | set 2026-10-09 |
 | DKIM | setup started 2026-10-09; three CNAMEs to add at the registrar, then Verify in Store → Emails: `em1587` → `u1589727.wl228.sendgrid.net`, `s1._domainkey` → `s1.domainkey.u1589727.wl228.sendgrid.net`, `s2._domainkey` → `s2.domainkey.u1589727.wl228.sendgrid.net` (hosts shown without the domain suffix; add it if the registrar wants the full name) | OWNER: add, then verify |
@@ -85,8 +86,8 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | Support contact | hello@postquality.com, 2 business days | ADR 0013 D9 |
 | Terms / refund / privacy URLs | https://postquality.com/terms, /refund, /privacy, /support; drafts in `docs/policies/` (story 46, 2026-10-09) | story 45 publishes them |
 | Third-party legal links in the readme | CHECK: n8n, Anthropic, OpenAI, Google and Freemius terms and privacy URLs named in `docs/policies/readme-external-services.md` | story 38 opens each before pasting |
-| Opt-in screen | Freemius's standard screen, plugin name only | ADR 0013 D8 |
-| SDK version and vendor folder | the dashboard names no version; download https://github.com/Freemius/wordpress-sdk/archive/master.zip or `composer require freemius/wordpress-sdk`; story 44 pins the tagged release it vendors | story 44 plan |
+| Opt-in screen | Freemius's standard screen at activation, plugin name only, skippable; nothing leaves the site before the choice (`is_org_compliant`); the license key is entered on the SDK's activation screen, or after Skip through the "Activate License" link on the Plugins screen; Account, the one SDK submenu (pricing, contact, support, affiliation and add-ons off), appears only once the install is registered (opt-in or license activation) | ADR 0013 D8; shipped by story 44 |
+| SDK version and vendor folder | 2.13.4, from https://github.com/Freemius/wordpress-sdk/archive/refs/tags/2.13.4.zip, committed unmodified in `post-quality-manager/vendor/freemius/` (byte for byte: `.gitattributes` turns off line-ending normalization there); CI skips it in `php -l` and Plugin Check | story 44 |
 | Test purchase | sandbox checkout exists (row above) | story 44 AC1 |
 | Fees (read 2026-10-09) | 3.8% + 50¢ plus gateway fees, plus 2.3% for WordPress products; no setup or monthly fee | ADR 0013 D3; re-read before launch |
 
