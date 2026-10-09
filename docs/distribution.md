@@ -87,9 +87,10 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 | Field | Value (read 2026-10-09) | Source / owner |
 |---|---|---|
 | Repository | github.com/vincentheimann/post-quality-manager, private until entry 4.8 | epic-delivery-pipeline |
-| Description | empty today → the tagline in docs/brand.md | story 48 |
-| Topics | none today → proposal `wordpress-plugin`, `content-quality`, `n8n`, `ai` | story 48; topics may name integrations, the product name may not |
-| Website | empty today → https://postquality.com | story 48 |
+| Description | the tagline in docs/brand.md (set 2026-10-09) | story 48 |
+| Topics | `wordpress-plugin`, `content-quality`, `n8n`, `ai` (set 2026-10-09; topics may name integrations, the product name may not) | story 48 |
+| Website | https://postquality.com (set 2026-10-09) | story 48 |
+| Community files | `SECURITY.md`, `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/` (bug, feature, config), `.github/PULL_REQUEST_TEMPLATE.md` | story 48 |
 | Default branch | main; protection to add (CI checks required, no force push), only possible once the repository is public on the free plan (read 2026-10-09) | story 48, applied at entry 4.8 |
 | Discussions | off today | OWNER: keep off or turn on (story 48) |
 | Private vulnerability reporting | to enable; only available on a public repository | story 48, applied at entry 4.8; the address is hello@postquality.com (story 46) |

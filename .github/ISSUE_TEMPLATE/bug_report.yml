@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in the plugin does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Security problems go through [SECURITY.md](../blob/main/SECURITY.md), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Post Quality → Post Reviews
+        2. Click Review on a post
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Plugins → Installed Plugins, or the Settings page footer.
+    validations:
+      required: true
+  - type: input
+    id: workflow-version
+    attributes:
+      label: Workflow template version
+      description: Shown on the n8n Workflow page after a test ping, if n8n is involved.
+  - type: input
+    id: wordpress-version
+    attributes:
+      label: WordPress version
+    validations:
+      required: true
+  - type: input
+    id: php-version
+    attributes:
+      label: PHP version
+    validations:
+      required: true
+  - type: input
+    id: n8n-version
+    attributes:
+      label: n8n version and hosting
+      description: For example "1.60, self-hosted" or "n8n Cloud".
+  - type: textarea
+    id: debug
+    attributes:
+      label: WP_DEBUG output or browser console errors
+      description: Lines from debug.log or the browser console, with secrets removed.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I am on the latest plugin release.
+        - label: I removed API keys, webhook tokens and site-specific values from what I pasted.
+          required: true

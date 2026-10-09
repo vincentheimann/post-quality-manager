@@ -1,0 +1,31 @@
+name: Feature request
+description: Something the plugin should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and where the plugin stops short.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: The behavior you have in mind. A sketch is fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Who you are on the site
+      options:
+        - Solo blogger (Administrator)
+        - Editor on a multi-author site
+        - Author on a multi-author site
+        - Agency or developer managing several sites
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
