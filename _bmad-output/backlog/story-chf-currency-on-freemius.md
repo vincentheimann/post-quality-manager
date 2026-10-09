@@ -39,3 +39,4 @@ Verify: the Freemius Pro plan lists CHF beside USD and EUR with the three site-p
 - Assumption: the same figures in CHF as in USD and EUR, following D5's "same figures" rule; the owner can set other CHF figures at the sitting.
 - Payout: CHF sales land in the USD balance after conversion at purchase; there is no separate CHF payout.
 - Not ranked by `/prioritize` yet.
+- Built 2026-10-09 through the Chrome agent: CHF pricing IDs 97905 / 97906 / 97907 at 49 / 99 / 199 a year; read back after reload and shown in the sandbox checkout ("Fr49.00", "Fr99.00", "Fr199.00"). Freemius notes: CHF converts to USD at processing; the checkout offers card only in CHF (no PayPal); its 5-site line shows a "Save 59%" multi-site discount of its own against 5 × 49, total unchanged.

@@ -69,7 +69,7 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | Account | created 2026-10-09 on hello@postquality.com (personal address as recovery) | ADR 0013 D2 |
 | Product ID / public key | 41144 / `pk_ca2d449d0ee2b01bbdbdeb9bf3789` (the public key ships in the plugin; the secret key and API token stay in the Freemius dashboard, never in the repository) | story 44 |
 | Plan IDs | Free 71338 · Pro 71340, unique name `pro` | story 44 reads `pro` from the SDK |
-| Pricing IDs | USD: 1 site 97893, 5 sites 97894, unlimited 97895 · EUR: 1 site 97896, 5 sites 97897, unlimited 97898 | set 2026-10-09 |
+| Pricing IDs | USD: 1 site 97893, 5 sites 97894, unlimited 97895 · EUR: 1 site 97896, 5 sites 97897, unlimited 97898 · CHF: 1 site 97905, 5 sites 97906, unlimited 97907 (story 52) | set 2026-10-09 |
 | Release plans | OFF until story 44 ships; releasing is its last step | story 44 |
 | Sandbox checkout | https://checkout.freemius.com/plugin/41144/plan/71340/?sandbox=true (not yet opened) | story 44 AC1 |
 | Store settings | title Post Quality, URL https://postquality.com, terms https://postquality.com/terms; emails From and Support = hello@postquality.com as "Post Quality"; no privacy-URL field exists (the privacy page is linked from the site and the readme instead) | set 2026-10-09 |
@@ -79,7 +79,7 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | Plan name | Pro (the free tier is "Free") | ADR 0013 D10 |
 | Billing | yearly, auto-renew at the same price, no renewal discount, no coupon | ADR 0013 D4 |
 | Site packs and prices | 1 site 49 · 5 sites 99 · unlimited 199, per year | ADR 0013 D5 |
-| Currencies | USD, EUR and CHF, same figures by default (OWNER: confirm the CHF figures at setup) | ADR 0013 D5, amended 2026-10-09; story 52 |
+| Currencies | USD, EUR and CHF at the same figures (49 / 99 / 199, set 2026-10-09); CHF converts to USD at processing and is paid out from the USD balance; PayPal is not offered in CHF, card only | ADR 0013 D5, amended 2026-10-09; story 52 |
 | Trial | none (the free tier is the trial) | ADR 0013 D4 |
 | Money-back guarantee | 14 days, Freemius "Flexible – Double Guarantee" (no questions asked) | ADR 0013 D6 |
 | Support contact | hello@postquality.com, 2 business days | ADR 0013 D9 |
