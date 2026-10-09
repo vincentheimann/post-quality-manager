@@ -1,7 +1,7 @@
 ---
 title: "The commercial model is decided: seller, provider, plans, price and launch posture"
 ticket: 43
-status: built
+status: done
 ---
 
 Decision sitting, no code. The owner took every recommended default on 2026-10-09 ("go with defaults"). Delivered as ADR [0013](../../docs/adr/0013-pro-sold-through-freemius-before-public-release.md): real licensing before the first public release (D1), Freemius (D3, fees checked on its pricing page the same day), one yearly Pro plan in 1 / 5 / unlimited site packs (D4), USD and EUR (D5), no card-less trial and a 14-day money-back guarantee (D6), lapse to Free keeping stored settings (D7), the Freemius opt-in as the A1/A2 signal source (D8), forum for Free and email for Pro (D9), "Free" and "Pro" (D10).

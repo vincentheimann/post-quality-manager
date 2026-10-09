@@ -37,3 +37,4 @@ Verify: `SECURITY.md` carries the security policy of story 46 (private reporting
 
 - Filed 2026-10-09 (release-readiness pack, see story 43). Best before entry 4.8 turns the repository public; `tickets.py` cannot express a backlog → epic prerequisite, so this line carries it.
 - `SECURITY.md` can ship with a placeholder address before story 46 settles the wording, so this story does not wait on it.
+- Finding (agent, 2026-10-09, read through the GitHub API): on this private repository the free plan refuses branch protection and rulesets ("Upgrade to GitHub Pro or make this repository public") and private vulnerability reporting is not available. The files of this story land before entry 4.8; the three settings (protection, vulnerability reporting, Discussions) are applied in the same sitting as the owner switches the repository to public, as a named step of entry 4.8. The security address is hello@postquality.com (ADR 0013).

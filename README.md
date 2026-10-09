@@ -90,6 +90,7 @@ Access is driven entirely by five `pqm_*` capabilities, remappable on the Settin
 - `n8n/` — Mermaid diagram of the workflow
 - `docs/adr/` — Architecture Decision Records (why significant decisions were made)
 - `docs/brand.md` — brand voice and copy rules for admin UI text
+- `docs/distribution.md` — every field the WordPress.org directory, the licensing provider, GitHub and the website ask for, with its value or its owner
 - `docs/user-paths.md` — new-user and existing-user journeys with their EBM Current/Unrealized Value; the Product Owner's guide to where effort goes next
 - `_bmad-output/` — the product initiative, its epics, the backlog tickets and build plans (BMad Method, git-backed); `_bmad/` — BMad runtime and team overrides
 
