@@ -66,7 +66,14 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 
 | Field | Value | Source / owner |
 |---|---|---|
-| Account | created 2026-10-09 on hello@postquality.com (personal address as recovery); product being set up | ADR 0013 D2 |
+| Account | created 2026-10-09 on hello@postquality.com (personal address as recovery) | ADR 0013 D2 |
+| Product ID / public key | 41144 / `pk_ca2d449d0ee2b01bbdbdeb9bf3789` (the public key ships in the plugin; the secret key and API token stay in the Freemius dashboard, never in the repository) | story 44 |
+| Plan IDs | Free 71338 · Pro 71340, unique name `pro` | story 44 reads `pro` from the SDK |
+| Pricing IDs | USD: 1 site 97893, 5 sites 97894, unlimited 97895 · EUR: 1 site 97896, 5 sites 97897, unlimited 97898 | set 2026-10-09 |
+| Release plans | OFF until story 44 ships; releasing is its last step | story 44 |
+| Sandbox checkout | https://checkout.freemius.com/plugin/41144/plan/71340/?sandbox=true (not yet opened) | story 44 AC1 |
+| Store settings | title Post Quality, URL https://postquality.com, terms https://postquality.com/terms; emails From and Support = hello@postquality.com as "Post Quality"; no privacy-URL field exists (the privacy page is linked from the site and the readme instead) | set 2026-10-09 |
+| DKIM | not set up; Freemius shows the records only after "Authenticate Domain" starts the setup | OWNER: run it when ready and add the records at the registrar (story 45 sitting) |
 | Seller of record | Freemius (remits VAT and sales tax); payouts to the owner as a private person | ADR 0013 D2, D3 |
 | Product name | Post Quality Manager | docs/brand.md § Naming |
 | Plan name | Pro (the free tier is "Free") | ADR 0013 D10 |
@@ -74,13 +81,13 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 | Site packs and prices | 1 site 49 · 5 sites 99 · unlimited 199, per year | ADR 0013 D5 |
 | Currencies | USD and EUR, same figures | ADR 0013 D5 |
 | Trial | none (the free tier is the trial) | ADR 0013 D4 |
-| Money-back guarantee | 14 days | ADR 0013 D6 |
+| Money-back guarantee | 14 days, Freemius "Flexible – Double Guarantee" (no questions asked) | ADR 0013 D6 |
 | Support contact | hello@postquality.com, 2 business days | ADR 0013 D9 |
 | Terms / refund / privacy URLs | https://postquality.com/terms, /refund, /privacy, /support; drafts in `docs/policies/` (story 46, 2026-10-09) | story 45 publishes them |
 | Third-party legal links in the readme | CHECK: n8n, Anthropic, OpenAI, Google and Freemius terms and privacy URLs named in `docs/policies/readme-external-services.md` | story 38 opens each before pasting |
 | Opt-in screen | Freemius's standard screen, plugin name only | ADR 0013 D8 |
-| SDK version and vendor folder | CHECK: the current Freemius WordPress SDK at build time | story 44 plan |
-| Test purchase | CHECK: whether Freemius offers a sandbox; otherwise a real purchase refunded under the guarantee | story 44 Notes |
+| SDK version and vendor folder | the dashboard names no version; download https://github.com/Freemius/wordpress-sdk/archive/master.zip or `composer require freemius/wordpress-sdk`; story 44 pins the tagged release it vendors | story 44 plan |
+| Test purchase | sandbox checkout exists (row above) | story 44 AC1 |
 | Fees (read 2026-10-09) | 3.8% + 50¢ plus gateway fees, plus 2.3% for WordPress products; no setup or monthly fee | ADR 0013 D3; re-read before launch |
 
 ## GitHub repository (story 48)
