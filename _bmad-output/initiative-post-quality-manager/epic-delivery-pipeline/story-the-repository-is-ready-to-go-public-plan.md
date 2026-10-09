@@ -3,7 +3,7 @@ title: 'The repository is ready to go public'
 type: 'chore'
 ticket: '9'
 created: '2026-10-08'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'pinned'
 review: 'quick'

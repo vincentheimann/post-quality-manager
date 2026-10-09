@@ -1,7 +1,7 @@
 ---
 title: "Support, privacy, terms and refund policies exist before the first sale"
 ticket: 46
-status: built
+status: done
 ---
 
 Wording only, no plugin code. Drafted 2026-10-09 in `docs/policies/` from ADR 0013 and a read of what the plugin actually sends and stores (`pqm_webhook_payload()` in the main file: post id, command, site and callback URLs, token, `brand_voice`, `website_context`, the `llm` map; `GET /post-score`: title, slug, link, excerpt, content and the five Yoast fields; the reviews table; `pqm_monthly_usage` user meta; `uninstall.php`):
