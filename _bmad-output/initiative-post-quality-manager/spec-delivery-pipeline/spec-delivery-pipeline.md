@@ -40,7 +40,7 @@ A mandate and an opportunity. The plugin has never been released: no tag and no 
 
 ## Constraints
 
-- One zip for free and paid sites (ADR 0003): no build flavours.
+- One zip for free and paid sites (ADR 0003): no build flavours. *Superseded 2026-10-09 by ADR 0014: a Free build for WordPress.org and a Pro build served by Freemius, both generated from the one zip this pipeline produces (backlog story 54).*
 - Built assets never enter git; the zip takes `admin/build/` from the CI build of the released commit.
 - The zip's root folder is `post-quality-manager`, the plugin slug, so an upload replaces the installed plugin in place.
 - `PQM_WORKFLOW_VERSION` (the n8n template handshake) is independent of the plugin version; a release never bumps it.

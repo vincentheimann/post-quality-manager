@@ -1,6 +1,6 @@
 # 0003. Freemium plan and role-based access share one feature gate
 
-- Status: accepted
+- Status: accepted; "one zip, one build" and "one n8n template" superseded by [0014](0014-two-builds-from-one-source.md), the rest stands
 - Date: 2026-09-22
 
 ## Context

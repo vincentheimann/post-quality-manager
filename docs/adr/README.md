@@ -46,3 +46,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0011 — Two voice layers: editorial standards per site, a voice per author](0011-editorial-standards-and-author-voice.md)
 - [0012 — Role rights are set in the plugin; "View as" is retired](0012-role-rights-set-in-the-plugin-view-as-retired.md)
 - [0013 — Pro is sold through Freemius, per site and yearly, before the first public release](0013-pro-sold-through-freemius-before-public-release.md)
+- [0014 — Two builds from one source: a Free build for the directory, a Pro build served by Freemius](0014-two-builds-from-one-source.md)

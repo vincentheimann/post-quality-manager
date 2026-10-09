@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9, 44, 46, 47]
+after: [10, 15, 41, 9, 44, 46, 47, 54]
 assignee: ""
 refined: false
 hitl: true
@@ -40,9 +40,9 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
    **When** the slug, name and assets are submitted
    **Then** the slug is `post-quality-manager`, the name contains no third-party trademark (no "WordPress", "Claude", "n8n" in the name), the copy claims no affiliation, and `assets/` holds `icon-128x128.png`, `icon-256x256.png`, `banner-772x250.png`, `banner-1544x500.png` and numbered screenshots matching the readme
 6. **Freemium rules**
-   **Given** a free site
-   **When** the review team installs the plugin without a license
-   **Then** Review and Key Takeaways work fully, Pro features are visible-but-locked without nagging notices, and no data leaves the site except the user-configured n8n call
+   **Given** the Free build (story 54)
+   **When** the review team installs it
+   **Then** Review and Key Takeaways work fully, no Pro code, command or template branch is present, the one "Get Pro" section on the Settings page is the only upsell (no notice, toast or widget), and no data leaves the site except the user-configured n8n call and the Freemius opt-in after consent
 7. **Deployed from the release**
    **Given** an approved listing
    **When** a GitHub Release is published
@@ -50,13 +50,14 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 
 ## Boundaries
 
-- Must not change: the feature gate (ADR 0003), the one-zip rule, the stored settings keys.
+- Must not change: the feature gate (ADR 0003), the stored settings keys.
 - Out of scope: translations content (language packs come from translate.wordpress.org once listed — bundled `languages/` becomes unnecessary for directory installs); Freemius SDK integration (deferred-work) unless the review requires the license flow to be visible.
 
 ## References
 
 - requirements — docs/user-paths.md, A1–A2 (UV7) and A3 (update channel)
 - decision — docs/adr/0003-freemium-plan-and-role-based-access.md (GitHub Releases first, WordPress.org afterwards, same gate)
+- decision — docs/adr/0014-two-builds-from-one-source.md (the Free build is what the directory hosts; AC6 and AC7 read from it)
 - spec — _bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md (CAP-2 zip, CAP-3 versions; this story adds `readme.txt` to both)
 - external — https://developer.wordpress.org/plugins/wordpress-org/detailed-plugin-guidelines/ (the 18 guidelines)
 - external — https://developer.wordpress.org/plugins/wordpress-org/plugin-developer-faq/ and the readme validator https://wordpress.org/plugins/developers/readme-validator/
@@ -73,3 +74,4 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 - Decision (owner, 2026-10-09, `/prioritize`): 44, 46 and 47 join `after`. Real licensing gates this listing, not entry 4.8: a public GitHub release reaches almost nobody (A1), the directory is where real users come from, so the stub license must be gone before submission. Spike 43's D1 can still pull 44 ahead of 4.8.
 - Finding (agent, 2026-10-09): AC6 "Pro features are visible-but-locked" contradicts guideline 5 (no locked functionality in a directory plugin) — see story 44's Notes for the quotes and the proposed two-build model; AC6 is rewritten once the owner decides.
 - Decision (owner, 2026-10-09, spike 43, ADR 0013): D1 pulled story 44 ahead of entry 4.8 too, so the stub license never reaches a public release; this listing's AC6 is checked against real Freemius licensing.
+- Decision (owner, 2026-10-09, ADR 0014): two builds from one source; AC6 rewritten (the Free build has no Pro code, one upsell), the one-zip boundary dropped, story 54 joins `after`. AC7's SVN deploy pushes the Freemius-generated Free build, not the GitHub Release zip; the Plugin Check open question is answered by story 54 (CI checks the Free build).
