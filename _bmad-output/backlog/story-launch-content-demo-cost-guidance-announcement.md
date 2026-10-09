@@ -36,3 +36,4 @@ Verify: a demo GIF or video exists and is embedded on the front page of postqual
 ## Notes
 
 - Filed 2026-10-09 (release-readiness pack, see story 43). Last of the pack; worth doing only once the listing (story 38) is live or imminent.
+- Linked (owner, 2026-10-09): the promotional claims and KPI figures come from story 53 (`docs/messaging.md`); the demo script and the announcement reuse its pitch and benefit lines.

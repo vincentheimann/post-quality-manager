@@ -23,6 +23,8 @@ _This file is the single source of truth for brand, copy, and tone decisions in 
 
 > Streamline your content quality control. Spot issues instantly, automate the review process, and maintain high standards effortlessly.
 
+Promotional wording and the KPI figures behind it: story 53 (needs refinement with the owner's real KPIs) writes them to `docs/messaging.md`, which then replaces this line as the canon for public surfaces.
+
 ---
 
 ## Copy Rules (Agent Instructions)
