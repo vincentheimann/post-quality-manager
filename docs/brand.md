@@ -57,7 +57,7 @@ _This file is the single source of truth for brand, copy, and tone decisions in 
   1. The overall score or status
   2. Actionable takeaways/issues
   3. Action buttons (Review/Rewrite)
-- Logo, menu icon, WordPress.org icons/banners/screenshots and imagery direction: not decided yet — story 41 extends this section (owner-approved) before story 38 submits to the directory.
+- Logo, menu icon, WordPress.org icons/banners/screenshots and imagery direction: not decided yet — story 51 (icon) and story 41 (the rest) extend this section (owner-approved) before story 38 submits to the directory.
 
 ---
 

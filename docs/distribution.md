@@ -54,12 +54,12 @@ Account and submission:
 | Screenshots | numbered files from story 41, one caption each |
 | Changelog | docs/release-notes/<version>.md and the release-please CHANGELOG (story 15) |
 
-Assets (`assets/` in SVN, not in the zip; story 41 produces them):
+Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 the banners and screenshots):
 
 | File | Status |
 |---|---|
-| icon-128x128.png, icon-256x256.png | OWNER: approve story 41's direction, then produced |
-| banner-772x250.png, banner-1544x500.png | same |
+| icon-128x128.png, icon-256x256.png, icon.svg | OWNER: approve story 51's direction, then produced (story 51) |
+| banner-772x250.png, banner-1544x500.png | OWNER: approve story 41's direction, then produced (story 41, after 51) |
 | screenshot-1.png … screenshot-n.png | same; numbers match the readme Screenshots section |
 
 ## Licensing provider: Freemius (story 44)
@@ -73,13 +73,13 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 | Release plans | OFF until story 44 ships; releasing is its last step | story 44 |
 | Sandbox checkout | https://checkout.freemius.com/plugin/41144/plan/71340/?sandbox=true (not yet opened) | story 44 AC1 |
 | Store settings | title Post Quality, URL https://postquality.com, terms https://postquality.com/terms; emails From and Support = hello@postquality.com as "Post Quality"; no privacy-URL field exists (the privacy page is linked from the site and the readme instead) | set 2026-10-09 |
-| DKIM | not set up; Freemius shows the records only after "Authenticate Domain" starts the setup | OWNER: run it when ready and add the records at the registrar (story 45 sitting) |
+| DKIM | setup started 2026-10-09; three CNAMEs to add at the registrar, then Verify in Store → Emails: `em1587` → `u1589727.wl228.sendgrid.net`, `s1._domainkey` → `s1.domainkey.u1589727.wl228.sendgrid.net`, `s2._domainkey` → `s2.domainkey.u1589727.wl228.sendgrid.net` (hosts shown without the domain suffix; add it if the registrar wants the full name) | OWNER: add, then verify |
 | Seller of record | Freemius (remits VAT and sales tax); payouts to the owner as a private person | ADR 0013 D2, D3 |
 | Product name | Post Quality Manager | docs/brand.md § Naming |
 | Plan name | Pro (the free tier is "Free") | ADR 0013 D10 |
 | Billing | yearly, auto-renew at the same price, no renewal discount, no coupon | ADR 0013 D4 |
 | Site packs and prices | 1 site 49 · 5 sites 99 · unlimited 199, per year | ADR 0013 D5 |
-| Currencies | USD and EUR, same figures | ADR 0013 D5 |
+| Currencies | USD, EUR and CHF, same figures by default (OWNER: confirm the CHF figures at setup) | ADR 0013 D5, amended 2026-10-09; story 52 |
 | Trial | none (the free tier is the trial) | ADR 0013 D4 |
 | Money-back guarantee | 14 days, Freemius "Flexible – Double Guarantee" (no questions asked) | ADR 0013 D6 |
 | Support contact | hello@postquality.com, 2 business days | ADR 0013 D9 |
@@ -116,6 +116,6 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 
 ## Open markers on 2026-10-09
 
-- OWNER: approve story 41's icon, banner and screenshots.
+- OWNER: approve story 51's icon, then story 41's banner and screenshots; confirm the CHF figures (story 52).
 - OWNER: Freemius account; mail forwarding at the registrar; Discussions on or off.
 - CHECK at use: `Tested up to`, readme tags, Freemius SDK version and sandbox, Freemius fees.

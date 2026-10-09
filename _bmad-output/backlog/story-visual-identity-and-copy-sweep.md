@@ -4,7 +4,7 @@ type: story
 title: "The visual identity and the copy sweep are produced and applied"
 parent: none
 covers: [UV7]
-after: [10]
+after: [10, 51]
 assignee: ""
 refined: false
 hitl: true
@@ -31,3 +31,4 @@ Verify: an owner-approved logo/icon and imagery direction extends `docs/brand.md
 ## Notes
 
 - Decision (owner, 2026-10-08, `/prioritize` D6): split from story 10 so the naming decision — a one-way door gating pipeline entry 4.6 and the readme work — is not held back by asset production. This story runs in parallel at the owner's pace and blocks only story 38.
+- Sliced (owner, 2026-10-09): the icon (menu icon, WordPress.org icon files, favicon and Freemius product image) moves to story 51; this story keeps the imagery direction, the banners, the screenshots and the copy sweep, and now waits on 51 because the banners reuse the mark.
