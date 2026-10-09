@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.2.0...v3.3.0) (2026-10-09)
+
+
+### Features
+
+* **plugin:** point Plugin URI and Author URI at postquality.com (story 45) ([61789de](https://github.com/vincentheimann/post-quality-manager/commit/61789defbf171e9ab0161215e94bc57ea5e0fa82))
+
 ## [3.2.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.1.1...v3.2.0) (2026-10-08)
 
 
