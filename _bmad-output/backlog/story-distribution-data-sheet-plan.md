@@ -1,7 +1,7 @@
 ---
 title: "A distribution data sheet lists every field each platform needs, with its value or its owner"
 ticket: 47
-status: built
+status: done
 ---
 
 One document, no code. Delivered 2026-10-09 as `docs/distribution.md`: one section per platform (plugin header, WordPress.org account and readme header and sections and assets, Freemius product, GitHub repository, postquality.com), one line per field with its value, the canon that owns it, or an `OWNER:` / `CHECK:` marker. Values come from ADR 0013, `docs/brand.md` § Naming, the plugin header, the delivery-pipeline memory and a read of the repository's front through `gh repo view` (description, topics, website all empty; Discussions off). `README.md` "Repository layout" lists the file.

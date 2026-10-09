@@ -1,7 +1,7 @@
 ---
 title: "The public repository welcomes issues and security reports"
 ticket: 48
-status: built
+status: done
 ---
 
 Plan approved by the owner 2026-10-09 ("go"), six steps; five built the same day, the sixth deferred to entry 4.8 because the GitHub API refuses branch protection, rulesets and private vulnerability reporting on a private repository on the free plan (read 2026-10-09, see the ticket Notes).
