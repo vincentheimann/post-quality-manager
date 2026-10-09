@@ -23,7 +23,7 @@ Account and submission:
 
 | Field | Value | Source / owner |
 |---|---|---|
-| wordpress.org username (readme `Contributors`, the submitting account) | `heimvin` (owner, 2026-10-09). CHECK: that name is the owner's WordPress.com login; profiles.wordpress.org/heimvin returned 404 the same day, so a WordPress.org account under it must be registered before story 38 submits (the two sites keep separate accounts) | story 38 |
+| wordpress.org username (readme `Contributors`, the submitting account) | `postquality` (created 2026-10-09, https://profiles.wordpress.org/postquality/, login hello@postquality.com) | story 38 |
 | Plugin slug | post-quality-manager (derived from the Plugin Name at submission, checked free 2026-10-08) | docs/brand.md § Naming |
 | Support forum | https://wordpress.org/support/plugin/post-quality-manager/ once listed; Free support channel, best effort | ADR 0013 D9 |
 | SVN deploy credentials | the wordpress.org username and password as GitHub secrets `SVN_USERNAME` and `SVN_PASSWORD` (the names the 10up deploy action reads) | story 38 AC7 creates them; never in the repository |
@@ -66,7 +66,7 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 
 | Field | Value | Source / owner |
 |---|---|---|
-| Account | OWNER: create at freemius.com in the seller's name, login hello@postquality.com with the personal address as recovery (recommended 2026-10-09; set up the mail forwarding first) | ADR 0013 D2 |
+| Account | created 2026-10-09 on hello@postquality.com (personal address as recovery); product being set up | ADR 0013 D2 |
 | Seller of record | Freemius (remits VAT and sales tax); payouts to the owner as a private person | ADR 0013 D2, D3 |
 | Product name | Post Quality Manager | docs/brand.md § Naming |
 | Plan name | Pro (the free tier is "Free") | ADR 0013 D10 |
@@ -109,7 +109,6 @@ Assets (`assets/` in SVN, not in the zip; story 41 produces them):
 
 ## Open markers on 2026-10-09
 
-- OWNER: register `heimvin` on wordpress.org (the WordPress.com login of that name is a different account).
 - OWNER: approve story 41's icon, banner and screenshots.
 - OWNER: Freemius account; mail forwarding at the registrar; Discussions on or off.
 - CHECK at use: `Tested up to`, readme tags, Freemius SDK version and sandbox, Freemius fees.
