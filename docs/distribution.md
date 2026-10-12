@@ -110,14 +110,14 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | Field | Value | Source / owner |
 |---|---|---|
 | Domain | postquality.com, bought 2026-10-09 in the owner's name | ADR 0013 |
-| Mailbox | hello@postquality.com, a forwarding address on the domain | ADR 0013 D9; OWNER: set up the forwarding at the registrar |
-| Hosting at launch | Netlify, building the Astro site in github.com/vincentheimann/postquality.com (`npm run build`, publish `dist`, static, no adapter); GitHub Pages switched off for that repository; HTTPS by Netlify once DNS resolves. The Jekyll pages on GitHub Pages (story 45) were never reachable and are replaced | story 50 (owner decision 2026-10-09); OWNER: Netlify account and repository import |
+| Mailbox | hello@postquality.com, hosted at Infomaniak (MX, SPF, DKIM, DMARC set); receives mail, confirmed by the owner 2026-10-12 | ADR 0013 D9 |
+| Hosting at launch | GitHub Pages from the public repository github.com/vincentheimann/postquality.com (Jekyll, minima, no build step), custom domain set, Let's Encrypt certificate issued and HTTPS enforced 2026-10-12. Kept as the MVP; the Netlify plan of 2026-10-09 was withdrawn | story 45 (done 2026-10-12); story 57 improves it, tooling chosen then |
 | Pages at launch | /, /pricing/, /docs/, /privacy/, /terms/, /refund/, /support/ — policies copied from `docs/policies/`, which stays the source of truth | stories 45 and 46 |
-| DNS for the site | at Infomaniak: apex `ALIAS @ → apex-loadbalancer.netlify.com` if offered, else `A @ → 75.2.60.5`; `CNAME www → <site>.netlify.app`; remove the parking `A` to 128.65.195.180; keep MX and the Freemius DKIM CNAMEs. Exact values from Netlify's "Pending DNS verification" | story 50; OWNER: add once the Netlify site exists. The GitHub Pages records of story 45 are not added |
-| Landing page | Astro, after real buyers | story 50 |
+| DNS for the site | at Infomaniak, live 2026-10-12: apex `A` 185.199.108.153 / .109.153 / .110.153 / .111.153, `AAAA` 2606:50c0:8000::153 / 8001 / 8002 / 8003, `CNAME www → vincentheimann.github.io`; MX, SPF, DKIM, DMARC, SendGrid and Infomaniak autoconfig records untouched | story 45 |
+| Site improvement | content, design, Freemius checkout buttons, plugin-site best practices; depends on the plugin's success; tooling chosen at refinement | story 57 (story 50 dropped 2026-10-12) |
 
 ## Open markers on 2026-10-09
 
 - OWNER: approve story 51's icon, then story 41's banner and screenshots; confirm the CHF figures (story 52).
-- OWNER: Freemius account; mail forwarding at the registrar; Discussions on or off.
+- OWNER: Freemius account; Discussions on or off. (Mail at hello@postquality.com confirmed 2026-10-12.)
 - CHECK at use: `Tested up to`, readme tags, Freemius SDK version and sandbox, Freemius fees.

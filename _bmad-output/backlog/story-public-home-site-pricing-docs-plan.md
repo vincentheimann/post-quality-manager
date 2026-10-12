@@ -1,7 +1,7 @@
 ---
 title: "The plugin has a public home: static pages on postquality.com for pricing, docs and policies"
 ticket: 45
-status: built
+status: done
 ---
 
 Built 2026-10-09 after the owner asked for help setting the site up ("I'll need your help on how to set it up").
@@ -14,3 +14,5 @@ Built 2026-10-09 after the owner asked for help setting the site up ("I'll need 
 Left for later, on purpose: the Astro landing page (story 50), the demo and cost figures (story 49), the "Get Pro" checkout link (story 44), the `www` → apex redirect check and `https_enforced=true` once DNS resolves (this story's done mark).
 
 Verification so far: repository pushed, Pages API reports `building` with the cname set, header lint clean. Remaining for done: DNS in place, https://postquality.com and its six pages served over HTTPS, owner has read the pages (hitl).
+
+Done 2026-10-12 (owner decision: keep GitHub Pages as the MVP, story 50 dropped, story 57 filed for the improvement). Verified the same day: DNS at Infomaniak carries the four `A`, four `AAAA` and `CNAME www` (mail records untouched); the Pages API reports the certificate approved for postquality.com and www.postquality.com (expires 2027-01-10) and `https_enforced` true; the seven pages answer 200 over HTTPS; `www` and plain HTTP redirect to https://postquality.com/. Mail at hello@postquality.com confirmed by the owner.
