@@ -84,6 +84,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/admin-ui-rebuil
 
 - 2026-10-12 — Trigger: review finding 4 (matrix row "Schedule, no `pqm_manage_agents`" asked for a link to Automation, a tab that role never sees). Owner renegotiated the frozen row: option (a), the step explains and says to ask an administrator, no link. Amended: that matrix row. Known-bad state avoided: a link that opens Settings on the Connection tab. KEEP: the built code as is.
 - 2026-10-12 — Owner test online on production (risk assumed): no bugs found.
+- 2026-10-12 — Copy review of every plugin page after the build: three texts still described the guide as ending at the first review — the n8n Workflow page intro (`src/setup/index.js`), README Installation steps 2–3 — and the README route table lacked `/setup/settings`. Fixed on this branch; the welcome notice, the Dashboard's scheduled-reviews nudge, Post Reviews and Settings needed no change.
 
 ## Review Triage Log
 

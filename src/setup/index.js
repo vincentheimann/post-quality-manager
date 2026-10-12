@@ -194,7 +194,7 @@ export default function SetupIsland() {
 			{ ! complete && (
 				<p>
 					{ __(
-						'New to n8n? The setup guide walks you through every step, from getting n8n to your first review.',
+						'New to n8n? The setup guide walks you through every step, from getting n8n to your first review, then the settings that make reviews yours.',
 						'post-quality-manager'
 					) }
 				</p>
