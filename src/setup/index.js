@@ -10,6 +10,12 @@
  * (POST /setup/connect), the setup itself through the first review
  * (POST /setup { complete: true }). The welcome notice links here with
  * `pqm_setup=1`, which opens the dialog on load.
+ *
+ * After the first review, three configuration steps (story 55) save the
+ * Blog Profile, the Editorial Standards and scheduled reviews through
+ * POST /setup/settings; Skip ticks the step and writes no setting. They
+ * never count toward completion, so a completed setup still shows them
+ * open until they are saved or skipped.
  */
 import apiFetch from '@wordpress/api-fetch';
 import {
@@ -29,22 +35,32 @@ import { NextSteps, STEPS } from './steps';
 import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
+const SETTINGS_PATH = '/post-quality/v1/setup/settings';
 const OPEN_ARG = 'pqm_setup'; // PQM_Admin::SETUP_QUERY_ARG
 const FINISH = 'finish';
 
 /**
+ * Whether a step is done. A completed setup shows every n8n step done; a
+ * configuration step is done only once saved or skipped.
+ *
+ * @param {Object} state GET /setup state.
+ * @param {Object} step  Step entry from STEPS.
+ * @return {boolean} Done.
+ */
+function stepDone( state, step ) {
+	return ( ! step.config && !! state.complete ) || !! state.steps[ step.key ];
+}
+
+/**
  * Where the dialog opens: the first unfinished step, or the closing panel
- * once the setup is complete.
+ * once every step is done.
  *
  * @param {Object} state GET /setup state.
  * @return {string} Step key or FINISH.
  */
 function resumeAt( state ) {
-	if ( state.complete ) {
-		return FINISH;
-	}
-	const open = STEPS.find( ( step ) => ! state.steps[ step.key ] );
-	return open ? open.key : 'review';
+	const open = STEPS.find( ( step ) => ! stepDone( state, step ) );
+	return open ? open.key : FINISH;
 }
 
 export default function SetupIsland() {
@@ -88,25 +104,53 @@ export default function SetupIsland() {
 		);
 	}
 
-	const save = ( data ) => {
+	/**
+	 * Store progress; with `settings`, save those first (POST
+	 * /setup/settings) and tick only once they are stored.
+	 *
+	 * @param {Object}  data     POST /setup body.
+	 * @param {Object=} settings POST /setup/settings body.
+	 * @return {Promise<boolean>} Whether everything was stored; never rejects.
+	 */
+	const save = ( data, settings ) => {
 		setSaving( true );
 		setSaveError( '' );
-		return apiFetch( { path: SETUP_PATH, method: 'POST', data } ).then(
-			( next ) => {
-				setSaving( false );
-				setState( next );
-			},
-			( err ) => {
-				setSaving( false );
-				setSaveError(
-					( err && err.message ) ||
-						__(
-							'Could not save your progress. Try again.',
-							'post-quality-manager'
-						)
-				);
-			}
-		);
+		// The settings answer is the fresh state: apply it before the tick,
+		// so a failed tick still shows the saved choice.
+		const first = settings
+			? apiFetch( {
+					path: SETTINGS_PATH,
+					method: 'POST',
+					data: settings,
+			  } ).then( setState )
+			: Promise.resolve();
+		return first
+			.then( () =>
+				apiFetch( { path: SETUP_PATH, method: 'POST', data } )
+			)
+			.then(
+				( fresh ) => {
+					setSaving( false );
+					setState( fresh );
+					return true;
+				},
+				( err ) => {
+					setSaving( false );
+					setSaveError(
+						( err && err.message ) ||
+							( settings
+								? __(
+										'Could not save this setting. Try again.',
+										'post-quality-manager'
+								  )
+								: __(
+										'Could not save your progress. Try again.',
+										'post-quality-manager'
+								  ) )
+					);
+					return false;
+				}
+			);
 	};
 
 	const onConnected = ( url, pingOk ) =>
@@ -121,7 +165,7 @@ export default function SetupIsland() {
 	const complete = !! ( state && state.complete );
 	const index = STEPS.findIndex( ( step ) => step.key === current );
 	const step = STEPS[ index ];
-	const isDone = ( key ) => complete || !! state.steps[ key ];
+	const isDone = ( item ) => stepDone( state, item );
 
 	const goTo = ( key ) => {
 		setSaveError( '' );
@@ -129,12 +173,21 @@ export default function SetupIsland() {
 	};
 
 	const next = () => {
-		if ( index === STEPS.length - 1 ) {
-			goTo( FINISH );
-		} else {
+		if ( index < STEPS.length - 1 ) {
 			goTo( STEPS[ index + 1 ].key );
+		} else {
+			// The closing panel needs a completed setup; until then the
+			// first review is what is left.
+			goTo( complete ? FINISH : 'review' );
 		}
 	};
+
+	// A configuration step: save its settings (or nothing, for Skip), tick
+	// it, move on. A failed save names the cause and leaves the step open.
+	const finishStep = ( settings ) =>
+		save( { step: step.key, done: true }, settings ).then(
+			( ok ) => ok && next()
+		);
 
 	return (
 		<div className="pqm-setup">
@@ -159,20 +212,19 @@ export default function SetupIsland() {
 
 			{ state && current && (
 				<Modal
-					title={ __(
-						'Set up the n8n workflow',
-						'post-quality-manager'
-					) }
+					title={ __( 'Setup guide', 'post-quality-manager' ) }
 					onRequestClose={ () => setCurrent( null ) }
 					size="large"
 					className="pqm-setup-modal"
 				>
-					<p className="pqm-muted">
-						{ __(
-							'The n8n menus and labels below are named as of October 2026. If your n8n looks different, look for the same words nearby.',
-							'post-quality-manager'
-						) }
-					</p>
+					{ ! ( step && step.config ) && (
+						<p className="pqm-muted">
+							{ __(
+								'The n8n menus and labels below are named as of October 2026. If your n8n looks different, look for the same words nearby.',
+								'post-quality-manager'
+							) }
+						</p>
+					) }
 					<div className="pqm-setup-layout">
 						<nav
 							className="pqm-setup-steps"
@@ -194,7 +246,7 @@ export default function SetupIsland() {
 											}
 											onClick={ () => goTo( item.key ) }
 										>
-											{ isDone( item.key ) && (
+											{ isDone( item ) && (
 												<>
 													<Dashicon
 														icon="yes-alt"
@@ -258,13 +310,17 @@ export default function SetupIsland() {
 										/>
 									) : (
 										<step.Body
+											key={ step.key }
 											state={ state }
 											onConnected={ onConnected }
+											saving={ saving }
+											onSave={ finishStep }
 										/>
 									) }
 									<StepStatus
 										step={ step }
-										done={ isDone( step.key ) }
+										state={ state }
+										done={ isDone( step ) }
 										complete={ complete }
 										saving={ saving }
 										onToggle={ ( done ) =>
@@ -301,8 +357,18 @@ export default function SetupIsland() {
 										{ __( 'Back', 'post-quality-manager' ) }
 									</Button>
 								) }
+								{ step && step.config && ! isDone( step ) && (
+									<Button
+										variant="secondary"
+										onClick={ () => finishStep() }
+										disabled={ saving }
+									>
+										{ __( 'Skip', 'post-quality-manager' ) }
+									</Button>
+								) }
 								{ step &&
-									( step.key !== 'review' || complete ) && (
+									( step.key !== 'review' || complete ) &&
+									( ! step.config || isDone( step ) ) && (
 										<Button
 											variant="primary"
 											onClick={ next }
@@ -335,17 +401,19 @@ export default function SetupIsland() {
 
 /**
  * The step's Done mark: a checkbox for the steps the user ticks, a status
- * line for the two the plugin verifies.
+ * line for the two the plugin verifies and, once saved or skipped, for a
+ * configuration step.
  *
  * @param {Object}   props
  * @param {Object}   props.step     Step entry from STEPS.
+ * @param {Object}   props.state    GET /setup state.
  * @param {boolean}  props.done     Whether the step is done.
  * @param {boolean}  props.complete Whether the whole setup is complete.
  * @param {boolean}  props.saving   Whether a progress save is in flight.
  * @param {Function} props.onToggle `( done )` for a tickable step.
  * @return {Element} Done control or status line.
  */
-function StepStatus( { step, done, complete, saving, onToggle } ) {
+function StepStatus( { step, state, done, complete, saving, onToggle } ) {
 	if ( step.tickable ) {
 		return (
 			<div className="pqm-setup-done">
@@ -359,6 +427,25 @@ function StepStatus( { step, done, complete, saving, onToggle } ) {
 				/>
 			</div>
 		);
+	}
+
+	if ( step.config ) {
+		// The schedule lives on the Automation tab, hidden without
+		// pqm_manage_agents and locked on a free site: no Settings promise there.
+		const inSettings =
+			step.key !== 'schedule' ||
+			// eslint-disable-next-line camelcase -- REST field names.
+			( state.can_manage_agents && state.is_pro );
+		return done ? (
+			<p className="pqm-setup-done pqm-muted" role="status">
+				{ inSettings
+					? __(
+							'Done — you can change this any time in Settings.',
+							'post-quality-manager'
+					  )
+					: __( 'Done.', 'post-quality-manager' ) }
+			</p>
+		) : null;
 	}
 
 	let text;

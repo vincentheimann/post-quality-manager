@@ -1,5 +1,5 @@
 /**
- * Setup dialog (story 36) — the island on the n8n Workflow page. Shares
+ * Setup dialog (stories 36, 55) — the island on the n8n Workflow page. Shares
  * .pqm-muted and .pqm-confirm-actions with the React pages; everything
  * else is scoped to .pqm-setup / .pqm-setup-modal.
  */
@@ -114,6 +114,15 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
+}
+
+/* Configuration steps (story 55): the selected preset's text, the Save row. */
+.pqm-setup-preset {
+	margin: 8px 0 0;
+}
+
+.pqm-setup-save {
+	margin: 12px 0;
 }
 
 .pqm-setup-done {

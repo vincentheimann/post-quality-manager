@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-12] — Assuming where the owner tested
+**What happened:** After story 55 the owner said "no bugs found"; the agent called it "your Local pass" and offered to record it as such in the plan, memory and user paths. The owner had tested online on production (risk assumed), not on Local.
+**Root cause:** Taking the plan's "Manual checks — On Local" line as the place the test happened, instead of what the owner said.
+**Rule going forward:** Record a manual test with the environment the owner names. When they don't name it, ask before writing it into a plan, memory or `docs/user-paths.md`.
+
 ## [2026-10-08] — Reporting CI green from workflow runs instead of the PR's checks
 **What happened:** Story 4.4 made Plugin Check non-blocking with `continue-on-error: true` on the job. The agent read `gh run list`, saw every workflow run conclude `success`, and told the owner PR #77 was all green. The owner saw both Plugin Check checks failing on the PR.
 **Root cause:** A job-level `continue-on-error` only stops the workflow run from failing; the job's check run still concludes `failure`, and that is what the PR shows. The agent checked a different layer from the one the owner looks at.

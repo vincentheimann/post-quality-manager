@@ -132,6 +132,13 @@ class PQM_REST_API {
                 'webhook_url' => [ 'required' => true, 'type' => 'string' ],
             ],
         ] );
+
+        // Story 55: the wizard's configuration steps (profile, standards, schedule).
+        register_rest_route( PQM_REST_NAMESPACE, '/setup/settings', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'setup_settings_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -924,14 +931,24 @@ class PQM_REST_API {
     /* ─── 9. Setup dialog (story 36) ─────────────────────────────────── */
 
     /**
-     * The seven setup steps, in dialog order. The user ticks the first five
+     * The setup steps, in dialog order. The user ticks the first five
      * (POST /setup); `connect` is set by a ping through POST /setup/connect
-     * and `review` reads the site's completion.
+     * and `review` reads the site's completion. The three configuration
+     * steps after it (story 55) are ticked when saved or skipped; they never
+     * count toward completion.
      */
-    public const SETUP_STEPS = [ 'instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review' ];
+    public const SETUP_STEPS = [ 'instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review', 'profile', 'standards', 'schedule' ];
 
     /** Steps the user may tick or untick by hand. */
-    private const SETUP_TICKABLE = [ 'instance', 'import', 'credentials', 'link', 'publish' ];
+    private const SETUP_TICKABLE = [ 'instance', 'import', 'credentials', 'link', 'publish', 'profile', 'standards', 'schedule' ];
+
+    /**
+     * Settings the wizard may write (POST /setup/settings): the Blog Profile
+     * and Editorial Standards keys of the pqm_manage_settings section, and
+     * the switch of scheduled reviews (pqm_manage_agents + pro, like the
+     * Settings form's Automated Reviews section). Any other key is refused.
+     */
+    private const SETUP_SETTING_KEYS = [ 'blog_profile', 'website_context', 'brand_voice_preset', 'brand_voice', 'cron_enabled' ];
 
     /** Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`. */
     private static function setup_progress(): array {
@@ -959,6 +976,24 @@ class PQM_REST_API {
             $steps[ $step ] = 'review' === $step ? $complete : ! empty( $progress['steps'][ $step ] );
         }
 
+        // Preset texts in the site locale, like the payload sends them and
+        // the Settings page shows them; labels in the viewer's language.
+        $profiles = PQM_Admin::blog_profiles();
+        $voices   = pqm_voice_presets();
+        [ $profile_texts, $voice_texts ] = pqm_in_site_locale( static fn() => [
+            array_map( static fn( $p ) => $p['website_context'], PQM_Admin::blog_profiles() ),
+            array_map( static fn( $p ) => $p['instruction'], pqm_voice_presets() ),
+        ] );
+        $choices = static fn( array $presets, array $texts ): array => array_map(
+            static fn( $key ) => [
+                'value' => $key,
+                'label' => $presets[ $key ]['label'],
+                'text'  => $texts[ $key ] ?? '',
+            ],
+            array_keys( $presets )
+        );
+        $voices['custom'] = [ 'label' => __( 'Custom', 'post-quality-manager' ) ];
+
         return [
             'steps'         => $steps,
             'complete'      => $complete,
@@ -981,6 +1016,21 @@ class PQM_REST_API {
             'user_login'    => (string) $user->user_login,
             // Suffix of the template's credential names ("WordPress - <host>").
             'site_host'     => pqm_site_host(),
+            // Story 55: the configuration steps' stored choices and presets.
+            'blog_profile'       => (string) $settings['blog_profile'],
+            'website_context'    => (string) $settings['website_context'],
+            'brand_voice_preset' => (string) $settings['brand_voice_preset'],
+            'brand_voice'        => (string) $settings['brand_voice'],
+            'profiles'           => $choices( $profiles, $profile_texts ),
+            'voice_presets'      => $choices( $voices, $voice_texts ),
+            'cron_enabled'       => ! empty( $settings['cron_enabled'] ),
+            'cron_frequency'     => (string) $settings['cron_frequency'],
+            'cron_batch_size'    => (int) $settings['cron_batch_size'],
+            'cron_min_score'     => (int) $settings['cron_min_score'],
+            'cron_max_age_days'  => (int) $settings['cron_max_age_days'],
+            'cron_command'       => (string) $settings['cron_command'],
+            'can_manage_agents'  => current_user_can( 'pqm_manage_agents' ),
+            'is_pro'             => PQM_Features::is_pro(),
         ];
     }
 
@@ -1059,5 +1109,72 @@ class PQM_REST_API {
             'message'     => $ping['message'],
             'status_html' => PQM_Admin::render_workflow_status(),
         ], 200 );
+    }
+
+    /**
+     * The configuration steps' save (story 55): a merge-save of the posted
+     * keys alone, like save_webhook_url() — sanitize_settings() rebuilds the
+     * whole array from a full form post, so it is not called; each key is
+     * checked here the way it would sanitize it. Every other pqm_settings key
+     * stays as stored. An unknown key or an invalid value refuses the whole
+     * request (400, nothing stored); the scheduled-reviews switch needs
+     * pqm_manage_agents on a pro site (403), the gate of the Settings form's
+     * Automated Reviews section. Answers the fresh setup state.
+     */
+    public static function setup_settings_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $input = $request->get_json_params();
+        $bad   = static fn( string $message ): WP_Error => new WP_Error( 'pqm_setup_bad_setting', $message, [ 'status' => 400 ] );
+
+        if ( ! is_array( $input ) || [] === $input ) {
+            return $bad( __( 'Nothing to save. Reload the page and try again.', 'post-quality-manager' ) );
+        }
+        if ( array_diff( array_keys( $input ), self::SETUP_SETTING_KEYS ) ) {
+            return $bad( __( 'The setup guide cannot change this setting. Reload the page and try again.', 'post-quality-manager' ) );
+        }
+        if ( array_key_exists( 'cron_enabled', $input )
+            && ! ( current_user_can( 'pqm_manage_agents' ) && PQM_Features::is_pro() ) ) {
+            return new WP_Error(
+                'pqm_setup_cron_forbidden',
+                __( 'Scheduled reviews need Pro and the right to manage agents. Ask an administrator.', 'post-quality-manager' ),
+                [ 'status' => 403 ]
+            );
+        }
+
+        $clean = [];
+        foreach ( $input as $key => $value ) {
+            switch ( $key ) {
+                case 'blog_profile':
+                    $valid = array_keys( PQM_Admin::blog_profiles() );
+                    break;
+                case 'brand_voice_preset':
+                    $valid = array_merge( array_keys( pqm_voice_presets() ), [ 'custom' ] );
+                    break;
+                case 'cron_enabled':
+                    $valid = [ true, false ];
+                    break;
+                default: // website_context, brand_voice: free text.
+                    if ( ! is_string( $value ) ) {
+                        return $bad( __( 'This text could not be saved. Reload the page and try again.', 'post-quality-manager' ) );
+                    }
+                    $clean[ $key ] = sanitize_textarea_field( $value );
+                    continue 2;
+            }
+            if ( ! in_array( $value, $valid, true ) ) {
+                return $bad( __( 'This choice is not known. Reload the page and try again.', 'post-quality-manager' ) );
+            }
+            $clean[ $key ] = $value;
+        }
+
+        $settings = get_option( 'pqm_settings', [] );
+        $settings = array_merge( is_array( $settings ) ? $settings : [], $clean );
+        update_option( 'pqm_settings', $settings );
+
+        // The updated_option hook that reschedules cron is registered for
+        // admin requests only; a REST save schedules it itself.
+        if ( array_key_exists( 'cron_enabled', $clean ) ) {
+            PQM_Cron::schedule();
+        }
+
+        return new WP_REST_Response( self::setup_state(), 200 );
     }
 }

@@ -1,5 +1,6 @@
 /**
- * Setup steps (story 36) — the seven steps of the setup dialog in order,
+ * Setup steps (story 36) — the seven n8n steps of the setup dialog in
+ * order, then the three configuration steps (story 55, config-steps.js),
  * plus the closing "next steps" panel. n8n's labels are named as of the
  * n8n docs read 2026-10-07 (the dialog says layouts may differ); node
  * names match templates/n8n-workflow.json. The credentials copy also lives
@@ -11,6 +12,7 @@ import { Button, Notice, TextControl } from '@wordpress/components';
 import { createInterpolateElement, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
+import { CONFIG_STEPS } from './config-steps';
 import CopyValue from './copy-value';
 
 const CONNECT_PATH = '/post-quality/v1/setup/connect';
@@ -507,8 +509,9 @@ function Connect( { state, onConnected } ) {
 }
 
 /**
- * The seven steps, in order. `tickable` steps carry a Done checkbox;
- * the others are ticked by the plugin (ping, first result).
+ * The steps, in order. `tickable` steps carry a Done checkbox; `config`
+ * steps are ticked when saved or skipped; the others are ticked by the
+ * plugin (ping, first result).
  */
 export const STEPS = [
 	{
@@ -556,9 +559,10 @@ export const STEPS = [
 		tickable: false,
 		Body: null, // FirstReview, rendered by the dialog (it owns completion).
 	},
+	...CONFIG_STEPS,
 ];
 
-/** Closing panel once the setup is complete: the habit settings. */
+/** Closing panel once the setup is complete. */
 export function NextSteps() {
 	return (
 		<>
@@ -568,38 +572,6 @@ export function NextSteps() {
 					'post-quality-manager'
 				) }
 			</p>
-			<p>
-				{ __(
-					'Two settings make them yours:',
-					'post-quality-manager'
-				) }
-			</p>
-			<ul className="pqm-setup-list">
-				<li>
-					<a href="admin.php?page=pqm-settings#pqm-context-settings">
-						{ __(
-							'Choose a Blog Profile',
-							'post-quality-manager'
-						) }
-					</a>{ ' ' }
-					{ __(
-						'— reviews then fit your niche; Custom lets you describe your site in your own words.',
-						'post-quality-manager'
-					) }
-				</li>
-				<li>
-					<a href="admin.php?page=pqm-settings#pqm-cron-settings">
-						{ __(
-							'Turn on scheduled reviews',
-							'post-quality-manager'
-						) }
-					</a>{ ' ' }
-					{ __(
-						'— posts get reviewed in the background (Pro).',
-						'post-quality-manager'
-					) }
-				</li>
-			</ul>
 			<Button variant="primary" href="admin.php?page=pqm-posts">
 				{ __( 'Open Post Reviews', 'post-quality-manager' ) }
 			</Button>

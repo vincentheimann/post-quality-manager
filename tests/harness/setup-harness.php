@@ -8,6 +8,11 @@
  * and pinged, ping failure stored with the cause) and the uninstall list.
  * WP stubs, no WP install. Callbacks are called directly, so the route's
  * own checks (step whitelist) are what is asserted, not WP's arg schema.
+ *
+ * Story 55 rows: the three configuration steps (state fields, tickable,
+ * open on a completed site) and POST /setup/settings — key whitelist,
+ * value checks, merge isolation (every other stored key byte-identical),
+ * the scheduled-reviews gate (pqm_manage_agents + pro) and a no-change walk.
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -22,6 +27,7 @@ $GLOBALS['tw'] = [
     'pings'         => [], // wp_remote_post() calls: [url, args]
     'ping_response' => ['response' => ['code' => 200]],
     'app_passwords' => true,
+    'scheduled'     => [], // wp_schedule_event() calls: [recurrence, hook]
 ];
 $GLOBALS['pqm_routes'] = [];
 
@@ -47,6 +53,13 @@ function __($s, $d = null) { return $s; }
 function esc_html__($s, $d = null) { return $s; }
 function esc_url_raw($s) { return trim((string) $s); }
 function sanitize_text_field($s) { return (string) $s; }
+function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
+function get_locale() { return 'en_US'; }
+function switch_to_locale($l) { return false; }
+function restore_previous_locale() {}
+function wp_next_scheduled($hook) { return false; }
+function wp_schedule_event($ts, $recurrence, $hook) { $GLOBALS['tw']['scheduled'][] = [$recurrence, $hook]; return true; }
+function wp_unschedule_event(...$a) { return true; }
 function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
 function absint($n) { return abs((int) $n); }
 function is_admin() { return false; }
@@ -80,8 +93,9 @@ class WP_REST_Server {
 }
 
 class WP_REST_Request {
-    public function __construct(private array $params = []) {}
+    public function __construct(private array $params = [], private $json = null) {}
     public function get_param($k) { return $this->params[$k] ?? null; }
+    public function get_json_params() { return $this->json; }
     public function get_header($k) { return null; }
 }
 
@@ -131,6 +145,7 @@ function site(array $options = [], array $review_statuses = []): void {
     $GLOBALS['tw']['writes'] = [];
     $GLOBALS['tw']['pings'] = [];
     $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200]];
+    $GLOBALS['tw']['scheduled'] = [];
 }
 
 function setup_state(): array {
@@ -139,6 +154,10 @@ function setup_state(): array {
 
 function post_setup(array $params) {
     return PQM_REST_API::update_setup_callback(new WP_REST_Request($params));
+}
+
+function post_settings($json) {
+    return PQM_REST_API::setup_settings_callback(new WP_REST_Request([], $json));
 }
 
 function connect(string $url): array {
@@ -163,6 +182,8 @@ check('/setup GET and POST gated by check_manage_settings',
     ($routes[$ns . '/setup'][0]['permission_callback'] ?? null) === $gate && ($routes[$ns . '/setup'][1]['permission_callback'] ?? null) === $gate);
 check('/setup/connect is POST, gated by check_manage_settings',
     ($routes[$ns . '/setup/connect']['methods'] ?? null) === 'POST' && ($routes[$ns . '/setup/connect']['permission_callback'] ?? null) === $gate);
+check('/setup/settings is POST, gated by check_manage_settings (story 55)',
+    ($routes[$ns . '/setup/settings']['methods'] ?? null) === 'POST' && ($routes[$ns . '/setup/settings']['permission_callback'] ?? null) === $gate);
 $GLOBALS['tw']['caps'] = $editor;
 check('non-manager (Editor caps): refused — WP answers 403', PQM_REST_API::check_manage_settings() === false);
 $GLOBALS['tw']['caps'] = [];
@@ -174,8 +195,9 @@ check('manager: allowed', PQM_REST_API::check_manage_settings() === true);
 echo "GET /setup — fresh site\n";
 site($fresh);
 $s = setup_state();
-check('seven steps in dialog order, none done',
-    array_keys($s['steps']) === ['instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review'] && !in_array(true, $s['steps'], true));
+check('ten steps in dialog order (the seven n8n steps, then profile, standards, schedule), none done',
+    array_keys($s['steps']) === ['instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review', 'profile', 'standards', 'schedule']
+    && !in_array(true, $s['steps'], true));
 check('not complete, not connected, no result', $s['complete'] === false && $s['connected'] === false && $s['first_result'] === false);
 check('token and import URL (workflow route + token)',
     $s['token'] === $token && $s['import_url'] === 'https://example.com/wp-json/post-quality/v1/workflow?token=tok-36');
@@ -221,7 +243,8 @@ check('tick a step: stored once per site, autoload off', ($GLOBALS['tw']['option
 check('... the answer is the fresh state (the dialog resumes from it)', $r instanceof WP_REST_Response && $r->get_data()['steps']['import'] === true
     && $r->get_data()['steps']['instance'] === false);
 post_setup(['step' => 'instance', 'done' => true]);
-check('a second tick keeps the first', setup_state()['steps'] === ['instance' => true, 'import' => true, 'credentials' => false, 'link' => false, 'publish' => false, 'connect' => false, 'review' => false]);
+check('a second tick keeps the first', setup_state()['steps'] === ['instance' => true, 'import' => true, 'credentials' => false, 'link' => false, 'publish' => false, 'connect' => false, 'review' => false,
+    'profile' => false, 'standards' => false, 'schedule' => false]);
 post_setup(['step' => 'import', 'done' => false]);
 check('untick', setup_state()['steps']['import'] === false);
 foreach (['foo', 'connect', 'review', '', 'INSTANCE'] as $step) {
@@ -310,6 +333,162 @@ $GLOBALS['tw']['ping_response'] = new WP_Error('http_request_failed', 'cURL erro
 $r = connect($prod);
 check('production URL, n8n unreachable: stored, message carries the connection error',
     $r['saved'] === true && $r['ping_ok'] === false && str_ends_with($r['message'], 'Could not connect to n8n: cURL error 6: Could not resolve host'));
+
+/* ─── Story 55: the configuration steps ─────────────────────────────── */
+
+/* Row: state carries the stored choices, the presets and the two capability flags */
+echo "GET /setup — configuration step values (story 55)\n";
+$GLOBALS['tw']['caps'] = $manager;
+pqm_fs()->pro = false;
+site($fresh);
+$s = setup_state();
+check('fresh site: defaults (Custom profile and standards, empty texts)',
+    $s['blog_profile'] === 'custom' && $s['website_context'] === '' && $s['brand_voice_preset'] === 'custom' && $s['brand_voice'] === '');
+check('profiles: every Blog Profile in Settings order, with its label and preset text (Custom has none)',
+    array_column($s['profiles'], 'value') === array_keys(PQM_Admin::blog_profiles())
+    && $s['profiles'][0] === ['value' => 'marketing', 'label' => 'Marketing Blog', 'text' => PQM_Admin::blog_profiles()['marketing']['website_context']]
+    && end($s['profiles']) === ['value' => 'custom', 'label' => 'Custom', 'text' => '']);
+check('voice presets: every Editorial Standards preset, then Custom',
+    array_column($s['voice_presets'], 'value') === array_merge(array_keys(pqm_voice_presets()), ['custom'])
+    && $s['voice_presets'][0]['text'] === pqm_voice_presets()['professional']['instruction']
+    && end($s['voice_presets']) === ['value' => 'custom', 'label' => 'Custom', 'text' => '']);
+check('cron knobs: the stored (default) values the schedule step names',
+    $s['cron_enabled'] === false && $s['cron_frequency'] === 'daily' && $s['cron_batch_size'] === 5
+    && $s['cron_min_score'] === 60 && $s['cron_max_age_days'] === 30 && $s['cron_command'] === 'review');
+check('capability flags: manager with pqm_manage_agents on a free site', $s['can_manage_agents'] === true && $s['is_pro'] === false);
+pqm_fs()->pro = true;
+check('... pro site: is_pro', setup_state()['is_pro'] === true);
+$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+check('... manager without pqm_manage_agents: can_manage_agents false', setup_state()['can_manage_agents'] === false);
+$GLOBALS['tw']['caps'] = $manager;
+pqm_fs()->pro = false;
+site(['pqm_settings' => $fresh['pqm_settings'] + ['blog_profile' => 'food', 'website_context' => 'My old words', 'brand_voice_preset' => 'casual']]);
+$s = setup_state();
+check('stored choices prefill: preset key, and the stored custom text kept beside it',
+    $s['blog_profile'] === 'food' && $s['website_context'] === 'My old words' && $s['brand_voice_preset'] === 'casual');
+check('a GET writes nothing', $GLOBALS['tw']['writes'] === []);
+
+/* Row: legacy complete site — configuration steps open, nothing auto-written */
+site($connected, ['ship']);
+$s = setup_state();
+check('complete site: the configuration steps read as open (completion never depended on them)',
+    $s['complete'] === true && $s['steps']['profile'] === false && $s['steps']['standards'] === false && $s['steps']['schedule'] === false
+    && $GLOBALS['tw']['writes'] === []);
+
+/* Row: skip — the step is ticked, no setting written */
+echo "POST /setup — configuration steps tick (Skip)\n";
+foreach (['profile', 'standards', 'schedule'] as $step) {
+    site($fresh);
+    $r = post_setup(['step' => $step, 'done' => true]);
+    check("skip \"$step\": ticked, only the progress option written, settings untouched",
+        $r instanceof WP_REST_Response && $r->get_data()['steps'][$step] === true
+        && $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION] && $GLOBALS['tw']['options']['pqm_settings'] === $fresh['pqm_settings']);
+}
+
+/* A configured site with every key the Settings form stores, nested agent prompts included. */
+$configured = pqm_default_settings();
+$configured['n8n_webhook_url'] = 'https://acme.app.n8n.cloud/webhook/pqm-execute';
+$configured['webhook_token'] = $token;
+$configured['blog_profile'] = 'technical';
+$configured['website_context'] = 'Kept custom context';
+$configured['brand_voice_preset'] = 'custom';
+$configured['brand_voice'] = 'Kept custom voice';
+$configured['cron_frequency'] = 'weekly';
+$configured['cron_batch_size'] = 12;
+$configured['agent_prompts']['review']['instructions'] = 'Be strict.';
+$configured['author_quota'] = 7;
+
+/** Every stored key but those in $expect is byte-identical (serialized) to $before, key order kept. */
+function merged_only(array $before, array $expect): bool {
+    $after = $GLOBALS['tw']['options']['pqm_settings'];
+    return serialize($after) === serialize(array_merge($before, $expect)) && array_keys($after) === array_keys($before);
+}
+
+/* Row: a pick lands alone */
+echo "POST /setup/settings — merge-save (story 55)\n";
+site(['pqm_settings' => $configured], ['ship']);
+$r = post_settings(['blog_profile' => 'marketing']);
+check('preset pick: blog_profile saved alone; every other key byte-identical (custom text kept beside it)',
+    $r instanceof WP_REST_Response && merged_only($configured, ['blog_profile' => 'marketing']));
+check('... only pqm_settings written, no cron scheduled, the answer is the fresh state',
+    $GLOBALS['tw']['writes'] === ['pqm_settings'] && $GLOBALS['tw']['scheduled'] === [] && $r->get_data()['blog_profile'] === 'marketing');
+check('... the agents now get the preset text (pqm_resolved_context)',
+    pqm_resolved_context(pqm_get_settings()) === PQM_Admin::blog_profiles()['marketing']['website_context']);
+
+site(['pqm_settings' => $configured]);
+post_settings(['blog_profile' => 'custom', 'website_context' => "  <b>Home automation</b> for tinkerers.  "]);
+check('Custom: key and its text saved, the text sanitized like the Settings form (tags stripped, trimmed)',
+    merged_only($configured, ['blog_profile' => 'custom', 'website_context' => 'Home automation for tinkerers.']));
+site(['pqm_settings' => $configured]);
+post_settings(['brand_voice_preset' => 'direct']);
+check('Editorial Standards preset: saved alone, the stored custom voice kept', merged_only($configured, ['brand_voice_preset' => 'direct']));
+site(['pqm_settings' => $configured]);
+post_settings(['brand_voice_preset' => 'custom', 'brand_voice' => 'Short sentences.']);
+check('Editorial Standards Custom: key and text saved', merged_only($configured, ['brand_voice_preset' => 'custom', 'brand_voice' => 'Short sentences.']));
+
+/* Row: refusals — 400, nothing stored */
+$refused = [
+    'a stray key'                              => ['author_quota' => 0],
+    'a valid key beside a stray one'           => ['blog_profile' => 'food', 'n8n_webhook_url' => 'https://evil.example/webhook/x'],
+    'the webhook token'                        => ['webhook_token' => 'mine'],
+    'a cron knob (only the switch is offered)' => ['cron_frequency' => 'daily'],
+    'an unknown Blog Profile'                  => ['blog_profile' => 'neuroscience'],
+    'an unknown Editorial Standards preset'    => ['brand_voice_preset' => 'shouty'],
+    'a non-text Custom text'                   => ['website_context' => ['x']],
+    'an empty body'                            => [],
+    'no JSON body'                             => null,
+    'a list instead of an object'              => ['marketing'],
+];
+foreach ($refused as $label => $json) {
+    site(['pqm_settings' => $configured]);
+    $r = post_settings($json);
+    check("$label: refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
+        && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['options']['pqm_settings'] === $configured);
+}
+
+/* Row: scheduled reviews — pqm_manage_agents on a pro site only */
+echo "POST /setup/settings — scheduled reviews gate (story 55)\n";
+$cron_cases = [
+    'free site, manager with pqm_manage_agents'    => [$manager, false],
+    'pro site, manager without pqm_manage_agents'  => [['pqm_manage_settings'], true],
+    'free site, manager without pqm_manage_agents' => [['pqm_manage_settings'], false],
+];
+foreach ($cron_cases as $label => [$caps, $pro]) {
+    $GLOBALS['tw']['caps'] = $caps;
+    pqm_fs()->pro = $pro;
+    site(['pqm_settings' => $configured]);
+    $r = post_settings(['cron_enabled' => true]);
+    check("$label: refused with 403, nothing stored or scheduled", $r instanceof WP_Error && ($r->data['status'] ?? null) === 403
+        && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['scheduled'] === []);
+    site(['pqm_settings' => $configured]);
+    $r = post_settings(['blog_profile' => 'food', 'cron_enabled' => true]);
+    check("... with a profile beside it: still 403, the profile not stored either", $r instanceof WP_Error && $GLOBALS['tw']['writes'] === []);
+}
+$GLOBALS['tw']['caps'] = $manager;
+pqm_fs()->pro = true;
+site(['pqm_settings' => $configured]);
+$r = post_settings(['cron_enabled' => true]);
+check('pro site + pqm_manage_agents: enabled with the stored knobs, every other key byte-identical',
+    $r instanceof WP_REST_Response && merged_only($configured, ['cron_enabled' => true]) && $r->get_data()['cron_enabled'] === true);
+check('... the schedule is set right away, at the stored frequency', $GLOBALS['tw']['scheduled'] === [['pqm_weekly', PQM_Cron::HOOK]]);
+site(['pqm_settings' => $configured]);
+$r = post_settings(['cron_enabled' => 'yes']);
+check('... a non-boolean switch: refused with 400', $r instanceof WP_Error && ($r->data['status'] ?? null) === 400 && $GLOBALS['tw']['writes'] === []);
+pqm_fs()->pro = false;
+
+/* Row: re-run without a pick — settings, URL and token byte-identical */
+echo "Re-run, every configuration step walked without a pick (story 55)\n";
+site(['pqm_settings' => $configured, PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]], ['ship']);
+$before = serialize($GLOBALS['tw']['options']['pqm_settings']);
+setup_state();
+foreach (['profile', 'standards', 'schedule'] as $step) {
+    post_setup(['step' => $step, 'done' => true]);
+}
+$s = setup_state();
+check('pqm_settings byte-identical (webhook URL and token included); only progress written',
+    serialize($GLOBALS['tw']['options']['pqm_settings']) === $before && array_unique($GLOBALS['tw']['writes']) === [PQM_SETUP_OPTION]);
+check('... the three steps done, the setup still complete', $s['complete'] === true
+    && $s['steps']['profile'] === true && $s['steps']['standards'] === true && $s['steps']['schedule'] === true);
 
 /* Row: one home — the AJAX handlers wrap the same two helpers */
 echo "One home for save + ping; the unused AJAX save removed\n";

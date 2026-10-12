@@ -3,12 +3,13 @@ title: 'One button sets up the whole plugin: the setup wizard continues past n8n
 type: 'feature'
 ticket: '55'
 created: '2026-10-12'
-status: ready-for-dev
+status: built
+baseline_revision: '4292f78c407ecbeae3839ee0c2c021bc01d491f7'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'pinned'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 context: ['{project-root}/docs/brand.md', '{project-root}/memory/admin-ui-rebuild.md']
 ---
@@ -38,7 +39,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/admin-ui-rebuil
 | Re-run, no change | complete site, steps walked without picking | settings, webhook URL and token byte-identical | — |
 | Schedule, pro + manage_agents | schedule step | per Open Question 1 (one-click enable vs handover) | — |
 | Schedule, free site | schedule step | says scheduled reviews are Pro, links; no write | — |
-| Schedule, no `pqm_manage_agents` | manager without agents cap | step explains and links to Automation; REST refuses cron keys | 403 |
+| Schedule, no `pqm_manage_agents` | manager without agents cap | step explains and says to ask an administrator, no link (the Automation tab is hidden for this role — owner, 2026-10-12); REST refuses cron keys | 403 |
 | Unknown settings key | `POST /setup/settings` with a stray key | refused, nothing stored | 400 |
 | Non-manager | any route | 403; no button, no notice | 403 |
 | Resume mid-config | close, return later | dialog reopens at first unfinished step, config steps counted | — |
@@ -61,11 +62,11 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/admin-ui-rebuil
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `post-quality-manager/includes/class-pqm-rest-api.php` -- three new step keys; `setup_state()` carries the current values and the two capability flags; `POST /setup/settings` with key whitelist, in-place sanitize, merge-save, cron gate (`pqm_manage_agents` + pro) -- criteria land where Settings would put them; matrix 403/400 rows.
-- [ ] `src/setup/steps.js` (+ new step bodies, `src/setup/index.js` resume) -- the three steps with prefill, read-only preset text, Custom textarea, Skip; FINISH panel trimmed; resume counts them -- ticket criteria 2, 4, 6.
-- [ ] `tests/harness/setup-harness.php` -- rows: whitelist refusal, merge isolation (untouched keys byte-identical), cron cap/pro refusal, new state fields.
-- [ ] `tests/js/` -- one test: Skip writes nothing and advances; prefill shows the stored choice (browser-only rows).
-- [ ] `docs/release-notes/unreleased.md`, `docs/user-paths.md` -- the upgrade note; A6 gains the wizard's offer.
+- [x] `post-quality-manager/includes/class-pqm-rest-api.php` -- three new step keys; `setup_state()` carries the current values and the two capability flags; `POST /setup/settings` with key whitelist, in-place sanitize, merge-save, cron gate (`pqm_manage_agents` + pro) -- criteria land where Settings would put them; matrix 403/400 rows.
+- [x] `src/setup/steps.js` (+ new step bodies, `src/setup/index.js` resume) -- the three steps with prefill, read-only preset text, Custom textarea, Skip; FINISH panel trimmed; resume counts them -- ticket criteria 2, 4, 6.
+- [x] `tests/harness/setup-harness.php` -- rows: whitelist refusal, merge isolation (untouched keys byte-identical), cron cap/pro refusal, new state fields.
+- [x] `tests/js/` -- one test: Skip writes nothing and advances; prefill shows the stored choice (browser-only rows).
+- [x] `docs/release-notes/unreleased.md`, `docs/user-paths.md` -- the upgrade note; A6 gains the wizard's offer.
 
 **Acceptance Criteria:**
 - Given a configured site, when the wizard is rerun and every step walked without a pick, then `get_option('pqm_settings')` is byte-identical before and after.
@@ -73,9 +74,27 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/admin-ui-rebuil
 
 ## Implementation Notes
 
+- **Cron write surface = the switch only.** `POST /setup/settings` whitelists `blog_profile`, `website_context`, `brand_voice_preset`, `brand_voice`, `cron_enabled`. Option (a) enables with the *stored* knobs (the defaults on a new site), which the step names from `GET /setup`; the knob keys are not accepted (a stray `cron_frequency` is a 400), so the wizard cannot overwrite tuning made on the Automation tab. `cron_enabled` needs `pqm_manage_agents` + pro (403 otherwise, nothing stored even when a profile key rides along).
+- **Invalid values are refused, not defaulted.** An unknown preset key, a non-string text or a non-boolean switch answers 400 with nothing stored (the Settings form would fall back to the default; the wizard never sends one, and a silent reset is the risk this story names). Texts go through `sanitize_textarea_field()` like the form.
+- **Cron is rescheduled by the route.** The `updated_option` hook that calls `PQM_Cron::schedule()` is registered only inside `is_admin()` (`post-quality-manager.php`), which is false on REST requests, so the route calls `PQM_Cron::schedule()` itself after writing `cron_enabled`. (The same gap means `save_webhook_url()` behind `/setup/connect` never clears `pqm_workflow_version_seen` on a URL change — pre-existing, out of scope, left as is.)
+- **No-agents schedule step has no Automation link.** The Automation tab renders only for `pqm_manage_agents`, so a link there would open the Settings page on another tab; the step explains it and says to ask an administrator (brand.md rule). Owner accepted it 2026-10-12; the matrix row now says so (Plan Change Log).
+- **UI.** Config bodies live in `src/setup/config-steps.js` (`CONFIG_STEPS`, appended to `STEPS`, flagged `config: true`). Footer: Skip (ticks via `POST /setup`, no settings write) while open, Next once done; a body's Save posts settings first and ticks only on success. `stepDone()` reads `complete` for the n8n steps only, so resume opens a completed site at its first open config step; Next from the last step goes to FINISH only when complete (else back to the review). The dialog title became "Setup guide" and the "n8n menus as of October 2026" line hides on config steps.
+
 ## Plan Change Log
 
+- 2026-10-12 — Trigger: review finding 4 (matrix row "Schedule, no `pqm_manage_agents`" asked for a link to Automation, a tab that role never sees). Owner renegotiated the frozen row: option (a), the step explains and says to ask an administrator, no link. Amended: that matrix row. Known-bad state avoided: a link that opens Settings on the Connection tab. KEEP: the built code as is.
+- 2026-10-12 — Owner test online on production (risk assumed): no bugs found.
+
 ## Review Triage Log
+
+| # | Finding | Verdict | Evidence | Route |
+|---|---------|---------|----------|-------|
+| 1 | Schedule step's knob sentence omits never-reviewed posts | medium | `PQM_DB::get_posts_needing_review()` selects `lr.post_id IS NULL` first (`class-pqm-db.php:481`); right after setup most posts have no result | patch |
+| 2 | "Done — you can change this any time in Settings." false on the schedule step without `pqm_manage_agents` or on a free site | low | Automation tab renders only for `pqm_manage_agents` (`class-pqm-admin.php:646`); free site gets a disabled fieldset | patch |
+| 3 | Lapsed site with `cron_enabled` told only "available with Pro" | medium | Settings distinguishes it (`$cron_off_switch`, `class-pqm-admin.php:1029`); wording must not claim it runs (a paid command's schedule is skipped on free) | patch |
+| 4 | Matrix row "no `pqm_manage_agents` … links to Automation" not met | medium | Link would land on another tab (tab hidden for that role); the row sits in the frozen block, two readings (link anyway vs. ask an administrator) | intent_gap — owner chose (a) 2026-10-12: keep "ask an administrator", no link; matrix row amended, code unchanged |
+| 5 | Settings saved but tick fails → fresh state discarded | low | `first` resolves to the state, `setState` ran only after `/setup`; one-line fix | patch |
+| 6 | Back/nav during an in-flight save → `next()` jumps from the stale index | low | real but needs a click inside a sub-second save; fix adds guards on nav | rejected (low, unlikely, fix adds guards) |
 
 ## Design Notes
 
