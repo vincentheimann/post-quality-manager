@@ -3,7 +3,7 @@ title: 'One button sets up the whole plugin: the setup wizard continues past n8n
 type: 'feature'
 ticket: '55'
 created: '2026-10-12'
-status: built
+status: done
 baseline_revision: '4292f78c407ecbeae3839ee0c2c021bc01d491f7'
 route: 'full'
 route_source: 'auto'
