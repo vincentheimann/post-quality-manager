@@ -13,6 +13,9 @@ Releases are cut by `.github/workflows/release.yml`: release-please keeps one re
 4. The owner merges the release PR.
 5. Watch the Release workflow on `main`: the `package` job builds from the tag, attaches `post-quality-manager-<version>.zip` and publishes the draft. If it fails, the release stays a draft with its tag: fix the cause and re-run the job.
 6. Download the zip from the published release: its single root folder is `post-quality-manager/`, `admin/build/` is inside, and it installs and activates on a clean WordPress 6.6 showing the new version.
+7. Freemius first (ADR 0014; details in `docs/distribution.md` § Release order): the owner uploads that zip, unchanged, in Freemius → Deployment → Add New Version. It is the Pro build; Freemius generates the Free build from it. Agents never upload.
+8. Download the Free build Freemius generated and check it: `grep -rn __premium_only --exclude-dir=vendor` finds nothing, the header `Version` matches, and its n8n template is `templates/n8n-workflow-free.json` alone. Report any hit to the owner and stop; never fix a Freemius build by hand (the fix is a marker in the source, then a new release).
+9. Once the WordPress.org listing exists (story 38), that Free build, not the GitHub zip, is what the SVN deploy pushes. Then the owner releases the version in Freemius (release mode Released) for licensed sites; while "Release plans" is OFF (story 44) it stays unreleased.
 
 Versions follow the commits (`feat` → minor, `fix` → patch). To force a version, set `release-as` in `release-please-config.json` for that one release, and remove it as soon as the release is out.
 

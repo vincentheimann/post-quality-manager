@@ -100,7 +100,7 @@ class PQM_REST_API {
                 'command' => [
                     'required' => true,
                     'type'     => 'string',
-                    'enum'     => array_keys( PQM_Blocks::ITEM_KEYS ),
+                    'enum'     => array_keys( PQM_Blocks::item_keys() ),
                 ],
             ],
         ] );
@@ -394,6 +394,13 @@ class PQM_REST_API {
                 'default'     => 0,
                 'description' => 'Template version echoed by the n8n workflow, used to flag outdated imports.',
             ],
+            'workflow_variant' => [
+                'required'    => false,
+                'type'        => 'string',
+                'enum'        => [ 'free', 'pro' ],
+                'default'     => 'pro',
+                'description' => 'Template variant (story 54): the Free template sends free; none is the Pro one.',
+            ],
         ];
     }
 
@@ -423,7 +430,7 @@ class PQM_REST_API {
         // 0 (a v1 import sends none) leaves the last report as it is.
         $wf_version = absint( $request->get_param( 'workflow_version' ) );
         if ( $wf_version > 0 ) {
-            pqm_record_workflow_version( $wf_version, 'command' );
+            pqm_record_workflow_version( $wf_version, 'command', (string) $request->get_param( 'workflow_variant' ) );
         }
 
         $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
@@ -891,15 +898,6 @@ class PQM_REST_API {
         $average   = $trend ? $trend[ count( $trend ) - 1 ]['average'] : null;
         $can_admin = current_user_can( 'pqm_manage_settings' );
 
-        // Habit-loop nudge: first result is in, cron still off. Pro only —
-        // on a free site the Automated Reviews section is locked. Shown to
-        // whoever can see that section (pqm_manage_agents, ticket 16).
-        $cron_nudge = null !== $average
-            && empty( $settings['cron_enabled'] )
-            && ! get_option( 'pqm_cron_nudge_dismissed' )
-            && current_user_can( 'pqm_manage_agents' )
-            && PQM_Features::is_pro();
-
         $data = [
             'average_score'       => $average,
             'trend'               => array_map(
@@ -911,18 +909,29 @@ class PQM_REST_API {
             ),
             'connected'           => ! empty( $settings['n8n_webhook_url'] ),
             'can_manage_settings' => $can_admin,
-            'cron_nudge'          => $cron_nudge,
         ];
 
-        if ( $cron_nudge ) {
-            // Raw URL (no &amp;): it travels as JSON into an href.
-            $data['cron_nudge_dismiss_url'] = add_query_arg(
-                [
-                    'pqm_dismiss_cron_nudge' => '1',
-                    '_wpnonce'               => wp_create_nonce( 'pqm_dismiss_cron_nudge' ),
-                ],
-                admin_url( 'admin.php?page=pqm-dashboard' )
-            );
+        // Habit-loop nudge: first result is in, cron still off. Pro build
+        // only (ADR 0014), and only on a licensed site — on an unlicensed one
+        // the Automated Reviews section is locked. Shown to whoever can see
+        // that section (pqm_manage_agents, ticket 16).
+        if ( pqm_fs()->is__premium_only() ) {
+            $data['cron_nudge'] = null !== $average
+                && empty( $settings['cron_enabled'] )
+                && ! get_option( 'pqm_cron_nudge_dismissed' )
+                && current_user_can( 'pqm_manage_agents' )
+                && PQM_Features::is_pro();
+
+            if ( $data['cron_nudge'] ) {
+                // Raw URL (no &amp;): it travels as JSON into an href.
+                $data['cron_nudge_dismiss_url'] = add_query_arg(
+                    [
+                        'pqm_dismiss_cron_nudge' => '1',
+                        '_wpnonce'               => wp_create_nonce( 'pqm_dismiss_cron_nudge' ),
+                    ],
+                    admin_url( 'admin.php?page=pqm-dashboard' )
+                );
+            }
         }
 
         return new WP_REST_Response( $data, 200 );
@@ -944,11 +953,12 @@ class PQM_REST_API {
 
     /**
      * Settings the wizard may write (POST /setup/settings): the Blog Profile
-     * and Editorial Standards keys of the pqm_manage_settings section, and
-     * the switch of scheduled reviews (pqm_manage_agents + pro, like the
-     * Settings form's Automated Reviews section). Any other key is refused.
+     * and Editorial Standards keys of the pqm_manage_settings section, and,
+     * in the Pro build only (ADR 0014), `cron_enabled`, the switch of
+     * scheduled reviews (pqm_manage_agents + pro, like the Settings form's
+     * Automated Reviews section). Any other key is refused.
      */
-    private const SETUP_SETTING_KEYS = [ 'blog_profile', 'website_context', 'brand_voice_preset', 'brand_voice', 'cron_enabled' ];
+    private const SETUP_SETTING_KEYS = [ 'blog_profile', 'website_context', 'brand_voice_preset', 'brand_voice' ];
 
     /** Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`. */
     private static function setup_progress(): array {
@@ -994,7 +1004,7 @@ class PQM_REST_API {
         );
         $voices['custom'] = [ 'label' => __( 'Custom', 'post-quality-manager' ) ];
 
-        return [
+        $state = [
             'steps'         => $steps,
             'complete'      => $complete,
             'connected'     => ! empty( $settings['n8n_webhook_url'] ),
@@ -1023,15 +1033,31 @@ class PQM_REST_API {
             'brand_voice'        => (string) $settings['brand_voice'],
             'profiles'           => $choices( $profiles, $profile_texts ),
             'voice_presets'      => $choices( $voices, $voice_texts ),
-            'cron_enabled'       => ! empty( $settings['cron_enabled'] ),
-            'cron_frequency'     => (string) $settings['cron_frequency'],
-            'cron_batch_size'    => (int) $settings['cron_batch_size'],
-            'cron_min_score'     => (int) $settings['cron_min_score'],
-            'cron_max_age_days'  => (int) $settings['cron_max_age_days'],
-            'cron_command'       => (string) $settings['cron_command'],
+        ];
+        // The Schedule step's values: Pro build only (ADR 0014).
+        if ( pqm_fs()->is__premium_only() ) {
+            $state += [
+                'cron_enabled'       => ! empty( $settings['cron_enabled'] ),
+                'cron_frequency'     => (string) $settings['cron_frequency'],
+                'cron_batch_size'    => (int) $settings['cron_batch_size'],
+                'cron_min_score'     => (int) $settings['cron_min_score'],
+                'cron_max_age_days'  => (int) $settings['cron_max_age_days'],
+                'cron_command'       => (string) $settings['cron_command'],
+            ];
+        }
+
+        $state += [
             'can_manage_agents'  => current_user_can( 'pqm_manage_agents' ),
             'is_pro'             => PQM_Features::is_pro(),
+            // Which build runs (story 54): the dialog leaves out the steps
+            // the Free template has no node for.
+            'build'              => 'free',
         ];
+        if ( pqm_fs()->is__premium_only() ) {
+            $state['build'] = 'pro';
+        }
+
+        return $state;
     }
 
     public static function get_setup_callback(): WP_REST_Response {
@@ -1100,7 +1126,7 @@ class PQM_REST_API {
             ], 200 );
         }
 
-        pqm_record_workflow_version( $ping['version'], 'test' );
+        pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'] );
 
         return new WP_REST_Response( [
             'saved'       => true,
@@ -1128,16 +1154,22 @@ class PQM_REST_API {
         if ( ! is_array( $input ) || [] === $input ) {
             return $bad( __( 'Nothing to save. Reload the page and try again.', 'post-quality-manager' ) );
         }
-        if ( array_diff( array_keys( $input ), self::SETUP_SETTING_KEYS ) ) {
+        $keys = self::SETUP_SETTING_KEYS;
+        if ( pqm_fs()->is__premium_only() ) {
+            $keys[] = 'cron_enabled';
+        }
+        if ( array_diff( array_keys( $input ), $keys ) ) {
             return $bad( __( 'The setup guide cannot change this setting. Reload the page and try again.', 'post-quality-manager' ) );
         }
-        if ( array_key_exists( 'cron_enabled', $input )
-            && ! ( current_user_can( 'pqm_manage_agents' ) && PQM_Features::is_pro() ) ) {
-            return new WP_Error(
-                'pqm_setup_cron_forbidden',
-                __( 'Scheduled reviews need Pro and the right to manage agents. Ask an administrator.', 'post-quality-manager' ),
-                [ 'status' => 403 ]
-            );
+        if ( pqm_fs()->is__premium_only() ) {
+            if ( array_key_exists( 'cron_enabled', $input )
+                && ! ( current_user_can( 'pqm_manage_agents' ) && PQM_Features::is_pro() ) ) {
+                return new WP_Error(
+                    'pqm_setup_cron_forbidden',
+                    __( 'Scheduled reviews need Pro and the right to manage agents. Ask an administrator.', 'post-quality-manager' ),
+                    [ 'status' => 403 ]
+                );
+            }
         }
 
         $clean = [];
@@ -1171,8 +1203,10 @@ class PQM_REST_API {
 
         // The updated_option hook that reschedules cron is registered for
         // admin requests only; a REST save schedules it itself.
-        if ( array_key_exists( 'cron_enabled', $clean ) ) {
-            PQM_Cron::schedule();
+        if ( pqm_fs()->is__premium_only() ) {
+            if ( array_key_exists( 'cron_enabled', $clean ) ) {
+                PQM_Cron::schedule();
+            }
         }
 
         return new WP_REST_Response( self::setup_state(), 200 );

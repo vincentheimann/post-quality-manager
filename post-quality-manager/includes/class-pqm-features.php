@@ -99,17 +99,31 @@ class PQM_Features {
      * `command` enums are its keys, and a command missing here is refused
      * (fail closed). score and apply are free-tier entries on
      * pqm_run_free_agents, the 1:1 successor of the old edit_posts check.
+     * The paid entries exist in the Pro build only (ADR 0014): the Free
+     * build has nothing paid to gate, list or accept.
      */
     public static function registry(): array {
-        return [
+        $registry = [
             'review'    => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Review', 'post-quality-manager' ) ],
             'takeaways' => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Takeaways', 'post-quality-manager' ) ],
+        ];
+        if ( pqm_fs()->is__premium_only() ) {
+            $registry += self::paid_registry__premium_only();
+        }
+
+        return $registry + [
+            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Score', 'post-quality-manager' ) ],
+            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Apply', 'post-quality-manager' ) ],
+        ];
+    }
+
+    /** The paid agents' registry entries, in the order the pages list them. */
+    private static function paid_registry__premium_only(): array {
+        return [
             'rewrite'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Rewrite', 'post-quality-manager' ) ],
             'sources'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Sources', 'post-quality-manager' ) ],
             'seo'       => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'SEO', 'post-quality-manager' ) ],
             'audit'     => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Audit', 'post-quality-manager' ) ],
-            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Score', 'post-quality-manager' ) ],
-            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Apply', 'post-quality-manager' ) ],
         ];
     }
 

@@ -604,6 +604,25 @@ check('unsaved URL: up-to-date message, outdated false, nothing stored, no statu
     && str_contains($r->data['message'], 'your workflow is up to date') && !isset($r->data['status_html']) && $r->data['outdated'] === false
     && $seen() === PQM_WORKFLOW_VERSION - 1);
 
+/* Rows (story 54): the template variant on the Pro build (the harness runs the Pro build) */
+$free_notice = 'Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches. Download the template below and re-import it.';
+$GLOBALS['tw_options'] = [];
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
+$r = ping('');
+check('Free template answers on the Pro build: stored {5, via test, variant free}',
+    ($seen()['variant'] ?? null) === 'free' && $seen()['version'] === PQM_WORKFLOW_VERSION && $seen()['via'] === 'test');
+check('... outdated true, the message names the Free variant and points to re-importing', $r->ok === true && $r->data['outdated'] === true
+    && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, then send another ping.');
+check('... status_html carries the Free-variant notice once, not the update one',
+    substr_count($r->data['status_html'], $free_notice) === 1 && !str_contains($r->data['status_html'], $notice));
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
+$r = ping('');
+check('legacy v5 reply (no variant): read as Pro, up to date, no Free-variant notice', !isset($seen()['variant'])
+    && $r->data['outdated'] === false && !str_contains($r->data['status_html'], $free_notice));
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"pro"}';
+$r = ping('');
+check('a reply stating pro: stored without a variant, up to date', !isset($seen()['variant']) && $r->data['outdated'] === false);
+
 /* Row: ping fails — messages unchanged, nothing stored */
 $before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
 foreach ([401, 403, 404, 500] as $code) {

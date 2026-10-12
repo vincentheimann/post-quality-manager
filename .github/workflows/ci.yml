@@ -15,6 +15,12 @@
 # warnings never do (the action fails on errors only). Accepted warnings are
 # triaged in the 4.5 plan. Findings show as file annotations, in the job log,
 # and as the plugin-check-results artifact.
+#
+# The free-build job (story 54, ADR 0014) strips that same folder the way
+# Freemius's deployment builds the Free version (bin/build-free.php: fails on
+# any premium code left behind), uploads it as the free-build artifact and
+# runs Plugin Check on it with the same settings. The harness sweep's
+# free-build-harness.php checks the stripped tree's content.
 
 name: CI
 
@@ -73,7 +79,8 @@ jobs:
 
       - name: Lint plugin PHP
         # vendor/ holds the Freemius SDK as released (story 44): not ours to lint.
-        run: find post-quality-manager -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+        # bin/ holds the Free-build scripts (story 54), on the same PHP floor.
+        run: find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Harness sweep
         if: matrix.php == '8.3'
@@ -105,4 +112,37 @@ jobs:
           ignore-codes: no_plugin_readme
           # The vendored Freemius SDK (story 44) ships unmodified; Plugin Check
           # covers our own code only.
+          exclude-directories: vendor
+
+  free-build:
+    name: Free build Plugin Check
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Download built assets
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-build
+          path: post-quality-manager/admin/build
+
+      - name: Build the Free tree
+        run: php bin/build-free.php build/free
+
+      - name: Upload the Free tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: free-build
+          path: build/free/
+
+      - name: Plugin Check
+        uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
+        with:
+          build-dir: ./build/free/post-quality-manager
+          ignore-codes: no_plugin_readme
           exclude-directories: vendor

@@ -16,3 +16,30 @@ Review content: the unified diff at `{diff_file}`. Read that file — it is the 
 Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. If the instruction file is unreadable, report that exact failure and stop. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
 
 """
+
+# House lens (ADR 0014, story 54): a missed build marker ships Pro code in the
+# Free build and costs a WordPress.org review cycle. Freemius's three leak
+# patterns, plus the house rules for the wrapper shape and the two guards.
+[[workflow.thorough_lenses]]
+id = "premium-leak"
+name = "Premium Leak Hunter"
+instruction = """
+Launch a context-free subagent with this prompt:
+
+You review a WordPress plugin built twice from one source (ADR 0014 in `docs/adr/`): Freemius strips the Pro code out of the Free build by markers, and `bin/build-free.php` reproduces that strip in CI. Review content: the unified diff at `{diff_file}`. Read it, then read each touched PHP file around the changed lines.
+
+Report one finding per line as `<N>. <file>:L<line>: <tag> <what>. <fix>.` with these tags:
+
+- `inline:` a premium check combined with anything in one condition (`&&`, `||`, `!`, a comparison). The wrapper is exactly `if ( pqm_fs()->is__premium_only() ) {`; any other condition nests inside it.
+- `assign:` a value assigned from `pqm_fs()->is__premium_only()` or from a `*__premium_only` call outside a premium block or a `*__premium_only` function.
+- `unwrapped:` a call to a `*__premium_only` function or method, direct or as a hook callback, outside a premium block or another `*__premium_only` function.
+- `else:` an `else` or `elseif` after a premium block; it survives in the Free build.
+- `shape:` a premium block in alternative syntax (`if (): endif;`) or split across `?>` and `<?php`; the strip needs braces inside one PHP block.
+- `two-guards:` a paid feature (a `tier: paid` command, Agent-Specific Overrides, Automated Reviews, the Roles tab, the Pro n8n branches) added or changed without both guards: the runtime gate (`PQM_Features::can()`, `why_not()`, `plan_allows()` or `is_pro()`) and the build marker (a premium block, a `*__premium_only` name, or the `@fs_premium_only` header list in `post-quality-manager/post-quality-manager.php`).
+- `copy:` text the Free build shows that names a paid agent or says "Pro" outside the License section's one "Get Pro" link.
+- `template:` a change to `templates/n8n-workflow.json` without the regenerated `templates/n8n-workflow-free.json` (`php bin/derive-free-template.php`).
+
+Never flag code under `vendor/`, `bin/` or `tests/`. End with `Clean.` when there is nothing to report.
+
+Do not invoke any skill, and do not spawn subagents of your own — you are the reviewer. Return your findings as text in your final message; do not route them through any findings-reporting tool the host may offer.
+"""

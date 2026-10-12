@@ -8,6 +8,10 @@
  *
  * Switch the plan per row: pqm_fs()->pro = true (a valid license);
  * has_license = true with pro = false is an expired or cancelled license.
+ * is__premium_only() is always true: the harnesses test the Pro build
+ * (ADR 0014), every `if ( pqm_fs()->is__premium_only() )` block runs, as in
+ * the zip Freemius serves to licensed sites. The Free build is checked on
+ * the stripped tree (tests/harness/free-build-harness.php).
  */
 
 class PQM_FS_Stub {
@@ -20,6 +24,7 @@ class PQM_FS_Stub {
     public $filters = [];
 
     public function can_use_premium_code() { return $this->pro; }
+    public function is__premium_only() { return true; }
     public function _get_license() { return $this->has_license ? (object) ['id' => 1] : null; }
     public function get_account_url() { return 'https://example.test/wp-admin/admin.php?page=pqm-dashboard-account'; }
     public function get_upgrade_url() { return 'https://example.test/wp-admin/admin.php?page=pqm-dashboard-pricing'; }

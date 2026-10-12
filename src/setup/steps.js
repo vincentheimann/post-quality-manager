@@ -6,6 +6,8 @@
  * names match templates/n8n-workflow.json. The credentials copy also lives
  * in PHP on the n8n Workflow page (PQM_Admin::render_credentials_list(),
  * harness-checked); this one is checked by the owner's walk-through.
+ * The Free build (`state.build`, story 54) imports the Free template: two
+ * Claude nodes, no WordPress credential, no schedule step.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, TextControl } from '@wordpress/components';
@@ -230,6 +232,7 @@ function AppPassword( { available } ) {
 function Credentials( { state } ) {
 	const names = credentialNames( state );
 	const nameLabel = __( 'Credential name', 'post-quality-manager' );
+	const free = state.build === 'free';
 
 	return (
 		<>
@@ -274,10 +277,15 @@ function Credentials( { state } ) {
 				<CopyValue label={ nameLabel } value={ names.claude } />
 				<p>
 					{ withLabels(
-						__(
-							'Type: <strong>Header Auth</strong>. Goes in the six Claude nodes.',
-							'post-quality-manager'
-						)
+						free
+							? __(
+									'Type: <strong>Header Auth</strong>. Goes in the two Claude nodes.',
+									'post-quality-manager'
+							  )
+							: __(
+									'Type: <strong>Header Auth</strong>. Goes in the six Claude nodes.',
+									'post-quality-manager'
+							  )
 					) }
 				</p>
 				<CopyValue
@@ -294,29 +302,32 @@ function Credentials( { state } ) {
 				</p>
 			</section>
 
-			<section className="pqm-setup-credential">
-				<h3>{ names.wordpress }</h3>
-				<CopyValue label={ nameLabel } value={ names.wordpress } />
-				<p>
-					{ withLabels(
-						__(
-							'Type: <strong>Basic Auth</strong>. Goes in Update WP Post (Rewrite).',
-							'post-quality-manager'
-						)
-					) }
-				</p>
-				<CopyValue
-					label={ __( 'User', 'post-quality-manager' ) }
-					value={ state.user_login }
-				/>
-				<AppPassword available={ !! state.app_passwords } />
-			</section>
+			{ ! free && (
+				<section className="pqm-setup-credential">
+					<h3>{ names.wordpress }</h3>
+					<CopyValue label={ nameLabel } value={ names.wordpress } />
+					<p>
+						{ withLabels(
+							__(
+								'Type: <strong>Basic Auth</strong>. Goes in Update WP Post (Rewrite).',
+								'post-quality-manager'
+							)
+						) }
+					</p>
+					<CopyValue
+						label={ __( 'User', 'post-quality-manager' ) }
+						value={ state.user_login }
+					/>
+					<AppPassword available={ !! state.app_passwords } />
+				</section>
+			) }
 		</>
 	);
 }
 
 function Link( { state } ) {
 	const names = credentialNames( state );
+	const free = state.build === 'free';
 
 	return (
 		<>
@@ -341,28 +352,39 @@ function Link( { state } ) {
 				</li>
 				<li>
 					{ withLabels(
-						sprintf(
-							/* translators: %s: credential name "Anthropic - Claude" */
-							__(
-								'<strong>Claude - Review Agent</strong>, <strong>Claude - Takeaways Agent</strong>, <strong>Claude - Sources Agent</strong>, <strong>Claude - SEO Agent</strong>, <strong>Claude - Audit Agent</strong>, <strong>Claude - Rewrite Agent</strong> → %s',
-								'post-quality-manager'
-							),
-							names.claude
-						)
+						free
+							? sprintf(
+									/* translators: %s: credential name "Anthropic - Claude" */
+									__(
+										'<strong>Claude - Review Agent</strong>, <strong>Claude - Takeaways Agent</strong> → %s',
+										'post-quality-manager'
+									),
+									names.claude
+							  )
+							: sprintf(
+									/* translators: %s: credential name "Anthropic - Claude" */
+									__(
+										'<strong>Claude - Review Agent</strong>, <strong>Claude - Takeaways Agent</strong>, <strong>Claude - Sources Agent</strong>, <strong>Claude - SEO Agent</strong>, <strong>Claude - Audit Agent</strong>, <strong>Claude - Rewrite Agent</strong> → %s',
+										'post-quality-manager'
+									),
+									names.claude
+							  )
 					) }
 				</li>
-				<li>
-					{ withLabels(
-						sprintf(
-							/* translators: %s: credential name, e.g. "WordPress - example.com" */
-							__(
-								'<strong>Update WP Post (Rewrite)</strong> → %s',
-								'post-quality-manager'
-							),
-							names.wordpress
-						)
-					) }
-				</li>
+				{ ! free && (
+					<li>
+						{ withLabels(
+							sprintf(
+								/* translators: %s: credential name, e.g. "WordPress - example.com" */
+								__(
+									'<strong>Update WP Post (Rewrite)</strong> → %s',
+									'post-quality-manager'
+								),
+								names.wordpress
+							)
+						) }
+					</li>
+				) }
 			</ul>
 			<p>
 				{ withLabels(
@@ -561,6 +583,30 @@ export const STEPS = [
 	},
 	...CONFIG_STEPS,
 ];
+
+/**
+ * The steps this build shows. The Free build (story 54) has no schedule
+ * and two credentials; a progress key of a step it leaves out is ignored.
+ *
+ * @param {Object} state GET /setup state.
+ * @return {Object[]} Step entries, in order.
+ */
+export function stepsFor( state ) {
+	if ( state.build !== 'free' ) {
+		return STEPS;
+	}
+	return STEPS.filter( ( step ) => step.key !== 'schedule' ).map( ( step ) =>
+		step.key === 'credentials'
+			? {
+					...step,
+					title: __(
+						'Create the two credentials',
+						'post-quality-manager'
+					),
+			  }
+			: step
+	);
+}
 
 /** Closing panel once the setup is complete. */
 export function NextSteps() {

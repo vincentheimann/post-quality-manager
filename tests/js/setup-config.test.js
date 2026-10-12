@@ -271,6 +271,24 @@ describe( 'Setup dialog configuration steps', () => {
 		expect( button( 'Turn on scheduled reviews' ) ).toBeUndefined();
 	} );
 
+	test( 'the Free build (story 54): nine steps, two credentials, no schedule step', async () => {
+		await openDialog(
+			completedState( {
+				build: 'free',
+				// A schedule tick left by a former Pro install is ignored.
+				steps: {
+					...completedState().steps,
+					profile: true,
+					schedule: true,
+				},
+			} )
+		);
+		expect( heading() ).toBe( 'Step 9 of 9: Set your Editorial Standards' );
+		const list = document.querySelector( '.pqm-setup-steps' ).textContent;
+		expect( list ).toContain( 'Create the two credentials' );
+		expect( list ).not.toContain( 'scheduled reviews' );
+	} );
+
 	test( 'a failed save names the cause, leaves the step open and ticks nothing', async () => {
 		await openDialog( completedState(), { message: 'X' } );
 		await act( async () => {

@@ -356,6 +356,7 @@ check('cron knobs: the stored (default) values the schedule step names',
     $s['cron_enabled'] === false && $s['cron_frequency'] === 'daily' && $s['cron_batch_size'] === 5
     && $s['cron_min_score'] === 60 && $s['cron_max_age_days'] === 30 && $s['cron_command'] === 'review');
 check('capability flags: manager with pqm_manage_agents on a free site', $s['can_manage_agents'] === true && $s['is_pro'] === false);
+check('build: pro (story 54; the harness runs the Pro build, licensed or not)', $s['build'] === 'pro');
 pqm_fs()->pro = true;
 check('... pro site: is_pro', setup_state()['is_pro'] === true);
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];

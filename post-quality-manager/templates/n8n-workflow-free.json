@@ -1,0 +1,524 @@
+{
+  "name": "Post Quality — __PQM_SITE_HOST__",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pqm-execute",
+        "authentication": "headerAuth",
+        "options": {
+          "responseData": "{\"ok\":true,\"workflow_version\":5,\"workflow_variant\":\"free\"}"
+        }
+      },
+      "id": "pqm-node-001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        500
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Post Quality webhook - __PQM_SITE_HOST__"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Required fields\nconst command = (body.command || '').toLowerCase().trim();\nconst postId = body.post_id;\nconst callbackUrl = body.callback_url || '';\nconst authToken = body.auth_token || '';\nconst notificationUrl = body.notification_url || '';\n\n// Lightweight connectivity test sent by the plugin's \"Send test ping\" button.\nif (command === 'ping') {\n  return [{ json: { command: 'ping', ping: true, error: false } }];\n}\n\nif (!command || !postId) {\n  return [{ json: { error: true, message: 'Missing required fields: command, post_id' } }];\n}\n\nconst validCommands = ['score', 'review', 'takeaways', 'apply'];\nif (!validCommands.includes(command)) {\n  return [{ json: { error: true, message: 'Unknown command: ' + command } }];\n}\n\nreturn [{ json: {\n  command,\n  callback_url: callbackUrl,\n  auth_token: authToken,\n  notification_url: notificationUrl,\n  post_id: postId,\n  slug: body.slug || '',\n  post_type: body.post_type || 'post',\n  title: body.title || '',\n  link: body.link || '',\n  post_rest_url: body.post_rest_url || '',\n  excerpt: body.excerpt || '',\n  content: body.content || '',\n  content_html: body.content_html || '',\n  seo_score: body.seo_score || 0,\n  readability_score: body.readability_score || 0,\n  focus_keyphrase: body.focus_keyphrase || '',\n  meta_description: body.meta_description || '',\n  seo_title: body.seo_title || '',\n  brand_voice: body.brand_voice || '',\n  website_context: body.website_context || '',\n  agent_prompts: body.agent_prompts || {},\n  llm: body.llm || {},\n  workflow_version: 5,\n  workflow_variant: 'free',\n  error: false\n}}];"
+      },
+      "id": "pqm-node-002",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.command }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "score"
+            },
+            {
+              "value2": "review"
+            },
+            {
+              "value2": "takeaways"
+            },
+            {
+              "value2": "ping"
+            }
+          ]
+        },
+        "fallbackOutput": 4
+      },
+      "id": "pqm-node-003",
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nif (!d.title) {\n  return [{ json: { ...d, error: true, message: 'Post not found.' } }];\n}\n\n// Format a basic score result from the Yoast data already in the payload.\nconst rawSEO = parseInt(d.seo_score) || 0;\nconst rawRead = parseInt(d.readability_score) || 0;\n\nconst result = {\n  seo_score: rawSEO,\n  readability_score: rawRead,\n  focus_keyphrase: d.focus_keyphrase || '',\n  meta_description: d.meta_description || '',\n  title: d.title,\n  link: d.link\n};\n\n// Determine overall: average of SEO and readability.\nconst overall = rawSEO && rawRead ? Math.round((rawSEO + rawRead) / 2) : rawSEO || rawRead || 0;\nconst status = overall >= 71 ? 'ship' : overall >= 41 ? 'needs_revision' : 'major_revision';\n\n// Format for chat notification\nconst getLabel = (raw) => {\n  if (raw === 0) return { score: 'N/A', emoji: '⚪', label: 'Not yet scored' };\n  const s = (raw / 10).toFixed(1);\n  if (raw >= 71) return { score: s, emoji: '🟢', label: 'Good' };\n  if (raw >= 41) return { score: s, emoji: '🟠', label: 'Needs improvement' };\n  return { score: s, emoji: '🔴', label: 'Needs work' };\n};\nconst seo = getLabel(rawSEO);\nconst read = getLabel(rawRead);\nconst chatMsg = [\n  '### 📊 Post Score Report', '',\n  '**📝 ' + d.title + '**', '🔗 ' + d.link, '', '---', '',\n  '| Metric | Score | Status |', '|:---|:---:|:---|',\n  '| 🔍 Yoast SEO | ' + seo.score + '/10 | ' + seo.emoji + ' ' + seo.label + ' |',\n  '| 📖 Readability | ' + read.score + '/10 | ' + read.emoji + ' ' + read.label + ' |',\n  '', '🎯 **Focus keyphrase:** ' + (d.focus_keyphrase ? '`' + d.focus_keyphrase + '`' : '_not set_'),\n  '📋 **Meta description:** ' + (d.meta_description ? d.meta_description.substring(0, 100) : '_not set_')\n].join('\\n');\n\nreturn [{ json: {\n  ...d,\n  overall_score: overall,\n  status,\n  result: JSON.stringify(result),\n  chat_message: chatMsg\n}}];"
+      },
+      "id": "pqm-node-010",
+      "name": "Format Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nif (!d.title || !d.content) {\n  return [{ json: { error: true, message: 'Post not found or empty.' } }];\n}\n\nconst guidelines = d._guidelines || '';\n\nconst userMsg = `Title: ${d.title}\\n\\nExcerpt: ${d.excerpt}\\n\\nGuidelines:\\n${guidelines}\\n\\nFull article:\\n${d.content}`;\n// Request params (model, max_tokens, temperature/effort/thinking) are built by the plugin and travel in the payload.\nconst llm = d.llm?.review || { model: \"claude-sonnet-4-6\", max_tokens: 2500 };\nconst body = {\n  ...llm,\n  system: \"You are a Senior Content Reviewer for \" + (d.website_context || \"a general audience blog\") + \".\\n\\nTONE & VOICE RULES:\\n\" + (d.brand_voice || \"- Professional yet accessible\\n- Active voice preferred\") + \"\\n\\nAGNOSTIC SCORING FRAMEWORK (Score each 0-100):\\n1. Structure: Logical flow, clear hierarchy (H2/H3s), and coherent pacing.\\n2. Readability: Accessibility, concise sentences, avoiding heavy jargon.\\n3. Engagement: The hook, emotional resonance, preventing drop-offs, and actionable value.\\n4. Credibility (E-E-A-T): Trustworthiness, evidence-backed claims, and expert tone.\\n\\nSCORING CALIBRATION:\\nRubric (apply to every 0-100 score):\\n  90-100  Exceptional (publish-ready, top 1%)\\n  75-89   Strong (great but needs minor tweaks)\\n  60-74   Decent (average, needs better flow/hooks)\\n  40-59   Weak (poorly structured, unsupported claims)\\n  0-39    Poor (unpublishable draft quality)\\n\\nStatus (must match overall_score):\\n  \\\"ship\\\"            -> overall_score >= 71\\n  \\\"needs_revision\\\"  -> overall_score 41-70\\n  \\\"major_revision\\\"  -> overall_score <= 40\\n\\n\\n\" + (d.agent_prompts?.review?.instructions ? \"ADDITIONAL INSTRUCTIONS:\\n\" + d.agent_prompts.review.instructions + \"\\n\\n\" : \"\") + \"Return ONLY valid JSON, no markdown, no explanation:\\n{\\n  \\\"overall_score\\\": 0-100,\\n  \\\"status\\\": \\\"ship | needs_revision | major_revision\\\",\\n  \\\"structure\\\": { \\\"score\\\": 0-100, \\\"issues\\\": [], \\\"suggestions\\\": [] },\\n  \\\"readability\\\": { \\\"score\\\": 0-100, \\\"issues\\\": [], \\\"suggestions\\\": [] },\\n  \\\"engagement\\\": { \\\"score\\\": 0-100, \\\"issues\\\": [], \\\"suggestions\\\": [] },\\n  \\\"credibility\\\": { \\\"score\\\": 0-100, \\\"issues\\\": [], \\\"suggestions\\\": [] },\\n  \\\"top_edits\\\": [\\\"edit 1\\\", \\\"edit 2\\\", \\\"edit 3\\\"]\\n}\\nLimit issues and suggestions to 3 per dimension. top_edits must contain exactly 3 items.\",\n  messages: [{ role: \"user\", content: userMsg }]\n};\nreturn [{ json: { ...d, claudeBody: JSON.stringify(body) } }];"
+      },
+      "id": "pqm-node-020",
+      "name": "Build Review Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "pqm-node-021",
+      "name": "Claude - Review Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -76,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Anthropic - Claude"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst d = $('Parse Input').first().json;\nconst built = $('Build Review Body').first().json;\nif (built.error === true) {\n  return [{ json: { ...d, error: true, message: 'Review Agent: ' + built.message } }];\n}\nif (resp.error) {\n  const apiText = typeof resp.error === 'string' ? resp.error : (typeof resp.error?.error === 'string' ? resp.error.error : (resp.error?.error?.error?.message || resp.error?.error?.message || resp.error?.description || resp.error?.message || 'no details returned'));\n  return [{ json: { ...d, error: true, message: 'Review Agent could not get an answer from the model: ' + apiText } }];\n}\nlet r;\ntry {\n  const raw = ((resp.content || []).find(b => b.type === 'text')?.text || '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/, '');\n  r = JSON.parse(raw);\n} catch(e) {\n  return [{ json: { ...d, error: true, message: 'Review Agent returned invalid JSON.' } }];\n}\n\nconst se = (s) => s >= 71 ? '🟢' : s >= 41 ? '🟠' : '🔴';\nconst fmt = (s) => (s/10).toFixed(1) + '/10';\nconst statusMap = { ship: '🟢 Ready to ship', needs_revision: '🟠 Needs revision', major_revision: '🔴 Major revision needed' };\n\nconst lines = [\n  '### ✍️ Content Review Report', '',\n  '**📝 ' + d.title + '**', '🔗 ' + d.link, '', '---', '',\n  '| Dimension | Score | Status |', '|:---|:---:|:---|',\n  '| 🏗 Structure | ' + fmt(r.structure?.score||0) + ' | ' + se(r.structure?.score||0) + ' |',\n  '| 📖 Readability | ' + fmt(r.readability?.score||0) + ' | ' + se(r.readability?.score||0) + ' |',\n  '| 💡 Engagement | ' + fmt(r.engagement?.score||0) + ' | ' + se(r.engagement?.score||0) + ' |',\n  '| 🛡️ Credibility | ' + fmt(r.credibility?.score||0) + ' | ' + se(r.credibility?.score||0) + ' |',\n  '', '---', '',\n  '🔧 **Top edits:**',\n  ...(r.top_edits||[]).map((e,i) => (i+1) + '. ' + e),\n  '', '**Overall: ' + (statusMap[r.status] || r.status) + '** (' + fmt(r.overall_score||0) + ')'\n];\n\nreturn [{ json: {\n  ...d,\n  overall_score: r.overall_score || 0,\n  status: r.status || 'needs_revision',\n  result: JSON.stringify(r),\n  chat_message: lines.join('\\n'),\n  error: false\n}}];"
+      },
+      "id": "pqm-node-022",
+      "name": "Parse Review Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        148,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nif (!d.title || !d.content_html) {\n  return [{ json: { error: true, message: 'Post not found or empty.' } }];\n}\nconst userMsg = `Title: ${d.title}\\n\\nRaw HTML:\\n${d.content_html}`;\nconst llm = d.llm?.takeaways || { model: \"claude-sonnet-4-6\", max_tokens: 1000 };\nconst body = {\n  ...llm,\n  system: \"You are a Key Takeaways reviewer for a blog.\\n\\nKEY TAKEAWAYS BLOCK RULES:\\n- Must exist in the article\\n- Must be the very first element\\n- Must contain 3 to 5 items\\n- Each item: informative, specific, declarative, 25 words or fewer\\n- Items must not repeat each other\\n\\nFEW-SHOT EXAMPLES:\\nBad: \\\"The article discusses the importance of sleep.\\\"\\nGood: \\\"Prioritize 8 hours of sleep to improve cognitive function by 20%.\\\"\\n\\n\\n\" + (d.agent_prompts?.takeaways?.instructions ? \"ADDITIONAL INSTRUCTIONS:\\n\" + d.agent_prompts.takeaways.instructions + \"\\n\\n\" : \"\") + \"Return ONLY valid JSON:\\n{\\n  \\\"block_found\\\": true,\\n  \\\"position_correct\\\": true,\\n  \\\"position_note\\\": \\\"...\\\",\\n  \\\"count\\\": 0,\\n  \\\"count_ok\\\": true,\\n  \\\"items_within_word_limit\\\": true,\\n  \\\"items_are_specific\\\": true,\\n  \\\"issues\\\": [],\\n  \\\"current_items\\\": [],\\n  \\\"rewritten_items\\\": []\\n}\\nLimit issues to 3. Always provide rewritten_items (3-5 items).\",\n  messages: [{ role: \"user\", content: userMsg }]\n};\nreturn [{ json: { ...d, claudeBody: JSON.stringify(body) } }];"
+      },
+      "id": "pqm-node-030",
+      "name": "Build Takeaways Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.claudeBody }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "pqm-node-031",
+      "name": "Claude - Takeaways Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -76,
+        600
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Anthropic - Claude"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst d = $('Parse Input').first().json;\nconst built = $('Build Takeaways Body').first().json;\nif (built.error === true) {\n  return [{ json: { ...d, error: true, message: 'Takeaways Agent: ' + built.message } }];\n}\nif (resp.error) {\n  const apiText = typeof resp.error === 'string' ? resp.error : (typeof resp.error?.error === 'string' ? resp.error.error : (resp.error?.error?.error?.message || resp.error?.error?.message || resp.error?.description || resp.error?.message || 'no details returned'));\n  return [{ json: { ...d, error: true, message: 'Takeaways Agent could not get an answer from the model: ' + apiText } }];\n}\nlet r;\ntry {\n  const raw = ((resp.content || []).find(b => b.type === 'text')?.text || '').trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```\\s*$/, '');\n  r = JSON.parse(raw);\n} catch(e) {\n  return [{ json: { ...d, error: true, message: 'Takeaways Agent returned invalid JSON.' } }];\n}\n\nconst chk = (v) => v ? '✅' : '❌';\nconst lines = [\n  '### 🔑 Key Takeaways Review', '',\n  '**📝 ' + d.title + '**', '🔗 ' + d.link, '', '---', '',\n  '| Check | Status |', '|:---|:---:|',\n  '| Block found | ' + chk(r.block_found) + ' |',\n  '| Position correct | ' + chk(r.position_correct) + ' |',\n  '| Count (3-5) | ' + chk(r.count_ok) + ' (' + r.count + ') |',\n  '| Items ≤ 25 words | ' + chk(r.items_within_word_limit) + ' |',\n  '| Items specific | ' + chk(r.items_are_specific) + ' |'\n];\nif (r.issues && r.issues.length > 0) {\n  lines.push('', '---', '', '⚠️ **Issues:**');\n  r.issues.forEach(i => lines.push('- ' + i));\n}\nlines.push('', '---', '', '✏️ **Suggested rewrite:**');\nr.rewritten_items.forEach((item, i) => lines.push((i+1) + '. ' + item));\n\n// score: all checks pass = 80, else 50\nconst score = (r.block_found && r.position_correct && r.count_ok && r.items_are_specific) ? 80 : 50;\nconst status = score >= 71 ? 'ship' : 'needs_revision';\n\nreturn [{ json: {\n  ...d,\n  overall_score: score,\n  status,\n  result: JSON.stringify(r),\n  chat_message: lines.join('\\n'),\n  error: false\n}}];"
+      },
+      "id": "pqm-node-032",
+      "name": "Parse Takeaways Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        148,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Connectivity test: acknowledge and stop. The webhook already responded 200 on receipt.\nreturn [{ json: { ok: true, message: 'pong' } }];"
+      },
+      "id": "pqm-node-098",
+      "name": "Ping OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        1950
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error fallback: a command this workflow has no branch for.\nconst d = $input.first().json;\nconst message = d.message || 'This workflow has no step for the \"' + (d.command || '') + '\" command.';\nreturn [{ json: { ...d, error: true, message, overall_score: 0, status: '', result: '{}', chat_message: '❌ ' + message } }];"
+      },
+      "id": "pqm-node-099",
+      "name": "Error Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -300,
+        2100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-PQM-Token",
+              "value": "={{ $json.auth_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ post_id: $json.post_id, command: $json.command, overall_score: $json.overall_score || 0, status: $json.status || '', result: JSON.parse($json.result || '{}'), workflow_version: $json.workflow_version || 0, workflow_variant: $json.workflow_variant, error_message: $json.error ? ($json.message || 'The workflow could not complete this command. Check the execution log in n8n.') : '' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pqm-node-100",
+      "name": "POST Result to WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        596,
+        800
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.notification_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "pqm-node-110",
+      "name": "Has Notification URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        820,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.notification_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.chat_message }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "pqm-node-111",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1044,
+        700
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Format Score",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Review Body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Takeaways Body",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ping OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Score": {
+      "main": [
+        [
+          {
+            "node": "POST Result to WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Review Body": {
+      "main": [
+        [
+          {
+            "node": "Claude - Review Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Review Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Review Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Review Result": {
+      "main": [
+        [
+          {
+            "node": "POST Result to WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Takeaways Body": {
+      "main": [
+        [
+          {
+            "node": "Claude - Takeaways Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Takeaways Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Takeaways Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Takeaways Result": {
+      "main": [
+        [
+          {
+            "node": "POST Result to WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Fallback": {
+      "main": [
+        [
+          {
+            "node": "POST Result to WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Result to WordPress": {
+      "main": [
+        [
+          {
+            "node": "Has Notification URL?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Notification URL?": {
+      "main": [
+        [
+          {
+            "node": "Send Notification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -10,9 +10,13 @@
 import { __, sprintf } from '@wordpress/i18n';
 
 /**
- * Canonical command order — the order pills, tabs and buttons render in.
+ * Canonical command order — the order pills, tabs and buttons render in:
+ * the six commands, kept only where the registry labels PHP prints
+ * (window.pqmCommandLabels, from PQM_Features::registry()) list them, so
+ * the Free build (ADR 0014, story 54) renders no paid pill, tab or button.
+ * Without the print (tests), all six.
  */
-export const COMMAND_ORDER = [
+const ALL_COMMANDS = [
 	'review',
 	'takeaways',
 	'sources',
@@ -20,6 +24,10 @@ export const COMMAND_ORDER = [
 	'audit',
 	'rewrite',
 ];
+export const COMMAND_ORDER = ALL_COMMANDS.filter(
+	( command ) =>
+		! window.pqmCommandLabels || command in window.pqmCommandLabels
+);
 
 /**
  * Display label for a command key, read from the registry labels PHP

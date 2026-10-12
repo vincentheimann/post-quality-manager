@@ -58,8 +58,10 @@ check('Domain Path parses as /languages', header_value($data, 'Domain Path') ===
 $src = file_get_contents($file);
 check('pqm_load_textdomain() is hooked on init',
     preg_match("/add_action\(\s*'init'\s*,\s*'pqm_load_textdomain'\s*\)/", $src) === 1);
+/* Story 54: the helper lives in includes/pqm-functions.php (the main file declares no function, see its Includes comment). */
+$functions_src = file_get_contents(dirname($file) . '/includes/pqm-functions.php');
 check('it loads the post-quality-manager domain from /languages',
-    preg_match("/load_plugin_textdomain\(\s*'post-quality-manager'\s*,\s*false\s*,[^;]*'\/languages'\s*\)/", $src) === 1);
+    preg_match("/load_plugin_textdomain\(\s*'post-quality-manager'\s*,\s*false\s*,[^;]*'\/languages'\s*\)/", $functions_src) === 1);
 $langDir = dirname($file) . '/languages';
 check('no empty languages/ folder ships', !is_dir($langDir) || count(array_diff(scandir($langDir), ['.', '..'])) > 0);
 

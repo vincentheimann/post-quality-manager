@@ -31,7 +31,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
 import FirstReview from './first-review';
-import { NextSteps, STEPS } from './steps';
+import { NextSteps, STEPS, stepsFor } from './steps';
 import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
@@ -59,7 +59,9 @@ function stepDone( state, step ) {
  * @return {string} Step key or FINISH.
  */
 function resumeAt( state ) {
-	const open = STEPS.find( ( step ) => ! stepDone( state, step ) );
+	const open = stepsFor( state ).find(
+		( step ) => ! stepDone( state, step )
+	);
 	return open ? open.key : FINISH;
 }
 
@@ -163,8 +165,9 @@ export default function SetupIsland() {
 		} ) );
 
 	const complete = !! ( state && state.complete );
-	const index = STEPS.findIndex( ( step ) => step.key === current );
-	const step = STEPS[ index ];
+	const steps = state ? stepsFor( state ) : STEPS;
+	const index = steps.findIndex( ( step ) => step.key === current );
+	const step = steps[ index ];
 	const isDone = ( item ) => stepDone( state, item );
 
 	const goTo = ( key ) => {
@@ -173,8 +176,8 @@ export default function SetupIsland() {
 	};
 
 	const next = () => {
-		if ( index < STEPS.length - 1 ) {
-			goTo( STEPS[ index + 1 ].key );
+		if ( index < steps.length - 1 ) {
+			goTo( steps[ index + 1 ].key );
 		} else {
 			// The closing panel needs a completed setup; until then the
 			// first review is what is left.
@@ -234,7 +237,7 @@ export default function SetupIsland() {
 							) }
 						>
 							<ol className="pqm-setup-nav">
-								{ STEPS.map( ( item ) => (
+								{ steps.map( ( item ) => (
 									<li key={ item.key }>
 										<Button
 											variant="tertiary"
@@ -297,7 +300,7 @@ export default function SetupIsland() {
 												'post-quality-manager'
 											),
 											index + 1,
-											STEPS.length,
+											steps.length,
 											step.title
 										) }
 									</h2>
@@ -351,7 +354,7 @@ export default function SetupIsland() {
 									<Button
 										variant="tertiary"
 										onClick={ () =>
-											goTo( STEPS[ index - 1 ].key )
+											goTo( steps[ index - 1 ].key )
 										}
 									>
 										{ __( 'Back', 'post-quality-manager' ) }

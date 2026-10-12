@@ -28,12 +28,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class PQM_Blocks {
 
-    /** Where each command's items live in its stored result (n8n template's Parse nodes). */
-    const ITEM_KEYS = [
-        'takeaways' => 'rewritten_items',
-        'sources'   => 'rewritten_sources',
-    ];
-
     /** Rows read to find the command's latest — the detail panel's window (GET /reviews). */
     const ROWS_LIMIT = 50;
 
@@ -45,6 +39,20 @@ class PQM_Blocks {
         'innerHTML'    => '<ul class="wp-block-list"></ul>',
         'innerContent' => [ '<ul class="wp-block-list"></ul>' ],
     ];
+
+    /**
+     * Where each insertable command's items live in its stored result (the
+     * n8n template's Parse nodes); its keys are the route's `command` enum.
+     * Sources is a Pro agent, absent from the Free build (ADR 0014).
+     */
+    public static function item_keys(): array {
+        $keys = [ 'takeaways' => 'rewritten_items' ];
+        if ( pqm_fs()->is__premium_only() ) {
+            $keys['sources'] = 'rewritten_sources';
+        }
+
+        return $keys;
+    }
 
     /**
      * Write the latest stored items of $command into the post.
@@ -68,12 +76,12 @@ class PQM_Blocks {
             );
         }
 
-        // The Pattern setting sits in the Pro-locked Overrides: free sites insert a plain list.
-        // A pattern that was deleted, unpublished or lost its List falls back the same way.
-        $id   = (int) ( pqm_get_settings()['agent_prompts'][ $command ]['pattern'] ?? 0 );
-        $copy = $id && PQM_Features::is_pro() && isset( self::patterns()[ $id ] )
-            ? parse_blocks( (string) get_post( $id )->post_content )
-            : [];
+        // The Pattern setting sits in the Pro-only Overrides: the Free build
+        // and an unlicensed site insert a plain list.
+        $copy = [];
+        if ( pqm_fs()->is__premium_only() ) {
+            $copy = self::pattern_copy__premium_only( $command );
+        }
 
         $blocks = self::place( parse_blocks( $post->post_content ), $items, $copy, $command );
 
@@ -84,6 +92,19 @@ class PQM_Blocks {
         );
 
         return is_wp_error( $updated ) ? $updated : true;
+    }
+
+    /**
+     * The chosen pattern's blocks for $command, or [] for a plain list: no
+     * pattern chosen, an unlicensed site, or a pattern that was deleted,
+     * unpublished or lost its List.
+     */
+    private static function pattern_copy__premium_only( string $command ): array {
+        $id = (int) ( pqm_get_settings()['agent_prompts'][ $command ]['pattern'] ?? 0 );
+
+        return $id && PQM_Features::is_pro() && isset( self::patterns()[ $id ] )
+            ? parse_blocks( (string) get_post( $id )->post_content )
+            : [];
     }
 
     /**
@@ -132,7 +153,8 @@ class PQM_Blocks {
             $new[ $i ]['attrs']['metadata']['pqmInsert'] = $command;
         }
 
-        $run = self::marked_run( $blocks, $command ) ?? self::signature_run( $blocks, $new, 'sources' === $command );
+        $last = 'takeaways' !== $command; // Takeaways go first, Sources last.
+        $run  = self::marked_run( $blocks, $command ) ?? self::signature_run( $blocks, $new, $last );
 
         if ( null !== $run ) {
             // Stray parts of an earlier copy elsewhere in the post go too.
@@ -152,7 +174,7 @@ class PQM_Blocks {
         // Block whitespace = a freeform (null-name) block beside the new copy.
         $gap = [ 'blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => "\n\n", 'innerContent' => [ "\n\n" ] ];
 
-        return 'sources' === $command ? [ ...$blocks, $gap, ...$new ] : [ ...$new, $gap, ...$blocks ];
+        return $last ? [ ...$blocks, $gap, ...$new ] : [ ...$new, $gap, ...$blocks ];
     }
 
     /**
@@ -165,7 +187,7 @@ class PQM_Blocks {
             }
 
             $data  = json_decode( (string) $row['result_data'], true );
-            $items = is_array( $data ) ? ( $data[ self::ITEM_KEYS[ $command ] ] ?? [] ) : [];
+            $items = is_array( $data ) ? ( $data[ self::item_keys()[ $command ] ] ?? [] ) : [];
             if ( ! is_array( $items ) ) {
                 return [];
             }

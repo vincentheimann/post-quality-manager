@@ -13,7 +13,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 
 import { commandLabel } from '../kit/copy';
 
-/** Where each command's suggested items live in its result (PQM_Blocks::ITEM_KEYS). */
+/** Where each command's suggested items live in its result (PQM_Blocks::item_keys()). */
 const ITEM_KEYS = {
 	takeaways: 'rewritten_items',
 	sources: 'rewritten_sources',

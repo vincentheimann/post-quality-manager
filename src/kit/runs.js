@@ -9,7 +9,7 @@
 import apiFetch from '@wordpress/api-fetch';
 import { __, sprintf } from '@wordpress/i18n';
 
-import { commandLabel, statusLabel } from './copy';
+import { COMMAND_ORDER, commandLabel, statusLabel } from './copy';
 
 /** GET /posts — the Post Reviews list and the Dashboard queue. */
 export const POSTS_PATH = '/post-quality/v1/posts';
@@ -25,9 +25,10 @@ export function reviewsPath( postId ) {
 }
 
 /**
- * Whether the viewer gets a button for `command` at all: can trigger and
- * the command is not role-hidden. A plan-gated command still renders
- * (locked, see isGated()).
+ * Whether the viewer gets a button for `command` at all: the server lists
+ * the command (COMMAND_ORDER; the Free build lists no paid one), the
+ * viewer can trigger and the command is not role-hidden. A plan-gated
+ * command still renders (locked, see isGated()).
  *
  * @param {Object|null} viewer  The list's `viewer` block.
  * @param {string}      command Command key.
@@ -35,6 +36,7 @@ export function reviewsPath( postId ) {
  */
 export function canRender( viewer, command ) {
 	return (
+		COMMAND_ORDER.includes( command ) &&
 		!! viewer &&
 		!! viewer.can_trigger &&
 		! ( viewer.hidden_commands || [] ).includes( command )

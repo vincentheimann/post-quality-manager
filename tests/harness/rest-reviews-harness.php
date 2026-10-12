@@ -274,6 +274,17 @@ check('callback without workflow_version (0): last report untouched', $GLOBALS['
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
 check('callback with workflow_version 5: replaces a ping\'s report, via command',
     $GLOBALS['tw']['options']['pqm_workflow_version_seen']['via'] === 'command' && pqm_workflow_report()['version'] === 5);
+/* Story 54: the callback states the template variant; absent = Pro */
+save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'free']);
+check('callback from the Free template: recorded with variant free', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['variant'] ?? null) === 'free'
+    && pqm_workflow_report()['variant'] === 'free');
+save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'pro']);
+check('callback stating pro: recorded without a variant (absent = Pro)', !array_key_exists('variant', $GLOBALS['tw']['options']['pqm_workflow_version_seen'])
+    && !array_key_exists('variant', pqm_workflow_report()));
+$variant_arg = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/save-review']['args']['workflow_variant'] ?? [];
+check('save-review workflow_variant: optional string, enum free/pro (400 on others), default pro',
+    ($variant_arg['required'] ?? null) === false && ($variant_arg['type'] ?? null) === 'string'
+    && ($variant_arg['enum'] ?? null) === ['free', 'pro'] && ($variant_arg['default'] ?? null) === 'pro');
 foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
     $GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $legacy];
     check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', pqm_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);

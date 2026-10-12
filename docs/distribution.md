@@ -92,6 +92,16 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | Test purchase | sandbox checkout exists (row above) | story 44 AC1 |
 | Fees (read 2026-10-09) | 3.8% + 50¢ plus gateway fees, plus 2.3% for WordPress products; no setup or monthly fee | ADR 0013 D3; re-read before launch |
 
+## Release order (ADR 0014)
+
+One source, two builds, the same version number in both: the Pro build is the CI zip, the Free build is what Freemius generates from it. The order is tag → Freemius upload of the CI zip → its generated Free build to WordPress.org SVN (story 38 AC7) → release in Freemius; the checks at each step are `/release` steps 6–9 (`.claude/skills/release/SKILL.md`). GitHub Releases attach the full (Pro) zip until the first directory release, then the Free build. CI's `free-build` job strips the same markers with `bin/build-free.php` on every PR; story 54's one-off `diff -r` against Freemius's output is what makes that check trustworthy.
+
+| Field | Value | Source / owner |
+|---|---|---|
+| Upload | Freemius → Deployment → Add New Version, the CI zip as downloaded; a re-zip only with the OS zip or `zip -r`, never PowerShell's `Compress-Archive` (backslash paths) | story 54 |
+| Free build download | the version's row in Deployment, or `GET /products/41144/tags/{tag_id}.zip?is_premium=false` with a product-scoped bearer token from Settings → API & Keys (in the dashboard or a GitHub secret, never in the repository). CHECK: confirm in Freemius's API reference before automating | story 54; story 38 automates |
+| Automation endpoints | `POST /products/{id}/tags.json` (multipart `file`) adds a version; `PUT /products/{id}/tags/{tag_id}.json` with `release_mode` releases it. CHECK as above | story 38 |
+
 ## GitHub repository (story 48)
 
 | Field | Value (read 2026-10-09) | Source / owner |
