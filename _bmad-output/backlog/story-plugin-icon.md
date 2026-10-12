@@ -41,3 +41,4 @@ Verify: `docs/brand.md` records the owner-approved icon direction (mark, colors,
 - Filed 2026-10-09 (owner). Sliced out of story 41 so the mark exists before the banners reuse it and before the Freemius product and postquality.com need an image. Story 41 now waits on this one.
 - HITL: the owner picks the direction and approves the final files; the agent drafts and produces.
 - Not ranked by `/prioritize` yet.
+- Built 2026-10-12: the owner picked direction C (the Q seal) from three drafts, then C1g, its golden-ratio refinement; files in `assets/` and `admin/img/`, the menu icon in `class-pqm-admin.php`, the direction in `docs/brand.md` § Icon. Owner checked the menu icon in WP Admin on their production site (not Local) and uploaded `assets/icon-512x512.png` as the Freemius product image the same day; done is the owner's mark after merge.

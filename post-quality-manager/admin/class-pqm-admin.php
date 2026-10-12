@@ -43,6 +43,13 @@ class PQM_Admin
     /** Query arg that opens the setup dialog on load (the welcome notice's link). */
     public const SETUP_QUERY_ARG = 'pqm_setup';
 
+    /**
+     * Admin menu icon (story 51): the mono mark of assets/icon.svg as a base64
+     * SVG. Filled shapes only, so WordPress can recolour it for every admin
+     * color scheme (it rewrites fill attributes, never strokes).
+     */
+    private const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNIDEzLjEgOS41NSBBIDYuMyA2LjMgMCAxIDEgMC41IDkuNTUgQSA2LjMgNi4zIDAgMSAxIDEzLjEgOS41NSBaIE0gMTAuODUgOS41NSBBIDQuMDUgNC4wNSAwIDEgMCAyLjc1IDkuNTUgQSA0LjA1IDQuMDUgMCAxIDAgMTAuODUgOS41NSBaIi8+PHJlY3QgZmlsbD0iI2ZmZmZmZiIgeD0iMCIgeT0iLTEuMTIiIHdpZHRoPSI0LjgxIiBoZWlnaHQ9IjIuMjQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkuNDcgMTIuMjIpIHJvdGF0ZSg0NSkiLz48cmVjdCBmaWxsPSIjZmZmZmZmIiB4PSIwIiB5PSItMS4xMiIgd2lkdGg9IjcuNzgiIGhlaWdodD0iMi4yNCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTIuODcgMTUuNjIpIHJvdGF0ZSgtNDUpIi8+PGNpcmNsZSBmaWxsPSIjZmZmZmZmIiBjeD0iOS40NyIgY3k9IjEyLjIyIiByPSIxLjEyIi8+PGNpcmNsZSBmaWxsPSIjZmZmZmZmIiBjeD0iMTIuODciIGN5PSIxNS42MiIgcj0iMS4xMiIvPjxjaXJjbGUgZmlsbD0iI2ZmZmZmZiIgY3g9IjE4LjM4IiBjeT0iMTAuMTIiIHI9IjEuMTIiLz48L3N2Zz4=';
+
     /* ─── Menu Registration ──────────────────────────────────────────── */
 
     public static function register_pages(): void
@@ -54,7 +61,7 @@ class PQM_Admin
             'pqm_view_reviews',
             'pqm-dashboard',
         [__CLASS__, 'render_dashboard_app'],
-            'dashicons-chart-line',
+            self::MENU_ICON,
             30
         ) ?: null;
 

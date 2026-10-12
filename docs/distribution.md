@@ -58,7 +58,8 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 
 | File | Status |
 |---|---|
-| icon-128x128.png, icon-256x256.png, icon.svg | OWNER: approve story 51's direction, then produced (story 51) |
+| icon-128x128.png, icon-256x256.png, icon.svg | done (story 51, 2026-10-12): `assets/icon.svg`, `icon-128x128.png`, `icon-256x256.png` |
+| icon-512x512.png | favicon for postquality.com (story 57 wires it, the site has no custom head yet); uploaded as the Freemius product image 2026-10-12 (owner) |
 | banner-772x250.png, banner-1544x500.png | OWNER: approve story 41's direction, then produced (story 41, after 51) |
 | screenshot-1.png … screenshot-n.png | same; numbers match the readme Screenshots section |
 
@@ -118,6 +119,6 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 
 ## Open markers on 2026-10-09
 
-- OWNER: approve story 51's icon, then story 41's banner and screenshots; confirm the CHF figures (story 52).
+- OWNER: approve story 41's banner and screenshots; confirm the CHF figures (story 52).
 - OWNER: Freemius account; Discussions on or off. (Mail at hello@postquality.com confirmed 2026-10-12.)
 - CHECK at use: `Tested up to`, readme tags, Freemius SDK version and sandbox, Freemius fees.

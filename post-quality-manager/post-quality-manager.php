@@ -94,9 +94,9 @@ register_deactivation_hook(__FILE__, ['PQM_Cron', 'clear_scheduled_events']);
 // The SDK owns the uninstall hook (WordPress would run an uninstall.php
 // instead), and calls this after its own cleanup, opted in or not.
 pqm_fs()->add_action('after_uninstall', ['PQM_Activator', 'uninstall']);
-// A local icon for the SDK's screens, so it never fetches one from Freemius
-// (before the opt-in choice) nor writes one into vendor/. Story 51 replaces it.
-pqm_fs()->add_filter('plugin_icon', static fn() => PQM_PLUGIN_DIR . 'vendor/freemius/assets/img/plugin-icon.png');
+// The plugin's own icon (story 51) for the SDK's screens, so it never fetches
+// one from Freemius (before the opt-in choice) nor writes one into vendor/.
+pqm_fs()->add_filter('plugin_icon', static fn() => PQM_PLUGIN_DIR . 'admin/img/post-quality-manager.png');
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 
