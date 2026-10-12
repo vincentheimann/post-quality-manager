@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.5.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.4.0...v3.5.0) (2026-10-12)
+
+
+### Features
+
+* **admin:** add the plugin icon (story 51) ([474cb70](https://github.com/vincentheimann/post-quality-manager/commit/474cb70e1e20b17d2e671d24f466e59cad83e7ae))
+* **build:** the Free build contains no Pro code (story 54) ([3a8ff28](https://github.com/vincentheimann/post-quality-manager/commit/3a8ff2838641de8a3173460d3b0e03de7f3fa888))
+* **setup:** the setup guide continues into Blog Profile, Editorial Standards and schedule (story 55) ([d0a792e](https://github.com/vincentheimann/post-quality-manager/commit/d0a792e0a69622cf73c5156d36d53b6caa635acc))
+
 ## [3.4.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.3.0...v3.4.0) (2026-10-09)
 
 

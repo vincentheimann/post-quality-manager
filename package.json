@@ -1,6 +1,6 @@
 {
   "name": "post-quality-manager",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "description": "Build pipeline for the Post Quality Manager admin app (src/ compiles into the shipped plugin subfolder).",
   "scripts": {
