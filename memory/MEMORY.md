@@ -3,7 +3,7 @@
 _Canonical, git-versioned memory for the Post Quality project. Agents: read this index at session start; one file per durable fact; update the relevant file (or add a new one + index line) when a durable fact changes. Keep any personal/local agent memory as a mirror of this._
 
 - [Lessons log](lessons.md) — self-correction rules that override agent defaults; read every session, loaded into every build
-- [BMad setup](bmad-setup.md) — lightweight BMad Method since 2026-10-01 (ADR 0004): skills, `_bmad/` overrides, ticket tree in `_bmad-output/`, how to update
+- [BMad setup](bmad-setup.md) — lightweight BMad Method since 2026-10-01 (ADR 0004): skills (+ `bmad-ux`, `bmad-correct-course` 2026-10-12), `_bmad/` overrides, ticket tree in `_bmad-output/`, how to update
 - [Workspace layout](workspace-layout.md) — single repo since the API-plugin retirement 2026-07-23; n8n/ folder
 - [Agnostic pivot](pivot-agnostic.md) — niche-agnostic plugin + n8n workflow generator; MVP decisions locked 2026-07-22
 - [LLM options architecture](llm-options-architecture.md) — model registry + payload-driven request params + workflow version handshake (v5: ping reply, forget-on-serve, 2026-10-08) + failure contract (`error_message`, bug 31, 2026-10-06) + token-authenticated trigger and host-agnostic rewrite address (story 35, 2026-10-07); decisions locked 2026-07-23; multi-provider models and a site-wide token limit decided 2026-10-06 (ADR 0009), not built

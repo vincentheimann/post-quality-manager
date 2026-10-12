@@ -19,6 +19,12 @@
       "skillPath": "skills/bmad-code-review/SKILL.md",
       "computedHash": "5ff60145b75ec4a5aa7eec8b825ace75aae74dd186d9401db404ad4ab5e1f50c"
     },
+    "bmad-correct-course": {
+      "source": "bmad-code-org/BMAD-METHOD",
+      "sourceType": "github",
+      "skillPath": "skills/bmad-correct-course/SKILL.md",
+      "computedHash": "daaf25a34127d28c210b23c814c6fc0a5eeb0644ad7d75a79f635247ba533ac9"
+    },
     "bmad-customize": {
       "source": "bmad-code-org/BMAD-METHOD",
       "sourceType": "github",
@@ -54,6 +60,12 @@
       "sourceType": "github",
       "skillPath": "skills/bmad-ticket/SKILL.md",
       "computedHash": "52438083d272ca812e5400f291090d1f9e3f634283922d80e70b16fe31aa3f65"
+    },
+    "bmad-ux": {
+      "source": "bmad-code-org/BMAD-METHOD",
+      "sourceType": "github",
+      "skillPath": "skills/bmad-ux/SKILL.md",
+      "computedHash": "1933c4c15cd0b21e172df2a24b0ca6c632f43deedbef03afa903dcc590c00f79"
     },
     "bmad-walkthrough": {
       "source": "bmad-code-org/BMAD-METHOD",

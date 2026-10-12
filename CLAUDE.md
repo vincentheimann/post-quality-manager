@@ -15,6 +15,7 @@ After any user correction, append the pattern to `memory/lessons.md` (format is 
 
 - A small, clear change → `bmad-build` directly. It clarifies, plans, implements, reviews; the house overrides in `_bmad/custom/bmad-build.toml` route anything beyond a small change to a plan the user approves first.
 - A change bigger than one session → `bmad-spec` to fix the WHAT, `bmad-ticket` to incept the epic into stories, one `bmad-build` per story, `bmad-retrospective` when the epic is done.
+- Work where the screens and flows matter → `bmad-ux` first; `bmad-spec` adopts its `DESIGN.md` / `EXPERIENCE.md` as companions. A mid-epic change that reaches across the spec and its stories → `bmad-correct-course`, then apply its list with `bmad-ticket` (both added 2026-10-12, ADR 0004 amendment).
 - `/prioritize` (EBM, `docs/user-paths.md`) decides which epic or backlog ticket is next; `/adr` records significant decisions; `/release` verifies a release.
 - Ask for a review only with `bmad-review` / `bmad-code-review`; they never run uninvited.
 - Code written outside `bmad-build` follows the same minimal-code ladder: `_bmad/custom/minimal-code-ladder.md` (ADR 0007; it loads automatically inside builds).
