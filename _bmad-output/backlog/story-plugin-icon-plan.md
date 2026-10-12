@@ -1,7 +1,7 @@
 ---
 title: "The plugin icon is designed and produced"
 ticket: 51
-status: built
+status: done
 ---
 
 The owner picked the Q seal from three drafted directions (checked page, score bars, Q seal), then C1g from its refinements: a perfect ring whose tail continues into a check, with ring diameter, long arm and short arm in the ratio φ² : φ : 1. The direction, colours and rules are in `docs/brand.md` § Icon. The geometry was computed with a throwaway Python script (outside the repository) that centres the bounding box and scales it to a 19-unit width. Coordinates are rounded to 2 decimals, and the shapes are filled only, with no strokes.
