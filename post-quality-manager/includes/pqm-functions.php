@@ -292,11 +292,6 @@ function pqm_resolved_context(array $settings): string
 
 /* ─── Helper: n8n workflow JSON with site values injected ────────────── */
 /**
- * Bundled workflow template with this site's values injected. Shared by the
- * n8n Workflow page download and the REST import-from-URL endpoint.
- * Returns null when the template file is missing.
- */
-/**
  * This site's host as the template's __PQM_SITE_HOST__ placeholder gets it —
  * also the suffix of two credential names the admin copy tells users to use.
  */
@@ -305,6 +300,26 @@ function pqm_site_host(): string
     return wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
 }
 
+/**
+ * The Webhook Trigger's path for this site (__PQM_WEBHOOK_PATH__), so two
+ * sites on one n8n instance never collide: `pqm-execute-example-com`. The one
+ * derivation of it; plain PHP, no filterable WordPress function, so the
+ * download, the import URL and provisioning all yield the same path. The
+ * `pqm-execute-` prefix marks a plugin path. Known ceiling: two installs on
+ * one host (another port or a sub-directory) share the path, as they already
+ * share the credential names; add the port and path to the slug when an
+ * owner needs it.
+ */
+function pqm_webhook_path(): string
+{
+    return 'pqm-execute-' . trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(pqm_site_host())), '-');
+}
+
+/**
+ * Bundled workflow template with this site's values injected. Shared by the
+ * n8n Workflow page download and the REST import-from-URL endpoint.
+ * Returns null when the template file is missing.
+ */
 function pqm_workflow_json(): ?string
 {
     // ADR 0014: the Free build serves the template without the paid branches.
@@ -316,7 +331,11 @@ function pqm_workflow_json(): ?string
         return null;
     }
 
-    return str_replace('__PQM_SITE_HOST__', pqm_site_host(), file_get_contents($template_path));
+    return str_replace(
+        ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'],
+        [pqm_site_host(), pqm_webhook_path()],
+        file_get_contents($template_path)
+    );
 }
 
 /* ─── Helper: the workflow's version report ──────────────────────────── */

@@ -433,8 +433,11 @@ $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 
 $outdated = $render_workflow([]);
 $GLOBALS['tw_options'] = [];
 check('update notice renders for an older import and no longer promises untouched credentials',
-    str_contains($outdated, 'Workflow update available.') && str_contains($outdated, 'your plugin settings stay as they are')
+    str_contains($outdated, 'Workflow update available.') && !str_contains($outdated, 'your plugin settings stay as they are')
     && !str_contains($outdated, 'credentials are untouched'));
+check('update notice tells a re-importing site its production URL changes (provisioning entry 3)',
+    str_contains($outdated, '<strong>Workflow update available.</strong>')
+    && str_contains($outdated, 'Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline, then paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.'));
 /* The hint names the credentialed nodes literally — keep it tied to the template. */
 $tpl = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true);
 $cred = [];
@@ -585,7 +588,7 @@ foreach (['n8n default body' => '{"message":"Workflow was started"}', 'non-JSON 
     check("older reply ($label): stored {0, via test}", ($seen()['version'] ?? null) === 0 && $seen()['via'] === 'test');
     check("older reply ($label): reachability only, points to re-importing, never claims the credential",
         $r->ok === true && !str_contains($r->data['message'], 'credential')
-        && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, then send another ping.');
+        && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.');
     check("older reply ($label): outdated true (the page shows a warning, not a success)", ($r->data['outdated'] ?? null) === true);
     check("older reply ($label): status_html shows the notice and \"an older version\"",
         str_contains($r->data['status_html'], $notice)
@@ -595,6 +598,8 @@ $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERS
 $r = ping('');
 check('reply with an older number: older-version message, the notice, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
     && str_contains($r->data['message'], 'an older version') && str_contains($r->data['status_html'], $notice) && $r->data['outdated'] === true);
+check('reply with an older number: message and notice say the re-import gives a new production URL to paste',
+    str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.'));
 
 /* Row: ping, unsaved URL (Settings field ≠ saved) — message only */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
@@ -612,7 +617,7 @@ $r = ping('');
 check('Free template answers on the Pro build: stored {5, via test, variant free}',
     ($seen()['variant'] ?? null) === 'free' && $seen()['version'] === PQM_WORKFLOW_VERSION && $seen()['via'] === 'test');
 check('... outdated true, the message names the Free variant and points to re-importing', $r->ok === true && $r->data['outdated'] === true
-    && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, then send another ping.');
+    && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.');
 check('... status_html carries the Free-variant notice once, not the update one',
     substr_count($r->data['status_html'], $free_notice) === 1 && !str_contains($r->data['status_html'], $notice));
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';

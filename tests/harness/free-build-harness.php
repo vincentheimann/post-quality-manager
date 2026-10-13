@@ -321,6 +321,10 @@ foreach (['Free template' => ',"workflow_variant":"free"', 'Pro template' => '']
 check('pqm_workflow_json() serves the Free template, filled with the host',
     ($json = json_decode((string) pqm_workflow_json(), true)) !== null && $json['name'] === 'Post Quality — example.com'
     && !in_array('Build Rewrite Body', array_column($json['nodes'], 'name'), true));
+$free_trigger = array_column($json['nodes'], null, 'name')['Webhook Trigger']['parameters'];
+check('the Free template carries the per-site trigger path and the version, no __PQM_ placeholder left',
+    $free_trigger['path'] === 'pqm-execute-example-com' && !str_contains((string) pqm_workflow_json(), '__PQM_')
+    && json_decode($free_trigger['options']['responseData'], true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION, 'workflow_variant' => 'free']);
 
 /* ─── Row: the screens an Administrator opens ────────────────────────── */
 echo "Row — Settings and n8n Workflow: nothing locked, one Get Pro, no paid agent named\n";

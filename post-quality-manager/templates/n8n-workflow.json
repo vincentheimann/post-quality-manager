@@ -4,10 +4,10 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "pqm-execute",
+        "path": "__PQM_WEBHOOK_PATH__",
         "authentication": "headerAuth",
         "options": {
-          "responseData": "{\"ok\":true,\"workflow_version\":5}"
+          "responseData": "{\"ok\":true,\"workflow_version\":6}"
         }
       },
       "id": "pqm-node-001",
@@ -26,7 +26,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Required fields\nconst command = (body.command || '').toLowerCase().trim();\nconst postId = body.post_id;\nconst callbackUrl = body.callback_url || '';\nconst authToken = body.auth_token || '';\nconst notificationUrl = body.notification_url || '';\n\n// Lightweight connectivity test sent by the plugin's \"Send test ping\" button.\nif (command === 'ping') {\n  return [{ json: { command: 'ping', ping: true, error: false } }];\n}\n\nif (!command || !postId) {\n  return [{ json: { error: true, message: 'Missing required fields: command, post_id' } }];\n}\n\nconst validCommands = ['score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply'];\nif (!validCommands.includes(command)) {\n  return [{ json: { error: true, message: 'Unknown command: ' + command } }];\n}\n\nreturn [{ json: {\n  command,\n  callback_url: callbackUrl,\n  auth_token: authToken,\n  notification_url: notificationUrl,\n  post_id: postId,\n  slug: body.slug || '',\n  post_type: body.post_type || 'post',\n  title: body.title || '',\n  link: body.link || '',\n  post_rest_url: body.post_rest_url || '',\n  excerpt: body.excerpt || '',\n  content: body.content || '',\n  content_html: body.content_html || '',\n  seo_score: body.seo_score || 0,\n  readability_score: body.readability_score || 0,\n  focus_keyphrase: body.focus_keyphrase || '',\n  meta_description: body.meta_description || '',\n  seo_title: body.seo_title || '',\n  brand_voice: body.brand_voice || '',\n  website_context: body.website_context || '',\n  agent_prompts: body.agent_prompts || {},\n  llm: body.llm || {},\n  workflow_version: 5,\n  error: false\n}}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Required fields\nconst command = (body.command || '').toLowerCase().trim();\nconst postId = body.post_id;\nconst callbackUrl = body.callback_url || '';\nconst authToken = body.auth_token || '';\nconst notificationUrl = body.notification_url || '';\n\n// Lightweight connectivity test sent by the plugin's \"Send test ping\" button.\nif (command === 'ping') {\n  return [{ json: { command: 'ping', ping: true, error: false } }];\n}\n\nif (!command || !postId) {\n  return [{ json: { error: true, message: 'Missing required fields: command, post_id' } }];\n}\n\nconst validCommands = ['score', 'review', 'takeaways', 'sources', 'seo', 'audit', 'rewrite', 'apply'];\nif (!validCommands.includes(command)) {\n  return [{ json: { error: true, message: 'Unknown command: ' + command } }];\n}\n\nreturn [{ json: {\n  command,\n  callback_url: callbackUrl,\n  auth_token: authToken,\n  notification_url: notificationUrl,\n  post_id: postId,\n  slug: body.slug || '',\n  post_type: body.post_type || 'post',\n  title: body.title || '',\n  link: body.link || '',\n  post_rest_url: body.post_rest_url || '',\n  excerpt: body.excerpt || '',\n  content: body.content || '',\n  content_html: body.content_html || '',\n  seo_score: body.seo_score || 0,\n  readability_score: body.readability_score || 0,\n  focus_keyphrase: body.focus_keyphrase || '',\n  meta_description: body.meta_description || '',\n  seo_title: body.seo_title || '',\n  brand_voice: body.brand_voice || '',\n  website_context: body.website_context || '',\n  agent_prompts: body.agent_prompts || {},\n  llm: body.llm || {},\n  workflow_version: 6,\n  error: false\n}}];"
       },
       "id": "pqm-node-002",
       "name": "Parse Input",

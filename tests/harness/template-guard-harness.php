@@ -12,12 +12,15 @@
  * one (templates/n8n-workflow-free.json) must equal a fresh derivation by
  * bin/derive-free-template.php, carry none of the paid branches and state
  * its variant, while the Pro one states none (absent = Pro).
+ *
+ * Provisioning entry 3: the Webhook Trigger's path must be the per-site
+ * placeholder __PQM_WEBHOOK_PATH__, never a literal (spike finding 5).
  */
 
 error_reporting(E_ALL);
 
 /** Must match the str_replace() in pqm_workflow_json() (includes/pqm-functions.php). */
-const FILLED_PLACEHOLDERS = ['__PQM_SITE_HOST__'];
+const FILLED_PLACEHOLDERS = ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'];
 
 /** Hosts the template may name literally; every WordPress address arrives at runtime. */
 const ALLOWED_HOSTS = ['api.anthropic.com'];
@@ -104,6 +107,11 @@ foreach (['n8n-workflow.json' => 'Pro', 'n8n-workflow-free.json' => 'Free'] as $
     check('every node id is a pqm-node-N id' . ($bad_ids ? ' — not: ' . implode(', ', $bad_ids) : ''), !$bad_ids);
     check('no node carries a webhookId' . ($webhook_ids ? ' — on: ' . implode(', ', $webhook_ids) : ''), !$webhook_ids);
     check('credentials carry a name only, never an id' . ($cred_ids ? ' — on: ' . implode(', ', $cred_ids) : ''), !$cred_ids);
+
+    $trigger_path = array_column($tpl['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] ?? null;
+    check('the Webhook Trigger path is the per-site placeholder __PQM_WEBHOOK_PATH__'
+        . ($trigger_path !== '__PQM_WEBHOOK_PATH__' ? ' — found: ' . var_export($trigger_path, true) : ''),
+        $trigger_path === '__PQM_WEBHOOK_PATH__');
 
     echo "Code nodes parse\n";
     $code_nodes = [];

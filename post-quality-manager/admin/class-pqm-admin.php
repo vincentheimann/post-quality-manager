@@ -787,7 +787,7 @@ class PQM_Admin
                         <td>
                             <input type="url" id="pqm_n8n_webhook_url" name="pqm_settings[n8n_webhook_url]"
                                    value="<?php echo esc_attr($settings['n8n_webhook_url']); ?>"
-                                   class="regular-text" placeholder="https://your-n8n.example.com/webhook/pqm-execute" />
+                                   class="regular-text" placeholder="<?php echo esc_attr('https://your-n8n.example.com/webhook/' . pqm_webhook_path()); ?>" />
                             <button type="button" class="button pqm-test-connection">
                                 <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
                             </button>
@@ -1496,7 +1496,7 @@ class PQM_Admin
             <?php if ($report !== null && $report['version'] < PQM_WORKFLOW_VERSION): ?>
             <div class="notice notice-warning inline pqm-inline-notice">
                 <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
-                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline — your plugin settings stay as they are.', 'post-quality-manager'); ?></p>
+                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline, then paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'); ?></p>
             </div>
             <?php endif; ?>
             <?php
@@ -1719,12 +1719,12 @@ class PQM_Admin
             if ($version >= PQM_WORKFLOW_VERSION) {
                 if ( pqm_fs()->is__premium_only() ) {
                     if ($variant === 'free') {
-                        return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
+                        return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
                     }
                 }
                 return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant];
             }
-            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
+            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
         }
 
         if ($code === 401 || $code === 403) {

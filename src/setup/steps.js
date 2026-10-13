@@ -503,7 +503,7 @@ function Connect( { state, onConnected } ) {
 					type="url"
 					value={ url }
 					onChange={ setUrl }
-					placeholder="https://your-n8n.example.com/webhook/pqm-execute"
+					placeholder={ `https://your-n8n.example.com/webhook/${ state.webhook_path }` }
 					__nextHasNoMarginBottom
 				/>
 				<Button

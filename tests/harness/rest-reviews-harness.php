@@ -54,7 +54,7 @@ function sanitize_text_field($s) { return (string) $s; }
 function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
 function absint($n) { return abs((int) $n); }
 function is_admin() { return false; }
-function home_url($p = '') { return 'https://example.com' . $p; }
+function home_url($p = '') { return ($GLOBALS['tw']['home'] ?? 'https://example.com') . $p; }
 function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return 'http://example.test:8080/blog/?rest_route=/' . ltrim($p, '/'); } // plain permalinks, port, subdirectory
 /* Story 35: pqm_n8n_payload() runs for real — post 7 is a page; post 8's type is not in REST. */
@@ -296,6 +296,26 @@ $res = PQM_REST_API::workflow_callback();
 check('GET /workflow (n8n Import from URL): serves the template and forgets the report',
     $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen'])
     && pqm_workflow_report() === null);
+
+/* Provisioning entry 3: the per-site webhook path */
+$served  = json_decode(json_encode($res->get_data()), true);
+$trigger = array_column($served['nodes'], null, 'name')['Webhook Trigger'];
+check('GET /workflow: the trigger path is pqm-execute-example-com, no __PQM_ placeholder left',
+    $trigger['parameters']['path'] === 'pqm-execute-example-com' && pqm_webhook_path() === 'pqm-execute-example-com'
+    && !str_contains(json_encode($served), '__PQM_'));
+check('GET /workflow: the trigger replies and Parse Input stamps PQM_WORKFLOW_VERSION',
+    json_decode($trigger['parameters']['options']['responseData'], true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]
+    && str_contains(array_column($served['nodes'], null, 'name')['Parse Input']['parameters']['jsCode'], 'workflow_version: ' . PQM_WORKFLOW_VERSION . ','));
+foreach ([
+    'https://Blog.Example.com'      => 'pqm-execute-blog-example-com', // capitals
+    'https://my_blog.example.com/x' => 'pqm-execute-my-blog-example-com', // a non-slug char, the path ignored
+    'https://.example.com.'         => 'pqm-execute-example-com', // no leading/trailing dash
+    '/'                             => 'pqm-execute-my-site', // host unknown, as the credential names
+] as $home => $want) {
+    $GLOBALS['tw']['home'] = $home;
+    check("webhook path for home $home: $want", pqm_webhook_path() === $want);
+}
+unset($GLOBALS['tw']['home']);
 $admin_src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
 check('Download forgets the report only once the template is found (after the not-found wp_die)',
     (bool) preg_match("/function download_workflow\(\).*?pqm_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
@@ -329,7 +349,7 @@ check('Parse Input stamp === PQM_WORKFLOW_VERSION', isset($m[1]) && (int) $m[1] 
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('PQM_WORKFLOW_VERSION is 5', PQM_WORKFLOW_VERSION === 5);
+check('PQM_WORKFLOW_VERSION is 6', PQM_WORKFLOW_VERSION === 6);
 $trigger = $nodes['Webhook Trigger'];
 check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":PQM_WORKFLOW_VERSION} (the ping handshake)',
     !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData

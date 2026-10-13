@@ -91,7 +91,7 @@ define('PQM_REST_NAMESPACE', 'post-quality/v1');
 // a re-import, together with the template's Parse Input stamp and its Webhook
 // Trigger reply. The workflow reports its version on a test ping (v5+) and in
 // every WP callback, so the n8n Workflow page can flag outdated imports.
-define('PQM_WORKFLOW_VERSION', 5);
+define('PQM_WORKFLOW_VERSION', 6);
 
 /* ─── Includes ───────────────────────────────────────────────────────── */
 // Every pqm_* helper lives in includes/pqm-functions.php, never here: PHP

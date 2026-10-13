@@ -1050,6 +1050,8 @@ class PQM_REST_API {
             'user_login'    => (string) $user->user_login,
             // Suffix of the template's credential names ("WordPress - <host>").
             'site_host'     => pqm_site_host(),
+            // The Webhook Trigger's per-site path, for the URL field's placeholder.
+            'webhook_path'  => pqm_webhook_path(),
             // Story 55: the configuration steps' stored choices and presets.
             'blog_profile'       => (string) $settings['blog_profile'],
             'website_context'    => (string) $settings['website_context'],

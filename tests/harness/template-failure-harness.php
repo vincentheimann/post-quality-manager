@@ -104,7 +104,7 @@ function parsed_input(string $command): array {
 
 echo "Parse Input\n";
 $base = parsed_input('review');
-check('stamps workflow_version 5', $base['workflow_version'] === 5 && $base['error'] === false);
+check('stamps workflow_version 6', $base['workflow_version'] === 6 && $base['error'] === false);
 check('passes post_rest_url through unchanged (story 35)', $base['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
 
 $agents = [
@@ -144,7 +144,7 @@ foreach ($agents as $agent => $parse) {
     $body = post_body($item);
     check("$parse: error true, message names the agent and the API text", $item['error'] === true && $item['message'] === $want);
     check("$parse: POST body error_message = message, status '', result {}",
-        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 5);
+        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 6);
 }
 $item = run_code('Parse Review Result', ['error' => ['message' => 'connect ECONNREFUSED']], parse_refs($base, 'Parse Review Result'));
 check('no description → falls back to the error message', $item['message'] === 'Review Agent could not get an answer from the model: connect ECONNREFUSED');

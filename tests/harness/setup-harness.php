@@ -205,6 +205,7 @@ check('download URL is raw (no &amp;) with the action and its nonce',
     $s['download_url'] === 'https://example.com/wp-admin/admin-post.php?action=pqm_download_workflow&_wpnonce=nonce-pqm_download_workflow');
 check('the signed-in user\'s login for the WordPress credential', $s['user_login'] === 'editor-anna');
 check('site host for the template\'s credential names', $s['site_host'] === 'example.com');
+check('per-site webhook path for the URL field placeholder', $s['webhook_path'] === 'pqm-execute-example-com');
 check('Application Passwords available (HTTPS)', $s['app_passwords'] === true);
 $GLOBALS['tw']['app_passwords'] = false;
 check('Application Passwords not available (no HTTPS / not local): reported, the dialog explains', setup_state()['app_passwords'] === false);
