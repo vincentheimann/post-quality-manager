@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.6.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.5.1...v3.6.0) (2026-10-13)
+
+
+### Features
+
+* **n8n:** connect an n8n instance by API key (provisioning entry 1) ([8fdb446](https://github.com/vincentheimann/post-quality-manager/commit/8fdb44622f394918c3bc8c1c1b9be2deaffcf546))
+* **release:** deploy each release to Freemius and check its Free build (story 58) ([071cac1](https://github.com/vincentheimann/post-quality-manager/commit/071cac11f199502def323fdff82ec340ecfe6ceb))
+* **workflow:** give each site its own n8n webhook path (provisioning entry 3) ([4e54a89](https://github.com/vincentheimann/post-quality-manager/commit/4e54a89b5d2020729917a2965279f4c5931724d1))
+
+
+### Bug Fixes
+
+* **n8n:** probe shapes as n8n 2.42.3 answers them ([622526e](https://github.com/vincentheimann/post-quality-manager/commit/622526e29f99b5364ba96cbbf9bf10b949930d8d))
+
 ## [3.5.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.5.0...v3.5.1) (2026-10-13)
 
 
