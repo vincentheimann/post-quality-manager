@@ -3,7 +3,7 @@ title: 'Tracer bullet: an Administrator connects an n8n instance by key'
 type: 'feature'
 ticket: '1'
 created: '2026-10-13'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
