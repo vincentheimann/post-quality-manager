@@ -25,6 +25,7 @@ Best practices to audit at refinement; the written gap list (met / missing / not
 - **Trust:** the support page with its response time, the policies linked from every page, the author named, links to the WordPress.org listing and to GitHub, the current version shown.
 - **Discoverability:** page titles and meta descriptions, Open Graph and Twitter cards with an image, canonical URLs, `sitemap.xml`, `robots.txt`, a 404 page, the favicon (story 51), `SoftwareApplication` structured data.
 - **Quality:** Lighthouse without accessibility or performance errors, a mobile layout, no analytics or tracking script (ADR 0013 D8).
+- **Conversion:** one primary action per page for the visitor's intent (install Free, buy Pro, or leave an email, story 63), a reason beside each action, social proof once it exists, no dark pattern (no fake urgency, no hidden dismiss); the review of this section runs through `bmad-ux` (ADR 0004 amendment 2026-10-12: screens and flows), and its findings are measured per spike 64.
 - **Consistency:** `docs/brand.md`, the visuals of story 41 and the messaging of story 53, once they exist.
 
 ## Acceptance Criteria
@@ -52,3 +53,4 @@ Verify: the refinement starts from the written audit of the current site against
 
 - Filed 2026-10-12 (owner), the day the GitHub Pages site went live over HTTPS. Supersedes story 50, dropped the same day: Astro and Netlify are off the table, the best-fit tooling is chosen in this story's refinement.
 - If story 44's last step lands first, it adds the plain checkout link to the pricing page; this story turns it into one buy button per site pack.
+- Amended 2026-10-13 (owner): the audit gains a Conversion section and runs through `bmad-ux`; the copy is written with the copywriting skill (story 60) from the messaging of story 53. Related: stories 61 (in-plugin nudges), 62 (Freemius surfaces), 63 (interest capture), spike 64 (measurement).
