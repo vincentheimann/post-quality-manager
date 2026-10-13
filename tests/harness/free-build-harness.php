@@ -76,6 +76,7 @@ $ours = array_filter($tree, static fn($rel) => !str_starts_with($rel, 'vendor/')
 check('the plugin tree is there, SDK included', isset($tree['post-quality-manager.php'], $tree['vendor/freemius/start.php']));
 check('no __premium_only left in any file outside vendor/',
     !array_filter($ours, static fn($path) => str_contains((string) file_get_contents($path), '__premium_only')));
+check('readme.txt is in the Free build', isset($tree['readme.txt']));
 check('the @fs_premium_only files are absent (cron class, Pro template)',
     !isset($tree['includes/class-pqm-cron.php']) && !isset($tree['templates/n8n-workflow.json']));
 check("'is_premium' is false", (bool) preg_match("/'is_premium'\\s*=>\\s*false/", (string) @file_get_contents($free . '/post-quality-manager.php')));

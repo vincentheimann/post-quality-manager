@@ -28,18 +28,18 @@ Account and submission:
 | Support forum | https://wordpress.org/support/plugin/post-quality-manager/ once listed; Free support channel, best effort | ADR 0013 D9 |
 | SVN deploy credentials | the wordpress.org username and password as GitHub secrets `SVN_USERNAME` and `SVN_PASSWORD` (the names the 10up deploy action reads) | story 38 AC7 creates them; never in the repository |
 
-`readme.txt` header (story 38 creates the file):
+`readme.txt` header (`post-quality-manager/readme.txt`, a minimal file since 2026-10-13 because Freemius refuses a zip without it; story 38 completes it; `release-header-harness.php` Row 7 checks the rows below against the plugin header):
 
 | Field | Value | Source / owner |
 |---|---|---|
 | Name (first line) | Post Quality Manager | docs/brand.md § Naming |
 | Contributors | the wordpress.org username above | OWNER |
 | Donate link | none at launch (Pro is the paid path) | ADR 0013 |
-| Tags (max 5) | CHECK: proposal `content quality`, `ai`, `editorial`, `review`, `seo` | story 38 settles against the directory's tag rules |
+| Tags (max 5) | `content quality`, `ai`, `editorial`, `review` (2026-10-13: `seo` dropped from the proposal, the Free build the directory hosts has no SEO agent). CHECK at submission | story 38 settles against the directory's tag rules |
 | Requires at least | 6.6 | as the header |
-| Tested up to | CHECK: the current WordPress major at submission, re-tested on each release | story 38 AC2; `/release` |
+| Tested up to | 7.1 (WordPress 7.1.3 current on api.wordpress.org, 2026-10-13); major.minor only. CHECK: re-tested on each release; a new WordPress major turns CI's Plugin Check red (`outdated_tested_upto_header`) until it is raised | story 38 AC2; `/release` |
 | Requires PHP | 8.0 | as the header |
-| Stable tag | the release version, never `trunk` | story 38 AC2; CI keeps it in step |
+| Stable tag | the release version, never `trunk`; release-please bumps it (a generic extra file, its block markers on two unknown `Release-please:` header lines the readme parser drops) | story 38 AC2; Plugin Check fails on a mismatch (`stable_tag_mismatch`) |
 | License / License URI | GPL-2.0-or-later / https://www.gnu.org/licenses/gpl-2.0.html | as the header |
 | Short description (≤ 150 chars) | the tagline in docs/brand.md, verbatim | docs/brand.md § Naming |
 

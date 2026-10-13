@@ -11,6 +11,10 @@
         {
           "type": "generic",
           "path": "post-quality-manager/post-quality-manager.php"
+        },
+        {
+          "type": "generic",
+          "path": "post-quality-manager/readme.txt"
         }
       ]
     }

@@ -13,6 +13,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 
 -->
 
+## [2026-10-13] — Deferring a file without checking who else needs it
+**What happened:** Story 54's plan left `readme.txt` to story 38 (the WordPress.org listing) and kept CI's `no_plugin_readme` ignore. At the story's HITL step Freemius refused the release zip: its deployment needs `readme.txt` on every upload. The owner's test stopped until a fix and a new release.
+**Root cause:** The deferral was decided from the directory's point of view only; the plan never read what the other consumer of the same zip (Freemius) requires from it.
+**Rule going forward:** Before deferring an artifact to a later story, list every system that consumes the deliverable it belongs to (directory, Freemius, CI, release workflow) and check each one's requirements in its docs; a requirement of any of them makes the artifact part of the current story.
+
 ## [2026-10-12] — Building on a plan's claim about code nobody had read
 **What happened:** Story 54's plan (decision D1) stated that the React pages take their command list "from the server", so the Free build would render no paid button. The build ran four slices on that premise. Code review then read `src/kit/copy.js`: `COMMAND_ORDER` hard-codes all six commands, so the Free build would have shown Sources, SEO, Audit and Rewrite buttons that answer 400. The same plan also missed a memory line assigning Freemius's dual-activation pattern to this story.
 **Root cause:** The plan's Code Map named the files to change and traced those; the claim about *other* code (the JS it chose not to touch) was asserted, never grepped. Reading memory for the story's own facts stopped at the ticket file.

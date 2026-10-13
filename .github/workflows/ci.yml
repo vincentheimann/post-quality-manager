@@ -13,7 +13,10 @@
 # the same post-quality-manager/ release.yml zips, with admin/build/ restored
 # from the artifact — in all categories. Blocking: any error fails the job;
 # warnings never do (the action fails on errors only). Accepted warnings are
-# triaged in the 4.5 plan. Findings show as file annotations, in the job log,
+# triaged in the 4.5 plan. Since the readme exists (2026-10-13), its rules run
+# too: Stable tag must equal the header Version, and Tested up to must be the
+# current WordPress major, so a new major turns this check red until the
+# readme is re-tested. Findings show as file annotations, in the job log,
 # and as the plugin-check-results artifact.
 #
 # The free-build job (story 54, ADR 0014) strips that same folder the way
@@ -107,9 +110,6 @@ jobs:
         uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
         with:
           build-dir: ./post-quality-manager
-          # readme.txt is written by backlog story 38 (WordPress.org listing),
-          # which removes this ignore.
-          ignore-codes: no_plugin_readme
           # The vendored Freemius SDK (story 44) ships unmodified; Plugin Check
           # covers our own code only.
           exclude-directories: vendor
@@ -144,5 +144,4 @@ jobs:
         uses: wordpress/plugin-check-action@10857da14b6c2246d15402b3e69f777edcf8c12e # v1.1.9
         with:
           build-dir: ./build/free/post-quality-manager
-          ignore-codes: no_plugin_readme
           exclude-directories: vendor

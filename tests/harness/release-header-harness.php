@@ -9,6 +9,10 @@
  * release workflow runs this harness before it builds and publishes.
  * Story 4.6 adds rows 4-5: the Domain Path header and the init-time loader,
  * and the tests/i18n/ fixtures still parse and still name live strings.
+ * Row 7 (2026-10-13): readme.txt (Freemius refuses a zip without it) parses
+ * the way the WordPress.org readme parser reads it, release-please's block
+ * encloses exactly its Stable tag, and its headers agree with the plugin
+ * header the way Plugin Check compares them.
  */
 
 error_reporting(E_ALL);
@@ -88,6 +92,50 @@ $constant = $m[1] ?? null;
 $package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true)['version'] ?? null;
 check("header $version == PQM_VERSION $constant == package.json $package",
     $version !== null && $version === $constant && $constant === $package);
+
+echo "Row 7 — readme.txt: headers as WordPress.org parses them, in step with the plugin header\n";
+$readme_lines = explode("\n", str_replace("\r", '', (string) @file_get_contents(dirname($file) . '/readme.txt')));
+check('readme.txt exists beside the main file', count($readme_lines) > 1);
+/* The parser's header loop (wordpress.org plugin-directory readme/class-parser.php):
+ * after the === name === line, a "key: value" line is a header (unknown keys are
+ * dropped while no blank line came before them); the first other line ends it. */
+$readme_name = preg_match('/^===\s*(.+?)\s*===$/', trim($readme_lines[0] ?? ''), $m) ? $m[1] : '';
+$readme = [];
+$short = '';
+$after_blank = false;
+foreach (array_slice($readme_lines, 1) as $i => $line) {
+    $line = trim($line);
+    if ($line === '') { $after_blank = true; continue; }
+    if (!str_contains($line, ':') || str_starts_with($line, '#') || str_starts_with($line, '=')) { $short = $line; break; }
+    [$key, $value] = array_map('trim', explode(':', $line, 2));
+    $key = strtolower($key);
+    if (in_array($key, ['contributors', 'tags', 'requires at least', 'tested up to', 'requires php', 'stable tag', 'license', 'license uri'], true)) {
+        $readme[$key] = $value;
+    } elseif ($after_blank) {
+        $short = $line; break;
+    }
+    $after_blank = false;
+}
+check('name line equals the Plugin Name header', $readme_name !== '' && $readme_name === header_value($data, 'Plugin Name'));
+check("Stable tag equals the header Version ('" . ($readme['stable tag'] ?? '') . "')", ($readme['stable tag'] ?? null) === $version);
+check('Requires at least and Requires PHP equal the plugin header',
+    ($readme['requires at least'] ?? null) === header_value($data, 'Requires at least')
+    && ($readme['requires php'] ?? null) === header_value($data, 'Requires PHP'));
+check('Tested up to is a major.minor, no patch (Plugin Check: invalid_tested_upto_minor)', preg_match('/^\d+\.\d+$/', $readme['tested up to'] ?? '') === 1);
+check('License equals the plugin header License', ($readme['license'] ?? null) === header_value($data, 'License'));
+check('Contributors is the wordpress.org account postquality', ($readme['contributors'] ?? null) === 'postquality');
+check('at most 5 tags', ($readme['tags'] ?? '') !== '' && count(explode(',', $readme['tags'])) <= 5);
+$tagline = preg_match('/^\*\*Tagline \(readme short description\):\*\* (.+)$/m', (string) file_get_contents($root . '/docs/brand.md'), $m) ? trim($m[1]) : null;
+check('short description is the docs/brand.md tagline, verbatim, at most 150 characters', $short !== '' && $short === $tagline && preg_match_all('/./us', $short) <= 150);
+$r_starts = array_keys(array_filter($readme_lines, static fn($l) => str_contains($l, 'x-release-please-start-version')));
+$r_ends   = array_keys(array_filter($readme_lines, static fn($l) => str_contains($l, 'x-release-please-end')));
+check('one release-please block, enclosing exactly the Stable tag line', count($r_starts) === 1 && count($r_ends) === 1
+    && $r_ends[0] - $r_starts[0] === 2 && str_starts_with(trim($readme_lines[$r_starts[0] + 1]), 'Stable tag:'));
+check('the marker lines sit inside the header block (no blank line around them), so the parser drops them',
+    count($r_starts) === 1 && count($r_ends) === 1 && trim($readme_lines[$r_starts[0] - 1]) !== '' && trim($readme_lines[$r_ends[0] + 1]) !== '');
+$rp = json_decode((string) file_get_contents($root . '/release-please-config.json'), true);
+check('release-please-config.json lists readme.txt as a generic extra file', in_array(
+    ['type' => 'generic', 'path' => 'post-quality-manager/readme.txt'], $rp['packages']['.']['extra-files'] ?? [], true));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
