@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.5.0...v3.5.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **release:** ship a readme.txt so Freemius accepts the zip ([2c06a96](https://github.com/vincentheimann/post-quality-manager/commit/2c06a96a5277b6be946fc4af1899a539cc995f9b))
+
 ## [3.5.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.4.0...v3.5.0) (2026-10-12)
 
 
