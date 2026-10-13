@@ -1,6 +1,6 @@
 # Privacy policy
 
-_Post Quality Manager, a WordPress plugin by Vincent Heimann. Last updated 2026-10-09. Published at https://postquality.com/privacy; questions to hello@postquality.com._
+_Post Quality Manager, a WordPress plugin by Vincent Heimann. Last updated 2026-10-13. Published at https://postquality.com/privacy; questions to hello@postquality.com._
 
 This policy covers three things: the plugin running on your WordPress site, the Pro licensing service, and the website postquality.com. Short version: the plugin sends your post text to **your own** n8n instance and the AI provider **you** configured; the plugin's author receives nothing from your site unless you opt in to usage data or buy a Pro license.
 
@@ -11,18 +11,20 @@ This policy covers three things: the plugin running on your WordPress site, the 
 When you (or a schedule you set) run a command on a post, the plugin calls the n8n webhook address you entered in its settings. Your n8n workflow then reads the post through the plugin's REST API and calls the AI provider you configured in n8n. The data that leaves your site is:
 
 - **To your n8n instance:** the post's ID, title, slug, link, excerpt and content (text and HTML), the command, your site's addresses (the callback and, if you set one, a notification address), the settings text you wrote in the plugin (Editorial Standards or Brand Voice, Website Context, per-agent instructions, the chosen model and its options), the webhook token that lets n8n write results back, and, when Yoast SEO is active, the post's SEO score, readability score, focus keyphrase, meta description and SEO title. Your workflow can read the same post data again through the plugin's REST API.
+- **To your n8n instance's API, if you connect it by key:** when you click Connect or Check again in the n8n Instance section of the n8n Workflow page, the plugin calls the address you entered: it reads the n8n version (a call without the key), lists one workflow with your n8n API key, and checks that two API endpoints exist, using IDs that match nothing, so nothing on n8n is created, changed or deleted. Every call names the plugin in its user agent. Nothing is called when the page loads.
 - **From your n8n instance to the AI provider:** whatever your workflow sends, by default the post text and the settings text above. The provider's own terms and privacy policy apply to that call; you hold the account and the API key, the plugin never sees the key.
 
-Nothing is sent before you configure a webhook address, and nothing is sent to the plugin's author.
+Nothing is sent before you configure a webhook address or connect an n8n instance, and nothing is sent to the plugin's author.
 
 ### What the plugin stores on your site
 
 - A table of review results (post ID, command, score, status, the AI output, the date), kept until you delete the plugin.
 - The plugin settings, including your n8n webhook address and token and your settings text.
+- If you connect your n8n instance by key: its address, the n8n API key and the result of the last check. The key is kept in your site's database, as WordPress keeps other secrets, and is never shown again in WP Admin or sent anywhere but that address; **Forget key** on the n8n Workflow page removes it. An n8n API key opens your whole n8n instance, so create one for this site alone, with an expiration date, and delete it in n8n when you stop using the plugin.
 - A monthly counter of AI actions per user, used for the Author quota.
 - Per-role plugin capabilities, stored in your site's roles.
 
-Deleting the plugin (not just deactivating it) removes the table, the settings, the counters and the capabilities.
+Deleting the plugin (not just deactivating it) removes the table, the settings (the n8n address and API key included), the counters and the capabilities.
 
 ### Visitors to your site
 

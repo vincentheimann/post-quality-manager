@@ -46,6 +46,7 @@ class PQM_Activator {
         delete_option( 'pqm_cron_nudge_dismissed' );
         delete_option( 'pqm_caps_version' );
         delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36), named literally: the harnesses load this class without the main plugin file.
+        delete_option( 'pqm_n8n_api' ); // PQM_N8n::OPTION, named literally for the same reason: the n8n base URL and API key.
 
         // Per-user monthly usage counters (author quota, CAP-4) — all users.
         delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );

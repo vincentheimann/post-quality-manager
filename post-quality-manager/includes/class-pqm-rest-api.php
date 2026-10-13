@@ -14,6 +14,7 @@
  *  GET  /post-quality/v1/setup            — setup dialog state: progress, values to copy (story 36)
  *  POST /post-quality/v1/setup            — tick a setup step, or mark the setup complete (story 36)
  *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
+ *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -138,6 +139,29 @@ class PQM_REST_API {
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'setup_settings_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+        ] );
+
+        // n8n provisioning, entry 1: the n8n instance connection (base URL + API key).
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/connection', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [ __CLASS__, 'get_n8n_connection_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            ],
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [ __CLASS__, 'connect_n8n_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+                'args'                => [
+                    'base_url' => [ 'required' => false, 'type' => 'string' ],
+                    'api_key'  => [ 'required' => false, 'type' => 'string' ],
+                ],
+            ],
+            [
+                'methods'             => 'DELETE', // WP_REST_Server::DELETABLE
+                'callback'            => [ __CLASS__, 'forget_n8n_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            ],
         ] );
     }
 
@@ -1210,5 +1234,54 @@ class PQM_REST_API {
         }
 
         return new WP_REST_Response( self::setup_state(), 200 );
+    }
+
+    /* ─── n8n instance connection (n8n provisioning, entry 1) ───────── */
+
+    /**
+     * The stored connection: `{ base_url, key_set, probe }`, the key itself
+     * never. Calls nothing on n8n: the page shows the last passing probe.
+     */
+    public static function get_n8n_connection_callback(): WP_REST_Response {
+        return new WP_REST_Response( PQM_N8n::public_state(), 200 );
+    }
+
+    /**
+     * Probe an instance and store its base URL and key once the probe
+     * passes; a failed probe leaves the stored URL and key as they were.
+     * Without `api_key`, the stored key re-runs the probe (Check again) —
+     * for the stored address only, so a new address never receives it.
+     * Answers the stored state with `probe` = this run's result.
+     */
+    public static function connect_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $stored = PQM_N8n::connection();
+        $url    = sanitize_text_field( (string) ( $request->get_param( 'base_url' ) ?? $stored['base_url'] ) );
+        $key    = sanitize_text_field( (string) $request->get_param( 'api_key' ) );
+        $origin = PQM_N8n::origin( $url );
+
+        if ( '' === $key && ! is_wp_error( $origin ) ) {
+            if ( '' === $stored['api_key'] || $origin !== $stored['base_url'] ) {
+                return new WP_Error(
+                    'pqm_n8n_key_required',
+                    __( 'Enter an n8n API key for this address. Create one in n8n under Settings → n8n API.', 'post-quality-manager' ),
+                    [ 'status' => 400 ]
+                );
+            }
+            $key = $stored['api_key'];
+        }
+
+        $probe = PQM_N8n::probe( $url, $key );
+        if ( $probe['ok'] ) {
+            PQM_N8n::save( $origin, $key, $probe );
+        }
+
+        return new WP_REST_Response( [ 'probe' => $probe ] + PQM_N8n::public_state(), 200 );
+    }
+
+    /** Forget: the key and its probe go, the base URL stays. Nothing changes on n8n. */
+    public static function forget_n8n_callback(): WP_REST_Response {
+        PQM_N8n::forget();
+
+        return new WP_REST_Response( PQM_N8n::public_state(), 200 );
     }
 }

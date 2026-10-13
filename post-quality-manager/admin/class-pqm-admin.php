@@ -1349,7 +1349,8 @@ class PQM_Admin
 
     /**
      * Everything about generating and connecting the n8n workflow: the
-     * setup dialog's mount point (story 36), download / import URL,
+     * setup dialog's mount point (story 36), the n8n instance connection
+     * island (n8n provisioning, entry 1), download / import URL,
      * per-agent request preview, template version status, and the
      * connection test.
      */
@@ -1370,6 +1371,10 @@ class PQM_Admin
             self::render_app_root('pqm-setup-root');
             echo self::render_workflow_status(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
             ?>
+
+            <!-- n8n instance (n8n provisioning, entry 1): src/n8n-connection/ over GET|POST|DELETE /n8n/connection -->
+            <h2><?php esc_html_e('n8n Instance', 'post-quality-manager'); ?></h2>
+            <?php self::render_app_root('pqm-n8n-connection-root'); ?>
 
             <!-- Workflow file -->
             <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>

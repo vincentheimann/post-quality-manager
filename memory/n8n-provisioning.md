@@ -4,6 +4,8 @@ Decided 2026-10-12 (ADR 0015, from spike 56): the setup wizard will provision n8
 
 What is true now:
 
+- **Entry 1 built 2026-10-13** (uncommitted on `feat/n8n-connect-by-key`, owner HITL probe open): `PQM_N8n` (`includes/class-pqm-n8n.php`) is the n8n API client every later entry calls — `request($method, $path, $body)` on the stored instance (`/api/v1` prefixed, plugin User-Agent, `X-N8N-API-KEY`, no redirects) and `probe($url, $key)`; base URL + key + last passing probe live in option `pqm_n8n_api` (autoload off, deleted on uninstall). `GET|POST|DELETE /n8n/connection` (`pqm_manage_settings`) back the "n8n Instance" island (`src/n8n-connection/`) on the n8n Workflow page; the key is never in a reply. Still unverified on 2.42.3: the `/rest/settings` `data.versionCli` read and the D2 "endpoint exists" shape (`n8n-api-harness.php` scripts both as assumed).
+
 - The n8n API key will be **stored** in settings (owner accepted the blast radius; mitigations: dedicated expiring key, Forget button, HTTPS-only base URL, plugin-identifying `User-Agent` — generic agents get WAF-banned).
 - The provider key passes through the plugin **once** during setup: validated by a direct provider call (n8n's credential test is a no-op for generic types), written to the n8n credential, never stored. ADR 0009 stands; `docs/policies/` copy must change to "forwarded once, never stored" in the same epic.
 - Adopt-existing lists credentials (metadata only, never secrets) and asks the owner to confirm; deterministic names are trusted only for wizard-created setups.

@@ -292,6 +292,9 @@ $enum = static fn(string $route) => $GLOBALS['pqm_routes'][$route]['args']['comm
 check('trigger-review command enum = the free registry', $enum('/trigger-review') === array_keys($registry));
 check('save-review command enum = the free registry', $enum('/save-review') === array_keys($registry));
 check('insert-block command enum = takeaways', $enum('/insert-block') === ['takeaways']);
+check('the n8n connection routes are there, as on Pro (provisioning is free): GET, POST, DELETE, each gated by check_manage_settings',
+    array_column($GLOBALS['pqm_routes']['/n8n/connection'] ?? [], 'methods') === ['GET', 'POST', 'DELETE']
+    && array_unique(array_column($GLOBALS['pqm_routes']['/n8n/connection'], 'permission_callback'), SORT_REGULAR) === [['PQM_REST_API', 'check_manage_settings']]);
 
 /* ─── Row: setup dialog and dashboard ────────────────────────────────── */
 echo "Row — setup state and dashboard carry no schedule\n";
@@ -330,11 +333,16 @@ check('tabs: Connection, AI, Usage & Limits', $m[1] === ['Connection', 'AI', 'Us
 check('no locked section, no disabled control', !str_contains($settings_html, 'pqm-locked') && !str_contains($settings_html, ' disabled'));
 check('"Pro" appears once, in the one Get Pro link', preg_match_all('/\bPro\b/', strip_tags($settings_html)) === 1
     && substr_count($settings_html, '>Get Pro</a>') === 1);
+$GLOBALS['tw']['options']['pqm_n8n_api'] = ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => null];
 ob_start();
 PQM_Admin::render_workflow();
 $workflow_html = ob_get_clean();
 check('n8n Workflow page asks for two credentials', str_contains($workflow_html, 'connect these two credentials')
     && substr_count($workflow_html, '<li>') === 2);
+check('n8n Workflow page carries the n8n Instance section, as on Pro; a stored n8n API key is not in its source',
+    str_contains($workflow_html, '<h2>n8n Instance</h2>')
+    && (str_contains($workflow_html, 'id="pqm-n8n-connection-root"') || !is_file($free . '/admin/build/index.asset.php'))
+    && !str_contains($workflow_html, 'free-build-n8n-key-secret'));
 check('request preview lists Review and Key Takeaways only', preg_match_all('/<td>([^<]+ Agent)<\/td>/', $workflow_html, $agents) === 2
     && $agents[1] === ['Review Agent', 'Key Takeaways Agent']);
 $visible = strip_tags($settings_html . $workflow_html);

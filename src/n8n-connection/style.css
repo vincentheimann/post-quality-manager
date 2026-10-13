@@ -1,0 +1,23 @@
+/**
+ * n8n Instance section (n8n provisioning, entry 1), scoped to
+ * .pqm-n8n-connection.
+ */
+
+.pqm-n8n-connection {
+	max-width: 40em;
+	margin: 0 0 24px;
+}
+
+.pqm-n8n-connection .components-notice {
+	margin: 12px 0;
+}
+
+.pqm-n8n-connection-form .components-base-control {
+	margin-bottom: 16px;
+}
+
+.pqm-n8n-connection-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}

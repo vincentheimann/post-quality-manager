@@ -499,7 +499,7 @@ check('the unused AJAX save is gone (no handler, no hook)', !str_contains($src, 
 check('ajax_test_connection() calls ping_webhook()', (bool) preg_match('/function ajax_test_connection\(\).*?self::ping_webhook\(/s', $src));
 check('wp_remote_post appears once in the admin class (the ping helper)', substr_count($src, 'wp_remote_post(') === 1);
 
-/* Row: uninstall — the progress option is removed, through the SDK hook (story 44) */
+/* Row: uninstall — the progress and n8n connection options are removed, through the SDK hook (story 44) */
 echo "Uninstall\n";
 check('the SDK after_uninstall hook calls PQM_Activator::uninstall()',
     (pqm_fs()->actions['after_uninstall'] ?? []) === [['PQM_Activator', 'uninstall']]);
@@ -514,6 +514,8 @@ function get_users($args) { return []; }
 function wp_clear_scheduled_hook(...$a) {}
 PQM_Activator::uninstall();
 check('uninstall deletes the setup progress option (PQM_SETUP_OPTION)', in_array(PQM_SETUP_OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the n8n connection option (PQM_N8n::OPTION: base URL and API key)', PQM_N8n::OPTION === 'pqm_n8n_api'
+    && in_array(PQM_N8n::OPTION, $GLOBALS['tw_deleted'], true));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
