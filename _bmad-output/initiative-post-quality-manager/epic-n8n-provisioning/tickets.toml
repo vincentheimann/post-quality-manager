@@ -1,0 +1,147 @@
+# tickets.toml — agreed stories of epic-n8n-provisioning, in build order (table order).
+# Incepted 2026-10-13 from spec-n8n-provisioning (CAP-1…CAP-8). Lanes: 1 → 2 (Workflow page); 3 beside 1 and 2
+# (template, derive script, guard); 4 → 5 → 6 (provisioning, rollback, then the wizard exposes it); 7 after 4;
+# 8 after 6 and 7; 9 and 10 beside each other after 8; 11 sweeps; 12 walks and records.
+# Harnesses run without WordPress: every n8n call goes through the scriptable transport stub entry 1 builds.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer bullet: an Administrator connects an n8n instance by key"
+description = "Adds the n8n API client (plugin-identifying User-Agent on every call, X-N8N-API-KEY, a scriptable transport stub for the harnesses), the base URL and a write-only masked key on the n8n Workflow page saved in their own option with a page-local merge-save, a probe that reports the instance as connected with its version or names the cause (non-HTTPS URL refused before any call, refused key, disabled public API, WAF ban or non-JSON answer, missing endpoint) and offers the manual path, and Forget; the policies say the n8n key is stored and advise a dedicated key with an expiration date."
+verify = "The harness scripts every failure-modes row owned by CAP-1 through the stub and each names its cause; on the environment the owner names, their instance shows as connected with its version and the key as set, and Forget returns it to not set."
+covers = ["CAP-1"]
+after = []
+hitl = true
+risk = "medium"
+unknown = "How the version is read (assumed GET <base>/rest/settings, versionCli) and how the activate and PATCH routes are probed without creating anything; the owner's probe settles both."
+references = ["spec-n8n-provisioning/failure-modes.md", "../backlog/spike-n8n-provisioning-api-findings.md"]
+
+[[entry]]
+id = 2
+type = "story"
+title = "The Workflow File section carries a novice through the manual setup"
+description = "Reworks the Workflow File section per story 40's acceptance criteria (journey-ordered steps, Copy on every transcribed value, links only where accurate, the wizard recommended first), adds the warning that n8n assigns the first existing credential of a type to every node on import, and states why the reader is there: the CAP-1 probe's cause, or their own choice of the manual path."
+verify = "The render harness shows the ordered steps, a Copy button on each transcribed value, the import warning, and the probe cause or the by-choice line for each state; story 40's acceptance criteria hold on a site the owner or the agent opens."
+covers = ["CAP-8"]
+after = [1]
+hitl = false
+risk = "low"
+references = ["../backlog/story-workflow-file-novice-path.md"]
+
+[[entry]]
+id = 3
+type = "story"
+title = "The workflow template carries a per-site webhook path"
+description = "Adds a webhook-path placeholder beside __PQM_SITE_HOST__ in the canonical Pro template, derived from the site host, and updates bin/derive-free-template.php, the template guard, pqm_workflow_json() and the handshake together; bumps PQM_WORKFLOW_VERSION to 6, the epic's only bump, so the downloaded and the provisioned workflow both use the per-site path."
+verify = "The template guard and the free-build harness pass with the new placeholder and fail on a seeded unknown one; the downloaded Pro and Free workflows carry this site's path and answer a ping with version 6."
+covers = ["CAP-2"]
+after = []
+hitl = false
+risk = "medium"
+unknown = "The path's form (the spike proposed pqm-execute-<site-host-hash>); a site that re-imports gets a new production URL and must paste it again, which the copy says."
+
+[[entry]]
+id = 4
+type = "story"
+title = "The plugin provisions n8n on the server side"
+description = "Adds the provisioning route: validates the Anthropic key by one direct request, generates a WordPress Application Password on the Pro build, creates the credentials under the deterministic names, creates the workflow from the build's own template with every credentialed node linked and the per-site path, activates it, saves the webhook URL and token, pings, and stores the setup map (workflow id, credential ids, path, wizard-created); the provider key is never stored or logged."
+verify = "The harness drives a full run through the transport stub on both builds and checks the call order, the node-to-credential links, the stored map, and that the provider key appears in no option and no log; an invalid Anthropic key writes nothing to n8n."
+covers = ["CAP-2"]
+after = [1, 3]
+hitl = false
+risk = "high"
+unknown = "Two open questions from the spec: a Pro site without Application Passwords (provision without the WordPress credential or refuse), and an instance whose WEBHOOK_URL differs from the editor URL (the computed URL fails the ping; the paste step is the fallback). Also confirm GET /v1/models as the validation call against the Claude API reference."
+references = ["spec-n8n-provisioning/failure-modes.md", "../backlog/spike-n8n-provisioning-api-findings.md"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "A failed provisioning leaves nothing behind"
+description = "Adds rollback in the forced order (deactivate, delete the workflow, then the credentials) and the revocation of the generated Application Password, reports the failed step and why, and keeps everything with setup marked incomplete when only the ping fails."
+verify = "The harness forces a failure at credential creation, workflow creation, activation and ping, and after each the stub instance holds zero plugin-created objects (none removed after a ping failure) and the error names the step; the owner's walk in entry 12 repeats one forced failure through the API."
+covers = ["CAP-3"]
+after = [4]
+hitl = false
+risk = "high"
+unknown = "None known; the 409 and silent-delete behaviours are confirmed by the spike."
+
+[[entry]]
+id = 6
+type = "story"
+title = "The wizard connects and provisions n8n, or hands over to the manual path"
+description = "Replaces the wizard's four manual n8n steps with: connect the instance (key primary, 'Set up by hand instead' secondary), provision with the Anthropic key typed once, then the existing first review; a failed probe or the owner's choice leads to the manual section, the choice is stored, and a re-walk moves nothing; the policies say the provider key is forwarded once during setup and never stored, and the external-services text names WordPress's own calls to Anthropic and to the n8n API."
+verify = "The JS unit tests and the setup harness cover the connect, provision, degraded and by-choice paths and a re-walk that changes nothing; the policy texts carry the new sentences."
+covers = ["CAP-2", "CAP-1", "CAP-8"]
+after = [2, 5]
+hitl = false
+risk = "medium"
+references = ["../backlog/story-one-button-setup-wizard.md"]
+
+[[entry]]
+id = 7
+type = "story"
+title = "The handshake reports a mis-wired workflow in one sentence"
+description = "With a key stored, reads the workflow through the setup map or, without one, the workflow whose Webhook node path matches the saved webhook URL, and reports a Claude node carrying the trigger's credential or a credentialed node with none, in one sentence naming the nodes, the shared credential and the fix; without a key the handshake stays ping-only."
+verify = "The harness reports the 2026-10-13 shape and a missing credential and finds a provisioned workflow clean; the owner's production workflow, mis-wired again by hand, is reported in one sentence on the environment the owner names."
+covers = ["CAP-7"]
+after = [4]
+hitl = true
+risk = "medium"
+unknown = "Whether GET /workflows returns each node's credentials as {id, name} (assumed in the spec; the spike confirmed POST and PUT only)."
+
+[[entry]]
+id = 8
+type = "story"
+title = "An Administrator adopts an existing manual setup"
+description = "Lists the instance's workflows and credentials by metadata only, proposes a mapping (the workflow by the saved webhook URL's path, credentials by type, names trusted only for wizard-created setups), stores the setup map once the owner confirms, and defaults a connected site with a green handshake to keeping its setup; nothing on n8n is deleted or changed."
+verify = "The harness adopts a stub instance whose names do not follow the deterministic patterns and checks that no write call reaches n8n; the stored map then serves entries 9 and 10."
+covers = ["CAP-4"]
+after = [6, 7]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 9
+type = "story"
+title = "One click updates the workflow to the bundled template"
+description = "Replaces the 'download and re-import' notice, when a key and a setup map exist, with one action that PUTs the build's template onto the provisioned or adopted workflow, keeping the credential ids and the workflow's current path."
+verify = "The harness checks the PUT keeps credentials and path for a provisioned and an adopted workflow; after a version bump the ping reports the new version and the workflow stays active."
+covers = ["CAP-5"]
+after = [8]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 10
+type = "story"
+title = "An Administrator rotates the webhook token from the plugin"
+description = "Adds one action that generates a new token, PATCHes the webhook credential and saves the token in settings, so the old token is refused and the new one accepted with no edit in n8n."
+verify = "The harness checks the PATCH and the saved token, and that a failed PATCH leaves the stored token unchanged; a ping after rotation succeeds."
+covers = ["CAP-6"]
+after = [8]
+hitl = false
+risk = "medium"
+unknown = "The order when the save fails after a successful PATCH (PATCH back, or save first); settled in the plan."
+
+[[entry]]
+id = 11
+type = "story"
+title = "Refactor sweep"
+description = "Cleans up the epic's code from the build records and the review findings deferred during it; scope is set when it starts and takes cleanup only."
+verify = "Every harness, npm run test:unit and the CI checks stay green, and behaviour is unchanged."
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 12
+type = "story"
+title = "The success-signal walk passes and the records say so"
+description = "The owner walks a fresh site to its first review from an empty n8n project with only three values typed and no n8n UI visit, plus one forced failure verified through the API; then docs/user-paths.md moves A4/UV4 to Current Value, memory and ADR 0015's Consequences are updated, and ADRs 0009 and 0010 are amended by reference."
+verify = "The walk is recorded with the environment the owner names, and user paths, memory and the ADR say what was built."
+covers = ["CAP-1", "CAP-2", "CAP-3", "CAP-4", "CAP-5", "CAP-6", "CAP-7", "CAP-8"]
+after = [11]
+hitl = true
+risk = "low"
+unknown = "The owner provides the instance URL and a dedicated expiring key in the session scratchpad, never in the repo."

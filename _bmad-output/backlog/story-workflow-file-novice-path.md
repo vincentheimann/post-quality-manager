@@ -59,3 +59,4 @@ Owner request (2026-10-08). The Workflow File section of the n8n Workflow page l
 - UX practices applied, the reviewable list: steps ordered by the user's journey, one action per step; copy-to-clipboard on every value a human would otherwise retype; deep links only to addressable destinations, exact menu words elsewhere; progressive disclosure — guided dialog first, reference section second; descriptive link text; `aria-live` feedback; translator comments.
 - Assumption: the n8n instance origin is derived from the saved webhook URL (scheme + host); n8n Cloud and self-hosted both serve the editor at that origin. Confirm at build.
 - Risk low (reason): copy and markup on one PHP-rendered section; `tests/harness/render-matrix-harness.php` asserts today's copy and updates with it.
+- Dropped (owner, 2026-10-13): absorbed by `epic-n8n-provisioning` entry 2 (CAP-8, manual fallback); the acceptance criteria above are that entry's reference. Not built under this id.

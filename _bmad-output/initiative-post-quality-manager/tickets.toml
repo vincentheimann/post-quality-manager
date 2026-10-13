@@ -21,6 +21,12 @@ title = "Releases and the workflow template are built and checked by CI"
 covers = ["UV7"]
 
 [[epic]]
+id = 6
+slug = "epic-n8n-provisioning"
+title = "The wizard sets up and maintains n8n through its public API"
+covers = ["UV4"]
+
+[[epic]]
 id = 2
 slug = "epic-ebm-telemetry"
 title = "The EBM signals are measured, not self-observed"
