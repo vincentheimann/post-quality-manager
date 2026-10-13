@@ -10,6 +10,14 @@
 # publishes, as a pre-release while the config's "prerelease" key is true.
 # If packaging fails the release stays a draft: re-run the job.
 #
+# After publishing (story 58, ADR 0014), the same zip goes to Freemius as an
+# unreleased (pending) version through its product-scoped API, with the
+# FREEMIUS_API_TOKEN secret (product Settings → API & Keys). The Free and Pro
+# builds Freemius generates come back as artifacts <zip>-free.zip and
+# <zip>-pro.zip; the Free one is checked and diffed against bin/build-free.php.
+# A Freemius failure leaves the published release as it is; a re-run uploads
+# nothing twice. Releasing the version to customers stays an owner step.
+#
 # A manual dispatch runs only the package job on the chosen ref and uploads the
 # zip as a workflow artifact: no tag, no release.
 
@@ -110,3 +118,140 @@ jobs:
           # "prerelease" key is applied here. The launch PR removes the key.
           PRE=$(jq -r '.prerelease // false' release-please-config.json)
           gh release edit "$TAG" --notes-file "$BODY" --draft=false --prerelease="$PRE"
+
+      # Story 58. Freemius API, product scope (OpenAPI spec read 2026-10-13):
+      # GET/POST tags.json, PUT tags/{id}.json (release_mode), GET tags/{id}.zip.
+      - name: Deploy to Freemius (unreleased) and fetch its builds
+        id: freemius
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          FREEMIUS_API_TOKEN: ${{ secrets.FREEMIUS_API_TOKEN }}
+          API: https://api.freemius.com/v1/products/41144
+          V: ${{ steps.zip.outputs.version }}
+          ZIP: ${{ steps.zip.outputs.file }}
+        run: |
+          set -euo pipefail
+          if [ -z "${FREEMIUS_API_TOKEN:-}" ]; then
+            echo "::error::FREEMIUS_API_TOKEN secret is not set (Freemius → product Settings → API & Keys)"
+            exit 1
+          fi
+          # Prints the response body; on an HTTP error, prints Freemius's error
+          # body (never the request) and fails.
+          api() {
+            local out; out=$(mktemp)
+            if curl -sS --fail-with-body -o "$out" -H "Authorization: Bearer $FREEMIUS_API_TOKEN" "$@"; then
+              cat "$out"
+            else
+              echo "::error::Freemius API: $(cat "$out")" >&2
+              return 1
+            fi
+          }
+          # $1 = is_premium, $2 = file. Up to 5 attempts, 10 s apart: the
+          # builds may not be ready the moment the upload returns.
+          get_zip() {
+            local code=000
+            for _ in 1 2 3 4 5; do
+              code=$(curl -sSL -o "$2" -w '%{http_code}' -H "Authorization: Bearer $FREEMIUS_API_TOKEN" "$API/tags/$ID.zip?is_premium=$1") || code=000
+              if [ "$code" = 200 ] && [ -s "$2" ]; then return 0; fi
+              sleep 10
+            done
+            echo "::error::Freemius answered $code for the is_premium=$1 build of deployment $ID"
+            return 1
+          }
+
+          sha256sum "$ZIP"
+
+          # Is this version on Freemius already? 50 per page, the API maximum.
+          TAG=""; OFFSET=0
+          while :; do
+            PAGE=$(api "$API/tags.json?count=50&offset=$OFFSET&fields=id,version,has_free,release_mode")
+            TAG=$(jq -c --arg v "$V" 'first(.tags[] | select(.version == $v)) // empty' <<<"$PAGE")
+            if [ -n "$TAG" ] || [ "$(jq '.tags | length' <<<"$PAGE")" -lt 50 ]; then break; fi
+            OFFSET=$((OFFSET + 50))
+          done
+
+          if [ -n "$TAG" ]; then
+            ID=$(jq -r .id <<<"$TAG")
+            echo "Version $V is already on Freemius as deployment $ID ($(jq -r .release_mode <<<"$TAG")): that first upload is what customers and SVN get; this run's zip may differ byte for byte."
+          else
+            ID=$(api -X POST -F "file=@$ZIP;type=application/zip" "$API/tags.json" | jq -er .id)
+            TAG=$(api -X PUT -H 'Content-Type: application/json' -d '{"release_mode":"pending"}' "$API/tags/$ID.json")
+            echo "Uploaded $ZIP to Freemius as deployment $ID, release mode $(jq -r .release_mode <<<"$TAG")."
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+          PRO="${ZIP%.zip}-pro.zip"
+          get_zip true "$PRO"
+          echo "pro=$PRO" >> "$GITHUB_OUTPUT"
+          echo "Pro build root folder: $(unzip -Z1 "$PRO" | awk -F/ 'NR==1 { print $1 }')"
+
+          if [ "$(jq -r .has_free <<<"$TAG")" != true ]; then
+            echo "::error::Freemius generated no Free build: the product needs a Free plan (Plans)"
+            exit 1
+          fi
+          FREE="${ZIP%.zip}-free.zip"
+          get_zip false "$FREE"
+          echo "free=$FREE" >> "$GITHUB_OUTPUT"
+
+      # Kept even when the Free side fails, for the record.
+      - name: Upload the Freemius Pro build
+        if: always() && steps.freemius.outputs.pro != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.freemius.outputs.pro }}
+          path: ${{ steps.freemius.outputs.pro }}
+          if-no-files-found: error
+          overwrite: true
+
+      # /release step 8, then the diff against the local strip (plan D2).
+      - name: Check the Free build Freemius generated
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          V: ${{ steps.zip.outputs.version }}
+          FREE_ZIP: ${{ steps.freemius.outputs.free }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/freemius-free"
+          unzip -q "$FREE_ZIP" -d "$RUNNER_TEMP/freemius-free"
+          F="$RUNNER_TEMP/freemius-free/post-quality-manager"
+          if [ ! -f "$F/post-quality-manager.php" ]; then
+            echo "::error::The Free build has no post-quality-manager/post-quality-manager.php; its root holds: $(ls "$RUNNER_TEMP/freemius-free")"
+            exit 1
+          fi
+          FAIL=0
+          if grep -rn __premium_only --exclude-dir=vendor "$F"; then
+            echo "::error::Premium code survived in the Free build (lines above)"
+            FAIL=1
+          fi
+          GOT=$(sed -n '/^[[:space:]]*\*[[:space:]]*Version:/{s/.*Version:[[:space:]]*\([^[:space:]]*\).*/\1/p;q}' "$F/post-quality-manager.php")
+          if [ "$GOT" != "$V" ]; then
+            echo "::error::The Free build's header Version is '$GOT', expected '$V'"
+            FAIL=1
+          fi
+          TEMPLATES=$(ls "$F/templates")
+          if [ "$TEMPLATES" != n8n-workflow-free.json ]; then
+            echo "::error::The Free build's templates/ holds: $TEMPLATES"
+            FAIL=1
+          fi
+          php bin/build-free.php "$RUNNER_TEMP/local-free"
+          L="$RUNNER_TEMP/local-free/post-quality-manager"
+          # Freemius re-prints every PHP file (story 54's diff, 2026-10-13), so
+          # PHP is compared as token streams; everything else byte for byte.
+          if ! php bin/compare-php-trees.php "$F" "$L"; then
+            echo "::error::Freemius's Free build differs from bin/build-free.php in PHP (above): fix the stripper or the markers"
+            FAIL=1
+          fi
+          if ! diff -rq -x '*.php' "$F" "$L" || ! diff -rq "$F/vendor" "$L/vendor"; then
+            echo "::error::Freemius's Free build differs from bin/build-free.php outside PHP (above)"
+            FAIL=1
+          fi
+          exit "$FAIL"
+
+      - name: Upload the Freemius Free build
+        if: needs.release-please.outputs.release_created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.freemius.outputs.free }}
+          path: ${{ steps.freemius.outputs.free }}
+          if-no-files-found: error
+          overwrite: true

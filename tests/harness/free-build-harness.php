@@ -76,7 +76,10 @@ $ours = array_filter($tree, static fn($rel) => !str_starts_with($rel, 'vendor/')
 check('the plugin tree is there, SDK included', isset($tree['post-quality-manager.php'], $tree['vendor/freemius/start.php']));
 check('no __premium_only left in any file outside vendor/',
     !array_filter($ours, static fn($path) => str_contains((string) file_get_contents($path), '__premium_only')));
-check('readme.txt is in the Free build', isset($tree['readme.txt']));
+check('readme.txt is in the Free build, with freemius added to its Contributors (as Freemius writes it)',
+    isset($tree['readme.txt']) && preg_match('/^Contributors: postquality, freemius$/m', (string) file_get_contents($tree['readme.txt'])));
+check("the SDK's README.md and composer.json are left out (as Freemius does)",
+    !isset($tree['vendor/freemius/README.md'], $tree['vendor/freemius/composer.json']) && isset($tree['vendor/freemius/LICENSE.txt']));
 check('the @fs_premium_only files are absent (cron class, Pro template)',
     !isset($tree['includes/class-pqm-cron.php']) && !isset($tree['templates/n8n-workflow.json']));
 check("'is_premium' is false", (bool) preg_match("/'is_premium'\\s*=>\\s*false/", (string) @file_get_contents($free . '/post-quality-manager.php')));
@@ -140,6 +143,40 @@ foreach ($leaks as $label => [$file, $search, $replace]) {
 copy_source($tmp . '/leak-0/src');
 [$code] = build($tmp . '/leak-0/out', $tmp . '/leak-0/src');
 check('control: the same copy without an injection builds (exit 0)', $code === 0);
+
+/* ─── Row: bin/compare-php-trees.php reads code, not formatting ──────── */
+echo "Row — compare-php-trees: Freemius's re-printing passes, a changed token fails naming the file\n";
+$comparer = $root . '/bin/compare-php-trees.php';
+function compare(string $a, string $b): array {
+    global $comparer;
+    $proc = proc_open([PHP_BINARY, $comparer, $a, $b], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+    return [proc_close($proc), $output];
+}
+[$code, $output] = compare($free, $free);
+check('the Free tree against itself: exit 0, every file counted', $code === 0 && str_contains($output, 'PHP identical: ' . count(array_filter(array_keys($ours), static fn($r) => str_ends_with($r, '.php')))));
+// The same code written the two ways Freemius's output and the source differ.
+$pairs = [
+    "<?php\n// a comment\nif ( \$a ) {\n    foreach ( \$b as \$c ) {\n        echo \$c ?? 'x\\\\y\\'z';\n    }\n} else {\n    \$z = [ 'k' => 1, 'm' => array_filter( \$b, static fn( \$v ) => \$v > 1 ) ];\n}\nreturn \$z;\n",
+    "<?php\nif (\$a):\n    foreach (\$b as \$c):\n        echo ( \$c ?? \"x\\\\y'z\" );\n    endforeach;\nelse:\n    \$z = [\n        'k' => 1,\n        'm' => array_filter(\n            \$b,\n            static fn(\$v) => (\$v > 1)\n        ),\n    ];\nendif;\nreturn \$z;",
+];
+foreach (['a', 'b'] as $k => $side) {
+    @mkdir("$tmp/cmp-$side/includes", 0777, true);
+    file_put_contents("$tmp/cmp-$side/includes/sample.php", $pairs[$k]);
+    file_put_contents("$tmp/cmp-$side/second.php", "<?php\nreturn 2;\n");
+}
+[$code, $output] = compare("$tmp/cmp-a", "$tmp/cmp-b");
+check('braces vs alternative syntax, parentheses, trailing comma, comments, string escaping: identical', $code === 0 && str_contains($output, 'PHP identical: 2 files'));
+file_put_contents("$tmp/cmp-b/includes/sample.php", str_replace("'m' => array_filter", "'n' => array_filter", $pairs[1]));
+[$code, $output] = compare("$tmp/cmp-a", "$tmp/cmp-b");
+check('one changed key: exit 1, the file and both lines named', $code === 1 && preg_match('/^includes\/sample\.php: differs from token \d+\n.*cmp-a line 8: .*\n.*cmp-b line 9: /m', $output)
+    && str_contains($output, '1 PHP difference(s).'));
+@mkdir("$tmp/cmp-b/vendor", 0777, true);
+file_put_contents("$tmp/cmp-b/vendor/ignored.php", "<?php\nreturn 1;\n");
+file_put_contents("$tmp/cmp-b/includes/sample.php", $pairs[1]);
+file_put_contents("$tmp/cmp-b/extra.php", "<?php\n");
+[$code, $output] = compare("$tmp/cmp-a", "$tmp/cmp-b");
+check('a file on one side only: exit 1 naming it; vendor/ ignored', $code === 1 && str_contains($output, "extra.php: only in") && !str_contains($output, 'ignored.php'));
 
 /* ─── Boot the stripped tree (WP stubs, no SDK) ──────────────────────── */
 $GLOBALS['tw'] = ['caps' => [], 'options' => []];

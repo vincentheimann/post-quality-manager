@@ -14,7 +14,11 @@
  *    `*__premium_only` (with its doc comment) and every
  *    `if ( pqm_fs()->is__premium_only() ) { … }` block — that exact
  *    condition, braces, no `else`;
- *  - sets the SDK's `'is_premium' => true` to false.
+ *  - sets the SDK's `'is_premium' => true` to false;
+ *  - mimics Freemius's other rewrites (its Free build of 3.5.1, 2026-10-13):
+ *    `freemius` joins the readme's Contributors, the SDK's README.md and
+ *    composer.json are left out. Freemius also reformats every PHP file;
+ *    bin/compare-php-trees.php compares token streams for that reason.
  * Anything else that names a premium symbol (an inline condition, an
  * assignment from a premium method, an unwrapped call, an `else`) is left in
  * place on purpose: the survivor check then fails with its file and line.
@@ -22,6 +26,8 @@
  */
 
 const PQM_SUFFIX = '__premium_only';
+/** Files Freemius's deployment leaves out of the Free build. */
+const PQM_FREEMIUS_DROPS = ['vendor/freemius/README.md', 'vendor/freemius/composer.json'];
 
 function pqm_fail(string $message): void {
     fwrite(STDERR, $message . "\n");
@@ -162,7 +168,7 @@ $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($src, File
 mkdir($dest, 0777, true);
 foreach ($items as $item) {
     $rel = ltrim(substr(str_replace('\\', '/', $item->getPathname()), strlen($src)), '/');
-    if (pqm_is_premium_path($rel, $premium_paths)) {
+    if (pqm_is_premium_path($rel, $premium_paths) || in_array($rel, PQM_FREEMIUS_DROPS, true)) {
         continue;
     }
     if ($item->isDir()) {
@@ -180,6 +186,11 @@ if ($flipped !== 1) {
     pqm_fail("post-quality-manager.php: expected one 'is_premium' => true, found $flipped.");
 }
 file_put_contents($main, $code);
+
+$readme = "$dest/readme.txt";
+if (is_file($readme)) {
+    file_put_contents($readme, preg_replace('/^(Contributors:[^\r\n]*)/m', '$1, freemius', (string) file_get_contents($readme), 1));
+}
 
 // Survivor check: no premium symbol may be left outside vendor/.
 $survivors = [];

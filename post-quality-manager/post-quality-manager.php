@@ -43,7 +43,6 @@ if (!function_exists('pqm_fs')) {
                 'public_key'          => 'pk_ca2d449d0ee2b01bbdbdeb9bf3789',
                 'is_premium'          => true,
                 'premium_suffix'      => 'Pro',
-                'has_premium_version' => true,
                 'has_addons'          => false,
                 'has_paid_plans'      => true,
                 'is_org_compliant'    => true,
@@ -58,6 +57,10 @@ if (!function_exists('pqm_fs')) {
                     'affiliation' => false,
                     'addons'      => false,
                 ],
+                // Both keys as Freemius's deployment writes them (story 54 diff,
+                // 2026-10-13): is_live explicit, has_premium_version left to its
+                // default (= has_paid_plans), so the generated builds match the source.
+                'is_live'             => true,
             ]);
         }
 
