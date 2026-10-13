@@ -23,7 +23,7 @@ A pain to solve, on the plugin's hardest step. Setup today means importing the w
 
 - **CAP-1**
   - **intent:** An Administrator connects the plugin to an n8n instance by entering its base URL and an n8n API key on the n8n Workflow page, and sees whether that instance can be provisioned.
-  - **success:** With a valid key the page shows the instance as connected with its version, the key as "set", and a Forget button that removes it. With a WAF ban, a disabled public API, or a version lacking an endpoint, the page names that cause and offers the manual path (CAP-8). An owner who declines to hand over a key can choose the manual path from the same step, and a re-walk does not ask again.
+  - **success:** With a valid key the page shows the instance as connected (n8n exposes no version to an API key; the probe checks the endpoints the setup needs instead), the key as "set", and a Forget button that removes it. With a WAF ban, a disabled public API, or a version lacking an endpoint, the page names that cause and offers the manual path (CAP-8). An owner who declines to hand over a key can choose the manual path from the same step, and a re-walk does not ask again.
 - **CAP-2**
   - **intent:** From the setup wizard, an Administrator with a connected instance provisions everything n8n needs by typing their Anthropic key once: the plugin validates the key, generates a WordPress Application Password, creates the three credentials, creates and activates the workflow with every credentialed node linked and a per-site webhook path, saves the webhook URL and token, and proves the round trip with a ping.
   - **success:** The success-signal walk: a fresh site reaches its first review with no visit to the n8n UI.
@@ -57,7 +57,7 @@ A pain to solve, on the plugin's hardest step. Setup today means importing the w
 - The webhook path is per-site, derived from the site host; the template gains a path placeholder next to `__PQM_SITE_HOST__`, and `templates/n8n-workflow.json` stays the canonical Pro template with placeholders only, the Free one derived (ADR 0014). Each build provisions its own template.
 - Rollback order is forced: deactivate, then delete the workflow, then delete the credentials (the API answers 409 for an active workflow and deletes referenced credentials silently). A rollback also revokes the Application Password the run generated. Provisioning is reachable from the UI only once rollback exists.
 - CAP-7 finds the workflow through the stored setup map, else through the saved webhook URL (the workflow whose Webhook node path matches it); read-only, never by name, so it runs on a manual setup before adoption.
-- Every call is confirmed on self-hosted n8n 2.42.3 only: the wizard probes before it provisions and degrades to CAP-8 with a version hint rather than failing mid-way.
+- Every call is confirmed on self-hosted n8n 2.42.3 only: the wizard probes before it provisions and degrades to CAP-8 with a version hint rather than failing mid-way. The probe sends an empty JSON object to `POST /workflows/<unknown>/activate` and `PATCH /credentials/<unknown>`: a handler or validator message means the endpoint exists; the router's generic `not found` (or a 405) means it is missing (owner probe 2026-10-13).
 - Credentials and the workflow carry the deterministic names: `Post Quality webhook - <host>`, `WordPress - <host>`, `Anthropic - Claude`, workflow `Post Quality - <host>`.
 - Story 55's wizard stays the one entry point; this epic reworks its n8n connection steps and keeps the profile, standards and schedule steps, resumable, with nothing moving silently on a re-walk. Story 40 is absorbed by CAP-8.
 - The `PQM_WORKFLOW_VERSION` handshake stays and gains CAP-7; the REST contract of the workflow callbacks does not change.
@@ -81,7 +81,6 @@ A pain to solve, on the plugin's hardest step. Setup today means importing the w
 - `GET /workflows/{id}` returns each node's `credentials` as `{id, name}`; the spike confirmed listing and that POST/PUT accept the shape, not the single-GET read.
 - The cheap Anthropic validation call is `GET /v1/models` with the key: an authenticated 200 proves it, a 401 refuses it. Confirm against the Claude API reference at build time.
 - The n8n public API takes the key in the `X-N8N-API-KEY` header on every call, as in the spike.
-- The n8n version is readable from `GET <base>/rest/settings` (`versionCli`), the editor's internal pre-login call, not the public API; unverified on 2.42.3. If it fails, CAP-1 shows "version unknown" and relies on the endpoint probe.
 
 ## Open Questions
 

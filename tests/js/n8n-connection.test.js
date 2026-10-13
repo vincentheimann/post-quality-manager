@@ -1,6 +1,6 @@
 /**
  * n8n Instance section (n8n provisioning, entry 1; src/n8n-connection/) run
- * in jsdom: the stored state on load (connected, version, key set) without
+ * in jsdom: the stored state on load (connected, key set) without
  * a probe, a failed probe's cause with the stored state kept, and Forget.
  * The key field is write-only: never prefilled, emptied after a save. The
  * api-fetch and components packages are WordPress-provided externals, not
@@ -45,8 +45,7 @@ const CONNECTED = {
 	probe: {
 		ok: true,
 		cause: '',
-		message: 'Connected to n8n 2.42.3.',
-		version: '2.42.3',
+		message: 'Connected to n8n.',
 		at: 1760000000,
 	},
 };
@@ -112,13 +111,13 @@ afterEach( () => {
 } );
 
 describe( 'n8n Instance section', () => {
-	test( 'a reload shows the stored state: connected, version, key set — one GET, no probe', async () => {
+	test( 'a reload shows the stored state: connected, key set — one GET, no probe', async () => {
 		await mount( CONNECTED );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 		expect( apiFetch ).toHaveBeenCalledWith( { path: PATH } );
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
-		).toContain( 'Connected to n8n 2.42.3.' );
+		).toContain( 'Connected to n8n.' );
 		expect( text() ).toContain( 'API key: set' );
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
@@ -160,7 +159,7 @@ describe( 'n8n Instance section', () => {
 		} );
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
-		).toContain( 'Connected to n8n 2.42.3.' );
+		).toContain( 'Connected to n8n.' );
 		expect( text() ).toContain( 'API key: set' );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
 		expect( field( 'n8n address' ).value ).toBe( BASE );
@@ -174,7 +173,7 @@ describe( 'n8n Instance section', () => {
 			'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.';
 		apiFetch.mockResolvedValueOnce( {
 			...CONNECTED,
-			probe: { ok: false, cause: 'key', message: cause, version: null },
+			probe: { ok: false, cause: 'key', message: cause },
 		} );
 		await submit();
 		expect(
@@ -182,7 +181,7 @@ describe( 'n8n Instance section', () => {
 		).toBe( cause );
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
-		).toContain( 'Connected to n8n 2.42.3.' );
+		).toContain( 'Connected to n8n.' );
 		expect( text() ).toContain( 'API key: set' );
 	} );
 

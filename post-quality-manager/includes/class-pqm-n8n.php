@@ -34,7 +34,7 @@ class PQM_N8n {
 
     /**
      * The stored connection. `probe` is the last passing probe
-     * ({ok, cause, message, version, at}), null when no key is stored.
+     * ({ok, cause, message, at}), null when no key is stored.
      *
      * @return array{base_url: string, api_key: string, probe: ?array}
      */
@@ -153,78 +153,62 @@ class PQM_N8n {
 
     /**
      * Can this instance be provisioned with this key? In order: the URL rule
-     * (no call when refused), the version from the editor's pre-login
-     * settings (no key; any failure leaves it unknown), the key on a
-     * one-item workflow list, then the endpoints provisioning needs, probed
-     * with an id that cannot exist (decision D2).
+     * (no call when refused), the key on a one-item workflow list, then the
+     * endpoints provisioning needs, probed with an id that cannot exist
+     * (decision D2). No version is read: n8n 2.42.3 exposes none to an API
+     * key (owner probe 2026-10-13: /rest/settings carries no version before
+     * login), so the endpoint probe is the version check.
      *
-     * @return array{ok: bool, cause: string, message: string, version: ?string, at: int}
+     * @return array{ok: bool, cause: string, message: string, at: int}
      *         `cause`: '' when ok, else insecure, invalid_url, key, api_disabled,
      *         proxy, unreachable, missing_endpoint or unexpected.
      */
     public static function probe( string $url, string $key ): array {
         $origin = self::origin( $url );
         if ( is_wp_error( $origin ) ) {
-            return self::result( $origin->get_error_code(), $origin->get_error_message(), null );
+            return self::result( $origin->get_error_code(), $origin->get_error_message() );
         }
-
-        $version = self::version( $origin );
 
         $list = self::call( $origin, $key, 'GET', self::API_PATH . '/workflows?limit=1' );
         if ( ! is_wp_error( $list ) && $list['code'] >= 200 && $list['code'] < 300 && null !== $list['json'] ) {
             // The key works; does this version have every endpoint the setup needs?
+            // An empty JSON body: without one, PATCH answers 415 before the route is known.
             foreach ( [ [ 'POST', '/workflows/' . self::PROBE_ID . '/activate' ], [ 'PATCH', '/credentials/' . self::PROBE_ID ] ] as [ $method, $path ] ) {
-                $route = self::call( $origin, $key, $method, self::API_PATH . $path );
+                $route = self::call( $origin, $key, $method, self::API_PATH . $path, (object) [] );
                 if ( is_wp_error( $route ) || ! self::route_exists( $route ) ) {
-                    return self::failure( $route, $version, true );
+                    return self::failure( $route, true );
                 }
             }
 
-            $message = null === $version
-                ? __( 'Connected to n8n (version unknown).', 'post-quality-manager' )
-                /* translators: %s: n8n version, e.g. "2.42.3" */
-                : sprintf( __( 'Connected to n8n %s.', 'post-quality-manager' ), $version );
-
-            return [ 'ok' => true, 'cause' => '', 'message' => $message, 'version' => $version, 'at' => time() ];
+            return [ 'ok' => true, 'cause' => '', 'message' => __( 'Connected to n8n.', 'post-quality-manager' ), 'at' => time() ];
         }
 
-        return self::failure( $list, $version, false );
+        return self::failure( $list, false );
     }
 
     /**
-     * Decision D2: an endpoint exists when n8n answers an unknown id in its
-     * error shape (JSON with a `message`), 404 or 400.
-     * Unverified until the owner's probe on 2.42.3: this "exists" shape.
+     * Decision D2, as n8n 2.42.3 answers (owner probe 2026-10-13): a missing
+     * route gets the router's generic `{"message":"not found"}`; an existing
+     * one reaches its handler, which refuses the unknown id with its own
+     * message ("Credential not found", "You do not have permission to
+     * activate this workflow…"), or its validator (400, 415).
      */
     private static function route_exists( array $response ): bool {
-        return in_array( $response['code'], [ 400, 404 ], true ) && is_string( $response['json']['message'] ?? null );
-    }
+        $message = $response['json']['message'] ?? null;
 
-    /**
-     * `versionCli` from GET /rest/settings, the editor's pre-login call (not
-     * the public API, sent without the key). Any failure: null.
-     * Unverified until the owner's probe on 2.42.3: the `data` wrapper.
-     */
-    private static function version( string $origin ): ?string {
-        $settings = self::call( $origin, '', 'GET', '/rest/settings' );
-        if ( is_wp_error( $settings ) || 200 !== $settings['code'] ) {
-            return null;
-        }
-
-        $version = $settings['json']['data']['versionCli'] ?? $settings['json']['versionCli'] ?? null;
-
-        return is_string( $version ) && preg_match( '/^\d+\.\d+[0-9A-Za-z.+-]{0,30}$/', $version ) ? $version : null;
+        return in_array( $response['code'], [ 400, 404, 415 ], true ) && is_string( $message ) && 'not found' !== strtolower( trim( $message ) );
     }
 
     /**
      * The cause of an answer that is not the expected one, each pointing to
      * the manual path. `$on_route`: the answer came from the route probe,
-     * where a 405 or a JSON 404 outside n8n's error shape means the endpoint
-     * is missing; a non-JSON answer is never read as a missing endpoint.
+     * where a 405, or a 404 that is the router's generic "not found" (or a
+     * JSON 404 without a message), means the endpoint is missing; a non-JSON
+     * answer is never read as a missing endpoint.
      *
      * @param array|WP_Error $response
      */
-    private static function failure( $response, ?string $version, bool $on_route ): array {
+    private static function failure( $response, bool $on_route ): array {
         $manual = __( 'Or set up the workflow by hand with the Workflow File section.', 'post-quality-manager' );
 
         if ( is_wp_error( $response ) ) {
@@ -233,53 +217,35 @@ class PQM_N8n {
                 __( 'Could not reach n8n: %1$s. Check the address and that n8n is running. %2$s', 'post-quality-manager' ),
                 $response->get_error_message(),
                 $manual
-            ), $version );
+            ) );
         }
 
         $code = $response['code'];
 
         if ( $on_route && ( 405 === $code || ( 404 === $code && null !== $response['json'] ) ) ) {
-            $message = null === $version
-                ? sprintf(
-                    /* translators: 1: tested n8n version, e.g. "2.42.3", 2: the manual-path sentence */
-                    __( 'Your n8n lacks an API endpoint the setup needs. Update n8n to %1$s or later. %2$s', 'post-quality-manager' ),
-                    self::TESTED_VERSION,
-                    $manual
-                )
-                : sprintf(
-                    /* translators: 1: the instance's n8n version, 2: tested n8n version, e.g. "2.42.3", 3: the manual-path sentence */
-                    __( 'n8n %1$s lacks an API endpoint the setup needs. Update n8n to %2$s or later. %3$s', 'post-quality-manager' ),
-                    $version,
-                    self::TESTED_VERSION,
-                    $manual
-                );
-            if ( null !== $version && version_compare( $version, self::TESTED_VERSION, '>=' ) ) {
-                // Already at or above the tested version: no update advice.
-                $message = sprintf(
-                    /* translators: 1: the instance's n8n version, 2: the manual-path sentence */
-                    __( 'n8n %1$s lacks an API endpoint the setup needs. %2$s', 'post-quality-manager' ),
-                    $version,
-                    $manual
-                );
-            }
-            return self::result( 'missing_endpoint', $message, $version );
+            return self::result( 'missing_endpoint', sprintf(
+                /* translators: 1: tested n8n version, e.g. "2.42.3", 2: the manual-path sentence */
+                __( 'Your n8n lacks an API endpoint the setup needs. Update n8n to %1$s or later. %2$s', 'post-quality-manager' ),
+                self::TESTED_VERSION,
+                $manual
+            ) );
         }
         if ( ! $on_route && 401 === $code ) {
-            return self::result( 'key', __( 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'post-quality-manager' ), $version );
+            return self::result( 'key', __( 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'post-quality-manager' ) );
         }
         if ( ! $on_route && 404 === $code ) {
             return self::result( 'api_disabled', sprintf(
                 /* translators: %s: the manual-path sentence */
                 __( 'n8n answered 404: the public API is turned off on this instance (N8N_PUBLIC_API_DISABLED), or this is not your n8n address. Check the address. %s', 'post-quality-manager' ),
                 $manual
-            ), $version );
+            ) );
         }
         if ( 403 === $code || null === $response['json'] ) {
             return self::result( 'proxy', sprintf(
                 /* translators: %s: the manual-path sentence */
                 __( 'n8n did not answer as expected: a proxy or firewall in front of it is the likely cause. Allow calls from this site to the /api/v1/ path of n8n. %s', 'post-quality-manager' ),
                 $manual
-            ), $version );
+            ) );
         }
 
         return self::result( 'unexpected', sprintf(
@@ -287,10 +253,10 @@ class PQM_N8n {
             __( 'n8n answered HTTP %1$d. Try again in a moment. %2$s', 'post-quality-manager' ),
             $code,
             $manual
-        ), $version );
+        ) );
     }
 
-    private static function result( string $cause, string $message, ?string $version ): array {
-        return [ 'ok' => false, 'cause' => $cause, 'message' => $message, 'version' => $version, 'at' => time() ];
+    private static function result( string $cause, string $message ): array {
+        return [ 'ok' => false, 'cause' => $cause, 'message' => $message, 'at' => time() ];
     }
 }

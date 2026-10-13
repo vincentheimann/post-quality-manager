@@ -90,6 +90,8 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-
 - Touched beyond the Code Map: `tests/harness/caps-harness.php` (its exact uninstall-option list), `tests/harness/free-build-harness.php` (proves the Free-build criterion), `memory/n8n-provisioning.md`.
 - Statuses outside the matrix (500 JSON, 401 on a route probe) map to cause `unexpected`, still offering the manual path. A failed probe is not stored: a reload shows the last passing one (entry 2 may want the failed cause stored).
 
+- HITL probe 2026-10-13 (agent, on the owner-provided n8n 2.42.3 behind Cloudflare, dedicated expiring key from the session scratchpad; the owner asked the agent to run it): both unverified assumptions were false. (1) No version is exposed to an API key: `/rest/settings` carries none before login, no header, and `/api/v1/openapi.yml` holds only the API spec version. The version read is removed; the section says "Connected to n8n." and the missing-endpoint message carries the tested version as the hint. This narrows the frozen Intent's "connected, version X" to "connected"; the spec memlog records it. (2) D2's shape was inverted: an unknown route answers `404 {"message":"not found"}` — the very shape the code read as "exists" — and a body-less PATCH answers 415 (the deferred review finding). The probes now send `{}` and an endpoint exists when the answer is a handler or validator message other than the generic `not found`. Fix on `fix/n8n-probe-shapes`; harness fixtures replaced by the observed answers.
+
 ## Plan Change Log
 
 ## Review Triage Log
@@ -124,4 +126,5 @@ Patches 1, 4 and 5 applied by the implementation subagent; verification re-run o
 - `npm run build` -- builds
 
 **Manual checks (if no CLI):**
-- HITL, on the environment the owner names: their instance shows as connected with its version and the key as set; Forget returns "not set". Key from the session scratchpad, never the repo.
+- HITL, on the environment the owner names: their instance shows as connected and the key as set; Forget returns "not set". Key from the session scratchpad, never the repo.
+- **Walk recorded 2026-10-13** — environment named by the owner: their production site (the owner asked the agent to run it; dev build of this branch installed over the inactive Free 3.5.1 folder and activated, Pro 3.5.1 restored after). Over REST as the Administrator: GET fresh → not set; POST `http://` address → cause `insecure`, nothing sent; POST a bad key → cause `key`; POST the real key with an editor path → `{ok, "Connected to n8n."}`, origin stored, key set, the key in no reply; GET → the stored state; POST without key → re-check ok; the option on the server holds origin + key + probe; DELETE → key and probe gone, address kept; the page render carries the island root. All pass. The site was left as found (Pro active, Free 3.5.1 inactive, option deleted).

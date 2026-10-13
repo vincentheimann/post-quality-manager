@@ -4,14 +4,14 @@
  * every row of the plan's I/O & Edge-Case Matrix through GET|POST|DELETE
  * /n8n/connection and PQM_N8n, with wp_remote_request() answering from a
  * scripted queue. Every recorded call is checked for the plugin User-Agent,
- * no redirect following, and the key header (sent on /api/v1, never on the
- * keyless /rest/settings version read); every reply is checked for the key
- * string. WP stubs, no WP install; callbacks are called directly.
+ * no redirect following, and the key header; every reply is checked for the
+ * key string. WP stubs, no WP install; callbacks are called directly.
  *
- * Scripted as assumed until the owner's probe on n8n 2.42.3 (plan HITL):
- * the version read (`data.versionCli` from /rest/settings) and decision
- * D2's "exists" shape (404/400 with a JSON `message`). Correct the
- * SETTINGS_OK / ROUTE_OK scripts below if the instance answers otherwise.
+ * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
+ * (2026-10-13): no version is exposed to an API key; a missing route gets
+ * the router's generic `{"message":"not found"}` while an existing one
+ * refuses the unknown id with its handler's own message (ROUTE_OK below),
+ * and a body-less PATCH answers 415 before the route is known.
  * Run: php n8n-api-harness.php
  */
 
@@ -97,9 +97,9 @@ const UA      = 'PostQualityManager/' . PQM_VERSION . ' (+https://postquality.co
 function resp(int $code, $body): array {
     return ['response' => ['code' => $code], 'body' => is_string($body) ? $body : json_encode($body)];
 }
-define('SETTINGS_OK', resp(200, ['data' => ['versionCli' => '2.42.3', 'authCookie' => ['secure' => true]]]));
 define('LIST_OK', resp(200, ['data' => [], 'nextCursor' => null]));
-define('ROUTE_OK', resp(404, ['message' => 'Not Found']));
+define('ROUTE_OK', resp(404, ['message' => 'Credential not found']));
+define('ROUTER_404', resp(404, ['message' => 'not found'])); // what a missing route answers
 
 $replies = []; // every REST reply, for the key-leak check
 
@@ -153,7 +153,7 @@ function unchanged(array $before): bool {
 $stored_conn = [PQM_N8n::OPTION => [
     'base_url' => 'https://old.example.com',
     'api_key'  => OLD_KEY,
-    'probe'    => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n 2.40.0.', 'version' => '2.40.0', 'at' => 1700000000],
+    'probe'    => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000],
 ]];
 
 /* ─── Row: No right — every route gated ──────────────────────────────── */
@@ -170,19 +170,21 @@ check('pqm_manage_settings: allowed', PQM_REST_API::check_manage_settings() === 
 
 /* ─── Row: Connected ─────────────────────────────────────────────────── */
 echo "Connected\n";
-site([], [SETTINGS_OK, LIST_OK, ROUTE_OK, ROUTE_OK]);
+site([], [LIST_OK, ROUTE_OK, ROUTE_OK]);
 $r = post(['base_url' => '  https://n8n.example.com/home/workflows?x=1  ', 'api_key' => ' ' . KEY . ' ']);
-check('probe ok, version 2.42.3, "Connected to n8n 2.42.3."', $r['probe']['ok'] === true && $r['probe']['cause'] === ''
-    && $r['probe']['version'] === '2.42.3' && $r['probe']['message'] === 'Connected to n8n 2.42.3.' && abs($r['probe']['at'] - time()) <= 5);
+check('probe ok, "Connected to n8n.", no version claimed', $r['probe'] === ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => $r['probe']['at']]
+    && abs($r['probe']['at'] - time()) <= 5);
 check('reply: base URL = the origin (editor path dropped), key set, the probe',
     $r['base_url'] === BASE && $r['key_set'] === true && array_keys($r) === ['probe', 'base_url', 'key_set']);
-check('calls, in order: keyless version read, one-item workflow list, the two route probes (D2)', calls() === [
-    'GET ' . BASE . '/rest/settings',
+check('calls, in order: one-item workflow list, the two route probes (D2)', calls() === [
     'GET ' . BASE . '/api/v1/workflows?limit=1',
     'POST ' . BASE . '/api/v1/workflows/pqm-probe-unknown-id/activate',
     'PATCH ' . BASE . '/api/v1/credentials/pqm-probe-unknown-id',
 ]);
-check('every call: plugin User-Agent, no redirect; the key (trimmed) on /api/v1 only', calls_signed(KEY));
+check('every call: plugin User-Agent, no redirect, the key (trimmed)', calls_signed(KEY));
+check('the route probes carry an empty JSON object (a body-less PATCH gets 415 before the route is known)',
+    array_map(static fn($c) => [$c[1]['headers']['Content-Type'] ?? null, $c[1]['body'] ?? null], array_slice($GLOBALS['tw']['calls'], 1))
+    === [['application/json', '{}'], ['application/json', '{}']]);
 check('stored in pqm_n8n_api: origin, key, probe — autoload off', $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => BASE, 'api_key' => KEY, 'probe' => $r['probe']]
     && $GLOBALS['tw']['autoload'][PQM_N8n::OPTION] === false);
 check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes'] === [PQM_N8n::OPTION]);
@@ -190,22 +192,26 @@ check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes']
 /* Acceptance: a reload shows the stored state without calling n8n. */
 $GLOBALS['tw']['calls'] = [];
 $s = get_state();
-check('reload (GET): the stored state — connected, version, key set — and zero calls to n8n',
+check('reload (GET): the stored state — connected, key set — and zero calls to n8n',
     $s === ['base_url' => BASE, 'key_set' => true, 'probe' => $r['probe']] && $GLOBALS['tw']['calls'] === []);
 
-/* ─── Row: Version unreadable ────────────────────────────────────────── */
-echo "Version unreadable\n";
+/* ─── Row: Missing endpoint vs existing (D2, the 2.42.3 shapes) ─────── */
+echo "Endpoint probe shapes\n";
+site([], [LIST_OK, ROUTER_404]);
+$r = post(['base_url' => BASE, 'api_key' => KEY]);
+check('the router\'s generic 404 "not found" on activate = missing endpoint, nothing stored', $r['probe']['cause'] === 'missing_endpoint'
+    && $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
+    && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]));
+site([], [LIST_OK, ROUTE_OK, resp(404, ['message' => 'NOT FOUND '])]);
+check('... case and spaces do not matter', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'missing_endpoint');
 foreach ([
-    '/rest/settings not JSON'        => resp(200, '<!DOCTYPE html><html></html>'),
-    'no versionCli'                  => resp(200, ['data' => ['authCookie' => []]]),
-    'a 401 on /rest/settings'        => resp(401, ['message' => 'Unauthorized']),
-    'unreachable /rest/settings'     => new WP_Error('http_request_failed', 'timeout'),
-    'a versionCli that is no version' => resp(200, ['data' => ['versionCli' => '<b>x</b>']]),
-] as $label => $settings) {
-    site([], [$settings, LIST_OK, ROUTE_OK, ROUTE_OK]);
+    'activate refused for the unknown id (404)' => [resp(404, ['message' => 'You do not have permission to activate this workflow. Ask the owner to share it with you.']), ROUTE_OK],
+    'a validator 400 in n8n\'s error shape'      => [ROUTE_OK, resp(400, ['message' => 'request/body must have required property \'data\''])],
+    'a 415 in n8n\'s error shape'                => [ROUTE_OK, resp(415, ['message' => 'unsupported media type undefined'])],
+] as $label => $routes) {
+    site([], array_merge([LIST_OK], $routes));
     $r = post(['base_url' => BASE, 'api_key' => KEY]);
-    check("$label: connected, \"version unknown\", stored", $r['probe']['ok'] === true && $r['probe']['version'] === null
-        && $r['probe']['message'] === 'Connected to n8n (version unknown).' && $r['key_set'] === true);
+    check("$label = the endpoint exists: connected, stored", $r['probe']['ok'] === true && $r['key_set'] === true);
 }
 
 /* ─── Row: Insecure or unusable URL — zero calls ─────────────────────── */
@@ -224,29 +230,28 @@ foreach (['n8n.example.com', 'ftp://n8n.example.com', 'https://', ''] as $url) {
         $r['probe']['cause'] === 'invalid_url' && $GLOBALS['tw']['calls'] === [] && unchanged($stored_conn));
 }
 foreach (['http://localhost:5678' => 'http://localhost:5678', 'http://127.0.0.1:5678/home' => 'http://127.0.0.1:5678', 'http://[::1]:5678' => 'http://[::1]:5678'] as $url => $origin) {
-    site([], [SETTINGS_OK, LIST_OK, ROUTE_OK, ROUTE_OK]);
+    site([], [LIST_OK, ROUTE_OK, ROUTE_OK]);
     $r = post(['base_url' => $url, 'api_key' => KEY]);
     check("$url: allowed over http (local), stored as $origin", $r['probe']['ok'] === true && $r['base_url'] === $origin
-        && ($GLOBALS['tw']['calls'][0][0] ?? '') === "$origin/rest/settings");
+        && ($GLOBALS['tw']['calls'][0][0] ?? '') === "$origin/api/v1/workflows?limit=1");
 }
 
 /* ─── Rows: failures keep the stored URL and key ─────────────────────── */
 $failures = [
-    'Key refused (401)' => [[SETTINGS_OK, resp(401, ['message' => 'unauthorized'])], 'key', 'Settings → n8n API'],
-    'API disabled (404 on /api/v1/workflows)' => [[SETTINGS_OK, resp(404, ['message' => 'not found'])], 'api_disabled', 'public API is turned off'],
-    'API disabled, a non-JSON 404' => [[SETTINGS_OK, resp(404, 'Cannot GET /api/v1/workflows')], 'api_disabled', 'public API is turned off'],
-    'WAF: 403' => [[SETTINGS_OK, resp(403, ['message' => 'Forbidden'])], 'proxy', 'proxy or firewall'],
-    'WAF: Cloudflare 1010' => [[resp(403, 'error code: 1010'), resp(403, 'error code: 1010')], 'proxy', 'proxy or firewall'],
-    'WAF: a non-JSON 200 (a login or challenge page)' => [[SETTINGS_OK, resp(200, '<html>Just a moment...</html>')], 'proxy', 'proxy or firewall'],
-    'WAF: a redirect (never followed)' => [[SETTINGS_OK, resp(302, '')], 'proxy', 'proxy or firewall'],
-    'Unreachable (DNS)' => [[new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host: n8n.example.com'),
-        new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host: n8n.example.com')], 'unreachable', 'cURL error 6: Could not resolve host: n8n.example.com'],
-    'Unreachable (TLS)' => [[SETTINGS_OK, new WP_Error('http_request_failed', 'cURL error 60: SSL certificate problem')], 'unreachable', 'cURL error 60: SSL certificate problem'],
-    'Missing endpoint: 405 on activate (n8n at the tested version)' => [[SETTINGS_OK, LIST_OK, resp(405, ['message' => 'method not allowed'])], 'missing_endpoint', 'n8n 2.42.3 lacks an API endpoint the setup needs. Or set up'],
-    'Missing endpoint: a JSON 404 without n8n\'s shape on PATCH /credentials' => [[SETTINGS_OK, LIST_OK, ROUTE_OK, resp(404, ['error' => 'route'])], 'missing_endpoint', 'lacks an API endpoint'],
-    'Route probe: a non-JSON 404 is a proxy, never a missing endpoint (D2)' => [[SETTINGS_OK, LIST_OK, resp(404, '<html>Not Found</html>')], 'proxy', 'proxy or firewall'],
-    'Route probe unreachable' => [[SETTINGS_OK, LIST_OK, ROUTE_OK, new WP_Error('http_request_failed', 'cURL error 28: timed out')], 'unreachable', 'cURL error 28'],
-    'n8n error (500 JSON)' => [[SETTINGS_OK, resp(500, ['message' => 'Internal error'])], 'unexpected', 'HTTP 500'],
+    'Key refused (401)' => [[resp(401, ['message' => 'unauthorized'])], 'key', 'Settings → n8n API'],
+    'API disabled (404 on /api/v1/workflows)' => [[resp(404, ['message' => 'not found'])], 'api_disabled', 'public API is turned off'],
+    'API disabled, a non-JSON 404' => [[resp(404, 'Cannot GET /api/v1/workflows')], 'api_disabled', 'public API is turned off'],
+    'WAF: 403' => [[resp(403, ['message' => 'Forbidden'])], 'proxy', 'proxy or firewall'],
+    'WAF: Cloudflare 1010' => [[resp(403, 'error code: 1010')], 'proxy', 'proxy or firewall'],
+    'WAF: a non-JSON 200 (a login or challenge page)' => [[resp(200, '<html>Just a moment...</html>')], 'proxy', 'proxy or firewall'],
+    'WAF: a redirect (never followed)' => [[resp(302, '')], 'proxy', 'proxy or firewall'],
+    'Unreachable (DNS)' => [[new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host: n8n.example.com')], 'unreachable', 'cURL error 6: Could not resolve host: n8n.example.com'],
+    'Unreachable (TLS)' => [[new WP_Error('http_request_failed', 'cURL error 60: SSL certificate problem')], 'unreachable', 'cURL error 60: SSL certificate problem'],
+    'Missing endpoint: 405 on activate' => [[LIST_OK, resp(405, ['message' => 'method not allowed'])], 'missing_endpoint', 'Update n8n to 2.42.3 or later'],
+    'Missing endpoint: a JSON 404 without n8n\'s shape on PATCH /credentials' => [[LIST_OK, ROUTE_OK, resp(404, ['error' => 'route'])], 'missing_endpoint', 'lacks an API endpoint'],
+    'Route probe: a non-JSON 404 is a proxy, never a missing endpoint (D2)' => [[LIST_OK, resp(404, '<html>Not Found</html>')], 'proxy', 'proxy or firewall'],
+    'Route probe unreachable' => [[LIST_OK, ROUTE_OK, new WP_Error('http_request_failed', 'cURL error 28: timed out')], 'unreachable', 'cURL error 28'],
+    'n8n error (500 JSON)' => [[resp(500, ['message' => 'Internal error'])], 'unexpected', 'HTTP 500'],
 ];
 foreach ($failures as $label => [$queue, $cause, $says]) {
     echo "$label\n";
@@ -258,31 +263,21 @@ foreach ($failures as $label => [$queue, $cause, $says]) {
         && $r['base_url'] === 'https://old.example.com' && $r['key_set'] === true);
     check('... every call signed, nothing left unscripted', calls_signed(KEY) && $GLOBALS['tw']['queue'] === []);
 }
-site([], [SETTINGS_OK, LIST_OK, resp(405, '')]);
+site([], [LIST_OK, resp(405, '')]);
 $r = post(['base_url' => BASE, 'api_key' => KEY]);
-check('Missing endpoint: 405 without a body still names the version, no update advice at the tested version',
-    $r['probe']['cause'] === 'missing_endpoint' && str_contains($r['probe']['message'], 'n8n 2.42.3') && !str_contains($r['probe']['message'], 'Update n8n'));
-site([], [resp(200, ['data' => ['versionCli' => '1.30.0']]), LIST_OK, resp(405, '')]);
-$r = post(['base_url' => BASE, 'api_key' => KEY]);
-check('Missing endpoint on an older n8n: the update hint stays', $r['probe']['message'] === 'n8n 1.30.0 lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.');
-site([], [resp(200, 'html'), LIST_OK, resp(405, '')]);
-$r = post(['base_url' => BASE, 'api_key' => KEY]);
-check('... version unknown: says "Your n8n" and the tested version', $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
-    && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]));
-site([], [SETTINGS_OK, LIST_OK, resp(400, ['message' => 'request/body must be object']), ROUTE_OK]);
-check('Route probe: a 400 in n8n\'s error shape means the endpoint exists', post(['base_url' => BASE, 'api_key' => KEY])['probe']['ok'] === true);
+check('Missing endpoint: a 405 without a body, nothing stored', $r['probe']['cause'] === 'missing_endpoint' && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]));
 
 /* ─── Row: Re-check ──────────────────────────────────────────────────── */
 echo "Re-check\n";
-site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]], [SETTINGS_OK, LIST_OK, ROUTE_OK, ROUTE_OK]);
+site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]], [LIST_OK, ROUTE_OK, ROUTE_OK]);
 $r = post([]);
 check('POST without key or URL: the probe re-runs on the stored address with the stored key', $r['probe']['ok'] === true
-    && count($GLOBALS['tw']['calls']) === 4 && $GLOBALS['tw']['calls'][1][0] === BASE . '/api/v1/workflows?limit=1' && calls_signed(KEY));
-check('... the fresh probe is stored', $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe'] === $r['probe'] && $r['probe']['version'] === '2.42.3');
-site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]], [SETTINGS_OK, LIST_OK, ROUTE_OK, ROUTE_OK]);
+    && count($GLOBALS['tw']['calls']) === 3 && $GLOBALS['tw']['calls'][0][0] === BASE . '/api/v1/workflows?limit=1' && calls_signed(KEY));
+check('... the fresh probe is stored', $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe'] === $r['probe'] && $r['probe']['at'] !== 1700000000);
+site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]], [LIST_OK, ROUTE_OK, ROUTE_OK]);
 check('POST with the stored address typed again, key empty: same re-check', post(['base_url' => BASE . '/home', 'api_key' => ''])['probe']['ok'] === true && calls_signed(KEY));
 $before = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]];
-site($before, [SETTINGS_OK, resp(401, ['message' => 'unauthorized'])]);
+site($before, [resp(401, ['message' => 'unauthorized'])]);
 $r = post([]);
 check('re-check refused (key expired): cause key, stored key and last passing probe unchanged', $r['probe']['cause'] === 'key' && unchanged($before));
 site($stored_conn);

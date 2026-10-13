@@ -6,7 +6,7 @@ Each row is a condition the spike or the 2026-10-13 walk observed, what the plug
 |---|---|---|---|
 | A proxy or WAF in front of n8n bans the caller | Cloudflare 1010 or a non-JSON body on the first probe | Send a plugin-identifying `User-Agent` on every call; on a ban or non-JSON answer, say a proxy or WAF in front of n8n is the likely cause and offer the manual path | 1 |
 | Public API disabled on the instance | 401 or 404 on `GET /workflows` with a valid-looking key | Name "the public API is disabled on this instance" and offer the manual path | 1 |
-| Instance older than 2.42.3 lacks an endpoint | 404 on `PATCH /credentials/{id}` or on `POST /workflows/{id}/activate` | Probe the endpoints the flow needs before creating anything; degrade to the manual path with the version hint | 1, 8 |
+| Instance older than 2.42.3 lacks an endpoint | The router's generic `404 {"message":"not found"}` (or a 405) on `PATCH /credentials/<unknown>` or `POST /workflows/<unknown>/activate` sent with `{}`; an existing route answers with its handler's message ("Credential not found", a permission refusal) or 400/415 | Probe the endpoints the flow needs before creating anything; degrade to the manual path with the tested version as the hint (no n8n version is exposed to an API key) | 1, 8 |
 | Base URL not HTTPS (localhost excepted) | Owner input | Refuse before any call | 1 |
 | Key rejected | 401 on the probe | Say the key is refused and point to n8n's Settings, n8n API; keep the previous key state unchanged | 1 |
 | Anthropic key invalid | 401 from the validation request | Refuse before creating the credential; nothing is written to n8n | 2 |
