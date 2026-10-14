@@ -3,7 +3,7 @@
  *
  * The Settings tabs, blog-profile / Editorial Standards preset choice,
  * per-agent model controls, the connection ping, the workflow status refresh
- * and the workflow import-URL copy. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
+ * and the Workflow File section's Copy rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
  * never load this file; the setup dialog on the n8n Workflow page is React
  * too (src/setup/, story 36).
  */
@@ -21,7 +21,7 @@
         initPatternLinks();
         initTestConnection();
         initWorkflowStatusRefresh();
-        initImportUrlCopy();
+        initCopyRows();
     });
 
     /* ================================================================
@@ -370,22 +370,27 @@
     }
 
     /* ================================================================
-     *  COPY WORKFLOW IMPORT URL (workflow page)
+     *  COPY ROWS (workflow page): every value the Workflow File section
+     *  asks the reader to enter in n8n, the import URL included
+     *  (PQM_Admin::render_copy_value()). Clipboard refused: the value stays
+     *  selected and the feedback says to press Ctrl+C.
      * ================================================================ */
-    function initImportUrlCopy() {
+    function initCopyRows() {
         var i18n = pqmAdmin.i18n || {};
 
-        document.querySelectorAll('.pqm-import-url').forEach(function (wrap) {
-            var field = wrap.querySelector('.pqm-import-url-field');
-            var copyBtn = wrap.querySelector('.pqm-copy-import-url');
-            var feedback = wrap.querySelector('.pqm-copy-feedback');
+        document.querySelectorAll('.pqm-copy-row').forEach(function (row) {
+            var field = row.querySelector('.pqm-copy-field');
+            var copyBtn = row.querySelector('.pqm-copy-button');
+            var feedback = row.querySelector('.pqm-copy-feedback');
             if (!field || !copyBtn) return;
+            // The import URL row also says where to paste it.
+            var copied = row.closest('.pqm-import-url') ? i18n.copied : i18n.copiedValue;
 
             field.addEventListener('focus', function () { this.select(); });
 
             copyBtn.addEventListener('click', function () {
                 function report(ok) {
-                    showTestResult(feedback, ok, ok ? i18n.copied : i18n.copyFailed);
+                    showTestResult(feedback, ok, ok ? copied : i18n.copyFailed);
                     if (feedback.pqmTimer) clearTimeout(feedback.pqmTimer);
                     feedback.pqmTimer = setTimeout(function () { showTestResult(feedback, null, ''); }, 4000);
                 }

@@ -984,14 +984,22 @@ class PQM_REST_API {
      */
     private const SETUP_SETTING_KEYS = [ 'blog_profile', 'website_context', 'brand_voice_preset', 'brand_voice' ];
 
-    /** Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`. */
+    /**
+     * Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`,
+     * plus `'manual' => true` once the owner chose the manual path (entry 6.6
+     * writes it, pqm_manual_reason() reads it), so a step tick keeps it.
+     */
     private static function setup_progress(): array {
-        $stored = get_option( PQM_SETUP_OPTION, [] );
-
-        return [
+        $stored   = get_option( PQM_SETUP_OPTION, [] );
+        $progress = [
             'steps'    => is_array( $stored['steps'] ?? null ) ? $stored['steps'] : [],
             'complete' => ! empty( $stored['complete'] ),
         ];
+        if ( ! empty( $stored['manual'] ) ) {
+            $progress['manual'] = true;
+        }
+
+        return $progress;
     }
 
     /**
@@ -1250,7 +1258,8 @@ class PQM_REST_API {
 
     /**
      * Probe an instance and store its base URL and key once the probe
-     * passes; a failed probe leaves the stored URL and key as they were.
+     * passes; a failed probe leaves the stored URL and key as they were and,
+     * when it offers the manual path, records its cause (PQM_N8n::record_failure()).
      * Without `api_key`, the stored key re-runs the probe (Check again) —
      * for the stored address only, so a new address never receives it.
      * Answers the stored state with `probe` = this run's result.
@@ -1275,12 +1284,15 @@ class PQM_REST_API {
         $probe = PQM_N8n::probe( $url, $key );
         if ( $probe['ok'] ) {
             PQM_N8n::save( $origin, $key, $probe );
+        } else {
+            // Entry 2: the Workflow File section states the cause after a reload.
+            PQM_N8n::record_failure( $probe );
         }
 
         return new WP_REST_Response( [ 'probe' => $probe ] + PQM_N8n::public_state(), 200 );
     }
 
-    /** Forget: the key and its probe go, the base URL stays. Nothing changes on n8n. */
+    /** Forget: the key, its probe and a recorded failure go, the base URL stays. Nothing changes on n8n. */
     public static function forget_n8n_callback(): WP_REST_Response {
         PQM_N8n::forget();
 

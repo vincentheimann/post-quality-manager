@@ -6,6 +6,8 @@
  * scripted queue. Every recorded call is checked for the plugin User-Agent,
  * no redirect following, and the key header; every reply is checked for the
  * key string. WP stubs, no WP install; callbacks are called directly.
+ * Entry 2 rows: the failure record (`failed`) a manual-path cause leaves,
+ * and what clears it.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -150,6 +152,15 @@ function unchanged(array $before): bool {
     return $GLOBALS['tw']['writes'] === [] && ($GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? null) === ($before[PQM_N8n::OPTION] ?? null);
 }
 
+/** The stored option, its `failed` record left out. */
+function without_failed(): ?array {
+    $stored = $GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? null;
+    unset($stored['failed']);
+    return $stored;
+}
+
+const MANUAL_SENTENCE = 'Or set up the workflow by hand with the Workflow File section.';
+
 $stored_conn = [PQM_N8n::OPTION => [
     'base_url' => 'https://old.example.com',
     'api_key'  => OLD_KEY,
@@ -199,9 +210,10 @@ check('reload (GET): the stored state — connected, key set — and zero calls 
 echo "Endpoint probe shapes\n";
 site([], [LIST_OK, ROUTER_404]);
 $r = post(['base_url' => BASE, 'api_key' => KEY]);
-check('the router\'s generic 404 "not found" on activate = missing endpoint, nothing stored', $r['probe']['cause'] === 'missing_endpoint'
+check('the router\'s generic 404 "not found" on activate = missing endpoint; only its cause stored (entry 2), no URL, no key', $r['probe']['cause'] === 'missing_endpoint'
     && $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
-    && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]));
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['failed' => ['cause' => 'missing_endpoint', 'message' => 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later.', 'at' => $r['probe']['at']]]
+    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'probe' => null]);
 site([], [LIST_OK, ROUTE_OK, resp(404, ['message' => 'NOT FOUND '])]);
 check('... case and spaces do not matter', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'missing_endpoint');
 foreach ([
@@ -258,14 +270,50 @@ foreach ($failures as $label => [$queue, $cause, $says]) {
     site($stored_conn, $queue);
     $r = post(['base_url' => BASE, 'api_key' => KEY]);
     check("cause $cause, message says \"$says\"", $r['probe']['ok'] === false && $r['probe']['cause'] === $cause && str_contains($r['probe']['message'], $says));
-    check('... the manual path offered', $cause === 'key' || str_contains($r['probe']['message'], 'set up the workflow by hand with the Workflow File section'));
-    check('... stored URL and key as they were; the reply says so', unchanged($stored_conn)
+    check('... the manual path offered, once, after the cause sentence', $cause === 'key'
+        || ($r['probe']['message'] === $r['probe']['reason'] . ' ' . MANUAL_SENTENCE && !str_contains($r['probe']['reason'], MANUAL_SENTENCE)));
+    check('... stored URL, key and last passing probe as they were; the reply says so', without_failed() === $stored_conn[PQM_N8n::OPTION]
         && $r['base_url'] === 'https://old.example.com' && $r['key_set'] === true);
+    if ($cause === 'key') {
+        check('... a refused key stores no failure: nothing written', unchanged($stored_conn));
+    } else {
+        check('... the cause stored as `failed` {cause, the sentence without the manual path, at}, autoload off',
+            $GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed'] === ['cause' => $cause, 'message' => $r['probe']['reason'], 'at' => $r['probe']['at']]
+            && $GLOBALS['tw']['writes'] === [PQM_N8n::OPTION] && $GLOBALS['tw']['autoload'][PQM_N8n::OPTION] === false);
+    }
     check('... every call signed, nothing left unscripted', calls_signed(KEY) && $GLOBALS['tw']['queue'] === []);
 }
 site([], [LIST_OK, resp(405, '')]);
 $r = post(['base_url' => BASE, 'api_key' => KEY]);
-check('Missing endpoint: a 405 without a body, nothing stored', $r['probe']['cause'] === 'missing_endpoint' && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]));
+check('Missing endpoint: a 405 without a body, only its cause stored', $r['probe']['cause'] === 'missing_endpoint'
+    && array_keys($GLOBALS['tw']['options'][PQM_N8n::OPTION]) === ['failed']);
+
+/* ─── Rows: the failure record (entry 2, D1) ─────────────────────────── */
+echo "Failure record\n";
+$failed_conn = [PQM_N8n::OPTION => $stored_conn[PQM_N8n::OPTION] + ['failed' => ['cause' => 'proxy', 'message' => 'n8n did not answer as expected.', 'at' => 1700000100]]];
+site($failed_conn, [LIST_OK, ROUTE_OK, ROUTE_OK]);
+$r = post(['base_url' => BASE, 'api_key' => KEY]);
+check('a passing probe after a stored failure: `failed` gone', $r['probe']['ok'] === true
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => BASE, 'api_key' => KEY, 'probe' => $r['probe']]
+    && PQM_N8n::connection()['failed'] === null);
+site($failed_conn);
+forget();
+check('Forget after a stored failure: `failed` gone, URL kept', $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => 'https://old.example.com']);
+foreach (['http://n8n.example' => 'insecure', 'n8n.example.com' => 'invalid_url'] as $url => $cause) {
+    site($failed_conn);
+    $r = post(['base_url' => $url, 'api_key' => KEY]);
+    check("cause $cause stores nothing: the earlier failure stays as it was", $r['probe']['cause'] === $cause && unchanged($failed_conn));
+}
+site($failed_conn, [resp(500, ['message' => 'Internal error'])]);
+$r = post(['base_url' => BASE, 'api_key' => KEY]);
+check('a newer manual-path failure replaces the stored one', $GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']['cause'] === 'unexpected'
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']['message'] === 'n8n answered HTTP 500. Try again in a moment.');
+site();
+check('fresh site: connection() carries failed => null', PQM_N8n::connection()['failed'] === null);
+site([], [new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host')]);
+post(['base_url' => BASE, 'api_key' => KEY]);
+check('the stored failure never carries the key', !str_contains(json_encode($GLOBALS['tw']['options']), KEY));
+check('public_state() leaves the failure out (the island is unchanged)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'probe']);
 
 /* ─── Row: Re-check ──────────────────────────────────────────────────── */
 echo "Re-check\n";

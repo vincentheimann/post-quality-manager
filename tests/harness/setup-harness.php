@@ -256,6 +256,20 @@ foreach (['foo', 'connect', 'review', '', 'INSTANCE'] as $step) {
 }
 check('no step and no complete: refused', post_setup([]) instanceof WP_Error);
 
+/* Row: the owner's manual-path choice (n8n provisioning entry 2; entry 6.6 writes it) survives every progress write */
+echo "POST /setup — the manual-path choice is kept\n";
+site($fresh + [PQM_SETUP_OPTION => ['steps' => ['instance' => true], 'complete' => false, 'manual' => true]]);
+post_setup(['step' => 'import', 'done' => true]);
+check('a step tick keeps `manual`', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['instance' => true, 'import' => true], 'complete' => false, 'manual' => true]);
+post_setup(['complete' => true]);
+check('completing keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+connect('https://n8n.example.com/webhook/pqm-execute-example-com');
+check('the connect step keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+check('pqm_manual_reason() reads it: {kind: choice}', pqm_manual_reason() === ['kind' => 'choice']);
+site($fresh);
+post_setup(['step' => 'import', 'done' => true]);
+check('no choice stored: no `manual` key written', !array_key_exists('manual', $GLOBALS['tw']['options'][PQM_SETUP_OPTION]));
+
 /* Row: first review closes the setup — settings untouched */
 echo "POST /setup { complete: true }\n";
 site($fresh);

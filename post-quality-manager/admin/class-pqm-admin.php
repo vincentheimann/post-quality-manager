@@ -200,8 +200,9 @@ class PQM_Admin
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
                 'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
-                'copied' => __('Copied! Paste it in n8n via "Import from URL…".', 'post-quality-manager'),
-                'copyFailed' => __('Could not copy automatically. The URL is selected — press Ctrl+C.', 'post-quality-manager'),
+                'copied' => __('Copied! Paste it in n8n via "Import from URL".', 'post-quality-manager'),
+                'copiedValue' => __('Copied.', 'post-quality-manager'),
+                'copyFailed' => __('Could not copy automatically. The value is selected — press Ctrl+C.', 'post-quality-manager'),
             ],
         ]);
     }
@@ -1357,8 +1358,6 @@ class PQM_Admin
     public static function render_workflow(): void
     {
         $settings     = pqm_get_settings();
-        $download_url = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
-        $import_url   = self::workflow_import_url();
         $settings_url = admin_url('admin.php?page=pqm-settings#tab-ai'); // the model changes it names
         $registry     = pqm_model_registry();
 ?>
@@ -1376,24 +1375,9 @@ class PQM_Admin
             <h2><?php esc_html_e('n8n Instance', 'post-quality-manager'); ?></h2>
             <?php self::render_app_root('pqm-n8n-connection-root'); ?>
 
-            <!-- Workflow file -->
+            <!-- Workflow file: the manual path (n8n provisioning, entry 2; CAP-8) -->
             <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
-            <p class="description"><?php
-                // The Free template has no Rewrite branch, so no WordPress credential.
-                $credentials_intro = __('The review workflow tailored to this site, ready to import into n8n. After importing, connect these two credentials:', 'post-quality-manager');
-                if ( pqm_fs()->is__premium_only() ) {
-                    $credentials_intro = __('The review workflow tailored to this site, ready to import into n8n. After importing, connect these three credentials:', 'post-quality-manager');
-                }
-                echo esc_html($credentials_intro);
-            ?></p>
-            <?php self::render_credentials_list($settings['webhook_token']); ?>
-            <p>
-                <a href="<?php echo esc_url($download_url); ?>" class="button button-primary">
-                    <?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?>
-                </a>
-            </p>
-            <?php self::render_import_url($import_url); ?>
-            <?php self::render_credentials_hint(); ?>
+            <?php self::render_workflow_file($settings); ?>
 
             <!-- Per-agent request preview -->
             <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
@@ -1519,93 +1503,217 @@ class PQM_Admin
     /* ─── Workflow Generator (admin-post download) ───────────────────── */
 
     /**
-     * "Or import from URL" block shown under the workflow download button.
-     * Classes only, no IDs (pqm-admin.js binds the Copy button by class).
+     * The Workflow File section (n8n provisioning, entry 2; CAP-8, story 40):
+     * the manual setup as four steps in the order the work happens — import,
+     * credentials, each flagged node, publish and connect — with a Copy row
+     * for every value typed into n8n and links only to addressable places.
+     * Opens with the guided dialog for a site not set up yet, and why the
+     * reader is on the manual path (pqm_manual_reason()). The setup dialog
+     * carries its own copy of these steps (src/setup/steps.js).
      */
-    private static function render_import_url(string $import_url): void
+    private static function render_workflow_file(array $settings): void
     {
+        $host     = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__)
+        $webhook  = 'Post Quality webhook - ' . $host;
+        $claude   = 'Anthropic - Claude';
+        $download = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
+        $n8n_url  = self::n8n_editor_url((string) $settings['n8n_webhook_url']);
+        $n8n      = $n8n_url !== ''
+            ? '<a href="' . esc_url($n8n_url) . '">' . esc_html__('your n8n', 'post-quality-manager') . '</a>'
+            : esc_html__('n8n', 'post-quality-manager');
+        $reason   = pqm_manual_reason();
+        $name     = __('Credential name', 'post-quality-manager');
+
+        // The Free template has no Rewrite branch: two credentials, two Claude nodes.
+        $claude_type = __('Type: Header Auth. Goes in the two Claude nodes.', 'post-quality-manager');
+        $nodes_hint  = __('n8n does not link credentials to an imported workflow by itself: it marks the nodes "Credentials … are not set", or fills them with the first credential of the type it has (step 1). Double-click each node — the Webhook Trigger and the two Claude nodes — check the credential name in its credential field, pick the right one, then close the node.', 'post-quality-manager');
+        $nodes_pick  = sprintf(
+            /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: credential name "Anthropic - Claude" */
+            esc_html__('Pick %1$s in the Webhook Trigger and %2$s in the two Claude nodes.', 'post-quality-manager'),
+            '<strong>' . esc_html($webhook) . '</strong>',
+            '<strong>' . esc_html($claude) . '</strong>'
+        );
+        if ( pqm_fs()->is__premium_only() ) {
+            $claude_type = __('Type: Header Auth. Goes in the six Claude nodes.', 'post-quality-manager');
+            $nodes_hint  = __('n8n does not link credentials to an imported workflow by itself: it marks the nodes "Credentials … are not set", or fills them with the first credential of the type it has (step 1). Double-click each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — check the credential name in its credential field, pick the right one, then close the node.', 'post-quality-manager');
+            $nodes_pick  = sprintf(
+                /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: credential name "Anthropic - Claude", 3: credential name, e.g. "WordPress - example.com" */
+                esc_html__('Pick %1$s in the Webhook Trigger, %2$s in the six Claude nodes and %3$s in Update WP Post (Rewrite).', 'post-quality-manager'),
+                '<strong>' . esc_html($webhook) . '</strong>',
+                '<strong>' . esc_html($claude) . '</strong>',
+                '<strong>' . esc_html('WordPress - ' . $host) . '</strong>'
+            );
+        }
 ?>
-        <div class="pqm-import-url">
-            <p class="pqm-import-url-intro"><?php esc_html_e('Or import from URL — no file needed:', 'post-quality-manager'); ?></p>
-            <div class="pqm-import-url-row">
-                <input type="text" class="regular-text code pqm-import-url-field"
-                       value="<?php echo esc_attr($import_url); ?>" readonly
-                       aria-label="<?php esc_attr_e('Workflow import URL', 'post-quality-manager'); ?>" />
-                <button type="button" class="button pqm-copy-import-url"><?php esc_html_e('Copy', 'post-quality-manager'); ?></button>
-            </div>
+        <?php if (!pqm_setup_complete()): ?>
+        <p class="description"><?php esc_html_e('New to n8n? Use "Set up the workflow" at the top of this page: it walks you through each step. This section is the reference, and the path for a re-import.', 'post-quality-manager'); ?></p>
+        <?php endif; ?>
+        <?php if (($reason['kind'] ?? '') === 'probe'): ?>
+        <div class="notice notice-info inline pqm-inline-notice"><p><?php
+            printf(
+                /* translators: 1: date of the check, 2: why it did not pass, e.g. "n8n answered 404: the public API is turned off…" */
+                esc_html__('On %1$s, the n8n Instance check did not pass: %2$s Set up the workflow by hand with the steps below.', 'post-quality-manager'),
+                esc_html($reason['at']),
+                esc_html($reason['message'])
+            );
+        ?></p></div>
+        <?php elseif (($reason['kind'] ?? '') === 'choice'): ?>
+        <div class="notice notice-info inline pqm-inline-notice"><p><?php esc_html_e('You chose to set up n8n by hand: follow the steps below.', 'post-quality-manager'); ?></p></div>
+        <?php endif; ?>
+
+        <ol class="pqm-workflow-steps">
+            <li>
+                <h3><?php esc_html_e('Import the workflow', 'post-quality-manager'); ?></h3>
+                <div class="notice notice-warning inline pqm-inline-notice"><p><?php esc_html_e('Before you import: n8n fills every node that needs a credential with the first credential of that type it already has, even one made for another workflow. So check the credential name in each node in step 3.', 'post-quality-manager'); ?></p></div>
+                <p><?php
+                    printf(
+                        /* translators: %s: "your n8n", linked to the n8n instance when its address is known, else "n8n" */
+                        esc_html__('In %s, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import from URL" and paste this link:', 'post-quality-manager'),
+                        $n8n // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+                    );
+                ?></p>
+                <div class="pqm-import-url">
+                    <?php self::render_copy_value(__('Workflow import URL', 'post-quality-manager'), self::workflow_import_url()); ?>
+                    <p class="description"><?php esc_html_e('It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.', 'post-quality-manager'); ?></p>
+                </div>
+                <p><?php esc_html_e('Import from URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import from File" in the same menu.', 'post-quality-manager'); ?></p>
+                <p><a href="<?php echo esc_url($download); ?>" class="button"><?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?></a></p>
+            </li>
+            <li>
+                <h3><?php esc_html_e('Create the credentials', 'post-quality-manager'); ?></h3>
+                <p><?php esc_html_e('n8n keeps secrets in credentials. To add one, choose "Create" in the side menu, then "Credential", search for the type and fill in the fields below. n8n names a new credential after its type: rename each one to the credential name shown, the name that tells the two Header Auth credentials apart in step 3.', 'post-quality-manager'); ?></p>
+                <div class="pqm-workflow-credential">
+                    <h4><?php echo esc_html($webhook); ?></h4>
+                    <?php self::render_copy_value($name, $webhook, $webhook); ?>
+                    <p><?php esc_html_e('Type: Header Auth. Goes in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'); ?></p>
+                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), 'X-PQM-Token', $webhook); ?>
+                    <?php self::render_copy_value(__('Value', 'post-quality-manager'), (string) $settings['webhook_token'], $webhook); ?>
+                </div>
+                <div class="pqm-workflow-credential">
+                    <h4><?php echo esc_html($claude); ?></h4>
+                    <?php self::render_copy_value($name, $claude, $claude); ?>
+                    <p><?php echo esc_html($claude_type); ?></p>
+                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), 'x-api-key', $claude); ?>
+                    <p><?php
+                        printf(
+                            /* translators: %s: link to the API keys page of the Anthropic Console */
+                            esc_html__('Value: your Anthropic API key. Create one on the %s.', 'post-quality-manager'),
+                            '<a href="' . esc_url('https://platform.claude.com/settings/keys') . '">' . esc_html__('API keys page of the Anthropic Console', 'post-quality-manager') . '</a>'
+                        );
+                    ?></p>
+                </div>
+                <?php
+                if ( pqm_fs()->is__premium_only() ) {
+                    self::render_wordpress_credential__premium_only($host, $name);
+                }
+                ?>
+            </li>
+            <li>
+                <h3><?php esc_html_e('Check the credential in each node', 'post-quality-manager'); ?></h3>
+                <p><?php echo esc_html($nodes_hint); ?></p>
+                <p><?php echo $nodes_pick; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?></p>
+            </li>
+            <li>
+                <h3><?php esc_html_e('Publish and connect', 'post-quality-manager'); ?></h3>
+                <p><?php esc_html_e('Save the workflow, then click "Publish" in the header above the canvas (older n8n versions: switch the "Active" toggle on).', 'post-quality-manager'); ?></p>
+                <p><?php esc_html_e('Re-importing over a workflow of version 6 or later? It uses this site\'s webhook path too, so n8n publishes the new one only once the old one is unpublished: open the old one, choose "Unpublish" from the arrow beside "Publish" (older versions: switch its "Active" toggle off), then publish the new one.', 'post-quality-manager'); ?></p>
+                <p><?php
+                    printf(
+                        /* translators: %s: the end of the production URL, e.g. "/webhook/pqm-execute-example-com" */
+                        esc_html__('Double-click the Webhook Trigger, choose "Production URL" and copy the address: it ends in %s.', 'post-quality-manager'),
+                        '<code>' . esc_html('/webhook/' . pqm_webhook_path()) . '</code>'
+                    );
+                ?></p>
+                <p class="description"><?php esc_html_e('Not the Test URL: an address with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.', 'post-quality-manager'); ?></p>
+                <p><?php
+                    printf(
+                        /* translators: %s: link to the Connection tab of the Settings page */
+                        esc_html__('Paste it as the n8n Webhook URL on %s, save, then come back and use "Send test ping" below.', 'post-quality-manager'),
+                        '<a href="' . esc_url(admin_url('admin.php?page=pqm-settings#tab-connection')) . '">' . esc_html__('the Connection tab of Settings', 'post-quality-manager') . '</a>'
+                    );
+                ?></p>
+            </li>
+        </ol>
+<?php
+    }
+
+    /**
+     * The WordPress credential's block in step 2 (Pro: only Rewrite needs
+     * it): the current user's login and where an Application Password of
+     * theirs is created, their own profile page.
+     */
+    private static function render_wordpress_credential__premium_only(string $host, string $name): void
+    {
+        $credential = 'WordPress - ' . $host;
+        $user       = wp_get_current_user();
+?>
+                <div class="pqm-workflow-credential">
+                    <h4><?php echo esc_html($credential); ?></h4>
+                    <?php self::render_copy_value($name, $credential, $credential); ?>
+                    <p><?php esc_html_e('Type: Basic Auth. Goes in Update WP Post (Rewrite).', 'post-quality-manager'); ?></p>
+                    <?php self::render_copy_value(__('User', 'post-quality-manager'), (string) $user->user_login, $credential); ?>
+                    <?php if (wp_is_application_passwords_available_for_user($user)): // core prints the profile section only then ?>
+                    <p><?php
+                        printf(
+                            /* translators: %s: link to the Application Passwords section of the user's profile page */
+                            esc_html__('Password: an Application Password for this user, created in %s. n8n edits posts with it when you run Rewrite, so the user must be allowed to edit posts.', 'post-quality-manager'),
+                            '<a href="' . esc_url(admin_url('profile.php#application-passwords-section')) . '">' . esc_html__('Application Passwords on your profile page', 'post-quality-manager') . '</a>'
+                        );
+                    ?></p>
+                    <?php else: ?>
+                    <p><?php esc_html_e('Password: Application Passwords are turned off on this site, so none can be created for this user. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Only Rewrite needs this credential.', 'post-quality-manager'); ?></p>
+                    <?php endif; ?>
+                </div>
+<?php
+    }
+
+    /**
+     * One value to enter in n8n: a visible label, the value read-only, a
+     * Copy button and its aria-live feedback. Classes only, no IDs
+     * (pqm-admin.js binds every .pqm-copy-row by class). Rows inside a
+     * credential block pass `$credential`: the field and button are then
+     * named "<credential>: <label>" for a screen reader, so rows that share
+     * a visible label ("Name", "Value") differ.
+     */
+    private static function render_copy_value(string $label, string $value, string $credential = ''): void
+    {
+        $a11y_label = $credential === ''
+            ? $label
+            /* translators: 1: credential name, e.g. "Anthropic - Claude", 2: the field, e.g. "Credential name" or "Value" */
+            : sprintf(__('%1$s: %2$s', 'post-quality-manager'), $credential, $label);
+?>
+        <div class="pqm-copy-row">
+            <span class="pqm-copy-label"><?php echo esc_html($label); ?></span>
+            <span class="pqm-copy-controls">
+                <input type="text" class="regular-text code pqm-copy-field" value="<?php echo esc_attr($value); ?>" readonly
+                       aria-label="<?php echo esc_attr($a11y_label); ?>" />
+                <button type="button" class="button pqm-copy-button" aria-label="<?php
+                    /* translators: %s: what the button copies, e.g. "Anthropic - Claude: Credential name" */
+                    echo esc_attr(sprintf(__('Copy %s', 'post-quality-manager'), $a11y_label));
+                ?>"><?php esc_html_e('Copy', 'post-quality-manager'); ?></button>
+            </span>
             <p class="pqm-copy-feedback" aria-live="polite"></p>
-            <p class="description"><?php esc_html_e('In n8n, open the workflow menu, choose "Import from URL…" and paste this link. It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.', 'post-quality-manager'); ?></p>
         </div>
 <?php
     }
 
     /**
-     * The three credentials the imported workflow needs, the webhook token
-     * shown inline for the Header Auth one, each under the name the
-     * template expects (so a renamed credential matches). Shown in the Workflow File
-     * section — a v3 site re-imports from there. The setup dialog carries
-     * its own, step-by-step copy of these (src/setup/steps.js).
+     * Where the owner opens n8n (decision D3): the stored n8n Instance
+     * address, else the saved webhook URL's origin, else '' (no link).
      */
-    private static function render_credentials_list(string $token): void
+    private static function n8n_editor_url(string $webhook_url): string
     {
-?>
-        <?php $host = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__) ?>
-        <ul class="pqm-credentials-list">
-            <li><?php
-                printf(
-                    /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: the header name X-PQM-Token, 3: this site's webhook token */
-                    esc_html__('%1$s — a Header Auth credential: set its Name field to %2$s and its Value to %3$s. Pick it in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'),
-                    '<strong>' . esc_html('Post Quality webhook - ' . $host) . '</strong>',
-                    '<code>X-PQM-Token</code>',
-                    '<code>' . esc_html($token) . '</code>'
-                );
-            ?></li>
-            <?php
-            /* translators: 1: credential name "Anthropic - Claude", 2: the header name x-api-key */
-            $claude_line = __('%1$s — a second Header Auth credential: Name %2$s, Value your Anthropic API key. Pick it in the two Claude nodes.', 'post-quality-manager');
-            if ( pqm_fs()->is__premium_only() ) {
-                echo '<li>';
-                printf(
-                    /* translators: %s: credential name, e.g. "WordPress - example.com" */
-                    esc_html__('%s — a Basic Auth credential with an Application Password for a user who can edit posts. Pick it in Update WP Post (Rewrite).', 'post-quality-manager'),
-                    '<strong>' . esc_html('WordPress - ' . $host) . '</strong>'
-                );
-                echo '</li>';
-                /* translators: 1: credential name "Anthropic - Claude", 2: the header name x-api-key */
-                $claude_line = __('%1$s — a second Header Auth credential: Name %2$s, Value your Anthropic API key. Pick it in the six Claude nodes.', 'post-quality-manager');
-            }
-            ?>
-            <li><?php
-                printf(
-                    esc_html($claude_line),
-                    '<strong>Anthropic - Claude</strong>',
-                    '<code>x-api-key</code>'
-                );
-            ?></li>
-        </ul>
-<?php
-    }
+        $base = PQM_N8n::connection()['base_url'];
+        if ($base !== '') {
+            return $base;
+        }
 
-    /**
-     * After an import, n8n flags every credentialed node as "Credentials …
-     * are not set": it links credentials by an instance-specific ID the
-     * template cannot carry, and only fills a node in once it is opened.
-     * Shown in the Workflow File section.
-     */
-    private static function render_credentials_hint(): void
-    {
-?>
-        <div class="notice notice-info inline pqm-inline-notice">
-            <p><strong><?php esc_html_e('n8n says "Credentials … are not set" after the import?', 'post-quality-manager'); ?></strong>
-            <?php
-            $nodes_hint = __('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the Webhook Trigger and the two Claude nodes — and n8n picks your saved credential. You have two Header Auth credentials, so choose in each node: Post Quality webhook (X-PQM-Token) in the Webhook Trigger, Anthropic - Claude in the two Claude nodes. If you have none yet, create it from the credential field in the node. Then save and activate the workflow.', 'post-quality-manager');
-            if ( pqm_fs()->is__premium_only() ) {
-                $nodes_hint = __('n8n does not link saved credentials to an imported workflow by itself. Open each flagged node once and close it again — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and n8n picks your saved credential. You have two Header Auth credentials, so choose in each node: Post Quality webhook (X-PQM-Token) in the Webhook Trigger, Anthropic - Claude in the six Claude nodes. If you have none yet, create it from the credential field in the node. Then save and activate the workflow.', 'post-quality-manager');
-            }
-            echo esc_html($nodes_hint);
-            ?></p>
-        </div>
-<?php
+        $parts = wp_parse_url($webhook_url) ?: [];
+        if (!in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host'])) {
+            return '';
+        }
+
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int) $parts['port'] : '');
     }
 
     /**

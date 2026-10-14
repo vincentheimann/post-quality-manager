@@ -486,7 +486,9 @@ function pqm_webhook_url_warning(string $url): string
 /**
  * Option holding the setup dialog's progress, once per site (setup is a
  * site task one administrator may finish for another):
- * `['steps' => [step => bool], 'complete' => bool]`, autoload off, deleted
+ * `['steps' => [step => bool], 'complete' => bool]`, plus `'manual' => true`
+ * once the owner chose the manual path (n8n provisioning entry 6.6 writes
+ * it, pqm_manual_reason() reads it), autoload off, deleted
  * on uninstall (PQM_Activator::uninstall() names it literally: the harnesses
  * load that class without this file).
  */
@@ -506,4 +508,34 @@ function pqm_setup_complete(): bool
     }
 
     return !empty(pqm_get_settings()['n8n_webhook_url']) && PQM_DB::has_result();
+}
+
+/**
+ * Why the owner sets up n8n by hand (n8n provisioning, entry 2; CAP-8): the
+ * last failed n8n Instance check that offered the manual path
+ * (`['kind' => 'probe', 'message' => cause sentence, 'at' => date in the
+ * site's date format]`), else the owner's own choice
+ * (`['kind' => 'choice']`, `manual` in the setup progress), else null. A
+ * passing check hides both. The one reader for the Workflow File section
+ * and the wizard (entry 6.6).
+ */
+function pqm_manual_reason(): ?array
+{
+    $connection = PQM_N8n::connection();
+    if ($connection['api_key'] !== '' && !empty($connection['probe']['ok'])) {
+        return null;
+    }
+
+    $failed = $connection['failed'];
+    if (is_array($failed) && !empty($failed['message']) && !empty($failed['at'])) {
+        return [
+            'kind'    => 'probe',
+            'message' => (string) $failed['message'],
+            'at'      => wp_date(get_option('date_format', 'F j, Y'), (int) $failed['at']),
+        ];
+    }
+
+    $progress = get_option(PQM_SETUP_OPTION, []);
+
+    return !empty($progress['manual']) ? ['kind' => 'choice'] : null;
 }

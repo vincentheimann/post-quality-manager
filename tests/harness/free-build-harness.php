@@ -341,8 +341,22 @@ $GLOBALS['tw']['options']['pqm_n8n_api'] = ['base_url' => 'https://n8n.example',
 ob_start();
 PQM_Admin::render_workflow();
 $workflow_html = ob_get_clean();
-check('n8n Workflow page asks for two credentials', str_contains($workflow_html, 'connect these two credentials')
-    && substr_count($workflow_html, '<li>') === 2);
+preg_match('/Workflow File<\/h2>.*?<h2/s', $workflow_html, $m);
+$workflow_file = $m[0] ?? '';
+preg_match_all('/<span class="pqm-copy-label">([^<]+)<\/span>\s*<span class="pqm-copy-controls">\s*<input type="text" class="regular-text code pqm-copy-field" value="([^"]*)"/', $workflow_file, $rows, PREG_SET_ORDER);
+check('Workflow File (entry 2): the four steps, two credentials, the two Claude nodes, no WordPress credential',
+    substr_count($workflow_file, '<li>') === 4 && substr_count($workflow_file, '<div class="pqm-workflow-credential">') === 2
+    && str_contains($workflow_file, 'Type: Header Auth. Goes in the two Claude nodes.')
+    && str_contains($workflow_file, 'Double-click each node — the Webhook Trigger and the two Claude nodes — check the credential name')
+    && str_contains($workflow_file, 'Pick <strong>Post Quality webhook - example.com</strong> in the Webhook Trigger and <strong>Anthropic - Claude</strong> in the two Claude nodes.')
+    && !str_contains($workflow_file, 'WordPress - ') && !str_contains($workflow_file, 'profile.php') && !str_contains($workflow_file, 'six Claude'));
+check('... Copy rows: import URL, then the webhook and Anthropic credentials\' values',
+    array_map(static fn($r) => $r[1], $rows) === ['Workflow import URL', 'Credential name', 'Name', 'Value', 'Credential name', 'Name']
+    && $rows[1][2] === 'Post Quality webhook - example.com' && $rows[4][2] === 'Anthropic - Claude' && $rows[5][2] === 'x-api-key');
+check('... the first-credential warning and the re-import note, as on Pro; the n8n link is the stored instance',
+    str_contains($workflow_file, 'Before you import: n8n fills every node that needs a credential with the first credential of that type')
+    && str_contains($workflow_file, 'n8n publishes the new one only once the old one is unpublished')
+    && str_contains($workflow_file, 'In <a href="https://n8n.example">your n8n</a>, open'));
 check('n8n Workflow page carries the n8n Instance section, as on Pro; a stored n8n API key is not in its source',
     str_contains($workflow_html, '<h2>n8n Instance</h2>')
     && (str_contains($workflow_html, 'id="pqm-n8n-connection-root"') || !is_file($free . '/admin/build/index.asset.php'))

@@ -24,7 +24,7 @@ Verify: a findings document lists every plugin↔workflow contract point with it
 ## References
 
 - generator — post-quality-manager/post-quality-manager.php (`pqm_workflow_json()`, `pqm_n8n_payload()`)
-- delivery — post-quality-manager/admin/class-pqm-admin.php (`download_workflow()`, `render_import_url()`), post-quality-manager/includes/class-pqm-rest-api.php (`/workflow` route, `check_workflow_token()`)
+- delivery — post-quality-manager/admin/class-pqm-admin.php (`download_workflow()`, `render_workflow_file()`, the Workflow File section since provisioning entry 2), post-quality-manager/includes/class-pqm-rest-api.php (`/workflow` route, `check_workflow_token()`)
 - template — post-quality-manager/templates/n8n-workflow.json
 - diagram — n8n/workflow-diagram.md
 - adjacent backlog — story 2 (full round-trip connection test), story 4 (chat-provider webhook contract doc), story 14 (command whitelist and tiers)

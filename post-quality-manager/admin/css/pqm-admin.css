@@ -70,14 +70,15 @@
 .pqm-test-result.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
 td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
 
-/* ─── Workflow import-from-URL block ──────────────────────── */
-.pqm-import-url { margin-top: 12px; }
-.pqm-import-url-intro { font-size: 13px; margin: 0 0 4px; }
-.pqm-import-url-row { display: flex; align-items: center; gap: 6px; max-width: 480px; }
-.pqm-import-url-field { flex: 1; }
-.pqm-copy-feedback:empty { display: none; }
-
-/* ─── Workflow File: the three credentials ────────────────── */
-.pqm-credentials-list {
-    list-style: disc; margin: 8px 0 8px 20px; font-size: 13px; line-height: 1.6;
-}
+/* ─── Workflow File: the four steps and their Copy rows ───── */
+.pqm-workflow-steps { margin: 12px 0 0 20px; max-width: 760px; }
+.pqm-workflow-steps > li { margin-bottom: 20px; }
+.pqm-workflow-steps h3 { margin: 0 0 8px; font-size: 14px; }
+.pqm-workflow-credential { margin: 12px 0; padding-left: 12px; border-left: 3px solid #dcdcde; }
+.pqm-workflow-credential h4 { margin: 0 0 4px; }
+.pqm-copy-row { margin: 8px 0; }
+.pqm-copy-label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 4px; }
+.pqm-copy-controls { display: flex; align-items: center; gap: 6px; max-width: 480px; }
+.pqm-copy-field { flex: 1; }
+/* Kept rendered when empty: a hidden live region can drop its first announcement. */
+.pqm-copy-feedback:empty { margin: 0; }
