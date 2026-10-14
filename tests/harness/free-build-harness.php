@@ -76,8 +76,8 @@ $ours = array_filter($tree, static fn($rel) => !str_starts_with($rel, 'vendor/')
 check('the plugin tree is there, SDK included', isset($tree['post-quality-manager.php'], $tree['vendor/freemius/start.php']));
 check('no __premium_only left in any file outside vendor/',
     !array_filter($ours, static fn($path) => str_contains((string) file_get_contents($path), '__premium_only')));
-check('readme.txt is in the Free build, with freemius added to its Contributors (as Freemius writes it)',
-    isset($tree['readme.txt']) && preg_match('/^Contributors: postquality, freemius$/m', (string) file_get_contents($tree['readme.txt'])));
+check('readme.txt is in the Free build, as the source has it (Freemius\'s Contributors edit is not mimicked)',
+    isset($tree['readme.txt']) && file_get_contents($tree['readme.txt']) === file_get_contents($root . '/post-quality-manager/readme.txt'));
 check("the SDK's README.md and composer.json are left out (as Freemius does)",
     !isset($tree['vendor/freemius/README.md'], $tree['vendor/freemius/composer.json']) && isset($tree['vendor/freemius/LICENSE.txt']));
 check('the @fs_premium_only files are absent (cron class, Pro template)',

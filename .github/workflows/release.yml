@@ -236,12 +236,14 @@ jobs:
           php bin/build-free.php "$RUNNER_TEMP/local-free"
           L="$RUNNER_TEMP/local-free/post-quality-manager"
           # Freemius re-prints every PHP file (story 54's diff, 2026-10-13), so
-          # PHP is compared as token streams; everything else byte for byte.
+          # PHP is compared as token streams; everything else byte for byte,
+          # except the readme's Contributors line: Freemius added `freemius`
+          # to it on a dashboard upload (3.5.1) and not on an API one (3.7.0).
           if ! php bin/compare-php-trees.php "$F" "$L"; then
             echo "::error::Freemius's Free build differs from bin/build-free.php in PHP (above): fix the stripper or the markers"
             FAIL=1
           fi
-          if ! diff -rq -x '*.php' "$F" "$L" || ! diff -rq "$F/vendor" "$L/vendor"; then
+          if ! diff -ru -x '*.php' -I '^Contributors:' "$F" "$L" || ! diff -rq "$F/vendor" "$L/vendor"; then
             echo "::error::Freemius's Free build differs from bin/build-free.php outside PHP (above)"
             FAIL=1
           fi
