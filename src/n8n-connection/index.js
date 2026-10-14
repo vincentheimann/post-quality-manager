@@ -1,13 +1,16 @@
 /**
  * n8n Instance section (n8n provisioning, entry 1) — an island on the PHP
- * n8n Workflow page, reused unchanged by the setup wizard (entry 6). The
- * Administrator enters the instance's address and an n8n API key; the
+ * n8n Workflow page, reused by the setup wizard (entry 6), which passes
+ * `onChange`. The Administrator enters the instance's address and an n8n API key; the
  * server probes the instance and stores both only when the probe passes
  * (POST /n8n/connection). The key is write-only: the server never sends it
  * back, so the field always starts empty and the page shows "set" or
  * "not set". The state comes from GET /n8n/connection, which calls nothing
  * on n8n: a reload shows the last passing probe. Forget (DELETE) removes
- * the key and keeps the address.
+ * the key and keeps the address. The setup wizard (entry 6) passes
+ * `onChange`, called with the stored state after every call that reads or
+ * changes it (a failed probe changes nothing, so it is not called then);
+ * the page mount passes none.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, TextControl } from '@wordpress/components';
@@ -34,7 +37,12 @@ function errorMessage( err ) {
 	);
 }
 
-export default function N8nConnection() {
+/**
+ * @param {Object}    props
+ * @param {Function=} props.onChange `( { base_url, key_set, probe } )` after a call that read or stored the state.
+ * @return {Element|null} The section.
+ */
+export default function N8nConnection( { onChange } ) {
 	const [ state, setState ] = useState( null ); // { base_url, key_set, probe }
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ url, setUrl ] = useState( '' );
@@ -42,14 +50,19 @@ export default function N8nConnection() {
 	const [ busy, setBusy ] = useState( false );
 	const [ failure, setFailure ] = useState( '' ); // the last call's cause
 
+	// One read on mount; a new `onChange` prop never re-reads.
 	useEffect( () => {
 		apiFetch( { path: PATH } ).then(
 			( data ) => {
 				setState( data );
 				setUrl( data.base_url );
+				if ( onChange ) {
+					onChange( data );
+				}
 			},
 			( err ) => setLoadError( errorMessage( err ) )
 		);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
 	if ( loadError ) {
@@ -82,6 +95,9 @@ export default function N8nConnection() {
 				setState( data );
 				setUrl( data.base_url );
 				setKey( '' );
+				if ( onChange ) {
+					onChange( data );
+				}
 			},
 			( err ) => {
 				setBusy( false );

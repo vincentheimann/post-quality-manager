@@ -12,7 +12,8 @@
  * and the provider-key leak scan. Entry 5 rows: the rollback of a failed
  * run, one per line of its plan's matrix (Pro build), checked on an
  * instance model: what the create calls answered minus what a DELETE
- * removed.
+ * removed. Entry 6: a passing provisioning answers the page's status block;
+ * the ping's record (`steps.connect`) keeps the dialog's step open on a failure.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -96,6 +97,10 @@ class WP_Application_Passwords {
 }
 /* GET /setup, read once for the acceptance row. */
 function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
+/* A passing ping answers the page's refreshed status block (entry 6). */
+define('MINUTE_IN_SECONDS', 60);
+function esc_html($s) { return (string) $s; }
+function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
 function restore_previous_locale() {}
@@ -504,11 +509,13 @@ check('webhook URL saved: connected origin + /webhook/ + the path; the token kep
 check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
     && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === TOKEN);
 check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === PQM_WORKFLOW_VERSION);
-check('the connect step ticked, as the connect route does (autoload off)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
+check('the ping recorded as the connect route does (autoload off): Set up the workflow reads done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
     && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
-check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready']
+check('reply: {provisioned, ping_ok, workflow_id, message, status_html, rewrite_ready}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'status_html', 'rewrite_ready']
     && $r['provisioned'] === true && $r['ping_ok'] === true && $r['workflow_id'] === 'wf1' && $r['rewrite_ready'] === true
     && str_starts_with($r['message'], 'Ping OK'));
+check('... status_html = the page\'s refreshed status block (entry 6)', $r['status_html'] === PQM_Admin::render_workflow_status()
+    && str_contains($r['status_html'], '<div class="pqm-workflow-status">'));
 $hits = array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)));
 check('the provider key travels in the models request and the Anthropic credential body only', $hits === [0, 2]
     && !str_contains(json_encode($GLOBALS['tw']['calls'][2][1]['headers']), PROVIDER_KEY) && !str_contains(json_encode($GLOBALS['tw']['pings']), PROVIDER_KEY));
@@ -752,7 +759,8 @@ check('200 {provisioned, ping_ok false, message}: points to pasting the Webhook 
     && str_contains($r['message'], 'n8n responded with 404') && str_contains($r['message'], 'paste it as the n8n Webhook URL'));
 check('... everything kept: map stored, URL saved, no version recorded', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']));
-check('... the connect step marked open (setup incomplete)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false);
+check('... the failed ping recorded, so Set up the workflow stays open (setup incomplete); no status_html', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false
+    && !isset($r['status_html']) && !pqm_setup_complete());
 check('... no rollback: nothing deactivated, deleted or revoked, no leftovers recorded', calls() === CREATE_ALL && $GLOBALS['tw']['app_revoked'] === []
     && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true));
 

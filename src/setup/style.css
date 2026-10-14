@@ -50,22 +50,6 @@
 	margin-top: 0;
 }
 
-.pqm-setup-list {
-	list-style: disc;
-	margin: 8px 0 8px 20px;
-}
-
-.pqm-setup-credential {
-	margin: 16px 0;
-	padding: 12px 16px;
-	border: 1px solid #dcdcde;
-	border-radius: 2px;
-}
-
-.pqm-setup-credential h3 {
-	margin: 0 0 8px;
-}
-
 .pqm-copy-value {
 	display: flex;
 	flex-wrap: wrap;
@@ -114,6 +98,16 @@
 	display: flex;
 	align-items: center;
 	gap: 4px;
+}
+
+/* Set up by hand (n8n provisioning, entry 6): the key path, collapsed. */
+.pqm-setup-by-key {
+	margin: 16px 0;
+}
+
+.pqm-setup-by-key summary {
+	cursor: pointer;
+	font-weight: 600;
 }
 
 /* Configuration steps (story 55): the selected preset's text, the Save row. */

@@ -6,13 +6,15 @@ These changes reach a site that ran an earlier version of Post Quality Manager w
 
 **Role rights stay as you set them.** Each right goes to its default roles once; what you change afterwards survives deactivation, reactivation and updates. Set them under Settings → Roles (Pro) or with a role editor plugin. The "View as" toolbar switch of the 3.0 and 3.1 test builds is gone; the Roles tab replaces it.
 
-**Re-import your n8n workflow.** Send a test ping from the n8n Workflow page; it says "Workflow update available" when yours is older. Until you re-import, an old workflow's trigger does not check that a call comes from your site, and a workflow imported before July 2026 still needs its WordPress user to hold "View reviews". The new import uses the Post Quality webhook credential (Header Auth with your webhook token), as the setup guide shows.
+**Re-import your n8n workflow.** Send a test ping from the n8n Workflow page; it says "Workflow update available" when yours is older. Until you re-import, an old workflow's trigger does not check that a call comes from your site, and a workflow imported before July 2026 still needs its WordPress user to hold "View reviews". The new import uses the Post Quality webhook credential (Header Auth with your webhook token), as the Workflow File section of the n8n Workflow page shows.
 
 **A re-imported workflow has a new production URL.** Each site's workflow now listens on its own webhook path, so several sites can share one n8n instance. When the n8n Workflow page says "Workflow update available", re-import the workflow, then copy the production URL from its Webhook Trigger and paste it as the n8n Webhook URL in Settings. Until you do, the plugin keeps calling your current workflow.
 
 **Pro needs a license bought at postquality.com.** A key typed under Settings → License during the test builds no longer unlocks Pro, and the License Key field is gone. Buy Pro at https://postquality.com/pricing, install the Pro version you download after checkout and activate your key on the license screen it shows, or later with the "Activate License" link under the plugin on the Plugins screen (an Account page joins the plugin's menu once you opt in or activate a license). On activation, Post Quality asks whether to share your name, email address and site details with Freemius, the licensing service; skip it and the plugin works the same.
 
 **The setup guide now continues past the first review.** Reopen it from the n8n Workflow page ("Setup guide"): after the first review it offers your Blog Profile, your Editorial Standards and scheduled reviews (Pro), one step each, every one skippable. A site set up earlier sees these three steps open; nothing changes until you save one, and skipping leaves your settings as they are.
+
+**The setup guide now sets n8n up for you.** It connects your n8n with an n8n API key, asks once for your Anthropic API key and creates the workflow and its credentials in n8n itself; the key is passed on, never stored. The step-by-step manual setup now lives in the Workflow File section of the n8n Workflow page, where "Set up by hand instead" in the guide leads. A site already connected sees its n8n steps done.
 
 **The menu shows the plugin's own icon.** The plugin's entry in the admin menu carries the Q-and-check mark instead of the generic chart icon; nothing else changes.
 

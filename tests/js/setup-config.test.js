@@ -88,17 +88,19 @@ function completedState( values = {} ) {
 		complete: true,
 		connected: true,
 		steps: {
-			instance: false,
-			import: false,
-			credentials: false,
-			link: false,
-			publish: false,
-			connect: false,
+			n8n: true,
+			provision: true,
+			manual: true,
 			review: true,
 			profile: false,
 			standards: false,
 			schedule: false,
 		},
+		n8n: { base_url: '', key_set: false, probe: null },
+		manual: false,
+		manual_reason: null,
+		provisioned: false,
+		leftovers: false,
 		blog_profile: 'custom',
 		website_context: '',
 		brand_voice_preset: 'custom',
@@ -184,7 +186,7 @@ afterEach( () => {
 describe( 'Setup dialog configuration steps', () => {
 	test( 'a completed site resumes at the open Blog Profile step', async () => {
 		await openDialog( completedState() );
-		expect( heading() ).toBe( 'Step 8 of 10: Choose your Blog Profile' );
+		expect( heading() ).toBe( 'Step 4 of 6: Choose your Blog Profile' );
 	} );
 
 	test( 'Skip ticks the step, writes no setting and moves on', async () => {
@@ -199,9 +201,7 @@ describe( 'Setup dialog configuration steps', () => {
 				data: { step: 'profile', done: true },
 			},
 		] );
-		expect( heading() ).toBe(
-			'Step 9 of 10: Set your Editorial Standards'
-		);
+		expect( heading() ).toBe( 'Step 5 of 6: Set your Editorial Standards' );
 	} );
 
 	test( 'a stored preset is shown selected, its text read-only', async () => {
@@ -249,9 +249,7 @@ describe( 'Setup dialog configuration steps', () => {
 				data: { step: 'profile', done: true },
 			},
 		] );
-		expect( heading() ).toBe(
-			'Step 9 of 10: Set your Editorial Standards'
-		);
+		expect( heading() ).toBe( 'Step 5 of 6: Set your Editorial Standards' );
 	} );
 
 	test( 'a free site: the schedule step names Pro and offers no switch', async () => {
@@ -264,14 +262,14 @@ describe( 'Setup dialog configuration steps', () => {
 				},
 			} )
 		);
-		expect( heading() ).toBe( 'Step 10 of 10: Turn on scheduled reviews' );
+		expect( heading() ).toBe( 'Step 6 of 6: Turn on scheduled reviews' );
 		expect(
 			document.querySelector( '.mock-notice-info' ).textContent
 		).toContain( 'available with Pro' );
 		expect( button( 'Turn on scheduled reviews' ) ).toBeUndefined();
 	} );
 
-	test( 'the Free build (story 54): nine steps, two credentials, no schedule step', async () => {
+	test( 'the Free build (story 54): the same n8n steps, no schedule step', async () => {
 		await openDialog(
 			completedState( {
 				build: 'free',
@@ -283,9 +281,10 @@ describe( 'Setup dialog configuration steps', () => {
 				},
 			} )
 		);
-		expect( heading() ).toBe( 'Step 9 of 9: Set your Editorial Standards' );
+		expect( heading() ).toBe( 'Step 5 of 5: Set your Editorial Standards' );
 		const list = document.querySelector( '.pqm-setup-steps' ).textContent;
-		expect( list ).toContain( 'Create the two credentials' );
+		expect( list ).toContain( 'Connect your n8n' );
+		expect( list ).toContain( 'Set up the workflow' );
 		expect( list ).not.toContain( 'scheduled reviews' );
 	} );
 
@@ -303,7 +302,7 @@ describe( 'Setup dialog configuration steps', () => {
 		expect( posts().map( ( options ) => options.path ) ).toEqual( [
 			SETTINGS,
 		] );
-		expect( heading() ).toBe( 'Step 8 of 10: Choose your Blog Profile' );
+		expect( heading() ).toBe( 'Step 4 of 6: Choose your Blog Profile' );
 		expect( button( 'Skip' ) ).toBeDefined();
 	} );
 
@@ -321,7 +320,7 @@ describe( 'Setup dialog configuration steps', () => {
 				},
 			} )
 		);
-		expect( heading() ).toBe( 'Step 10 of 10: Turn on scheduled reviews' );
+		expect( heading() ).toBe( 'Step 6 of 6: Turn on scheduled reviews' );
 		expect(
 			document.querySelector( '.mock-notice-info' ).textContent
 		).toContain( 'your role does not include' );

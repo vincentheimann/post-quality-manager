@@ -1376,7 +1376,7 @@ class PQM_Admin
             <?php self::render_app_root('pqm-n8n-connection-root'); ?>
 
             <!-- Workflow file: the manual path (n8n provisioning, entry 2; CAP-8) -->
-            <h2><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
+            <h2 id="pqm-workflow-file" tabindex="-1"><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
             <?php self::render_workflow_file($settings); ?>
 
             <!-- Per-agent request preview -->
@@ -1508,8 +1508,9 @@ class PQM_Admin
      * credentials, each flagged node, publish and connect — with a Copy row
      * for every value typed into n8n and links only to addressable places.
      * Opens with the guided dialog for a site not set up yet, and why the
-     * reader is on the manual path (pqm_manual_reason()). The setup dialog
-     * carries its own copy of these steps (src/setup/steps.js).
+     * reader is on the manual path (pqm_manual_reason()). The one place for
+     * these steps: the setup dialog's "Set up by hand" step links here
+     * (`#pqm-workflow-file`, n8n provisioning entry 6).
      */
     private static function render_workflow_file(array $settings): void
     {
@@ -1546,7 +1547,7 @@ class PQM_Admin
         }
 ?>
         <?php if (!pqm_setup_complete()): ?>
-        <p class="description"><?php esc_html_e('New to n8n? Use "Set up the workflow" at the top of this page: it walks you through each step. This section is the reference, and the path for a re-import.', 'post-quality-manager'); ?></p>
+        <p class="description"><?php esc_html_e('These are the steps to set up n8n by hand, and to re-import the workflow. To have n8n set up for you with an n8n API key, use "Set up the workflow" at the top of this page.', 'post-quality-manager'); ?></p>
         <?php endif; ?>
         <?php if (($reason['kind'] ?? '') === 'probe'): ?>
         <div class="notice notice-info inline pqm-inline-notice"><p><?php

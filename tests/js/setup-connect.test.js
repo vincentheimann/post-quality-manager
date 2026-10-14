@@ -1,6 +1,7 @@
 /**
  * Workflow version handshake (v5) in the setup dialog: the connect step
- * (STEPS' `connect` Body, src/setup/steps.js) run in jsdom. A ping that
+ * (the `Connect` body of src/setup/steps.js, which the Set up the
+ * workflow and Set up by hand steps reuse) run in jsdom. A ping that
  * gets through swaps the page's status block, which sits outside the
  * island (AC2); an older workflow is connected but warned (D2). The
  * api-fetch and components packages are WordPress-provided externals, not
@@ -11,7 +12,7 @@ import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
 
-import { STEPS } from '../../src/setup/steps';
+import { Connect } from '../../src/setup/steps';
 
 jest.mock( '@wordpress/api-fetch', () => jest.fn(), { virtual: true } );
 jest.mock(
@@ -39,7 +40,6 @@ const OLD_BLOCK =
 const NEW_BLOCK =
 	'<div class="pqm-workflow-status"><p class="description">Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
 
-const Connect = STEPS.find( ( step ) => step.key === 'connect' ).Body;
 let root;
 
 /**

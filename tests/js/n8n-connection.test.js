@@ -57,15 +57,16 @@ let root;
 /**
  * Mount the section with GET /n8n/connection answering `state`.
  *
- * @param {Object} state GET reply.
+ * @param {Object}    state    GET reply.
+ * @param {Function=} onChange The setup wizard's prop (entry 6).
  */
-async function mount( state ) {
+async function mount( state, onChange ) {
 	document.body.innerHTML = '<div id="pqm-n8n-connection-root"></div>';
 	apiFetch.mockReset();
 	apiFetch.mockResolvedValueOnce( state );
 	root = createRoot( document.getElementById( 'pqm-n8n-connection-root' ) );
 	await act( async () => {
-		root.render( <N8nConnection /> );
+		root.render( <N8nConnection onChange={ onChange } /> );
 	} );
 }
 
@@ -214,5 +215,35 @@ describe( 'n8n Instance section', () => {
 		expect( document.querySelector( '.pqm-n8n-forget' ) ).toBeNull();
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
+	} );
+
+	test( 'onChange (the setup wizard, entry 6) gets the stored state after the read, a passing connect and Forget — never after a failed probe', async () => {
+		const onChange = jest.fn();
+		await mount( NOT_SET, onChange );
+		expect( onChange ).toHaveBeenLastCalledWith( NOT_SET );
+
+		await typeInto( 'n8n address', BASE );
+		await typeInto( 'n8n API key', 'bad-key' );
+		apiFetch.mockResolvedValueOnce( {
+			...NOT_SET,
+			probe: { ok: false, cause: 'key', message: 'Refused.' },
+		} );
+		await submit();
+		expect( onChange ).toHaveBeenCalledTimes( 1 );
+
+		await typeInto( 'n8n API key', 'good-key' );
+		apiFetch.mockResolvedValueOnce( CONNECTED );
+		await submit();
+		expect( onChange ).toHaveBeenCalledTimes( 2 );
+		expect( onChange ).toHaveBeenLastCalledWith( CONNECTED );
+
+		// eslint-disable-next-line camelcase -- REST field names.
+		const forgotten = { base_url: BASE, key_set: false, probe: null };
+		apiFetch.mockResolvedValueOnce( forgotten );
+		await act( async () => {
+			document.querySelector( '.pqm-n8n-forget' ).click();
+		} );
+		expect( onChange ).toHaveBeenCalledTimes( 3 );
+		expect( onChange ).toHaveBeenLastCalledWith( forgotten );
 	} );
 } );

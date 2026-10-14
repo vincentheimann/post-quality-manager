@@ -309,6 +309,12 @@ $GLOBALS['tw']['caps'] = ['pqm_manage_settings', 'pqm_manage_agents'];
 $state = PQM_REST_API::get_setup_callback()->get_data();
 check('setup state has no cron_* key', !preg_grep('/^cron_/', array_keys($state)));
 check("setup state names the build: 'free'", ($state['build'] ?? null) === 'free');
+check('the same n8n steps as Pro (provisioning is free, entry 6): n8n, provision, manual, then review and the configuration steps',
+    array_keys($state['steps'] ?? []) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule']
+    && array_key_exists('n8n', $state) && array_key_exists('manual', $state) && array_key_exists('provisioned', $state) && array_key_exists('leftovers', $state));
+$by_hand = PQM_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
+check('... and "Set up by hand instead" stores the choice there too', $by_hand instanceof WP_REST_Response && $by_hand->get_data()['manual'] === true);
+unset($GLOBALS['tw']['options']['pqm_setup_progress']); // the rows below start from a site without the choice
 $refused = PQM_REST_API::setup_settings_callback(new WP_REST_Request(['cron_enabled' => true]));
 check('the setup guide cannot switch scheduled reviews on (400, unknown setting)', $refused instanceof WP_Error
     && $refused->code === 'pqm_setup_bad_setting' && ($refused->data['status'] ?? null) === 400);

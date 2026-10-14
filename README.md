@@ -43,11 +43,8 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 ## Installation
 
 1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it.
-2. In **Content Quality → n8n Workflow** (the welcome notice links there), click **Set up the workflow**. A guide walks you through seven n8n steps, each with the exact n8n menu items, a Copy button for every value and a Done mark; it remembers where you stopped: get an n8n instance, import your pre-configured workflow (by URL or file), create the three credentials (the guide can create the WordPress Application Password for you), link each credential to its node, publish the workflow and copy its production webhook URL (`/webhook/`, not `/webhook-test/`), paste it into the guide (saved and pinged in place), then run your first review from the guide. Reopen it any time from the same page (**Setup guide**). The credentials, and the nodes they go in:
-   - **Post Quality webhook** — Header Auth: its header **Name** field is `X-PQM-Token`, its **Value** your webhook token. Pick it in the **Webhook Trigger** only; then only your site can start the workflow.
-   - **Anthropic** — a second Header Auth: Name `x-api-key`, Value your Claude API key. Pick it in the six **Claude** nodes.
-   - **WordPress** — Basic Auth with an Application Password for a user who can edit posts. Pick it in **Update WP Post (Rewrite)**.
-   - Upgrading from a workflow imported before template version 4: the plugin already sends the token, but the old trigger does not check it — it stays unauthenticated until you re-import the workflow and add the Header Auth credential.
+2. In **Content Quality → n8n Workflow** (the welcome notice links there), click **Set up the workflow**. The setup guide asks for three values: your n8n address and an n8n API key (create one for this site alone, with an expiration date, under Settings → n8n API in n8n) in **Connect your n8n**, then your Anthropic API key once in **Set up the workflow**. The plugin checks the key with Anthropic and passes it into an n8n credential without storing it, creates the credentials and the workflow in n8n, publishes the workflow, saves its webhook URL and pings it; then you run your first review from the guide. Reopen it any time from the same page (**Setup guide**).
+   - **By hand instead:** for an n8n whose public API is off or out of reach, or if you prefer not to hand over a key, choose **Set up by hand instead**. The **Workflow File** section of the same page holds the step-by-step manual setup (import the workflow, create the credentials, pick them in the nodes, publish it); the guide then takes the production webhook URL (`/webhook/`, not `/webhook-test/`) and runs your first review.
 3. After the first review, the guide offers three more steps, each skippable: your **Blog Profile** (e.g., Technical/IT for a developer blog), your **Editorial Standards** — or Custom to write your own — and scheduled reviews (Pro). Change them any time in Settings: the **AI** tab, under **AI Prompts & Context**, and the **Automation** tab.
 
 ## REST API (`post-quality/v1`)
@@ -59,7 +56,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 | `/insert-block` | POST | `edit_post` on the post + the agent's gate | Insert the latest Takeaways (first) or Sources (last) into the post, in the chosen pattern |
 | `/save-review` | POST | webhook token (`X-PQM-Token`) | Callback where n8n stores review results |
 | `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
-| `/setup` | GET, POST | `pqm_manage_settings` | Setup guide state (progress, values to copy); tick a step or mark the setup complete |
+| `/setup` | GET, POST | `pqm_manage_settings` | Setup guide state (progress, the n8n connection and path); tick a configuration step, mark the setup complete, or store the manual-path choice (`{manual: true}`) |
 | `/setup/connect` | POST | `pqm_manage_settings` | Save the n8n webhook URL and ping it |
 | `/setup/settings` | POST | `pqm_manage_settings` (+ `pqm_manage_agents` on a Pro site to turn on scheduled reviews) | Save the guide's Blog Profile, Editorial Standards or scheduled-reviews choice; only those settings |
 

@@ -11,8 +11,8 @@
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
  *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags (Dashboard app)
  *  POST /post-quality/v1/insert-block     — write the latest Takeaways / Sources into the post (story 23)
- *  GET  /post-quality/v1/setup            — setup dialog state: progress, values to copy (story 36)
- *  POST /post-quality/v1/setup            — tick a setup step, or mark the setup complete (story 36)
+ *  GET  /post-quality/v1/setup            — setup dialog state: progress, the n8n connection and path (story 36, n8n provisioning entry 6)
+ *  POST /post-quality/v1/setup            — tick a configuration step, mark the setup complete (story 36), or store the manual-path choice (n8n provisioning, entry 6)
  *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
  *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
  *  POST /post-quality/v1/n8n/provision    — set the workflow up on that instance, then ping it (n8n provisioning, entry 4)
@@ -122,6 +122,7 @@ class PQM_REST_API {
                     'step'     => [ 'required' => false, 'type' => 'string' ],
                     'done'     => [ 'required' => false, 'type' => 'boolean' ],
                     'complete' => [ 'required' => false, 'type' => 'boolean' ],
+                    'manual'   => [ 'required' => false, 'type' => 'boolean' ],
                 ],
             ],
         ] );
@@ -975,16 +976,24 @@ class PQM_REST_API {
     /* ─── 9. Setup dialog (story 36) ─────────────────────────────────── */
 
     /**
-     * The setup steps, in dialog order. The user ticks the first five
-     * (POST /setup); `connect` is set by a ping through POST /setup/connect
-     * and `review` reads the site's completion. The three configuration
-     * steps after it (story 55) are ticked when saved or skipped; they never
-     * count toward completion.
+     * The setup steps (n8n provisioning, entry 6). The n8n steps are derived
+     * from the site, never ticked: `n8n` (Connect your n8n) is done once a
+     * key is stored with a passing check or a webhook URL is saved;
+     * `provision` (Set up the workflow) and `manual` (Set up by hand, the
+     * other path's one step) once a webhook URL is saved and its last ping
+     * through the dialog did not fail (the `connect` record that POST
+     * /setup/connect and POST /n8n/provision write; a URL saved without one,
+     * in Settings or before the dialog, counts as done). `review` reads the
+     * site's completion. The dialog shows `n8n` and `provision`, or `manual`,
+     * then `review`. The three configuration steps after it (story 55) are
+     * ticked when saved or skipped; they never count toward completion. A
+     * stored key of a step not listed here (the manual steps before entry 6)
+     * is ignored; `connect` is read only through `provision` and `manual`.
      */
-    public const SETUP_STEPS = [ 'instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review', 'profile', 'standards', 'schedule' ];
+    public const SETUP_STEPS = [ 'n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule' ];
 
-    /** Steps the user may tick or untick by hand. */
-    private const SETUP_TICKABLE = [ 'instance', 'import', 'credentials', 'link', 'publish', 'profile', 'standards', 'schedule' ];
+    /** Steps the user may tick or untick (POST /setup): the configuration steps. */
+    private const SETUP_TICKABLE = [ 'profile', 'standards', 'schedule' ];
 
     /**
      * Settings the wizard may write (POST /setup/settings): the Blog Profile
@@ -997,8 +1006,9 @@ class PQM_REST_API {
 
     /**
      * Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`,
-     * plus `'manual' => true` once the owner chose the manual path (entry 6.6
-     * writes it, pqm_manual_reason() reads it), so a step tick keeps it.
+     * plus `'manual' => true` once the owner chose the manual path (POST
+     * /setup `{ manual: true }` writes it, pqm_manual_reason() reads it), so a
+     * step tick keeps it.
      */
     private static function setup_progress(): array {
         $stored   = get_option( PQM_SETUP_OPTION, [] );
@@ -1015,18 +1025,28 @@ class PQM_REST_API {
 
     /**
      * Everything the dialog shows: per-step progress, completion (derived
-     * for sites connected before the dialog, see pqm_setup_complete()) and
-     * the values the user copies into n8n.
+     * for sites connected before the dialog, see pqm_setup_complete()), the
+     * n8n connection (never its key) and the path the n8n steps take.
      */
     private static function setup_state(): array {
-        $settings = pqm_get_settings();
-        $progress = self::setup_progress();
-        $complete = pqm_setup_complete();
-        $user     = wp_get_current_user();
+        $settings  = pqm_get_settings();
+        $progress  = self::setup_progress();
+        $complete  = pqm_setup_complete();
+        $n8n       = PQM_N8n::public_state();
+        $connected = ! empty( $settings['n8n_webhook_url'] );
+        $reason    = pqm_manual_reason();
+        // A failed ping keeps the step open, so the dialog offers the paste-URL body again.
+        $url_done  = $connected && false !== ( $progress['steps']['connect'] ?? null );
 
+        $derived = [
+            'n8n'       => $connected || ( $n8n['key_set'] && ! empty( $n8n['probe'] ) ),
+            'provision' => $url_done,
+            'manual'    => $url_done,
+            'review'    => $complete,
+        ];
         $steps = [];
         foreach ( self::SETUP_STEPS as $step ) {
-            $steps[ $step ] = 'review' === $step ? $complete : ! empty( $progress['steps'][ $step ] );
+            $steps[ $step ] = $derived[ $step ] ?? ! empty( $progress['steps'][ $step ] );
         }
 
         // Preset texts in the site locale, like the payload sends them and
@@ -1050,27 +1070,19 @@ class PQM_REST_API {
         $state = [
             'steps'         => $steps,
             'complete'      => $complete,
-            'connected'     => ! empty( $settings['n8n_webhook_url'] ),
+            'connected'     => $connected,
             'first_result'  => PQM_DB::has_result(),
             'webhook_url'   => (string) $settings['n8n_webhook_url'],
-            'token'         => (string) $settings['webhook_token'],
-            'import_url'    => PQM_Admin::workflow_import_url(),
-            // Raw URL (no &amp;): it travels as JSON into an href.
-            'download_url'  => add_query_arg(
-                [
-                    'action'   => 'pqm_download_workflow',
-                    '_wpnonce' => wp_create_nonce( 'pqm_download_workflow' ),
-                ],
-                admin_url( 'admin-post.php' )
-            ),
-            // Core offers Application Passwords only over HTTPS or on a
-            // `local` environment; the dialog explains the manual path otherwise.
-            'app_passwords' => wp_is_application_passwords_available_for_user( $user ),
-            'user_login'    => (string) $user->user_login,
-            // Suffix of the template's credential names ("WordPress - <host>").
-            'site_host'     => pqm_site_host(),
             // The Webhook Trigger's per-site path, for the URL field's placeholder.
             'webhook_path'  => pqm_webhook_path(),
+            // n8n provisioning, entry 6: the connection (no key), the manual
+            // path — chosen, or a failed check that offers it; a passing key
+            // outranks both (pqm_manual_reason()) — and what provisioning left.
+            'n8n'           => $n8n,
+            'manual'        => null !== $reason,
+            'manual_reason' => $reason,
+            'provisioned'   => (bool) get_option( PQM_N8n::SETUP_OPTION ),
+            'leftovers'     => (bool) get_option( PQM_N8n::LEFTOVERS_OPTION ),
             // Story 55: the configuration steps' stored choices and presets.
             'blog_profile'       => (string) $settings['blog_profile'],
             'website_context'    => (string) $settings['website_context'],
@@ -1110,15 +1122,27 @@ class PQM_REST_API {
     }
 
     /**
-     * `{ step, done }` ticks or unticks one of the hand-ticked steps;
-     * `{ complete: true }` closes the setup (the dialog's first result).
-     * Answers the fresh state. Settings are never touched.
+     * `{ step, done }` ticks or unticks a configuration step;
+     * `{ complete: true }` closes the setup (the dialog's first result);
+     * `{ manual: true }` stores the owner's choice to set up n8n by hand
+     * ("Set up by hand instead"; only `true`: a passing key outranks the
+     * choice, nothing clears it). Answers the fresh state. Settings are
+     * never touched.
      */
     public static function update_setup_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $progress = self::setup_progress();
 
         if ( true === $request->get_param( 'complete' ) ) {
             $progress['complete'] = true;
+        } elseif ( null !== $request->get_param( 'manual' ) ) {
+            if ( true !== $request->get_param( 'manual' ) ) {
+                return new WP_Error(
+                    'pqm_setup_bad_manual',
+                    __( 'This choice is not known. Reload the page and try again.', 'post-quality-manager' ),
+                    [ 'status' => 400 ]
+                );
+            }
+            $progress['manual'] = true;
         } else {
             $step = (string) $request->get_param( 'step' );
             if ( ! in_array( $step, self::SETUP_TICKABLE, true ) ) {
@@ -1140,10 +1164,12 @@ class PQM_REST_API {
      * The connect step: save the webhook URL, then ping it — through the
      * same two helpers as the n8n Workflow page's AJAX. A refused URL (empty,
      * n8n test URL) is not stored; a stored URL whose ping fails stays
-     * stored and the step stays open. A ping that gets through records the
-     * replied workflow version (the URL was just saved) and answers the
-     * page's refreshed `status_html`, plus `outdated` when an older workflow
-     * answered: the step still ticks, the dialog shows a warning (D2).
+     * stored, and the dialog shows the cause. A ping that gets through
+     * records the replied workflow version (the URL was just saved) and
+     * answers the page's refreshed `status_html`, plus `outdated` when an
+     * older workflow answered: the dialog shows a warning (D2). The dialog's
+     * steps Set up the workflow and Set up by hand read this ping's record
+     * (`steps.connect`, entry 6): a failed one keeps them open.
      */
     public static function setup_connect_callback( WP_REST_Request $request ): WP_REST_Response {
         $url   = (string) $request->get_param( 'webhook_url' );
@@ -1318,7 +1344,8 @@ class PQM_REST_API {
      * key is passed on and never echoed. A failed ping keeps everything:
      * n8n may serve webhooks on another address than its editor (WEBHOOK_URL),
      * so the reply points to pasting the Webhook Trigger's production URL.
-     * Answers `{ provisioned, ping_ok, workflow_id, message }`, plus on the
+     * Answers `{ provisioned, ping_ok, workflow_id, message }`, plus the
+     * page's refreshed `status_html` when the ping passed (entry 6), and on the
      * Pro build `rewrite_ready` (false when no WordPress credential was
      * created, D1).
      */
@@ -1349,6 +1376,8 @@ class PQM_REST_API {
         ];
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'] );
+            // The page's status block, as POST /setup/connect answers it (entry 6).
+            $reply['status_html'] = PQM_Admin::render_workflow_status();
         }
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );

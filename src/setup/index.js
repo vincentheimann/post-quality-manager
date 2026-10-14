@@ -1,15 +1,18 @@
 /**
- * Setup island (story 36) — the only React on the PHP n8n Workflow page
- * (ADR 0005 keeps that page on PHP). A button opens a Modal that walks a
- * novice through connecting n8n in seven steps, each with a Done mark.
+ * Setup island (story 36) — a React island on the PHP n8n Workflow page
+ * (ADR 0005 keeps that page on PHP). A button opens a Modal that walks the
+ * site to its first review (n8n provisioning, entry 6): Connect your n8n
+ * (the n8n Instance island, reused) and Set up the workflow (POST
+ * /n8n/provision), or, on the manual path, Set up by hand (steps.js).
  *
- * State comes from GET /setup: progress is stored once per site, so the
- * dialog reopens at the first unfinished step, after a reload or another
- * day. The user ticks the n8n-side steps (POST /setup { step, done }); the
- * plugin ticks what it can verify — the connect step through its ping
- * (POST /setup/connect), the setup itself through the first review
- * (POST /setup { complete: true }). The welcome notice links here with
- * `pqm_setup=1`, which opens the dialog on load.
+ * State comes from GET /setup, stored once per site, so the dialog reopens
+ * at the first unfinished step, after a reload or another day. Nothing is
+ * ticked by hand on the n8n side: a passing check, a saved webhook URL and
+ * the first review (POST /setup { complete: true }) are what the plugin
+ * can verify. "Set up by hand instead" stores the choice (POST /setup
+ * { manual: true }) and reloads the page on its Workflow File section. The
+ * welcome notice links here with `pqm_setup=1`, which opens the dialog on
+ * load.
  *
  * After the first review, three configuration steps (story 55) save the
  * Blog Profile, the Editorial Standards and scheduled reviews through
@@ -20,7 +23,6 @@
 import apiFetch from '@wordpress/api-fetch';
 import {
 	Button,
-	CheckboxControl,
 	Dashicon,
 	Modal,
 	Notice,
@@ -31,7 +33,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
 import FirstReview from './first-review';
-import { NextSteps, STEPS, stepsFor } from './steps';
+import { NextSteps, STEPS, WORKFLOW_FILE_ID, stepsFor } from './steps';
 import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
@@ -40,15 +42,36 @@ const OPEN_ARG = 'pqm_setup'; // PQM_Admin::SETUP_QUERY_ARG
 const FINISH = 'finish';
 
 /**
+ * Whether the stored n8n key passed its last check (the island's state).
+ *
+ * @param {Object} state GET /setup state.
+ * @return {boolean} Passing.
+ */
+function keyPasses( state ) {
+	return !! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+}
+
+/**
  * Whether a step is done. A completed setup shows every n8n step done; a
- * configuration step is done only once saved or skipped.
+ * configuration step is done only once saved or skipped. Connect your
+ * n8n reads the site (the key passes, or a URL is saved); the other steps
+ * read GET /setup's `steps`, which the dialog patches after a save: Set up
+ * the workflow and Set up by hand stay open after a failed ping.
  *
  * @param {Object} state GET /setup state.
  * @param {Object} step  Step entry from STEPS.
  * @return {boolean} Done.
  */
 function stepDone( state, step ) {
-	return ( ! step.config && !! state.complete ) || !! state.steps[ step.key ];
+	if ( ! step.config && state.complete ) {
+		return true;
+	}
+	switch ( step.key ) {
+		case 'n8n':
+			return !! state.connected || keyPasses( state );
+		default:
+			return !! state.steps[ step.key ];
+	}
 }
 
 /**
@@ -155,13 +178,26 @@ export default function SetupIsland() {
 			);
 	};
 
+	// A saved URL whose ping failed leaves the URL steps open (GET /setup's rule).
 	const onConnected = ( url, pingOk ) =>
 		setState( ( prev ) => ( {
 			...prev,
 			connected: true,
 			// eslint-disable-next-line camelcase -- REST field name.
 			webhook_url: url,
-			steps: { ...prev.steps, connect: pingOk },
+			steps: { ...prev.steps, provision: pingOk, manual: pingOk },
+		} ) );
+
+	// POST /n8n/provision saved the connected origin + /webhook/ + the path.
+	const onProvisioned = ( pingOk ) =>
+		setState( ( prev ) => ( {
+			...prev,
+			connected: true,
+			provisioned: true,
+			leftovers: false,
+			steps: { ...prev.steps, provision: pingOk, manual: pingOk },
+			// eslint-disable-next-line camelcase -- REST field name.
+			webhook_url: `${ prev.n8n.base_url }/webhook/${ prev.webhook_path }`,
 		} ) );
 
 	const complete = !! ( state && state.complete );
@@ -173,6 +209,47 @@ export default function SetupIsland() {
 	const goTo = ( key ) => {
 		setSaveError( '' );
 		setCurrent( key );
+	};
+
+	// The island read or stored the connection. A passing key outranks the
+	// manual choice (pqm_manual_reason()): the key path's steps come back,
+	// so the manual step moves on to Set up the workflow.
+	const onN8nChange = ( n8n ) => {
+		const passes = !! ( n8n.key_set && n8n.probe );
+		setState( ( prev ) => ( {
+			...prev,
+			n8n,
+			manual: passes ? false : prev.manual,
+		} ) );
+		if ( passes && current === 'manual' ) {
+			goTo( 'provision' );
+		}
+	};
+
+	// "Set up by hand instead": store the choice, then reload the page on
+	// its Workflow File section, whose choice line then shows. A failed
+	// write stays in the dialog.
+	const onByHand = () =>
+		save( { manual: true } ).then( ( ok ) => {
+			if ( ok ) {
+				setCurrent( null );
+				window.location.hash = WORKFLOW_FILE_ID;
+				window.location.reload();
+			}
+		} );
+
+	// The manual step's link: close the dialog, then bring the section into
+	// view and move focus to its heading once the Modal has handed focus back.
+	const onShowWorkflowFile = ( event ) => {
+		event.preventDefault();
+		setCurrent( null );
+		window.setTimeout( () => {
+			const heading = document.getElementById( WORKFLOW_FILE_ID );
+			if ( heading ) {
+				heading.scrollIntoView();
+				heading.focus();
+			}
+		} );
 	};
 
 	const next = () => {
@@ -220,14 +297,6 @@ export default function SetupIsland() {
 					size="large"
 					className="pqm-setup-modal"
 				>
-					{ ! ( step && step.config ) && (
-						<p className="pqm-muted">
-							{ __(
-								'The n8n menus and labels below are named as of October 2026. If your n8n looks different, look for the same words nearby.',
-								'post-quality-manager'
-							) }
-						</p>
-					) }
 					<div className="pqm-setup-layout">
 						<nav
 							className="pqm-setup-steps"
@@ -316,6 +385,12 @@ export default function SetupIsland() {
 											key={ step.key }
 											state={ state }
 											onConnected={ onConnected }
+											onProvisioned={ onProvisioned }
+											onN8nChange={ onN8nChange }
+											onByHand={ onByHand }
+											onShowWorkflowFile={
+												onShowWorkflowFile
+											}
 											saving={ saving }
 											onSave={ finishStep }
 										/>
@@ -324,11 +399,6 @@ export default function SetupIsland() {
 										step={ step }
 										state={ state }
 										done={ isDone( step ) }
-										complete={ complete }
-										saving={ saving }
-										onToggle={ ( done ) =>
-											save( { step: step.key, done } )
-										}
 									/>
 								</>
 							) : (
@@ -403,35 +473,16 @@ export default function SetupIsland() {
 }
 
 /**
- * The step's Done mark: a checkbox for the steps the user ticks, a status
- * line for the two the plugin verifies and, once saved or skipped, for a
- * configuration step.
+ * The step's Done mark: a status line for the steps the plugin verifies
+ * and, once saved or skipped, for a configuration step.
  *
- * @param {Object}   props
- * @param {Object}   props.step     Step entry from STEPS.
- * @param {Object}   props.state    GET /setup state.
- * @param {boolean}  props.done     Whether the step is done.
- * @param {boolean}  props.complete Whether the whole setup is complete.
- * @param {boolean}  props.saving   Whether a progress save is in flight.
- * @param {Function} props.onToggle `( done )` for a tickable step.
- * @return {Element} Done control or status line.
+ * @param {Object}  props
+ * @param {Object}  props.step  Step entry from STEPS.
+ * @param {Object}  props.state GET /setup state.
+ * @param {boolean} props.done  Whether the step is done.
+ * @return {Element} Status line.
  */
-function StepStatus( { step, state, done, complete, saving, onToggle } ) {
-	if ( step.tickable ) {
-		return (
-			<div className="pqm-setup-done">
-				<CheckboxControl
-					label={ __( 'Done', 'post-quality-manager' ) }
-					// A completed setup shows every step done; the stored tick stays as it is.
-					checked={ done }
-					disabled={ saving || complete }
-					onChange={ onToggle }
-					__nextHasNoMarginBottom
-				/>
-			</div>
-		);
-	}
-
+function StepStatus( { step, state, done } ) {
 	if ( step.config ) {
 		// The schedule lives on the Automation tab, hidden without
 		// pqm_manage_agents and locked on a free site: no Settings promise there.
@@ -452,11 +503,18 @@ function StepStatus( { step, state, done, complete, saving, onToggle } ) {
 	}
 
 	let text;
-	if ( step.key === 'connect' ) {
+	if ( step.key === 'n8n' ) {
 		text = done
-			? __( 'Done — the ping got through.', 'post-quality-manager' )
+			? __( 'Done — connected to n8n.', 'post-quality-manager' )
 			: __(
-					'This step ticks itself once the ping gets through.',
+					'This step ticks itself once the connection check passes.',
+					'post-quality-manager'
+			  );
+	} else if ( step.key === 'provision' || step.key === 'manual' ) {
+		text = done
+			? __( 'Done — the webhook URL is saved.', 'post-quality-manager' )
+			: __(
+					'This step ticks itself once a test ping gets through.',
 					'post-quality-manager'
 			  );
 	} else {

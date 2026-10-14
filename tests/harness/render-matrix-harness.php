@@ -561,8 +561,8 @@ check('the section names the template\'s three credentials, so a rename in one p
     && !array_filter($cred_names, static fn($cn) => !str_contains($section, 'value="' . $cn . '"')));
 
 /* Story 40 AC4: the novice is handed to the dialog first */
-$lead = 'New to n8n? Use "Set up the workflow" at the top of this page: it walks you through each step. This section is the reference, and the path for a re-import.';
-check('setup not complete: the first line recommends the dialog', str_starts_with(trim(substr($section_of($fresh), strlen('Workflow File</h2>'))), '<p class="description">' . $lead . '</p>'));
+$lead = 'These are the steps to set up n8n by hand, and to re-import the workflow. To have n8n set up for you with an n8n API key, use "Set up the workflow" at the top of this page.';
+check('setup not complete: the first line names the manual steps and points to the guided setup', str_starts_with(trim(substr($section_of($fresh), strlen('Workflow File</h2>'))), '<p class="description">' . $lead . '</p>'));
 check('connected, no result yet: still recommended', str_contains($section, $lead));
 check('setup complete (the dialog\'s first review): no recommendation, steps unchanged',
     !str_contains($done = $section_of($render_workflow([], [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]])), $lead)
@@ -835,10 +835,11 @@ check('updated_option is hooked with its three args (old and new value)',
     str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php'),
         "add_action('updated_option', ['PQM_Admin', 'on_settings_updated'], 10, 3);"));
 
-/* The setup dialog swaps the block after its connect (pqm-admin.js: tests/js/workflow-status.test.js) */
+/* The setup dialog swaps the block after its connect and its provisioning (pqm-admin.js: tests/js/workflow-status.test.js) */
 $steps_js = file_get_contents(dirname(__DIR__, 2) . '/src/setup/steps.js');
-check('the setup dialog replaces .pqm-workflow-status with status_html and warns when outdated',
-    str_contains($steps_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($steps_js, 'outerHTML = data.status_html')
+check('the setup dialog replaces .pqm-workflow-status with status_html (connect and provisioning) and warns when outdated',
+    str_contains($steps_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($steps_js, 'block.outerHTML = html')
+    && str_contains($steps_js, 'swapStatusBlock( data.status_html )') && str_contains($steps_js, 'swapStatusBlock( reply.status_html )')
     && (bool) preg_match("/data\\.outdated \\) \\{\\s*status = 'warning';/", $steps_js));
 
 $GLOBALS['tw_options'] = [];

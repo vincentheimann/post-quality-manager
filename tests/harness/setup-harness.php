@@ -2,7 +2,7 @@
 /**
  * Setup dialog harness for story 36 — covers the I/O & Edge-Case Matrix of
  * the setup routes: registration + permission (managers only), the GET
- * state (values to copy, Application Password availability), the derived
+ * state (since entry 6 without the values to copy), the derived
  * completion for sites connected before the dialog, progress validation,
  * the connect step (test URL refused and not stored, production URL stored
  * and pinged, ping failure stored with the cause) and the uninstall list.
@@ -13,6 +13,11 @@
  * open on a completed site) and POST /setup/settings — key whitelist,
  * value checks, merge isolation (every other stored key byte-identical),
  * the scheduled-reviews gate (pqm_manage_agents + pro) and a no-change walk.
+ *
+ * n8n provisioning entry 6 rows: the derived n8n steps and the new state
+ * fields per site state (key passing, failed check, connected, provisioned,
+ * leftovers, old stored step keys), and POST /setup { manual: true } (only
+ * `true` accepted, kept by every other write).
  */
 
 error_reporting(E_ALL & ~E_DEPRECATED);
@@ -85,6 +90,7 @@ function esc_html_e($s, $d = null) { echo $s; }
 define('MINUTE_IN_SECONDS', 60);
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'editor-anna']; }
+function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
 
 class WP_REST_Server {
@@ -195,21 +201,17 @@ check('manager: allowed', PQM_REST_API::check_manage_settings() === true);
 echo "GET /setup — fresh site\n";
 site($fresh);
 $s = setup_state();
-check('ten steps in dialog order (the seven n8n steps, then profile, standards, schedule), none done',
-    array_keys($s['steps']) === ['instance', 'import', 'credentials', 'link', 'publish', 'connect', 'review', 'profile', 'standards', 'schedule']
+check('seven steps (the key path\'s n8n and provision, the manual path\'s manual, review, then profile, standards, schedule), none done',
+    array_keys($s['steps']) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule']
     && !in_array(true, $s['steps'], true));
+check('entry 6 fields: the n8n connection (no key), not manual, nothing provisioned, no leftovers',
+    $s['n8n'] === ['base_url' => '', 'key_set' => false, 'probe' => null] && $s['manual'] === false && $s['manual_reason'] === null
+    && $s['provisioned'] === false && $s['leftovers'] === false);
 check('not complete, not connected, no result', $s['complete'] === false && $s['connected'] === false && $s['first_result'] === false);
-check('token and import URL (workflow route + token)',
-    $s['token'] === $token && $s['import_url'] === 'https://example.com/wp-json/post-quality/v1/workflow?token=tok-36');
-check('download URL is raw (no &amp;) with the action and its nonce',
-    $s['download_url'] === 'https://example.com/wp-admin/admin-post.php?action=pqm_download_workflow&_wpnonce=nonce-pqm_download_workflow');
-check('the signed-in user\'s login for the WordPress credential', $s['user_login'] === 'editor-anna');
-check('site host for the template\'s credential names', $s['site_host'] === 'example.com');
 check('per-site webhook path for the URL field placeholder', $s['webhook_path'] === 'pqm-execute-example-com');
-check('Application Passwords available (HTTPS)', $s['app_passwords'] === true);
-$GLOBALS['tw']['app_passwords'] = false;
-check('Application Passwords not available (no HTTPS / not local): reported, the dialog explains', setup_state()['app_passwords'] === false);
-$GLOBALS['tw']['app_passwords'] = true;
+check('no values to copy any more (entry 6): no token, import or download URL, user login, site host or Application Password flag',
+    !array_intersect(['token', 'import_url', 'download_url', 'user_login', 'site_host', 'app_passwords'], array_keys($s)));
+check('... the webhook token is in no field of the reply', !str_contains(json_encode($s), $token));
 check('a GET writes nothing', $GLOBALS['tw']['writes'] === []);
 
 /* Row: legacy connected — complete is derived, no migration */
@@ -238,17 +240,18 @@ check('progress flag complete: complete even while not connected', setup_state()
 /* Row: progress — tick, untick, resume data; unknown step refused */
 echo "POST /setup — progress\n";
 site($fresh);
-$r = post_setup(['step' => 'import', 'done' => true]);
-check('tick a step: stored once per site, autoload off', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['import'] ?? null) === true
+$r = post_setup(['step' => 'profile', 'done' => true]);
+check('tick a step: stored once per site, autoload off', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['profile'] ?? null) === true
     && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
-check('... the answer is the fresh state (the dialog resumes from it)', $r instanceof WP_REST_Response && $r->get_data()['steps']['import'] === true
-    && $r->get_data()['steps']['instance'] === false);
-post_setup(['step' => 'instance', 'done' => true]);
-check('a second tick keeps the first', setup_state()['steps'] === ['instance' => true, 'import' => true, 'credentials' => false, 'link' => false, 'publish' => false, 'connect' => false, 'review' => false,
-    'profile' => false, 'standards' => false, 'schedule' => false]);
-post_setup(['step' => 'import', 'done' => false]);
-check('untick', setup_state()['steps']['import'] === false);
-foreach (['foo', 'connect', 'review', '', 'INSTANCE'] as $step) {
+check('... the answer is the fresh state (the dialog resumes from it)', $r instanceof WP_REST_Response && $r->get_data()['steps']['profile'] === true
+    && $r->get_data()['steps']['standards'] === false);
+post_setup(['step' => 'standards', 'done' => true]);
+check('a second tick keeps the first', setup_state()['steps'] === ['n8n' => false, 'provision' => false, 'manual' => false, 'review' => false,
+    'profile' => true, 'standards' => true, 'schedule' => false]);
+post_setup(['step' => 'profile', 'done' => false]);
+check('untick', setup_state()['steps']['profile'] === false);
+// The n8n steps are derived (entry 6), never ticked; the manual steps before entry 6 are gone.
+foreach (['foo', 'n8n', 'provision', 'manual', 'review', 'connect', 'instance', 'import', '', 'PROFILE'] as $step) {
     $before = $GLOBALS['tw']['options'][PQM_SETUP_OPTION];
     $r = post_setup(['step' => $step, 'done' => true]);
     check("step \"$step\" refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
@@ -256,19 +259,80 @@ foreach (['foo', 'connect', 'review', '', 'INSTANCE'] as $step) {
 }
 check('no step and no complete: refused', post_setup([]) instanceof WP_Error);
 
-/* Row: the owner's manual-path choice (n8n provisioning entry 2; entry 6.6 writes it) survives every progress write */
+/* Row: "Set up by hand instead" stores the choice (n8n provisioning entry 6) */
+echo "POST /setup { manual: true } — the manual-path choice\n";
+check('the route schema takes `manual` as a boolean', ($GLOBALS['pqm_routes'][$ns . '/setup'][1]['args']['manual'] ?? null) === ['required' => false, 'type' => 'boolean']);
+site($fresh + [PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
+$r = post_setup(['manual' => true]);
+check('stored beside the progress, autoload off; nothing else written', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]
+    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false && $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION]);
+check('... the answer: manual, the reason {kind: choice}, the manual step open', $r instanceof WP_REST_Response && $r->get_data()['manual'] === true
+    && $r->get_data()['manual_reason'] === ['kind' => 'choice'] && $r->get_data()['steps']['manual'] === false);
+post_setup(['manual' => true]);
+check('choosing again changes nothing', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]);
+// Callback-level guards: the route's `type: boolean` schema already refuses "yes" and coerces 1 / "true" to true upstream.
+foreach (['false' => false, '"yes"' => 'yes', '1' => 1, '"true"' => 'true'] as $label => $value) {
+    site($fresh);
+    $r = post_setup(['manual' => $value]);
+    check("callback: a non-true value ($label) is refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
+        && $GLOBALS['tw']['writes'] === []);
+}
+site($fresh + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+post_setup(['manual' => false]);
+check('manual: false clears nothing (a passing key outranks the choice)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+
+/* Row: the choice survives every progress write */
 echo "POST /setup — the manual-path choice is kept\n";
-site($fresh + [PQM_SETUP_OPTION => ['steps' => ['instance' => true], 'complete' => false, 'manual' => true]]);
-post_setup(['step' => 'import', 'done' => true]);
-check('a step tick keeps `manual`', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['instance' => true, 'import' => true], 'complete' => false, 'manual' => true]);
+site($fresh + [PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]]);
+post_setup(['step' => 'standards', 'done' => true]);
+check('a step tick keeps `manual`', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'standards' => true], 'complete' => false, 'manual' => true]);
 post_setup(['complete' => true]);
 check('completing keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
 connect('https://n8n.example.com/webhook/pqm-execute-example-com');
-check('the connect step keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+check('the connect route keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
 check('pqm_manual_reason() reads it: {kind: choice}', pqm_manual_reason() === ['kind' => 'choice']);
 site($fresh);
-post_setup(['step' => 'import', 'done' => true]);
+post_setup(['step' => 'profile', 'done' => true]);
 check('no choice stored: no `manual` key written', !array_key_exists('manual', $GLOBALS['tw']['options'][PQM_SETUP_OPTION]));
+
+/* Row: the n8n steps derived per site state (entry 6), as the dialog reads them */
+echo "GET /setup — the n8n steps per site state\n";
+$passing = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1760000000];
+$key     = [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'api_key' => 'n8n-secret-key', 'probe' => $passing]];
+$failed  = [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'failed' => ['cause' => 'api_disabled', 'message' => 'The public API is turned off on this instance.', 'at' => 1760000000]]];
+$n8n_steps = static fn(array $s): array => array_slice($s['steps'], 0, 3, true);
+site($fresh + $key);
+$s = setup_state();
+check('key stored with a passing check: Connect your n8n done, Set up the workflow open, the key path',
+    $n8n_steps($s) === ['n8n' => true, 'provision' => false, 'manual' => false] && $s['manual'] === false
+    && $s['n8n'] === ['base_url' => 'https://n8n.example.com', 'key_set' => true, 'probe' => $passing]);
+check('... the n8n API key is in no field of the reply', !str_contains(json_encode($s), 'n8n-secret-key'));
+site($fresh + $key + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+check('key path wins: a passing key with the choice stored reads not manual', setup_state()['manual'] === false && setup_state()['manual_reason'] === null);
+site($fresh + $failed);
+$s = setup_state();
+check('a failed check that offered the manual path: manual, with its date and cause; no step done',
+    $s['manual'] === true && $s['manual_reason'] === ['kind' => 'probe', 'message' => 'The public API is turned off on this instance.', 'at' => wp_date('F j, Y', 1760000000)]
+    && !in_array(true, $n8n_steps($s), true));
+site($connected);
+check('a webhook URL saved without a ping record (legacy, Settings): every n8n step done', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true]);
+site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+check('... on the manual path too', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true] && setup_state()['manual'] === true);
+site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => true], 'complete' => false]]);
+check('a URL whose last dialog ping passed: every n8n step done', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true]);
+site($connected + $key + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
+check('a URL whose last dialog ping failed (provision passes, ping fails): Set up the workflow and Set up by hand stay open, the record not listed',
+    $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => false, 'manual' => false] && !array_key_exists('connect', setup_state()['steps']));
+site($fresh + $key + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]]);
+$s = setup_state();
+check('provisioned, URL missing: provisioned, Set up the workflow open', $s['provisioned'] === true && $s['steps']['provision'] === false && $s['connected'] === false);
+site($fresh + $key + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example.com', 'credentials' => ['c1'], 'at' => 1]]);
+check('leftovers waiting: leftovers', setup_state()['leftovers'] === true && setup_state()['provisioned'] === false);
+site($fresh + [PQM_SETUP_OPTION => ['steps' => ['instance' => true, 'import' => true, 'credentials' => true, 'link' => true, 'publish' => true, 'connect' => true], 'complete' => false]]);
+$s = setup_state();
+check('old stored step keys (the manual steps before entry 6) ignored: none in the reply, nothing done',
+    array_keys($s['steps']) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule'] && !in_array(true, $s['steps'], true)
+    && $GLOBALS['tw']['writes'] === []);
 
 /* Row: first review closes the setup — settings untouched */
 echo "POST /setup { complete: true }\n";
@@ -315,7 +379,9 @@ check('... merge-save: only the URL changed in pqm_settings',
 check('... one ping to that URL with the X-PQM-Token header',
     count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === $prod
     && $GLOBALS['tw']['pings'][0][1]['headers'] === ['Content-Type' => 'application/json', 'X-PQM-Token' => $token]);
-check('... the connect step is done', setup_state()['steps']['connect'] === true && setup_state()['connected'] === true);
+check('... the ping recorded (autoload off): the URL steps read done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
+    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false
+    && setup_state()['steps']['provision'] === true && setup_state()['steps']['manual'] === true && setup_state()['connected'] === true);
 
 site($fresh);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"message":"Workflow was started"}'];
@@ -323,10 +389,10 @@ $r = connect($prod);
 check('production URL, n8n 2xx without a version (v1–v4 import): connected, outdated (the dialog warns), older-version message, {0, via test}, notice in status_html',
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version')
     && ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === 0
-    && str_contains($r['status_html'], 'Workflow update available.') && setup_state()['steps']['connect'] === true);
+    && str_contains($r['status_html'], 'Workflow update available.') && setup_state()['steps']['provision'] === true);
 
 $before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
-site($fresh + ['pqm_workflow_version_seen' => $before, PQM_SETUP_OPTION => ['steps' => ['connect' => true, 'import' => true], 'complete' => false]]);
+site($fresh + ['pqm_workflow_version_seen' => $before, PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 404]];
 $r = connect($prod);
 check('ping fails: nothing recorded, no status_html', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $before && !isset($r['status_html']));
@@ -334,7 +400,9 @@ check('production URL, n8n 404: stored, message names the cause and the next ste
     $r['saved'] === true && $r['ping_ok'] === false
     && $r['message'] === 'URL saved, but the ping did not get through. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === $prod);
-check('... the connect step is not done, other ticks kept', setup_state()['steps']['connect'] === false && setup_state()['steps']['import'] === true);
+check('... the failed ping recorded, other ticks kept: the URL steps stay open (the dialog offers the paste-URL body again)',
+    $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'connect' => false], 'complete' => false]
+    && setup_state()['steps']['provision'] === false && setup_state()['steps']['manual'] === false && setup_state()['steps']['n8n'] === true);
 
 site($fresh);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 403]];

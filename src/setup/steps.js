@@ -1,430 +1,42 @@
 /**
- * Setup steps (story 36) — the seven n8n steps of the setup dialog in
- * order, then the three configuration steps (story 55, config-steps.js),
- * plus the closing "next steps" panel. n8n's labels are named as of the
- * n8n docs read 2026-10-07 (the dialog says layouts may differ); node
- * names match templates/n8n-workflow.json. The credentials copy also lives
- * in PHP on the n8n Workflow page (PQM_Admin::render_credentials_list(),
- * harness-checked); this one is checked by the owner's walk-through.
- * The Free build (`state.build`, story 54) imports the Free template: two
- * Claude nodes, no WordPress credential, no schedule step.
+ * Setup steps (story 36; n8n provisioning, entry 6). Two paths lead to the
+ * first review and the three configuration steps (story 55,
+ * config-steps.js):
+ * - the key path: Connect your n8n (the n8n Instance island, reused), then
+ *   Set up the workflow (the Anthropic key, sent once to POST
+ *   /n8n/provision and never kept);
+ * - the manual path, once the owner chose it or a connection check offered
+ *   it (`state.manual`, pqm_manual_reason()): one step, Set up by hand. It
+ *   links to the Workflow File section of the n8n Workflow page, the one
+ *   place for the manual steps, and keeps the paste-URL body so the setup
+ *   can still finish.
+ * Free and Pro run the same n8n steps; the Free build has no schedule step.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, TextControl } from '@wordpress/components';
 import { createInterpolateElement, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
+import N8nConnection from '../n8n-connection';
 import { CONFIG_STEPS } from './config-steps';
-import CopyValue from './copy-value';
 
 const CONNECT_PATH = '/post-quality/v1/setup/connect';
-const APP_PASSWORDS_PATH = '/wp/v2/users/me/application-passwords';
+const PROVISION_PATH = '/post-quality/v1/n8n/provision';
+
+/** The Workflow File heading on the n8n Workflow page (PQM_Admin::render_workflow()). */
+export const WORKFLOW_FILE_ID = 'pqm-workflow-file';
 
 /**
- * The credential names the template expects (templates/n8n-workflow.json,
- * `__PQM_SITE_HOST__` filled in) — the same names the n8n Workflow page lists.
+ * Swap the page's status block, which sits outside the island, for the
+ * one a ping refreshed.
  *
- * @param {Object} state GET /setup state.
- * @return {{webhook: string, wordpress: string, claude: string}} Credential names.
+ * @param {string=} html The reply's `status_html`.
  */
-function credentialNames( state ) {
-	return {
-		webhook: `Post Quality webhook - ${ state.site_host }`,
-		wordpress: `WordPress - ${ state.site_host }`,
-		claude: 'Anthropic - Claude',
-	};
-}
-
-/** Bold n8n label inside a translated sentence. */
-const strong = { strong: <strong /> };
-
-/**
- * Translated sentence with <strong> n8n labels.
- *
- * @param {string} text Translated text with <strong>…</strong> tags.
- * @return {Element} Interpolated element.
- */
-function withLabels( text ) {
-	return createInterpolateElement( text, strong );
-}
-
-function Instance() {
-	return (
-		<>
-			<p>
-				{ __(
-					'The reviews run in n8n, an automation tool between this site and Claude. Pick one:',
-					'post-quality-manager'
-				) }
-			</p>
-			<ul className="pqm-setup-list">
-				<li>
-					{ withLabels(
-						__(
-							'<strong>n8n Cloud</strong> — sign up at n8n.io, nothing to install.',
-							'post-quality-manager'
-						)
-					) }
-				</li>
-				<li>
-					{ withLabels(
-						__(
-							'<strong>Self-hosted n8n</strong> — on your own server, for example with Docker.',
-							'post-quality-manager'
-						)
-					) }
-				</li>
-			</ul>
-			<p>
-				{ __(
-					"Both sides must reach each other over the network: this site calls n8n, and n8n calls back this site's REST API. A local or password-protected site cannot be reached from n8n Cloud.",
-					'post-quality-manager'
-				) }
-			</p>
-			<p>
-				{ __(
-					'You also need an Anthropic API key for Claude: create one in the Anthropic Console under API Keys. It goes into n8n in step 3.',
-					'post-quality-manager'
-				) }
-			</p>
-		</>
-	);
-}
-
-function Import( { state } ) {
-	return (
-		<>
-			<p>
-				{ withLabels(
-					__(
-						'In n8n, open a new, empty workflow. Open the workflow menu — the three dots at the top right — and choose <strong>Import from URL</strong>. Paste this link:',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-			<CopyValue
-				label={ __( 'Workflow import URL', 'post-quality-manager' ) }
-				value={ state.import_url }
-			/>
-			<p className="pqm-muted">
-				{ __(
-					"It includes your webhook token, which also opens your n8n workflow's trigger — keep it private.",
-					'post-quality-manager'
-				) }
-			</p>
-			<p>
-				{ withLabels(
-					__(
-						'Import from URL not working (for example, n8n cannot reach this site)? Download the file and choose <strong>Import from File</strong> in the same menu.',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-			<Button variant="secondary" href={ state.download_url }>
-				{ __( 'Download n8n workflow', 'post-quality-manager' ) }
-			</Button>
-		</>
-	);
-}
-
-/**
- * The WordPress credential's password: an Application Password created
- * through core's own REST route, whose answer carries it exactly once.
- *
- * @param {Object}  props
- * @param {boolean} props.available Whether core allows Application Passwords for this user.
- * @return {Element} Create button, the new password, or the manual path.
- */
-function AppPassword( { available } ) {
-	const [ password, setPassword ] = useState( '' );
-	const [ busy, setBusy ] = useState( false );
-	const [ error, setError ] = useState( '' );
-
-	if ( ! available ) {
-		return (
-			<Notice status="info" isDismissible={ false }>
-				{ __(
-					'Application Passwords are turned off on this site, so the plugin cannot create one here. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Switch the site to HTTPS, or allow Application Passwords in that plugin, then create one under Users → Profile → Application Passwords. You can still mark this step done: only Rewrite needs the WordPress credential.',
-					'post-quality-manager'
-				) }
-			</Notice>
-		);
+function swapStatusBlock( html ) {
+	const block = document.querySelector( '.pqm-workflow-status' );
+	if ( block && html ) {
+		block.outerHTML = html;
 	}
-
-	if ( password ) {
-		return (
-			<>
-				<CopyValue
-					label={ __( 'Password', 'post-quality-manager' ) }
-					value={ password }
-				/>
-				<p className="pqm-muted">
-					{ __(
-						'Shown once — paste it into n8n now. You can revoke it any time under Users → Profile.',
-						'post-quality-manager'
-					) }
-				</p>
-			</>
-		);
-	}
-
-	const create = () => {
-		setBusy( true );
-		setError( '' );
-		apiFetch( {
-			path: APP_PASSWORDS_PATH,
-			method: 'POST',
-			// Core wants unique names per user; the time keeps a re-run valid.
-			data: {
-				name: `Post Quality Manager (n8n) ${ new Date().toLocaleString() }`,
-			},
-		} ).then(
-			( data ) => {
-				setBusy( false );
-				setPassword( data.password );
-			},
-			( err ) => {
-				setBusy( false );
-				setError(
-					( ( err && err.message ) ||
-						__(
-							'Could not create the Application Password.',
-							'post-quality-manager'
-						) ) +
-						' ' +
-						__(
-							'Create one under Users → Profile → Application Passwords instead.',
-							'post-quality-manager'
-						)
-				);
-			}
-		);
-	};
-
-	return (
-		<>
-			<p>
-				{ __(
-					'Password: an Application Password for your account. n8n edits posts with it when you run Rewrite, so your account must be allowed to edit posts.',
-					'post-quality-manager'
-				) }
-			</p>
-			<Button
-				variant="secondary"
-				onClick={ create }
-				isBusy={ busy }
-				disabled={ busy }
-			>
-				{ __(
-					'Create an Application Password',
-					'post-quality-manager'
-				) }
-			</Button>
-			{ error && (
-				<Notice status="error" isDismissible={ false }>
-					{ error }
-				</Notice>
-			) }
-		</>
-	);
-}
-
-function Credentials( { state } ) {
-	const names = credentialNames( state );
-	const nameLabel = __( 'Credential name', 'post-quality-manager' );
-	const free = state.build === 'free';
-
-	return (
-		<>
-			<p>
-				{ withLabels(
-					__(
-						'n8n keeps secrets in credentials. To add one, choose <strong>Create</strong> in the side menu, then <strong>Credential</strong>, search for the type and fill in the fields below. You can also create each one from its node in step 4.',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-			<p>
-				{ __(
-					'n8n names a new credential after its type, for example "Header Auth account". Rename each one to the credential name shown: it is the name the imported workflow expects, and it tells the two Header Auth credentials apart.',
-					'post-quality-manager'
-				) }
-			</p>
-
-			<section className="pqm-setup-credential">
-				<h3>{ names.webhook }</h3>
-				<CopyValue label={ nameLabel } value={ names.webhook } />
-				<p>
-					{ withLabels(
-						__(
-							'Type: <strong>Header Auth</strong>. Goes in the Webhook Trigger only, so only this site can start the workflow.',
-							'post-quality-manager'
-						)
-					) }
-				</p>
-				<CopyValue
-					label={ __( 'Name', 'post-quality-manager' ) }
-					value="X-PQM-Token"
-				/>
-				<CopyValue
-					label={ __( 'Value', 'post-quality-manager' ) }
-					value={ state.token }
-				/>
-			</section>
-
-			<section className="pqm-setup-credential">
-				<h3>{ names.claude }</h3>
-				<CopyValue label={ nameLabel } value={ names.claude } />
-				<p>
-					{ withLabels(
-						free
-							? __(
-									'Type: <strong>Header Auth</strong>. Goes in the two Claude nodes.',
-									'post-quality-manager'
-							  )
-							: __(
-									'Type: <strong>Header Auth</strong>. Goes in the six Claude nodes.',
-									'post-quality-manager'
-							  )
-					) }
-				</p>
-				<CopyValue
-					label={ __( 'Name', 'post-quality-manager' ) }
-					value="x-api-key"
-				/>
-				<p>
-					{ withLabels(
-						__(
-							'<strong>Value</strong>: your Anthropic API key.',
-							'post-quality-manager'
-						)
-					) }
-				</p>
-			</section>
-
-			{ ! free && (
-				<section className="pqm-setup-credential">
-					<h3>{ names.wordpress }</h3>
-					<CopyValue label={ nameLabel } value={ names.wordpress } />
-					<p>
-						{ withLabels(
-							__(
-								'Type: <strong>Basic Auth</strong>. Goes in Update WP Post (Rewrite).',
-								'post-quality-manager'
-							)
-						) }
-					</p>
-					<CopyValue
-						label={ __( 'User', 'post-quality-manager' ) }
-						value={ state.user_login }
-					/>
-					<AppPassword available={ !! state.app_passwords } />
-				</section>
-			) }
-		</>
-	);
-}
-
-function Link( { state } ) {
-	const names = credentialNames( state );
-	const free = state.build === 'free';
-
-	return (
-		<>
-			<p>
-				{ __(
-					'n8n does not link credentials to an imported workflow by itself, so it marks these nodes "Credentials … are not set". Double-click each node, pick its credential in the credential field, then close the node:',
-					'post-quality-manager'
-				) }
-			</p>
-			<ul className="pqm-setup-list">
-				<li>
-					{ withLabels(
-						sprintf(
-							/* translators: %s: credential name, e.g. "Post Quality webhook - example.com" */
-							__(
-								'<strong>Webhook Trigger</strong> → %s',
-								'post-quality-manager'
-							),
-							names.webhook
-						)
-					) }
-				</li>
-				<li>
-					{ withLabels(
-						free
-							? sprintf(
-									/* translators: %s: credential name "Anthropic - Claude" */
-									__(
-										'<strong>Claude - Review Agent</strong>, <strong>Claude - Takeaways Agent</strong> → %s',
-										'post-quality-manager'
-									),
-									names.claude
-							  )
-							: sprintf(
-									/* translators: %s: credential name "Anthropic - Claude" */
-									__(
-										'<strong>Claude - Review Agent</strong>, <strong>Claude - Takeaways Agent</strong>, <strong>Claude - Sources Agent</strong>, <strong>Claude - SEO Agent</strong>, <strong>Claude - Audit Agent</strong>, <strong>Claude - Rewrite Agent</strong> → %s',
-										'post-quality-manager'
-									),
-									names.claude
-							  )
-					) }
-				</li>
-				{ ! free && (
-					<li>
-						{ withLabels(
-							sprintf(
-								/* translators: %s: credential name, e.g. "WordPress - example.com" */
-								__(
-									'<strong>Update WP Post (Rewrite)</strong> → %s',
-									'post-quality-manager'
-								),
-								names.wordpress
-							)
-						) }
-					</li>
-				) }
-			</ul>
-			<p>
-				{ withLabels(
-					__(
-						'You have two Header Auth credentials: check the name before you pick. No credential yet? Choose <strong>Create new credential</strong> in the same field.',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-		</>
-	);
-}
-
-function Publish() {
-	return (
-		<>
-			<p>
-				{ withLabels(
-					__(
-						'Save the workflow, then click <strong>Publish</strong> in the header above the canvas (older n8n versions: switch the <strong>Active</strong> toggle on).',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-			<p>
-				{ withLabels(
-					__(
-						'Double-click the <strong>Webhook Trigger</strong> node. The top of its panel shows <strong>Test URL</strong> and <strong>Production URL</strong>: choose <strong>Production URL</strong> and copy the address.',
-						'post-quality-manager'
-					)
-				) }
-			</p>
-			<p className="pqm-muted">
-				{ __(
-					'The production URL contains /webhook/. A URL with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.',
-					'post-quality-manager'
-				) }
-			</p>
-		</>
-	);
 }
 
 /**
@@ -435,7 +47,7 @@ function Publish() {
  * @param {Function} props.onConnected `( url, pingOk )` once the URL is stored.
  * @return {Element} The connect form and its outcome.
  */
-function Connect( { state, onConnected } ) {
+export function Connect( { state, onConnected } ) {
 	const [ url, setUrl ] = useState( state.webhook_url || '' );
 	const [ busy, setBusy ] = useState( false );
 	const [ outcome, setOutcome ] = useState( null ); // { status, message }
@@ -461,12 +73,7 @@ function Connect( { state, onConnected } ) {
 					status = 'warning';
 				}
 				setOutcome( { status, message: data.message } );
-				// The page's version status sits outside this island: swap
-				// in the block the ping refreshed.
-				const block = document.querySelector( '.pqm-workflow-status' );
-				if ( block && data.status_html ) {
-					block.outerHTML = data.status_html;
-				}
+				swapStatusBlock( data.status_html );
 				if ( data.saved ) {
 					onConnected( url.trim(), !! data.ping_ok );
 				}
@@ -531,81 +138,332 @@ function Connect( { state, onConnected } ) {
 }
 
 /**
- * The steps, in order. `tickable` steps carry a Done checkbox; `config`
- * steps are ticked when saved or skipped; the others are ticked by the
- * plugin (ping, first result).
+ * Connect your n8n: the n8n Instance island, which tells the dialog its
+ * state, and the way to the manual path while the step is open (once the
+ * key passes, it outranks the manual choice).
+ *
+ * @param {Object}   props
+ * @param {Object}   props.state       GET /setup state.
+ * @param {Function} props.onN8nChange The island's `onChange`.
+ * @param {Function} props.onByHand    Stores the manual choice and opens the Workflow File section.
+ * @param {boolean}  props.saving      Whether a progress save is in flight.
+ * @return {Element} The step body.
+ */
+function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
+	const done =
+		!! state.connected ||
+		!! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+	return (
+		<>
+			<p>
+				{ __(
+					'The plugin sets the workflow up in your n8n for you: the credentials, the workflow and its publication. It needs three values: your n8n address, an n8n API key with an expiration date, and an Anthropic API key in the next step.',
+					'post-quality-manager'
+				) }
+			</p>
+			<p className="pqm-muted">
+				{ __(
+					"No n8n yet? Sign up for n8n Cloud at n8n.io, or run n8n on your own server. Both sides must reach each other: this site calls n8n, and n8n calls back this site's REST API, so n8n Cloud cannot reach a local or password-protected site.",
+					'post-quality-manager'
+				) }
+			</p>
+			<N8nConnection onChange={ onN8nChange } />
+			{ ! done && (
+				<p>
+					<Button
+						variant="link"
+						className="pqm-setup-by-hand"
+						onClick={ onByHand }
+						disabled={ saving }
+					>
+						{ __(
+							'Set up by hand instead',
+							'post-quality-manager'
+						) }
+					</Button>
+				</p>
+			) }
+		</>
+	);
+}
+
+/**
+ * Set up the workflow: the Anthropic key, typed once and sent to POST
+ * /n8n/provision. The field empties after the request, whatever its
+ * answer; the key is kept nowhere else. A workflow set up whose ping
+ * failed (now, or on an earlier visit: the step stays open), or a setup
+ * map without a saved URL, leads to the paste-URL body.
+ *
+ * @param {Object}   props
+ * @param {Object}   props.state         GET /setup state.
+ * @param {Function} props.onProvisioned `( pingOk )` once the workflow is set up.
+ * @param {Function} props.onConnected   Connect's `onConnected`.
+ * @return {Element} The step body.
+ */
+function Provision( { state, onProvisioned, onConnected } ) {
+	const [ key, setKey ] = useState( '' );
+	const [ busy, setBusy ] = useState( false );
+	const [ error, setError ] = useState( '' );
+	const [ outcome, setOutcome ] = useState( null ); // { status, message, pingOk }
+
+	if ( outcome ) {
+		return (
+			<>
+				<Notice status={ outcome.status } isDismissible={ false }>
+					{ outcome.message }
+				</Notice>
+				{ ! outcome.pingOk && (
+					<Connect state={ state } onConnected={ onConnected } />
+				) }
+			</>
+		);
+	}
+
+	if ( state.connected && state.steps.provision ) {
+		return (
+			<p>
+				{ __(
+					'A webhook URL is saved on this site. Test it any time on the n8n Workflow page.',
+					'post-quality-manager'
+				) }
+			</p>
+		);
+	}
+
+	if ( state.connected ) {
+		return (
+			<>
+				<p>
+					{ __(
+						'Your webhook URL is saved, but its last test ping did not get through. In n8n, double-click the Webhook Trigger, choose "Production URL" and copy the address, then save and test it here.',
+						'post-quality-manager'
+					) }
+				</p>
+				<Connect state={ state } onConnected={ onConnected } />
+			</>
+		);
+	}
+
+	if ( state.provisioned ) {
+		return (
+			<>
+				<p>
+					{ __(
+						'Your workflow is already set up in n8n, but its URL is not saved on this site. In n8n, double-click the Webhook Trigger, choose "Production URL" and copy the address.',
+						'post-quality-manager'
+					) }
+				</p>
+				<Connect state={ state } onConnected={ onConnected } />
+			</>
+		);
+	}
+
+	const submit = ( event ) => {
+		event.preventDefault();
+		setBusy( true );
+		setError( '' );
+		apiFetch( {
+			path: PROVISION_PATH,
+			method: 'POST',
+			// eslint-disable-next-line camelcase -- REST field name.
+			data: { anthropic_key: key.trim() },
+		} ).then(
+			( reply ) => {
+				setBusy( false );
+				setKey( '' );
+				// Set up, but the ping failed or Rewrite stays off: never a
+				// plain success.
+				const status =
+					reply.ping_ok && reply.rewrite_ready !== false
+						? 'success'
+						: 'warning';
+				setOutcome( {
+					status,
+					message: reply.message,
+					pingOk: !! reply.ping_ok,
+				} );
+				swapStatusBlock( reply.status_html );
+				onProvisioned( !! reply.ping_ok );
+			},
+			( err ) => {
+				setBusy( false );
+				setKey( '' );
+				setError(
+					( err && err.message ) ||
+						__(
+							'Could not reach the site REST API. Reload the page and try again.',
+							'post-quality-manager'
+						)
+				);
+			}
+		);
+	};
+
+	return (
+		<>
+			<p>
+				{ __(
+					'Enter your Anthropic API key. The plugin checks it with Anthropic, then creates the credentials and the workflow in your n8n, publishes the workflow and sends a test ping. The key goes into the n8n credential of the Claude nodes; this site never stores it.',
+					'post-quality-manager'
+				) }
+			</p>
+			{ state.leftovers && (
+				<Notice status="info" isDismissible={ false }>
+					{ __(
+						'An earlier setup left a workflow or credentials in n8n. Setting up removes them first.',
+						'post-quality-manager'
+					) }
+				</Notice>
+			) }
+			<form className="pqm-setup-connect" onSubmit={ submit }>
+				<TextControl
+					label={ __( 'Anthropic API key', 'post-quality-manager' ) }
+					help={ __(
+						'Create one in the Anthropic Console under API Keys.',
+						'post-quality-manager'
+					) }
+					type="password"
+					autoComplete="new-password"
+					value={ key }
+					onChange={ setKey }
+					disabled={ busy }
+					__nextHasNoMarginBottom
+				/>
+				<Button
+					variant="primary"
+					type="submit"
+					isBusy={ busy }
+					disabled={ busy || ! key.trim() }
+				>
+					{ __( 'Set up the workflow', 'post-quality-manager' ) }
+				</Button>
+			</form>
+			{ error && (
+				<Notice status="error" isDismissible={ false }>
+					{ error }
+				</Notice>
+			) }
+		</>
+	);
+}
+
+/**
+ * Set up by hand: why, the way to the Workflow File section (the steps
+ * live there, never here), the paste-URL body, and the key path behind
+ * "Connect by key instead" — a passing check there outranks the choice.
+ *
+ * @param {Object}   props
+ * @param {Object}   props.state              GET /setup state.
+ * @param {Function} props.onConnected        Connect's `onConnected`.
+ * @param {Function} props.onN8nChange        The island's `onChange`.
+ * @param {Function} props.onShowWorkflowFile Closes the dialog on the Workflow File section.
+ * @return {Element} The step body.
+ */
+function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
+	const reason = state.manual_reason;
+	let why = '';
+	if ( reason && reason.kind === 'probe' ) {
+		why = sprintf(
+			/* translators: 1: date of the check, 2: why it did not pass, e.g. "The public API is turned off on this instance." */
+			__(
+				'On %1$s, the n8n Instance check did not pass: %2$s',
+				'post-quality-manager'
+			),
+			reason.at,
+			reason.message
+		);
+	} else if ( reason && reason.kind === 'choice' ) {
+		why = __( 'You chose to set up n8n by hand.', 'post-quality-manager' );
+	}
+
+	return (
+		<>
+			{ why && (
+				<Notice status="info" isDismissible={ false }>
+					{ why }
+				</Notice>
+			) }
+			<p>
+				{ createInterpolateElement(
+					__(
+						'The steps are in the <a>Workflow File</a> section of this page: import the workflow, create its credentials, pick them in the nodes, then publish it. Once it is published, paste its production URL here.',
+						'post-quality-manager'
+					),
+					{
+						a: (
+							// eslint-disable-next-line jsx-a11y/anchor-has-content -- content comes from the translated string.
+							<a
+								href={ `#${ WORKFLOW_FILE_ID }` }
+								onClick={ onShowWorkflowFile }
+							/>
+						),
+					}
+				) }
+			</p>
+			<Connect state={ state } onConnected={ onConnected } />
+			<details className="pqm-setup-by-key">
+				<summary>
+					{ __( 'Connect by key instead', 'post-quality-manager' ) }
+				</summary>
+				<N8nConnection onChange={ onN8nChange } />
+			</details>
+		</>
+	);
+}
+
+/** The n8n steps: the key path's two, or the manual path's one. */
+const KEY_PATH = [ 'n8n', 'provision' ];
+const MANUAL_PATH = [ 'manual' ];
+
+/**
+ * Every step, in order. The n8n steps and `review` are ticked by the plugin
+ * (a passing check, a saved URL, the first result); `config` steps are
+ * ticked when saved or skipped.
  */
 export const STEPS = [
 	{
-		key: 'instance',
-		title: __( 'Get an n8n instance', 'post-quality-manager' ),
-		tickable: true,
-		Body: Instance,
+		key: 'n8n',
+		title: __( 'Connect your n8n', 'post-quality-manager' ),
+		Body: ConnectN8n,
 	},
 	{
-		key: 'import',
-		title: __( 'Import the workflow', 'post-quality-manager' ),
-		tickable: true,
-		Body: Import,
+		key: 'provision',
+		title: __( 'Set up the workflow', 'post-quality-manager' ),
+		Body: Provision,
 	},
 	{
-		key: 'credentials',
-		title: __( 'Create the three credentials', 'post-quality-manager' ),
-		tickable: true,
-		Body: Credentials,
-	},
-	{
-		key: 'link',
-		title: __( 'Link each credential to its node', 'post-quality-manager' ),
-		tickable: true,
-		Body: Link,
-	},
-	{
-		key: 'publish',
-		title: __(
-			'Publish and copy the production URL',
-			'post-quality-manager'
-		),
-		tickable: true,
-		Body: Publish,
-	},
-	{
-		key: 'connect',
-		title: __( 'Paste the URL here', 'post-quality-manager' ),
-		tickable: false,
-		Body: Connect,
+		key: 'manual',
+		title: __( 'Set up by hand', 'post-quality-manager' ),
+		Body: Manual,
 	},
 	{
 		key: 'review',
 		title: __( 'Run your first review', 'post-quality-manager' ),
-		tickable: false,
 		Body: null, // FirstReview, rendered by the dialog (it owns completion).
 	},
 	...CONFIG_STEPS,
 ];
 
 /**
- * The steps this build shows. The Free build (story 54) has no schedule
- * and two credentials; a progress key of a step it leaves out is ignored.
+ * The steps this site walks: the manual path once `state.manual` is set
+ * (a passing key clears it, server and dialog alike), else the key path;
+ * the Free build (story 54) has no schedule step, and a progress key of a
+ * step it leaves out is ignored.
  *
  * @param {Object} state GET /setup state.
  * @return {Object[]} Step entries, in order.
  */
 export function stepsFor( state ) {
-	if ( state.build !== 'free' ) {
-		return STEPS;
-	}
-	return STEPS.filter( ( step ) => step.key !== 'schedule' ).map( ( step ) =>
-		step.key === 'credentials'
-			? {
-					...step,
-					title: __(
-						'Create the two credentials',
-						'post-quality-manager'
-					),
-			  }
-			: step
-	);
+	const n8nSteps = state.manual ? MANUAL_PATH : KEY_PATH;
+	return STEPS.filter( ( step ) => {
+		if (
+			KEY_PATH.includes( step.key ) ||
+			MANUAL_PATH.includes( step.key )
+		) {
+			return n8nSteps.includes( step.key );
+		}
+		return state.build !== 'free' || step.key !== 'schedule';
+	} );
 }
 
 /** Closing panel once the setup is complete. */
