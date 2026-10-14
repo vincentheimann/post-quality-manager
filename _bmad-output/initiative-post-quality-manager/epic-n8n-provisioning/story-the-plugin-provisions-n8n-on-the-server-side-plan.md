@@ -3,7 +3,7 @@ title: 'The plugin provisions n8n on the server side'
 type: 'feature'
 ticket: '4'
 created: '2026-10-14'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
