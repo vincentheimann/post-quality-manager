@@ -12,7 +12,8 @@
  *
  * probe() tells whether an instance can be provisioned, read-only: it
  * creates, changes and deletes nothing on n8n. provision() (entry 4) sets
- * the whole workflow up through request(); later entries call request().
+ * the whole workflow up through request() and removes again what a failed
+ * run created (entry 5); later entries call request().
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -40,6 +41,14 @@ class PQM_N8n {
      * that one whole.
      */
     const SETUP_OPTION = 'pqm_n8n_setup';
+
+    /**
+     * Own option (autoload off, deleted on uninstall): what a failed run's
+     * rollback could not remove from n8n, {base_url, workflow_id?,
+     * credentials: [id, …], at} (entry 5, D1). The next provision() removes
+     * it first.
+     */
+    const LEFTOVERS_OPTION = 'pqm_n8n_leftovers';
 
     /**
      * The stored connection. `probe` is the last passing probe
@@ -303,9 +312,12 @@ class PQM_N8n {
      * template's nodes carry; create the build's workflow with every
      * credentialed node linked by id; activate it; store the setup map.
      * The provider key goes into the validation request and the Anthropic
-     * credential only — never an option, a reply or a log. A refused n8n
-     * step stops the run and what was created stays (rollback is entry 5).
-     * An existing setup map refuses the run: nothing is adopted or updated.
+     * credential only — never an option, a reply or a log. A refused step
+     * after the first creation stops the run and goes through fail(): what
+     * this run created is removed again (entry 5). What an earlier rollback
+     * could not remove (LEFTOVERS_OPTION) is removed before anything is
+     * created. An existing setup map refuses the run: nothing is adopted or
+     * updated.
      *
      * @return array|WP_Error The stored setup map (SETUP_OPTION).
      */
@@ -325,6 +337,10 @@ class PQM_N8n {
         $checked = self::check_provider_key( $provider_key );
         if ( is_wp_error( $checked ) ) {
             return $checked;
+        }
+        $blocked = self::remove_leftovers();
+        if ( is_wp_error( $blocked ) ) {
+            return $blocked;
         }
 
         // The deterministic names: the template's nodes, the setup dialog and the Workflow File section carry them too.
@@ -348,10 +364,11 @@ class PQM_N8n {
                 $ids[ $credential['name'] ] = null;
                 continue;
             }
-            $response = self::request( 'POST', '/credentials', $credential );
+            // Name, type and data only: the Pro build's WordPress credential also carries a uuid for the revoke.
+            $response = self::request( 'POST', '/credentials', [ 'name' => $credential['name'], 'type' => $credential['type'], 'data' => $credential['data'] ] );
             $id       = self::created_id( $response );
             if ( null === $id ) {
-                return self::step_failed( 'credential_' . $role, $response );
+                return self::fail( 'credential_' . $role, self::stopped( 'credential_' . $role, $response ), $credentials, $created );
             }
             $ids[ $credential['name'] ] = $id;
             $created[ $role ]           = $id;
@@ -362,11 +379,11 @@ class PQM_N8n {
             foreach ( (array) ( $node->credentials ?? [] ) as $type => $ref ) {
                 $name = (string) ( $ref->name ?? '' );
                 if ( ! array_key_exists( $name, $ids ) ) {
-                    return new WP_Error( 'pqm_provision_failed', sprintf(
+                    return self::fail( 'link', sprintf(
                         /* translators: %s: credential name from the workflow template */
-                        __( 'The workflow template names a credential the setup does not create (%s). Update the plugin, then try again.', 'post-quality-manager' ),
+                        __( 'The workflow template names a credential the setup does not create (%s).', 'post-quality-manager' ),
                         $name
-                    ), [ 'status' => 500, 'step' => 'link' ] );
+                    ), $credentials, $created );
                 }
                 if ( null !== $ids[ $name ] ) {
                     $node->credentials->{$type} = [ 'id' => $ids[ $name ], 'name' => $name ];
@@ -383,12 +400,12 @@ class PQM_N8n {
         ] );
         $workflow_id = self::created_id( $response );
         if ( null === $workflow_id ) {
-            return self::step_failed( 'workflow', $response );
+            return self::fail( 'workflow', self::stopped( 'workflow', $response ), $credentials, $created );
         }
 
         $response = self::request( 'POST', '/workflows/' . rawurlencode( $workflow_id ) . '/activate', (object) [] );
         if ( is_wp_error( $response ) || $response['code'] < 200 || $response['code'] >= 300 ) {
-            return self::step_failed( 'activate', $response );
+            return self::fail( 'activate', self::stopped( 'activate', $response ), $credentials, $created, $workflow_id );
         }
 
         $setup = [
@@ -440,7 +457,9 @@ class PQM_N8n {
      * The Pro build's WordPress credential, for the node that saves a
      * rewrite: a new Application Password of the current user. `data` is
      * null when the site offers no Application Passwords (D1): the credential
-     * is not created and its node stays name-only.
+     * is not created and its node stays name-only. `uuid` names the created
+     * Application Password for the revoke of a failed run; it never goes to
+     * n8n.
      */
     private static function wordpress_credential__premium_only( string $host ): array|WP_Error {
         $credential = [ 'name' => 'WordPress - ' . $host, 'type' => 'httpBasicAuth', 'data' => null ];
@@ -458,8 +477,16 @@ class PQM_N8n {
             ), [ 'status' => 500, 'step' => 'application_password' ] );
         }
         $credential['data'] = [ 'user' => $user->user_login, 'password' => $created[0] ];
+        $credential['uuid'] = $created[1]['uuid'];
 
         return $credential;
+    }
+
+    /** Revoke the Application Password this run created, if it created one: the run failed, n8n will not use it. */
+    private static function revoke_application_password__premium_only( array $credentials ): void {
+        if ( isset( $credentials['wordpress']['uuid'] ) ) {
+            WP_Application_Passwords::delete_application_password( wp_get_current_user()->ID, $credentials['wordpress']['uuid'] );
+        }
     }
 
     /**
@@ -477,12 +504,118 @@ class PQM_N8n {
     }
 
     /**
-     * A refused n8n step: 502, `data.step` names it. n8n's reply body is not
-     * repeated (it may quote the request).
+     * A failed run, after its first creation: revoke the Pro build's
+     * Application Password, remove from n8n what this run created, keep
+     * what could not be removed (D1), and answer `data.step` with a message
+     * that says whether anything was left. 502, or 500 for `link` (the
+     * template, not n8n).
+     *
+     * @param string $cause   The sentence naming what went wrong.
+     * @param array  $created role => id of the credentials this run created.
+     */
+    private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null ): WP_Error {
+        // Before n8n's rollback, and whatever it gives: the WordPress credential is useless once the run failed.
+        if ( pqm_fs()->is__premium_only() ) {
+            self::revoke_application_password__premium_only( $credentials );
+        }
+        $left = self::roll_back( $workflow_id, array_values( $created ) );
+        if ( null !== $left ) {
+            update_option( self::LEFTOVERS_OPTION, [ 'base_url' => self::connection()['base_url'] ] + $left + [ 'at' => time() ], false );
+        }
+
+        return new WP_Error( 'pqm_provision_failed', implode( ' ', [
+            $cause,
+            null === $left
+                ? __( 'Nothing was left in n8n.', 'post-quality-manager' )
+                : __( 'Some of what it created is still in n8n: the next try removes it first.', 'post-quality-manager' ),
+            'link' === $step
+                ? __( 'Update the plugin, then try again.', 'post-quality-manager' )
+                : __( 'Try again in a moment.', 'post-quality-manager' ),
+        ] ), [ 'status' => 'link' === $step ? 500 : 502, 'step' => $step ] );
+    }
+
+    /**
+     * Remove from n8n a workflow and credentials the plugin created, in the
+     * forced order (spike 56): deactivate the workflow whatever it answered
+     * before, delete it, then the credentials — only once the workflow is
+     * gone, since n8n deletes a credential silently under a workflow that
+     * uses it. Only the given ids, never a lookup by name. n8n unreachable
+     * (a WP_Error) stops the rollback there: every further call would wait
+     * the full timeout, so the record is written before a gateway gives up.
+     *
+     * @param string[] $credentials Credential ids.
+     * @return array|null Null when everything is gone, else what remains:
+     *                    {workflow_id?, credentials: [id, …]}.
+     */
+    private static function roll_back( ?string $workflow_id, array $credentials ): ?array {
+        $credentials = array_values( $credentials );
+        if ( null !== $workflow_id ) {
+            $path = '/workflows/' . rawurlencode( $workflow_id );
+            // Only reachability matters: deactivating an inactive workflow answers 200, and the delete tells.
+            // n8n 2.42.3 refuses the delete with 409 until it has unpublished the workflow: no credential goes before it.
+            if ( is_wp_error( self::request( 'POST', $path . '/deactivate', (object) [] ) ) || ! self::removed( self::request( 'DELETE', $path ) ) ) {
+                return [ 'workflow_id' => $workflow_id, 'credentials' => $credentials ];
+            }
+        }
+        $left = [];
+        foreach ( $credentials as $i => $id ) {
+            $response = self::request( 'DELETE', '/credentials/' . rawurlencode( (string) $id ) );
+            if ( is_wp_error( $response ) ) {
+                // Unreachable: this id and every untried one stay, without a call each.
+                $left = array_merge( $left, array_slice( $credentials, $i ) );
+                break;
+            }
+            if ( ! self::removed( $response ) ) {
+                $left[] = $id;
+            }
+        }
+
+        return [] === $left ? null : [ 'credentials' => $left ];
+    }
+
+    /**
+     * Whether a DELETE left the object gone: 2xx, or a JSON 404 (n8n 2.42.3
+     * answers `404 {"message":"Not Found"}` for an id it does not know; a
+     * non-JSON 404 comes from a proxy, so the object may still be there).
      *
      * @param array|WP_Error $response
      */
-    private static function step_failed( string $step, $response ): WP_Error {
+    private static function removed( $response ): bool {
+        return ! is_wp_error( $response ) && ( ( 404 === $response['code'] && null !== $response['json'] ) || ( $response['code'] >= 200 && $response['code'] < 300 ) );
+    }
+
+    /**
+     * Before a run creates anything: remove what an earlier run's rollback
+     * left on the connected instance (D1). A record of another instance is
+     * dropped; still refused, the record keeps what remains and the run
+     * stops with 502 step `cleanup`.
+     */
+    private static function remove_leftovers(): ?WP_Error {
+        $leftovers = get_option( self::LEFTOVERS_OPTION, false );
+        if ( ! is_array( $leftovers ) ) {
+            return null;
+        }
+        $base_url = self::connection()['base_url'];
+        $left     = ( $leftovers['base_url'] ?? '' ) === $base_url
+            ? self::roll_back( $leftovers['workflow_id'] ?? null, (array) ( $leftovers['credentials'] ?? [] ) )
+            : null;
+        if ( null === $left ) {
+            delete_option( self::LEFTOVERS_OPTION );
+
+            return null;
+        }
+        update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
+
+        return new WP_Error( 'pqm_provision_failed', __( 'An earlier n8n setup left a workflow or credentials in n8n that could not be removed yet, so nothing was created. Try again in a moment. If this keeps happening, check that your n8n API key is still valid by connecting again on the n8n Workflow page, or remove the Post Quality workflow and credentials in n8n by hand.', 'post-quality-manager' ), [ 'status' => 502, 'step' => 'cleanup' ] );
+    }
+
+    /**
+     * Why an n8n step stopped the run, in plain words. n8n's reply body is
+     * not repeated (it may quote the request).
+     *
+     * @param array|WP_Error $response
+     */
+    private static function stopped( string $step, $response ): string {
         $labels = [
             'credential_webhook'   => __( 'creating the webhook credential', 'post-quality-manager' ),
             'credential_anthropic' => __( 'creating the Anthropic credential', 'post-quality-manager' ),
@@ -500,11 +633,11 @@ class PQM_N8n {
             $answer = sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );
         }
 
-        return new WP_Error( 'pqm_provision_failed', sprintf(
+        return sprintf(
             /* translators: 1: setup step, e.g. "creating the webhook credential"; 2: what n8n answered, e.g. "n8n answered HTTP 400" */
-            __( 'The n8n setup stopped while %1$s (%2$s). In n8n, remove the Post Quality credentials and workflow it created, then try again.', 'post-quality-manager' ),
+            __( 'The n8n setup stopped while %1$s (%2$s).', 'post-quality-manager' ),
             $labels[ $step ] ?? $step,
             $answer
-        ), [ 'status' => 502, 'step' => $step ] );
+        );
     }
 }

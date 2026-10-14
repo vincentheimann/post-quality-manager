@@ -370,6 +370,28 @@ check('... reply provisioned and pinged, no rewrite_ready; map without a WordPre
     && $GLOBALS['tw']['options']['pqm_n8n_setup']['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === 'https://n8n.example/webhook/pqm-execute-example-com');
 check('... the provider key in no option and not in the reply', !str_contains(json_encode([$GLOBALS['tw']['options'], $reply]), 'sk-ant-free-provider-key'));
+
+/* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */
+echo "Row — Free provisioning, activation refused: rolled back, no Application Password\n";
+$client = (string) file_get_contents($free . '/includes/class-pqm-n8n.php');
+check('the Free n8n client names no Application Password symbol (create and revoke are Pro only)', !preg_match('/WP_Application_Passwords|application_password/i', $client));
+unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']),
+    ['response' => ['code' => 400], 'body' => '{"message":"Workflow has no node to start the workflow"}'],
+    $ok(['id' => 'wf-free', 'active' => false]), $ok(['id' => 'wf-free']), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic'])];
+$failed = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
+$sent   = array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']);
+check('502, step activate; deactivate → DELETE the workflow → DELETE the 2 credentials', $failed instanceof WP_Error
+    && $failed->data === ['status' => 502, 'step' => 'activate'] && array_slice($sent, 4) === [
+    'POST https://n8n.example/api/v1/workflows/wf-free/activate',
+    'POST https://n8n.example/api/v1/workflows/wf-free/deactivate',
+    'DELETE https://n8n.example/api/v1/workflows/wf-free',
+    'DELETE https://n8n.example/api/v1/credentials/c-webhook',
+    'DELETE https://n8n.example/api/v1/credentials/c-anthropic',
+] && $GLOBALS['tw']['queue'] === []);
+check('... nothing left: no setup map, no leftovers record; the message says so', !isset($GLOBALS['tw']['options']['pqm_n8n_setup'])
+    && !isset($GLOBALS['tw']['options']['pqm_n8n_leftovers']) && str_contains($failed->message, 'Nothing was left in n8n.'));
 $GLOBALS['tw']['options'] = $options_before; // the screens below start from the site as it was
 
 /* ─── Row: the screens an Administrator opens ────────────────────────── */
