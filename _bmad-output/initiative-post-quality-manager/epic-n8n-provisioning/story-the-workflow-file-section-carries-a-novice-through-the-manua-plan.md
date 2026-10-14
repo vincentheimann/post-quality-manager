@@ -3,7 +3,7 @@ title: 'The Workflow File section carries a novice through the manual setup'
 type: 'feature'
 ticket: '2'
 created: '2026-10-14'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
