@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.7.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.6.0...v3.7.0) (2026-10-14)
+
+
+### Features
+
+* **workflow:** the Workflow File section guides a manual setup step by step (provisioning entry 2) ([21de5b3](https://github.com/vincentheimann/post-quality-manager/commit/21de5b32d031549c82bd95e06f06eec2414124f3))
+
+
+### Bug Fixes
+
+* **workflow:** n8n 2.42.3 labels and credential order in the Workflow File section ([459fb35](https://github.com/vincentheimann/post-quality-manager/commit/459fb35b49589bcc9159a29752f51b8533e13a33))
+
 ## [3.6.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.5.1...v3.6.0) (2026-10-13)
 
 
