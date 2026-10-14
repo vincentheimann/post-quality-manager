@@ -3,7 +3,7 @@ title: 'The workflow template carries a per-site webhook path'
 type: 'feature'
 ticket: '3'
 created: '2026-10-13'
-status: built
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

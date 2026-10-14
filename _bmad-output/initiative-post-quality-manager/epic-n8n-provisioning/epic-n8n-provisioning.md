@@ -61,6 +61,7 @@ The n8n Workflow page, the setup wizard's n8n steps, the n8n API client, the wor
 - Decision (owner, 2026-10-13): backlog story 40 is dropped by reference, absorbed by entry 2; its acceptance criteria are entry 2's reference.
 - Decision (owner, 2026-10-13): the owner may fix the production mis-wiring now (it unblocks story 54's last walk line); entry 7's check recreates it by hand.
 - Decision (owner, 2026-10-13, entry 1 plan D3): the published privacy page is a copy in the `postquality.com` repository; entry 1 updates `docs/policies/` only, and entry 6 syncs the site copy with both changes in one site PR, before any release that ships entry 6.
+- Done (2026-10-13): entry 3 merged as PR #109 (per-site webhook path, `PQM_WORKFLOW_VERSION` 6); the owner's walkthrough of it (`../walkthrough-6-3-per-site-webhook-path/`) stopped at block 1 and is kept as an unfinished record.
 - Lanes: entry 3 runs beside 1 and 2; entries 9 and 10 run beside each other after 8; every other entry touches the Workflow page, the wizard or the setup map in order.
 - Open question (entry 4): on a Pro site without Application Passwords (neither HTTPS nor local), provision without the WordPress credential or refuse.
 - Open question (entry 4): an instance whose `WEBHOOK_URL` differs from the editor URL fails the ping on the computed URL; the paste-the-URL step is the fallback.
