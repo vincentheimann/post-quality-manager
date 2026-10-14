@@ -3,7 +3,7 @@ title: 'A failed provisioning leaves nothing behind'
 type: 'feature'
 ticket: '5'
 created: '2026-10-14'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
