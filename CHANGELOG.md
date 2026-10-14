@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.8.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.7.0...v3.8.0) (2026-10-14)
+
+
+### Features
+
+* **n8n:** provision credentials and the workflow server-side (entry 6.4) ([2aae464](https://github.com/vincentheimann/post-quality-manager/commit/2aae4645c11b30fce4420ffa5b593e5781a1882f))
+
 ## [3.7.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.6.0...v3.7.0) (2026-10-14)
 
 
