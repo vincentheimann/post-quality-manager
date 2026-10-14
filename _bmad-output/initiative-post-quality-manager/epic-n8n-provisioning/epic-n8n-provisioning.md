@@ -49,6 +49,7 @@ The n8n Workflow page, the setup wizard's n8n steps, the n8n API client, the wor
 - requirement — docs/user-paths.md, A4 and UV4
 - backlog — _bmad-output/backlog/story-workflow-file-novice-path.md (story 40, absorbed by entry 2) and _bmad-output/backlog/story-one-button-setup-wizard.md (story 55, the wizard this reworks)
 - memory — memory/n8n-provisioning.md, memory/llm-options-architecture.md (the handshake)
+- ux — _bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/EXPERIENCE.md (story 67, approved 2026-10-14): the n8n Workflow page per site state; § "Where each epic entry lands" places the controls of entries 6.6–6.10
 
 ## Notes
 
@@ -65,6 +66,7 @@ The n8n Workflow page, the setup wizard's n8n steps, the n8n API client, the wor
 - Done (2026-10-14): entry 2 merged as PR #112 (the Workflow File section as the manual path, story 40 absorbed); walked on the owner's production site the same day, Pro and Free builds, all pass. The setup dialog keeps the same outdated n8n labels until entry 6 (deferred-work entry).
 - Done (2026-10-14): entry 4 merged as PR #117 (`POST /n8n/provision`, setup map in option `pqm_n8n_setup`); no UI yet, so no walk; the real-site check is entry 12's. Its review deferred the failed-run cleanup to entry 5 (deferred-work entry: deactivate after an `activate` error, revoke the Application Password, no duplicates on retry).
 - Done (2026-10-14): entry 5 merged as PR #124 (rollback of a failed provisioning: deactivate, delete the workflow, then the credentials, the Application Password revoked; what n8n refuses kept in `pqm_n8n_leftovers` and removed first by the next run). Harness-verified only: the forced failure through the API on the owner's instance is still open, now or in entry 12's walk (owner's call). n8n 2.42.3's source shows a DELETE right after an unpublish can answer 409 for up to one outbox poll (plan Design Notes).
+- Decision (owner, 2026-10-14, story 67 sequencing (a)): entries 6.6–6.10 place their controls where `ux-n8n-workflow-page/EXPERIENCE.md` reserves them (6.6 the primary action of the not-set-up states, 6.7 the status sentence, 6.8 in the n8n connection disclosure, 6.9 Update workflow as the outdated fix, 6.10 Rotate token in the Webhook disclosure), as far as the current page allows; story 67 rebuilds the page after entry 6.12.
 - Lanes: entry 3 runs beside 1 and 2; entries 9 and 10 run beside each other after 8; every other entry touches the Workflow page, the wizard or the setup map in order.
 - Open question (entry 4): on a Pro site without Application Passwords (neither HTTPS nor local), provision without the WordPress credential or refuse.
 - Open question (entry 4): an instance whose `WEBHOOK_URL` differs from the editor URL fails the ping on the computed URL; the paste-the-URL step is the fallback.

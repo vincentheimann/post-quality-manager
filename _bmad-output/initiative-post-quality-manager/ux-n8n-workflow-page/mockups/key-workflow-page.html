@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mock — n8n Workflow page, one next step per state (story 67)</title>
+<style>
+/* Governed by EXPERIENCE.md (Information Architecture → States, One place for each thing, Component Patterns)
+   and DESIGN.md (Colors, Components). Spines win on conflict. Offline, no JS. Copy is draft. */
+:root{--primary:#2271b1;--primary-h:#135e96;--ink:#1d2327;--muted:#50575e;--surface:#fff;--canvas:#f0f0f1;--line:#c3c4c7;
+  --ok:#00a32a;--warn:#dba617;--err:#d63638;--info:#72aee6}
+*{box-sizing:border-box}
+body{margin:0;background:#e5e5e5;color:var(--ink);font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif}
+.intro{max-width:1000px;margin:20px auto;background:#fff8e5;border:1px solid var(--warn);padding:10px 14px}
+.toc a{margin-right:12px}
+.state{max-width:1000px;margin:24px auto;border:1px solid var(--line);background:var(--canvas)}
+.state>header{background:#1d2327;color:#fff;padding:8px 14px;font-weight:600}
+.state>header small{font-weight:400;opacity:.8;margin-left:8px}
+.wrap{padding:10px 20px 24px}
+h1{font-size:23px;font-weight:400;margin:10px 0 14px}
+h2{font-size:1.3em;font-weight:600;margin:0;display:inline}
+.status{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line);padding:10px 12px;margin-bottom:12px}
+.status.ok{border-left-color:var(--ok)}.status.warn{border-left-color:var(--warn)}.status.err{border-left-color:var(--err)}.status.info{border-left-color:var(--info)}
+.status p{margin:0 0 4px}.status .meta{color:var(--muted)}
+.button{display:inline-block;border:1px solid var(--primary);color:var(--primary);background:#f6f7f7;border-radius:3px;padding:0 10px;line-height:28px;text-decoration:none;font-size:13px;margin-right:6px}
+.button-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.actions{margin:12px 0 18px}
+.actions a.link{margin-left:10px}
+.body{background:var(--surface);border:1px solid var(--line);padding:10px 14px;margin-bottom:12px}
+.notice{background:var(--surface);border-left:4px solid var(--info);padding:8px 12px;margin:0 0 12px;box-shadow:0 1px 1px rgba(0,0,0,.04)}
+details{background:var(--surface);border:1px solid var(--line);margin-top:8px;padding:8px 12px}
+details summary{cursor:pointer}
+details .inner{color:var(--muted);padding:8px 0 2px}
+ol.steps li{margin-bottom:6px}
+input[type=text]{width:360px;padding:3px 6px;border:1px solid #8c8f94;border-radius:3px}
+.gone{max-width:1000px;margin:24px auto;background:#fff;border:1px solid var(--line);padding:10px 14px}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <strong>Mock, not the build.</strong> Approved by the owner on 2026-10-14. The n8n Workflow page in each of the five site states, one primary action each (story 67, EXPERIENCE.md → States). The copy is draft. Bracketed tags name the epic entry that brings an action.
+  <div class="toc">Jump to: <a href="#s1">1 Not set up</a><a href="#s2">2 Connected, not set up</a><a href="#s3">3 Manual path</a><a href="#s4">4 Set up</a><a href="#s5">5 Needs attention</a><a href="#gone">What leaves the page</a></div>
+</div>
+
+<section class="state" id="s1">
+  <header>State 1 — Not set up <small>no webhook URL, no n8n key, no manual choice</small></header>
+  <div class="wrap">
+    <h1>n8n Workflow</h1>
+    <div class="status"><p>Not connected to n8n yet.</p></div>
+    <div class="actions"><a class="button button-primary" href="#s1">Set up n8n</a> <small>[6.6: the wizard, connect step]</small></div>
+    <div class="body">The setup asks for three things: your n8n address, an n8n API key (create one in n8n under Settings → n8n API, with an expiration date) and your Anthropic API key. The plugin then creates the workflow and its credentials in n8n for you.</div>
+    <p><a href="#s3">Set up by hand instead</a></p>
+  </div>
+</section>
+
+<section class="state" id="s2">
+  <header>State 2 — Connected, not set up <small>n8n key stored and checked; nothing provisioned; shown with the "leftovers waiting" variant</small></header>
+  <div class="wrap">
+    <h1>n8n Workflow</h1>
+    <div class="status info"><p>Connected to n8n at n8n.example.com. The workflow is not set up yet.</p><p class="meta">Checked today.</p></div>
+    <div class="notice">An earlier setup left a workflow or credentials in n8n. Setting up removes them first.</div>
+    <div class="actions"><a class="button button-primary" href="#s2">Set up n8n</a> <small>[6.6: the wizard, Anthropic key step]</small><a class="link" href="#s3">Set up by hand instead</a></div>
+    <details><summary><h2>n8n connection</h2></summary><div class="inner">Address n8n.example.com · API key: set · <a class="button" href="#s2">Check again</a> <a class="button" href="#s2">Forget key</a></div></details>
+  </div>
+</section>
+
+<section class="state" id="s3">
+  <header>State 3 — Manual path <small>no webhook URL; the owner's choice, or a failed connection check</small></header>
+  <div class="wrap">
+    <h1>n8n Workflow</h1>
+    <div class="status info"><p>Setting up by hand.</p><p class="meta">You chose to set up n8n by hand. <em>(Or: On 14 October 2026, the n8n connection check did not pass: n8n answered 404, the public API is turned off on this instance.)</em></p></div>
+    <div class="body">
+      <ol class="steps">
+        <li><strong>Import the workflow</strong>: import URL with Copy, or Download (as built in entry 6.2)</li>
+        <li><strong>Create the credentials</strong>: webhook (with the token's Copy row), Anthropic; Pro: WordPress</li>
+        <li><strong>Check the credential in each node</strong></li>
+        <li><strong>Publish and connect</strong>: paste the production URL (…/webhook/pqm-execute-example-com)<br>
+          <input type="text" value="https://n8n.example.com/webhook/pqm-execute-example-com" aria-label="n8n webhook URL"> <a class="button button-primary" href="#s4">Save and test</a></li>
+      </ol>
+    </div>
+    <details><summary><h2>n8n connection</h2></summary><div class="inner">Connect by key instead: address, API key, Connect.</div></details>
+  </div>
+</section>
+
+<section class="state" id="s4">
+  <header>State 4 — Set up <small>webhook URL saved, last check passed; a hand-made setup with a key stored</small></header>
+  <div class="wrap">
+    <h1>n8n Workflow</h1>
+    <div class="status ok"><p>Your workflow answers.</p><p class="meta">Version 6 · checked today by a test · <a class="button" href="#s4">Test again</a></p></div>
+    <div class="actions"><a class="button button-primary" href="#s4">Open Post Reviews</a> <small>(no review yet: "Run your first review"; not checked yet: "Test the connection")</small></div>
+    <details><summary><h2>n8n connection</h2></summary><div class="inner">Address n8n.example.com · API key: set · Check again · Forget key<br><a class="button" href="#s4">Let the plugin manage this workflow</a> <small>[6.8: adoption]</small></div></details>
+    <details><summary><h2>Webhook</h2></summary><div class="inner">https://n8n.example.com/webhook/pqm-execute-example-com · Change<br>Token: set · <a class="button" href="#s4">Rotate token</a> <small>[6.10]</small></div></details>
+    <details><summary><h2>Set up by hand</h2></summary><div class="inner">The four steps, for a re-import (hand-made setups only).</div></details>
+  </div>
+</section>
+
+<section class="state" id="s5">
+  <header>State 5 — Needs attention <small>shown: outdated, provisioned setup; variants below</small></header>
+  <div class="wrap">
+    <h1>n8n Workflow</h1>
+    <div class="status warn"><p>Your workflow is version 5; this plugin needs 6.</p><p class="meta">Checked today by a command · <a class="button" href="#s5">Test again</a></p></div>
+    <div class="actions"><a class="button button-primary" href="#s4">Update workflow</a> <small>[6.9: one click, in place]</small></div>
+    <div class="body">
+      <strong>The other variants, each with one primary action:</strong>
+      <ul>
+        <li><strong>Ping failing</strong> (red): "n8n responded with 404: the webhook is not registered. Check that the workflow is published." Primary: <strong>Test again</strong>.</li>
+        <li><strong>Mis-wired</strong> [6.7] (red): "The Claude - Review Agent and Claude - Takeaways Agent nodes use the webhook credential. In n8n, choose Anthropic - Claude on those nodes." Primary: <strong>Check again</strong>.</li>
+        <li><strong>Outdated, hand-made setup</strong>: Primary <strong>Re-import the workflow</strong>, which opens Set up by hand at step 1 with the unpublish-first note.</li>
+        <li><strong>Free variant on Pro</strong>: as outdated (Update workflow or Re-import).</li>
+      </ul>
+    </div>
+    <details><summary><h2>n8n connection</h2></summary><div class="inner">…</div></details>
+    <details><summary><h2>Webhook</h2></summary><div class="inner">…</div></details>
+  </div>
+</section>
+
+<div class="gone" id="gone">
+  <strong>What leaves the page, and where it goes:</strong>
+  <ul>
+    <li>"What Each Agent Sends to Claude" table → the Settings AI tab, where those values are edited.</li>
+    <li>Connection Test section → "Test again" in the status block. Settings' "Send test ping" goes too.</li>
+    <li>Webhook URL field on Settings → read-only there, with "Change it on the n8n Workflow page".</li>
+    <li>The setup dialog's manual n8n steps → replaced by connect → provision → first review (6.6). "Set up by hand instead" opens state 3 on this page.</li>
+    <li>The separate "update available" / "Free variant" warnings → the status block of state 5.</li>
+  </ul>
+</div>
+
+</body>
+</html>

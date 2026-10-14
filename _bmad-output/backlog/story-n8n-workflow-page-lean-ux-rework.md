@@ -89,3 +89,5 @@ This story reshapes the page around the site's state: one primary action per sta
   - one primary action per screen state;
   - remove before adding;
   - validate with the owner's walk before polishing.
+- Decision (owner, 2026-10-14): sequencing (a). The design-only pass ran before entry 6.6; the build lands after entry 6.12.
+- Done (2026-10-14): AC1. The audit and the target layout per state are in `_bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/` (`audit.md`, `EXPERIENCE.md`, `DESIGN.md`, `mockups/key-workflow-page.html`), approved by the owner on 2026-10-14. Layout: a status block (the one place for the state, the version and the test), one primary action per state, the rest in collapsed `<details>`. Five states, resolved in order: needs attention > set up > manual path > connected, not set up > not set up. The per-agent table moves to Settings → AI; the webhook URL is edited on this page only.
