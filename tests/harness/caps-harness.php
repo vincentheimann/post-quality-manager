@@ -463,7 +463,7 @@ check('uninstall deletes the leftover pqm_view_as meta for all users',
 check('uninstall drops the pqm_reviews table', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_pqm_reviews`']);
 check('uninstall deletes every pqm_ option',
     $GLOBALS['tw_option_deletes'] === ['pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen',
-        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api']);
+        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup']);
 check('uninstall deletes the pqm_monthly_usage meta for all users',
     in_array(['user', 0, 'pqm_monthly_usage', '', true], $GLOBALS['tw_metadata_deletes'], true));
 check('uninstall strips every pqm_ cap from every role', array_filter(array_map(

@@ -15,6 +15,7 @@
  *  POST /post-quality/v1/setup            — tick a setup step, or mark the setup complete (story 36)
  *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
  *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
+ *  POST /post-quality/v1/n8n/provision    — set the workflow up on that instance, then ping it (n8n provisioning, entry 4)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -161,6 +162,16 @@ class PQM_REST_API {
                 'methods'             => 'DELETE', // WP_REST_Server::DELETABLE
                 'callback'            => [ __CLASS__, 'forget_n8n_callback' ],
                 'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            ],
+        ] );
+
+        // n8n provisioning, entry 4: credentials, workflow, activation, webhook URL — server-side.
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/provision', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'provision_n8n_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            'args'                => [
+                'anthropic_key' => [ 'required' => true, 'type' => 'string' ],
             ],
         ] );
     }
@@ -1297,5 +1308,55 @@ class PQM_REST_API {
         PQM_N8n::forget();
 
         return new WP_REST_Response( PQM_N8n::public_state(), 200 );
+    }
+
+    /**
+     * Provision the connected instance (PQM_N8n::provision()), then the
+     * connect step's flow: save the production webhook URL — the connected
+     * origin + /webhook/ + pqm_webhook_path(), as the n8n public API exposes
+     * no webhook base — ping it, record the replied version. The Anthropic
+     * key is passed on and never echoed. A failed ping keeps everything:
+     * n8n may serve webhooks on another address than its editor (WEBHOOK_URL),
+     * so the reply points to pasting the Webhook Trigger's production URL.
+     * Answers `{ provisioned, ping_ok, workflow_id, message }`, plus on the
+     * Pro build `rewrite_ready` (false when no WordPress credential was
+     * created, D1).
+     */
+    public static function provision_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $setup = PQM_N8n::provision( sanitize_text_field( (string) $request->get_param( 'anthropic_key' ) ) );
+        if ( is_wp_error( $setup ) ) {
+            return $setup;
+        }
+
+        $url   = PQM_N8n::connection()['base_url'] . '/webhook/' . $setup['path'];
+        $saved = PQM_Admin::save_webhook_url( $url );
+        $ping  = is_wp_error( $saved )
+            ? [ 'ok' => false, 'message' => $saved->get_error_message() ]
+            : PQM_Admin::ping_webhook( esc_url_raw( $url ) );
+        $progress = self::setup_progress();
+        $progress['steps']['connect'] = $ping['ok'];
+        update_option( PQM_SETUP_OPTION, $progress, false );
+
+        $reply = [
+            'provisioned' => true,
+            'ping_ok'     => $ping['ok'],
+            'workflow_id' => $setup['workflow_id'],
+            'message'     => $ping['ok'] ? $ping['message'] : sprintf(
+                /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+                __( 'Your workflow is set up and active in n8n, but the ping did not get through. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
+                $ping['message']
+            ),
+        ];
+        if ( $ping['ok'] ) {
+            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'] );
+        }
+        if ( pqm_fs()->is__premium_only() ) {
+            $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
+            if ( ! $reply['rewrite_ready'] ) {
+                $reply['message'] .= ' ' . __( 'Application Passwords are turned off on this site, so no WordPress credential was created. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Rewrite stays off until Application Passwords are available and a WordPress credential is added in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
+            }
+        }
+
+        return new WP_REST_Response( $reply, 200 );
     }
 }

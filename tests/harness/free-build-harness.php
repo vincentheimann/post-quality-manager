@@ -235,6 +235,12 @@ function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$route
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'admin']; }
 function wp_is_application_passwords_available_for_user($u) { return true; }
 function wp_remote_post($url, $args) { return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
+/* Provisioning (entry 4): the Anthropic check and the n8n calls answer from a scripted queue. */
+function wp_remote_request($url, $args) {
+    $GLOBALS['tw']['calls'][] = [$url, $args];
+    return array_shift($GLOBALS['tw']['queue']) ?? ['response' => ['code' => 599], 'body' => ''];
+}
+function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body']; }
 function is_wp_error($thing) { return $thing instanceof WP_Error; }
@@ -251,6 +257,7 @@ class WP_Error {
 class WP_REST_Request {
     public function __construct(private $json = null) {}
     public function get_json_params() { return $this->json; }
+    public function get_param($k) { return $this->json[$k] ?? null; }
 }
 class WP_REST_Response {
     public function __construct(public $data = null, public $status = 200) {}
@@ -325,6 +332,45 @@ $free_trigger = array_column($json['nodes'], null, 'name')['Webhook Trigger']['p
 check('the Free template carries the per-site trigger path and the version, no __PQM_ placeholder left',
     $free_trigger['path'] === 'pqm-execute-example-com' && !str_contains((string) pqm_workflow_json(), '__PQM_')
     && json_decode($free_trigger['options']['responseData'], true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION, 'workflow_variant' => 'free']);
+
+/* ─── Row: provisioning on the Free build (n8n provisioning, entry 4) ── */
+echo "Row — Free provisioning: 2 credentials, no WordPress one, the 3 Free nodes linked\n";
+check('the provision route is there, as on Pro (provisioning is free), gated by check_manage_settings',
+    ($GLOBALS['pqm_routes']['/n8n/provision']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+$ok = static fn(array $json) => ['response' => ['code' => 200], 'body' => json_encode($json)];
+$options_before = $GLOBALS['tw']['options'];
+$GLOBALS['tw']['options'] = [
+    'pqm_n8n_api'  => ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => null],
+    'pqm_settings' => ['webhook_token' => 'free-token'],
+];
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']), $ok(['id' => 'wf-free', 'active' => true])];
+$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
+$reply = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
+$reply = $reply instanceof WP_REST_Response ? $reply->get_data() : null;
+$sent  = array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']);
+$bodies = array_map(static fn($c) => json_decode($c[1]['body'] ?? 'null', true), $GLOBALS['tw']['calls']);
+check('calls: the models check, 2 credentials, the workflow, activate', $sent === [
+    'GET https://api.anthropic.com/v1/models?limit=1',
+    'POST https://n8n.example/api/v1/credentials',
+    'POST https://n8n.example/api/v1/credentials',
+    'POST https://n8n.example/api/v1/workflows',
+    'POST https://n8n.example/api/v1/workflows/wf-free/activate',
+]);
+check('... the webhook and Anthropic credentials, no httpBasicAuth anywhere', array_column(array_slice($bodies, 1, 2), 'name') === ['Post Quality webhook - example.com', 'Anthropic - Claude']
+    && !str_contains(json_encode($bodies), 'httpBasicAuth'));
+$linked = array_column(array_filter($bodies[3]['nodes'] ?? [], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
+check('... the Free template, its 3 credentialed nodes linked by id', !in_array('Build Rewrite Body', array_column($bodies[3]['nodes'] ?? [], 'name'), true) && $linked === [
+    'Webhook Trigger'          => ['httpHeaderAuth' => ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com']],
+    'Claude - Review Agent'    => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
+    'Claude - Takeaways Agent' => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
+]);
+check('... reply provisioned and pinged, no rewrite_ready; map without a WordPress credential', $reply !== null
+    && $reply['provisioned'] === true && $reply['ping_ok'] === true && !array_key_exists('rewrite_ready', $reply)
+    && $GLOBALS['tw']['options']['pqm_n8n_setup']['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
+    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === 'https://n8n.example/webhook/pqm-execute-example-com');
+check('... the provider key in no option and not in the reply', !str_contains(json_encode([$GLOBALS['tw']['options'], $reply]), 'sk-ant-free-provider-key'));
+$GLOBALS['tw']['options'] = $options_before; // the screens below start from the site as it was
 
 /* ─── Row: the screens an Administrator opens ────────────────────────── */
 echo "Row — Settings and n8n Workflow: nothing locked, one Get Pro, no paid agent named\n";

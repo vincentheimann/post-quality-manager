@@ -7,7 +7,9 @@
  * no redirect following, and the key header; every reply is checked for the
  * key string. WP stubs, no WP install; callbacks are called directly.
  * Entry 2 rows: the failure record (`failed`) a manual-path cause leaves,
- * and what clears it.
+ * and what clears it. Entry 4 rows: POST /n8n/provision, one per line of
+ * its plan's matrix (Pro build; the Free run is in free-build-harness.php),
+ * and the provider-key leak scan.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -26,8 +28,12 @@ $GLOBALS['tw'] = [
     'options'  => [],
     'autoload' => [],
     'writes'   => [],
-    'queue'    => [], // scripted wp_remote_request() answers, in call order
-    'calls'    => [], // wp_remote_request() calls: [url, args]
+    'queue'    => [], // scripted wp_remote_request() / wp_remote_get() answers, in call order
+    'calls'    => [], // wp_remote_request() / wp_remote_get() calls: [url, args]
+    'pings'    => [], // wp_remote_post() calls (the webhook ping): [url, args]
+    'ping_response' => null,
+    'app_passwords' => true, // wp_is_application_passwords_available_for_user()
+    'app_created'   => [],   // Application Passwords created: [user_id, args]
 ];
 $GLOBALS['pqm_routes'] = [];
 
@@ -57,8 +63,41 @@ function wp_remote_request($url, $args) {
     $GLOBALS['tw']['calls'][] = [$url, $args];
     return array_shift($GLOBALS['tw']['queue']) ?? new WP_Error('harness', "unscripted call: {$args['method']} $url");
 }
+function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
+function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
+function wp_generate_uuid4() { return 'stub-uuid'; }
+function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
+function apply_filters($tag, $value) { return $value; }
+function esc_url_raw($s) { return trim((string) $s); }
+function absint($n) { return abs((int) $n); }
+function home_url($p = '') { return 'https://example.com' . $p; }
+function wp_get_current_user() { return (object) ['ID' => 7, 'user_login' => 'admin-anna']; }
+function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
+const APP_PASSWORD = 'abcd EFGH ijkl MNOP qrst UVWX';
+class WP_Application_Passwords {
+    public static function create_new_application_password($user_id, $args = []) {
+        $GLOBALS['tw']['app_created'][] = [$user_id, $args];
+        return [APP_PASSWORD, ['uuid' => 'app-uuid', 'name' => $args['name']]];
+    }
+}
+/* GET /setup, read once for the acceptance row. */
+function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
+function get_locale() { return 'en_US'; }
+function switch_to_locale($l) { return false; }
+function restore_previous_locale() {}
+function rest_url($p = '') { return 'https://example.com/wp-json/' . $p; }
+function admin_url($p = '') { return 'https://example.com/wp-admin/' . $p; }
+function wp_create_nonce($a = '') { return 'nonce-' . $a; }
+function add_query_arg($args, $url = '', $unused = null) {
+    if (!is_array($args)) { [$args, $url] = [[$args => $url], $unused]; }
+    return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args);
+}
+$wpdb = new class {
+    public $prefix = 'wp_';
+    public function get_var($sql) { return null; }
+};
 
 class WP_REST_Server {
     const READABLE  = 'GET';
@@ -360,13 +399,207 @@ check('a call: /api/v1 + path on the stored origin, signed, JSON body with its C
     && $args['headers']['Content-Type'] === 'application/json' && $args['body'] === '{"name":"x","type":"httpHeaderAuth","data":[]}'
     && $r === ['code' => 200, 'json' => ['id' => 'abc']]);
 
+/* ─── Entry 4: POST /n8n/provision ───────────────────────────────────── */
+echo "Provisioning: route\n";
+$route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/n8n/provision'] ?? [];
+check('/n8n/provision: POST, gated by check_manage_settings, anthropic_key required', ($route['methods'] ?? null) === 'POST'
+    && ($route['permission_callback'] ?? null) === $gate && ($route['args']['anthropic_key']['required'] ?? null) === true);
+check('the setup map has its own option, pqm_n8n_setup', PQM_N8n::SETUP_OPTION === 'pqm_n8n_setup');
+
+const PROVIDER_KEY = 'sk-ant-PROVIDER-SECRET-4242';
+const TOKEN        = 'webhook-token-1234';
+const MODELS       = 'GET https://api.anthropic.com/v1/models?limit=1';
+const HOOK         = BASE . '/webhook/pqm-execute-example-com';
+define('MODELS_OK', resp(200, ['data' => [['id' => 'claude-model', 'type' => 'model']], 'has_more' => true]));
+define('ACTIVE', resp(200, ['id' => 'wf1', 'active' => true]));
+function created(string $id): array { return resp(200, ['id' => $id, 'name' => 'stored name']); }
+define('PRO_OK', [MODELS_OK, created('c-webhook'), created('c-anthropic'), created('c-wp'), created('wf1'), ACTIVE]);
+
+/** A connected site, nothing provisioned, the given answers scripted; the ping answers the current version. */
+function connected(array $queue, array $extra = []): void {
+    site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000]],
+        'pqm_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
+    $GLOBALS['tw']['pings']         = [];
+    $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
+    $GLOBALS['tw']['app_passwords'] = true;
+    $GLOBALS['tw']['app_created']   = [];
+}
+
+$provision_runs = []; // [options, calls, pings] after every run, for the leak scan
+function provision(string $key = PROVIDER_KEY) {
+    $r = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => $key]));
+    $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
+    $GLOBALS['provision_runs'][] = [$GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
+    return $r instanceof WP_Error ? $r : $r->get_data();
+}
+
+/** The decoded JSON body of call $i. */
+function body(int $i) { return json_decode($GLOBALS['tw']['calls'][$i][1]['body'] ?? 'null', true); }
+
+/** Node name => credentials, for every node of the sent workflow that names one. */
+function linked(array $workflow): array {
+    return array_column(array_filter($workflow['nodes'], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
+}
+
+/** Nothing written, nothing pinged, no Application Password. */
+function untouched(): bool {
+    return $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === [];
+}
+
+$template = json_decode((string) pqm_workflow_json(), true);
+$strip    = static fn(array $nodes) => array_map(static function ($n) { unset($n['credentials']); return $n; }, $nodes);
+
+echo "Provisioning: Pro, fresh instance\n";
+connected(PRO_OK);
+$r = provision();
+check('calls, in order: models GET, 3x POST /credentials, POST /workflows, activate', calls() === [
+    MODELS,
+    'POST ' . BASE . '/api/v1/credentials',
+    'POST ' . BASE . '/api/v1/credentials',
+    'POST ' . BASE . '/api/v1/credentials',
+    'POST ' . BASE . '/api/v1/workflows',
+    'POST ' . BASE . '/api/v1/workflows/wf1/activate',
+] && $GLOBALS['tw']['queue'] === []);
+check('the models request: x-api-key = the provider key, anthropic-version 2023-06-01, no n8n key; every call with the plugin UA, no redirect',
+    $GLOBALS['tw']['calls'][0][1]['headers'] === ['x-api-key' => PROVIDER_KEY, 'anthropic-version' => '2023-06-01'] && calls_signed(KEY));
+check('webhook credential: httpHeaderAuth {X-PQM-Token, the site token}, under its deterministic name',
+    body(1) === ['name' => 'Post Quality webhook - example.com', 'type' => 'httpHeaderAuth', 'data' => ['name' => 'X-PQM-Token', 'value' => TOKEN]]);
+check('Anthropic credential: httpHeaderAuth {x-api-key, the provider key}',
+    body(2) === ['name' => 'Anthropic - Claude', 'type' => 'httpHeaderAuth', 'data' => ['name' => 'x-api-key', 'value' => PROVIDER_KEY]]);
+check('WordPress credential: httpBasicAuth {the current user, a new Application Password}',
+    body(3) === ['name' => 'WordPress - example.com', 'type' => 'httpBasicAuth', 'data' => ['user' => 'admin-anna', 'password' => APP_PASSWORD]]);
+check('... one Application Password, for the current user', count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_created'][0][0] === 7
+    && str_starts_with($GLOBALS['tw']['app_created'][0][1]['name'], 'Post Quality Manager (n8n) '));
+$sent = body(4);
+check('workflow: {name, nodes, connections, settings}, no `active`, the build template otherwise unchanged',
+    array_keys($sent) === ['name', 'nodes', 'connections', 'settings'] && $sent['name'] === 'Post Quality — example.com'
+    && $strip($sent['nodes']) === $strip($template['nodes']) && $sent['connections'] === $template['connections'] && $sent['settings'] === $template['settings']);
+$links = linked($sent);
+$claude = ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']];
+check('acceptance: all 8 credentialed nodes carry the created id, none left name-only', count($links) === 8
+    && $links['Webhook Trigger'] === ['httpHeaderAuth' => ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com']]
+    && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp', 'name' => 'WordPress - example.com']]
+    && count(array_filter($links, static fn($c) => $c === $claude)) === 6);
+check('the trigger path is pqm_webhook_path()', array_column($sent['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] === pqm_webhook_path());
+check('activate is sent {}', $GLOBALS['tw']['calls'][5][1]['body'] === '{}');
+$setup = $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] ?? null;
+check('setup map stored, autoload off', $setup === ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'],
+    'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => $setup['at'] ?? null] && abs($setup['at'] - time()) <= 5
+    && $GLOBALS['tw']['autoload'][PQM_N8n::SETUP_OPTION] === false);
+check('webhook URL saved: connected origin + /webhook/ + the path; the token kept', $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => TOKEN, 'n8n_webhook_url' => HOOK]);
+check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
+    && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === TOKEN);
+check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === PQM_WORKFLOW_VERSION);
+check('the connect step ticked, as the connect route does (autoload off)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
+    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
+check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready']
+    && $r['provisioned'] === true && $r['ping_ok'] === true && $r['workflow_id'] === 'wf1' && $r['rewrite_ready'] === true
+    && str_starts_with($r['message'], 'Ping OK'));
+$hits = array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)));
+check('the provider key travels in the models request and the Anthropic credential body only', $hits === [0, 2]
+    && !str_contains(json_encode($GLOBALS['tw']['calls'][2][1]['headers']), PROVIDER_KEY) && !str_contains(json_encode($GLOBALS['tw']['pings']), PROVIDER_KEY));
+
+echo "Provisioning: acceptance — the provider key is in neither read reply\n";
+$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$conn        = json_encode(get_state());
+$setup_reply = json_encode(PQM_REST_API::get_setup_callback()->get_data());
+$replies[]   = $setup_reply;
+check('GET /n8n/connection and GET /setup after provisioning: no provider key, no Application Password',
+    !str_contains($conn . $setup_reply, PROVIDER_KEY) && !str_contains($conn . $setup_reply, APP_PASSWORD) && str_contains($setup_reply, '"webhook_url"'));
+
+echo "Provisioning: Pro, no Application Passwords (D1)\n";
+connected([MODELS_OK, created('c-webhook'), created('c-anthropic'), created('wf1'), ACTIVE]);
+$GLOBALS['tw']['app_passwords'] = false;
+$r = provision();
+$links = linked(body(3));
+check('2 credentials, no Application Password, no httpBasicAuth credential', count(calls()) === 5 && $GLOBALS['tw']['app_created'] === []
+    && !str_contains(json_encode(array_slice($GLOBALS['tw']['calls'], 1, 2)), 'httpBasicAuth'));
+check('7 nodes linked, Update WP Post left name-only', count(array_filter($links, static fn($c) => isset(reset($c)['id']))) === 7
+    && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['name' => 'WordPress - example.com']]);
+check('reply: provisioned, rewrite_ready false, the message says Rewrite stays off until a credential is added by hand',
+    $r['provisioned'] === true && $r['ping_ok'] === true && $r['rewrite_ready'] === false
+    && str_contains($r['message'], 'Rewrite stays off') && str_contains($r['message'], 'does not run on HTTPS')
+    && str_contains($r['message'], 'a WordPress credential is added in n8n on the Update WP Post (Rewrite) node'));
+check('map without a wordpress credential', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']);
+
+echo "Provisioning: the provider key refused\n";
+foreach ([401, 403] as $code) {
+    connected([resp($code, ['type' => 'error', 'error' => ['type' => 'authentication_error', 'message' => 'invalid x-api-key']])]);
+    $r = provision();
+    check("Anthropic answers $code: 400 pqm_provider_key_invalid, zero n8n calls, nothing saved",
+        $r instanceof WP_Error && $r->code === 'pqm_provider_key_invalid' && $r->data['status'] === 400 && calls() === [MODELS] && untouched());
+}
+connected([]);
+$r = provision('  ');
+check('an empty key: refused before any call', $r instanceof WP_Error && $r->code === 'pqm_provider_key_invalid' && calls() === [] && untouched());
+
+echo "Provisioning: Anthropic unreachable\n";
+foreach (['a WP_Error' => new WP_Error('http_request_failed', 'cURL error 28: timed out'), 'a 500' => resp(500, ['type' => 'error']), 'a 529 (overloaded)' => resp(529, ['type' => 'error'])] as $label => $answer) {
+    connected([$answer]);
+    $r = provision();
+    check("$label: 502 pqm_provider_unreachable, zero n8n calls, nothing saved", $r instanceof WP_Error && $r->code === 'pqm_provider_unreachable'
+        && $r->data['status'] === 502 && calls() === [MODELS] && untouched());
+}
+
+echo "Provisioning: not connected, already provisioned\n";
+site(['pqm_settings' => ['webhook_token' => TOKEN]]);
+$GLOBALS['tw']['pings'] = [];
+$GLOBALS['tw']['app_created'] = [];
+$r = provision();
+check('no n8n key stored: pqm_n8n_not_connected, zero calls', $r instanceof WP_Error && $r->code === 'pqm_n8n_not_connected' && calls() === [] && untouched());
+connected(PRO_OK, [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'old', 'credentials' => [], 'path' => 'p', 'wizard_created' => true, 'at' => 1]]);
+$r = provision();
+check('a setup map exists: 409 pqm_already_provisioned, zero calls', $r instanceof WP_Error && $r->code === 'pqm_already_provisioned'
+    && $r->data['status'] === 409 && calls() === [] && untouched());
+
+echo "Provisioning: n8n refuses a step\n";
+foreach ([
+    'credential_webhook'   => [1, resp(400, ['message' => 'request/body/data must have required property']), 'while creating the webhook credential (n8n answered HTTP 400)'],
+    'credential_anthropic' => [2, resp(500, ['message' => 'Internal error']), 'while creating the Anthropic credential (n8n answered HTTP 500)'],
+    'credential_wordpress' => [3, new WP_Error('http_request_failed', 'cURL error 28: timed out'), 'while creating the WordPress credential (n8n could not be reached: cURL error 28: timed out)'],
+    'workflow'             => [4, resp(400, ['message' => 'request/body must NOT have additional properties']), 'while creating the workflow (n8n answered HTTP 400)'],
+    'workflow (a 200 without an id)' => [4, resp(200, ['message' => 'ok']), 'while creating the workflow (n8n did not return what it created)'],
+    'activate'             => [5, resp(400, ['message' => 'Workflow has no node to start the workflow']), 'while activating the workflow (n8n answered HTTP 400)'],
+] as $label => [$at, $answer, $says]) {
+    $step = explode(' ', $label)[0];
+    connected(array_merge(array_slice(PRO_OK, 0, $at), [$answer]));
+    $r = provision();
+    check("$label: 502 pqm_provision_failed, data.step = $step, stops there", $r instanceof WP_Error && $r->code === 'pqm_provision_failed'
+        && $r->data === ['status' => 502, 'step' => $step] && count(calls()) === $at + 1 && $GLOBALS['tw']['queue'] === []);
+    check("... the message names the step in plain words, says \"$says\", gives the next step, never n8n's reply body", str_contains($r->message, $says)
+        && str_ends_with($r->message, 'In n8n, remove the Post Quality credentials and workflow it created, then try again.')
+        && !preg_match('/\b(credential_\w+|activate)\b/', $r->message) && !str_contains($r->message, 'request/body') && !str_contains($r->message, 'Internal error')
+        && !str_contains($r->message, 'HTTP 200'));
+    check('... created objects stay (no DELETE), nothing saved, no ping', !preg_grep('/^DELETE /', calls())
+        && !in_array(PQM_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) && !in_array('pqm_settings', $GLOBALS['tw']['writes'], true) && $GLOBALS['tw']['pings'] === []);
+}
+
+echo "Provisioning: the ping fails\n";
+connected(PRO_OK);
+$GLOBALS['tw']['ping_response'] = resp(404, ['code' => 404, 'message' => 'The requested webhook is not registered.']);
+$r = provision();
+check('200 {provisioned, ping_ok false, message}: points to pasting the Webhook Trigger URL', $r['provisioned'] === true && $r['ping_ok'] === false
+    && str_contains($r['message'], 'n8n responded with 404') && str_contains($r['message'], 'paste it as the n8n Webhook URL'));
+check('... everything kept: map stored, URL saved, no version recorded', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
+    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']));
+check('... the connect step marked open (setup incomplete)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false);
+
+echo "Provisioning: the provider key leak scan\n";
+check('after every run (' . count($provision_runs) . '): the provider key and the Application Password are in no option and no ping',
+    !array_filter($provision_runs, static fn($run) => str_contains(json_encode([$run[0], $run[2]]), PROVIDER_KEY) || str_contains(json_encode([$run[0], $run[2]]), APP_PASSWORD)));
+check('... and in no outgoing call but the models request and the Anthropic credential body',
+    !array_filter($provision_runs, static fn($run) => array_filter($run[1], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)
+        && $c[0] !== 'https://api.anthropic.com/v1/models?limit=1' && !str_starts_with($c[1]['body'] ?? '', '{"name":"Anthropic - Claude"'))));
+
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";
-check('no REST reply above carries either key (' . count($replies) . ' replies)', $replies !== []
-    && !array_filter($replies, static fn($r) => str_contains($r, KEY) || str_contains($r, OLD_KEY)));
-$src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php');
-check('the client logs nothing (no error_log, print_r, var_dump)', !preg_match('/\b(error_log|print_r|var_dump|var_export)\s*\(/', $src));
-check('the client sends through wp_remote_request() in one place', substr_count($src, 'wp_remote_request(') === 1 && !str_contains($src, 'wp_remote_post(') && !str_contains($src, 'wp_remote_get('));
+check('no REST reply above carries either n8n key, the provider key or the Application Password (' . count($replies) . ' replies)', $replies !== []
+    && !array_filter($replies, static fn($r) => str_contains($r, KEY) || str_contains($r, OLD_KEY) || str_contains($r, PROVIDER_KEY) || str_contains($r, APP_PASSWORD)));
+$src  = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php');
+$rest = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php');
+check('the client and the REST class log nothing (no error_log, print_r, var_dump)', !preg_match('/\b(error_log|print_r|var_dump|var_export)\s*\(/', $src . $rest));
+check('the client sends to n8n through wp_remote_request() in one place; its one wp_remote_get() goes to Anthropic', substr_count($src, 'wp_remote_request(') === 1
+    && !str_contains($src, 'wp_remote_post(') && substr_count($src, 'wp_remote_get(') === 1 && str_contains($src, "wp_remote_get( 'https://api.anthropic.com/v1/models?limit=1'"));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);
