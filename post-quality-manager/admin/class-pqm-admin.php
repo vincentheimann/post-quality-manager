@@ -200,7 +200,7 @@ class PQM_Admin
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
                 'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
-                'copied' => __('Copied! Paste it in n8n via "Import from URL".', 'post-quality-manager'),
+                'copied' => __('Copied! Paste it in n8n under "Import", then "From URL".', 'post-quality-manager'),
                 'copiedValue' => __('Copied.', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The value is selected — press Ctrl+C.', 'post-quality-manager'),
             ],
@@ -1526,7 +1526,7 @@ class PQM_Admin
 
         // The Free template has no Rewrite branch: two credentials, two Claude nodes.
         $claude_type = __('Type: Header Auth. Goes in the two Claude nodes.', 'post-quality-manager');
-        $nodes_hint  = __('n8n does not link credentials to an imported workflow by itself: it marks the nodes "Credentials … are not set", or fills them with the first credential of the type it has (step 1). Double-click each node — the Webhook Trigger and the two Claude nodes — check the credential name in its credential field, pick the right one, then close the node.', 'post-quality-manager');
+        $nodes_hint  = __('n8n marks the imported nodes "Credentials … are not set", or has already filled some (step 1). Do the Claude nodes first: double-click one, pick the Anthropic credential in its credential field and close it; n8n adds it to the other Claude nodes that have none. Then double-click the Webhook Trigger and pick the webhook credential, even if one is already set. Last, open each node — the Webhook Trigger and the two Claude nodes — and check the credential name.', 'post-quality-manager');
         $nodes_pick  = sprintf(
             /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: credential name "Anthropic - Claude" */
             esc_html__('Pick %1$s in the Webhook Trigger and %2$s in the two Claude nodes.', 'post-quality-manager'),
@@ -1535,7 +1535,7 @@ class PQM_Admin
         );
         if ( pqm_fs()->is__premium_only() ) {
             $claude_type = __('Type: Header Auth. Goes in the six Claude nodes.', 'post-quality-manager');
-            $nodes_hint  = __('n8n does not link credentials to an imported workflow by itself: it marks the nodes "Credentials … are not set", or fills them with the first credential of the type it has (step 1). Double-click each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — check the credential name in its credential field, pick the right one, then close the node.', 'post-quality-manager');
+            $nodes_hint  = __('n8n marks the imported nodes "Credentials … are not set", or has already filled some (step 1). Do the Claude nodes first: double-click one, pick the Anthropic credential in its credential field and close it; n8n adds it to the other Claude nodes that have none. Then double-click the Webhook Trigger and pick the webhook credential, and Update WP Post (Rewrite) and pick the WordPress one, even if one is already set. Last, open each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and check the credential name.', 'post-quality-manager');
             $nodes_pick  = sprintf(
                 /* translators: 1: credential name, e.g. "Post Quality webhook - example.com", 2: credential name "Anthropic - Claude", 3: credential name, e.g. "WordPress - example.com" */
                 esc_html__('Pick %1$s in the Webhook Trigger, %2$s in the six Claude nodes and %3$s in Update WP Post (Rewrite).', 'post-quality-manager'),
@@ -1564,11 +1564,11 @@ class PQM_Admin
         <ol class="pqm-workflow-steps">
             <li>
                 <h3><?php esc_html_e('Import the workflow', 'post-quality-manager'); ?></h3>
-                <div class="notice notice-warning inline pqm-inline-notice"><p><?php esc_html_e('Before you import: n8n fills every node that needs a credential with the first credential of that type it already has, even one made for another workflow. So check the credential name in each node in step 3.', 'post-quality-manager'); ?></p></div>
+                <div class="notice notice-warning inline pqm-inline-notice"><p><?php esc_html_e('Before you import: n8n fills in credentials by itself. A node gets the credential of its type you saved most recently, even one made for another workflow, when it is imported or opened; and a credential you pick in one node is added to every other node of that type that has none. Both Header Auth credentials share a type, so follow the order in step 3 and check the name in each node.', 'post-quality-manager'); ?></p></div>
                 <p><?php
                     printf(
                         /* translators: %s: "your n8n", linked to the n8n instance when its address is known, else "n8n" */
-                        esc_html__('In %s, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import from URL" and paste this link:', 'post-quality-manager'),
+                        esc_html__('In %s, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import", then "From URL", and paste this link:', 'post-quality-manager'),
                         $n8n // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
                     );
                 ?></p>
@@ -1576,12 +1576,12 @@ class PQM_Admin
                     <?php self::render_copy_value(__('Workflow import URL', 'post-quality-manager'), self::workflow_import_url()); ?>
                     <p class="description"><?php esc_html_e('It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.', 'post-quality-manager'); ?></p>
                 </div>
-                <p><?php esc_html_e('Import from URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import from File" in the same menu.', 'post-quality-manager'); ?></p>
+                <p><?php esc_html_e('Importing from the URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import", then "From file", in the same menu.', 'post-quality-manager'); ?></p>
                 <p><a href="<?php echo esc_url($download); ?>" class="button"><?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?></a></p>
             </li>
             <li>
                 <h3><?php esc_html_e('Create the credentials', 'post-quality-manager'); ?></h3>
-                <p><?php esc_html_e('n8n keeps secrets in credentials. To add one, choose "Create" in the side menu, then "Credential", search for the type and fill in the fields below. n8n names a new credential after its type: rename each one to the credential name shown, the name that tells the two Header Auth credentials apart in step 3.', 'post-quality-manager'); ?></p>
+                <p><?php esc_html_e('n8n keeps secrets in credentials. To add one, open the arrow beside "Create workflow" on the n8n Overview page, choose "Create credential", search for the type and fill in the fields below. n8n names a new credential after its type: rename each one to the credential name shown, the name that tells the two Header Auth credentials apart in step 3.', 'post-quality-manager'); ?></p>
                 <div class="pqm-workflow-credential">
                     <h4><?php echo esc_html($webhook); ?></h4>
                     <?php self::render_copy_value($name, $webhook, $webhook); ?>

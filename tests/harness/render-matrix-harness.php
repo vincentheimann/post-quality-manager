@@ -450,12 +450,16 @@ $download_at = strpos($section, 'Download n8n workflow');
 $step2_at = strpos($section, 'Create the credentials');
 check('step 1 imports as the dialog does: the import URL row, then Download as the fallback; no credential is listed above them',
     $import_at !== false && $import_at < $download_at && $download_at < $step2_at
-    && str_contains($section, 'Import from URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import from File" in the same menu.')
+    && str_contains($section, 'Importing from the URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import", then "From file", in the same menu.')
     && str_contains($section, '<a href="/wp-admin/admin-post.php?action=pqm_download_workflow&_wpnonce=stub" class="button">Download n8n workflow</a>')
     && !str_contains(substr($section, 0, $step2_at), 'Post Quality webhook - ') && !str_contains(substr($section, 0, $step2_at), 'Anthropic - Claude'));
 check('... the import URL row, and only it, sits in .pqm-import-url (pqm-admin.js picks its "where to paste" line by that wrapper)',
     preg_match('/<div class="pqm-import-url">\s*<div class="pqm-copy-row">\s*<span class="pqm-copy-label">Workflow import URL<\/span>/', $section) === 1
     && substr_count($section, 'class="pqm-import-url"') === 1);
+check('n8n labels as 2.42.3 shows them (en.json at the tag): "Import" → "From URL" / "From file", "Create credential"; none of the older names',
+    str_contains($section, 'choose "Import", then "From URL"') && str_contains($section, 'choose "Import", then "From file"')
+    && str_contains($section, 'open the arrow beside "Create workflow" on the n8n Overview page, choose "Create credential"')
+    && !preg_match('/Import from (URL|File)"|"Create" in the side menu|first credential of/', $section));
 check('step 4: save, Publish (older n8n: Active), copy the production URL, paste it in Settings, then the test ping',
     str_contains($section, 'Save the workflow, then click "Publish" in the header above the canvas (older n8n versions: switch the "Active" toggle on).')
     && str_contains($section, 'Double-click the Webhook Trigger, choose "Production URL" and copy the address')
@@ -465,8 +469,9 @@ check('step 4 warns that a Test URL (/webhook-test/) is refused, as the dialog d
     str_contains($section, '<p class="description">Not the Test URL: an address with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.</p>'));
 
 /* AC2: the first-credential warning, before the import */
-$warning = 'Before you import: n8n fills every node that needs a credential with the first credential of that type it already has, even one made for another workflow. So check the credential name in each node in step 3.';
-check('step 1 warns, before the Download, that n8n fills each node with the first credential of its type',
+/* n8n 2.42.3 (editor-ui source at the tag): import and opening a node pick the most recently saved credential of the type; a hand pick spreads to every empty node of that type */
+$warning = 'Before you import: n8n fills in credentials by itself. A node gets the credential of its type you saved most recently, even one made for another workflow, when it is imported or opened; and a credential you pick in one node is added to every other node of that type that has none. Both Header Auth credentials share a type, so follow the order in step 3 and check the name in each node.';
+check('step 1 warns, before the import, how n8n fills in credentials by itself (most recent of the type; a pick spreads to empty nodes)',
     ($w = strpos($section, $warning)) !== false && $w > strpos($section, 'Import the workflow') && $w < $import_at);
 
 /* AC3 (entry): re-import and the path, in step 4 */
@@ -523,7 +528,7 @@ $with_base = $section_of($render_workflow([], [PQM_N8n::OPTION => ['base_url' =>
 check('n8n link: a stored n8n Instance address wins', $n8n_link($with_base) === 'https://n8n.owner.example:8443');
 check('... and the stored n8n API key is not in the page', !str_contains($with_base, 'n8n-key-SECRET-42'));
 check('n8n link: neither stored → no link, plain words', $n8n_link($section_of($fresh)) === null
-    && str_contains($section_of($fresh), 'In n8n, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import from URL" and paste this link:'));
+    && str_contains($section_of($fresh), 'In n8n, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import", then "From URL", and paste this link:'));
 check('n8n link: a saved webhook URL with a port and a sub-path → scheme, host and port only',
     $n8n_link($section_of($render_workflow(['n8n_webhook_url' => 'http://192.168.1.20:5678/n8n/webhook/pqm-execute-example-com']))) === 'http://192.168.1.20:5678');
 foreach (['not a url', 'ftp://n8n.example/webhook/pqm-execute-example-com', 'https:///webhook/pqm-execute'] as $odd) {
@@ -532,8 +537,8 @@ foreach (['not a url', 'ftp://n8n.example/webhook/pqm-execute-example-com', 'htt
 check('every link text names its destination (no "click here", no bare "here")', !preg_match('/>\s*(click )?here\s*</i', $section));
 
 /* Step 3: today's hint, plus "check the name" */
-check('step 3 names the nodes to open and says to check the credential name',
-    str_contains($section, 'Double-click each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — check the credential name in its credential field, pick the right one, then close the node.'));
+check('step 3: Claude nodes first (a pick spreads to the empty ones), then the Webhook Trigger and Update WP Post (Rewrite) even if set, then check every node',
+    str_contains($section, 'Do the Claude nodes first: double-click one, pick the Anthropic credential in its credential field and close it; n8n adds it to the other Claude nodes that have none. Then double-click the Webhook Trigger and pick the webhook credential, and Update WP Post (Rewrite) and pick the WordPress one, even if one is already set. Last, open each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and check the credential name.'));
 check('step 3 says which credential goes in which node',
     str_contains($section, 'Pick <strong>Post Quality webhook - example.com</strong> in the Webhook Trigger, <strong>Anthropic - Claude</strong> in the six Claude nodes and <strong>WordPress - example.com</strong> in Update WP Post (Rewrite).'));
 check('step 2 (Pro): three credential blocks, each with its type and node', substr_count($section, '<div class="pqm-workflow-credential">') === 3
@@ -868,7 +873,7 @@ PQM_Admin::enqueue_assets('content-quality_page_pqm-workflow');
 check('Workflow page enqueues pqm-admin.js' . ($built ? ' and the app bundle' : ' (app bundle skipped: unbuilt)'),
     in_array('pqm-admin', $GLOBALS['tw_enqueued'], true) && ($built ? in_array('pqm-app', $GLOBALS['tw_enqueued'], true) : true));
 check('Copy feedback: the import URL\'s own line, a generic "Copied." for every other row, a "value is selected" fallback',
-    ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copied'] ?? null) === 'Copied! Paste it in n8n via "Import from URL".'
+    ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copied'] ?? null) === 'Copied! Paste it in n8n under "Import", then "From URL".'
     && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copiedValue'] ?? null) === 'Copied.'
     && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copyFailed'] ?? null) === 'Could not copy automatically. The value is selected — press Ctrl+C.');
 check('the inline wizard\'s i18n keys are gone', !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['saving'])

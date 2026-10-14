@@ -347,14 +347,14 @@ preg_match_all('/<span class="pqm-copy-label">([^<]+)<\/span>\s*<span class="pqm
 check('Workflow File (entry 2): the four steps, two credentials, the two Claude nodes, no WordPress credential',
     substr_count($workflow_file, '<li>') === 4 && substr_count($workflow_file, '<div class="pqm-workflow-credential">') === 2
     && str_contains($workflow_file, 'Type: Header Auth. Goes in the two Claude nodes.')
-    && str_contains($workflow_file, 'Double-click each node — the Webhook Trigger and the two Claude nodes — check the credential name')
+    && str_contains($workflow_file, 'Then double-click the Webhook Trigger and pick the webhook credential, even if one is already set. Last, open each node — the Webhook Trigger and the two Claude nodes — and check the credential name.')
     && str_contains($workflow_file, 'Pick <strong>Post Quality webhook - example.com</strong> in the Webhook Trigger and <strong>Anthropic - Claude</strong> in the two Claude nodes.')
     && !str_contains($workflow_file, 'WordPress - ') && !str_contains($workflow_file, 'profile.php') && !str_contains($workflow_file, 'six Claude'));
 check('... Copy rows: import URL, then the webhook and Anthropic credentials\' values',
     array_map(static fn($r) => $r[1], $rows) === ['Workflow import URL', 'Credential name', 'Name', 'Value', 'Credential name', 'Name']
     && $rows[1][2] === 'Post Quality webhook - example.com' && $rows[4][2] === 'Anthropic - Claude' && $rows[5][2] === 'x-api-key');
 check('... the first-credential warning and the re-import note, as on Pro; the n8n link is the stored instance',
-    str_contains($workflow_file, 'Before you import: n8n fills every node that needs a credential with the first credential of that type')
+    str_contains($workflow_file, 'Before you import: n8n fills in credentials by itself. A node gets the credential of its type you saved most recently')
     && str_contains($workflow_file, 'n8n publishes the new one only once the old one is unpublished')
     && str_contains($workflow_file, 'In <a href="https://n8n.example">your n8n</a>, open'));
 check('n8n Workflow page carries the n8n Instance section, as on Pro; a stored n8n API key is not in its source',

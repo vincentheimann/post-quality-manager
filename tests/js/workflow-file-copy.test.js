@@ -8,7 +8,7 @@
 const SCRIPT = '../../post-quality-manager/admin/js/pqm-admin.js';
 
 const I18N = {
-	copied: 'Copied! Paste it in n8n via "Import from URL".',
+	copied: 'Copied! Paste it in n8n under "Import", then "From URL".',
 	copiedValue: 'Copied.',
 	copyFailed:
 		'Could not copy automatically. The value is selected — press Ctrl+C.',
