@@ -369,7 +369,7 @@ class PQM_N8n {
                     ), [ 'status' => 500, 'step' => 'link' ] );
                 }
                 if ( null !== $ids[ $name ] ) {
-                    $node->credentials->$type = [ 'id' => $ids[ $name ], 'name' => $name ];
+                    $node->credentials->{$type} = [ 'id' => $ids[ $name ], 'name' => $name ];
                 }
             }
         }
