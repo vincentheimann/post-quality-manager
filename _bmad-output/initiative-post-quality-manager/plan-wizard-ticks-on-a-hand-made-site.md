@@ -3,7 +3,7 @@ title: 'The wizard ticks only what the plugin did: a hand-made site takes the ma
 type: 'bugfix'
 ticket: ''
 created: '2026-10-15'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'

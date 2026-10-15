@@ -14,6 +14,6 @@ Built:
 4. `.github/PULL_REQUEST_TEMPLATE.md`: the AGENTS.md Definition of Done as a checklist.
 5. Repository front set through `gh repo edit`: description = the tagline, website = https://postquality.com, topics `wordpress-plugin`, `content-quality`, `n8n`, `ai` (read back, all set).
 
-Deferred to the public switch in entry 4.8 (recorded in the epic Notes and `docs/distribution.md`): branch protection on `main` requiring the four CI checks ("Build admin app", "PHP 8.0 lint and harness sweep", "PHP 8.3 lint and harness sweep", "Plugin Check", names read from the last merged PR's checks) with force pushes blocked; private vulnerability reporting on; Discussions as the owner decides.
+Deferred to the public switch in entry 4.8 (recorded in the epic Notes and `docs/distribution.md`): branch protection on `main` requiring the four CI checks ("Build admin app", "PHP lint and harness sweep", "Plugin Check", "Free build Plugin Check", the job names since 2026-10-15) with force pushes blocked; private vulnerability reporting on; Discussions as the owner decides. CI is path-filtered since 2026-10-15 (`plan-ci-minutes.md`), and GitHub leaves a required check of a skipped workflow pending, so a docs-only PR would be blocked: require the checks only together with a way for skipped runs to report, or decide at 4.8.
 
 Verification: the three issue-form files parse as YAML; `gh repo view` returns the description, website and four topics; no plugin file changed. Status `built`; done is the owner's mark, best after entry 4.8 applies the settings.

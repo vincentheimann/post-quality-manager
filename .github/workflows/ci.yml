@@ -1,13 +1,29 @@
 # CI for the Post Quality Manager repo (story 5.1 tracer bullet).
 #
-# Built assets never live in git: the build job builds them on every push/PR
-# and uploads the result as the admin-build artifact, which the plugin-check
-# job consumes — release.yml builds the released commit itself when zipping
-# the post-quality-manager/ subfolder. The build job lints src/ and tests/js/
+# When it runs (2026-10-15, after October's Actions minutes ran out): every
+# code PR runs every job, Plugin Check included; a push runs only on main, and
+# there only the build and PHP jobs run. A push to any other branch runs
+# nothing: its PR's run covers it.
+# A change whose every path is in paths-ignore (tickets, memory, ADRs and
+# other docs no step or harness reads) runs nothing; one touching anything
+# else runs in full. README.md (caps-harness.php) and docs/brand.md
+# (release-header-harness.php) are read by harnesses, so they are never
+# ignored. A newer run on the same PR cancels the older one; runs on main
+# each get their own group (run_id), so they are never cancelled and may run
+# in parallel. release-please's PR opens no CI of its own (GITHUB_TOKEN), so
+# its merge to main is guarded by the harness sweep only:
+# release-header-harness.php checks the version and Stable tag = Version;
+# "Tested up to" is checked by Plugin Check on the next code PR.
+#
+# Built assets never live in git: the build job builds them and uploads the
+# result as the admin-build artifact, which the plugin-check job consumes —
+# release.yml builds the released commit itself when zipping the
+# post-quality-manager/ subfolder. The build job lints src/ and tests/js/
 # first (npm run lint:js) and runs the JS unit tests (npm run test:unit); the
 # php job lints every plugin PHP file on 8.0 (the header's Requires PHP floor)
-# and 8.3, and runs the full tests/harness sweep on 8.3 only (harnesses may
-# use newer PHP than the plugin).
+# and then on 8.3 in one job (two setup-php steps), and runs the full
+# tests/harness sweep on 8.3 only (harnesses may use newer PHP than the
+# plugin).
 #
 # WordPress Plugin Check (stories 4.4, 4.5) runs on the built plugin folder —
 # the same post-quality-manager/ release.yml zips, with admin/build/ restored
@@ -27,9 +43,50 @@
 
 name: CI
 
+# Explicit paths only: GitHub documents "!" negation for paths, not for
+# paths-ignore. Keep both lists identical.
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - '_bmad-output/**'
+      - '_bmad/**'
+      - '.claude/**'
+      - 'memory/**'
+      - 'docs/adr/**'
+      - 'docs/policies/**'
+      - 'docs/release-notes/**'
+      - 'docs/user-paths.md'
+      - 'docs/distribution.md'
+      - 'n8n/**'
+      - 'assets/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CHANGELOG.md'
   pull_request:
+    paths-ignore:
+      - '_bmad-output/**'
+      - '_bmad/**'
+      - '.claude/**'
+      - 'memory/**'
+      - 'docs/adr/**'
+      - 'docs/policies/**'
+      - 'docs/release-notes/**'
+      - 'docs/user-paths.md'
+      - 'docs/distribution.md'
+      - 'n8n/**'
+      - 'assets/**'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'CONTRIBUTING.md'
+      - 'SECURITY.md'
+      - 'CHANGELOG.md'
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -67,26 +124,37 @@ jobs:
           path: post-quality-manager/admin/build/
 
   php:
-    name: PHP ${{ matrix.php }} lint and harness sweep
+    name: PHP lint and harness sweep
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.0', '8.3']
     steps:
       - uses: actions/checkout@v4
 
+      # vendor/ holds the Freemius SDK as released (story 44): not ours to lint.
+      # bin/ holds the Free-build scripts (story 54), on the same PHP floor.
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: '8.0'
 
-      - name: Lint plugin PHP
-        # vendor/ holds the Freemius SDK as released (story 44): not ours to lint.
-        # bin/ holds the Free-build scripts (story 54), on the same PHP floor.
-        run: find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Lint plugin PHP on 8.0
+        run: |
+          php -v | head -n 1
+          find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      # !cancelled(): a failed 8.0 lint still lets 8.3 lint and the sweep
+      # report; the job fails if any step failed.
+      - uses: shivammathur/setup-php@v2
+        if: ${{ !cancelled() }}
+        with:
+          php-version: '8.3'
+
+      - name: Lint plugin PHP on 8.3
+        if: ${{ !cancelled() }}
+        run: |
+          php -v | head -n 1
+          find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Harness sweep
-        if: matrix.php == '8.3'
+        if: ${{ !cancelled() }}
         run: |
           for f in tests/harness/*.php; do
             echo "== $f"
@@ -97,6 +165,7 @@ jobs:
     name: Plugin Check
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
@@ -118,6 +187,7 @@ jobs:
     name: Free build Plugin Check
     runs-on: ubuntu-latest
     needs: build
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
 
