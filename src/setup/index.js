@@ -33,7 +33,13 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
 import FirstReview from './first-review';
-import { NextSteps, STEPS, WORKFLOW_FILE_ID, stepsFor } from './steps';
+import {
+	NextSteps,
+	STEPS,
+	WORKFLOW_FILE_ID,
+	keyPasses,
+	stepsFor,
+} from './steps';
 import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
@@ -42,21 +48,30 @@ const OPEN_ARG = 'pqm_setup'; // PQM_Admin::SETUP_QUERY_ARG
 const FINISH = 'finish';
 
 /**
- * Whether the stored n8n key passed its last check (the island's state).
+ * Whether the island reports the connection the dialog already has (its
+ * read on mount, mostly), so nothing needs re-reading.
  *
- * @param {Object} state GET /setup state.
- * @return {boolean} Passing.
+ * @param {Object}  n8n   The island's state.
+ * @param {Object=} known GET /setup's `n8n`.
+ * @return {boolean} Same.
  */
-function keyPasses( state ) {
-	return !! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+function sameConnection( n8n, known ) {
+	return (
+		!! known &&
+		n8n.base_url === known.base_url &&
+		n8n.key_set === known.key_set &&
+		JSON.stringify( n8n.probe ) === JSON.stringify( known.probe )
+	);
 }
 
 /**
  * Whether a step is done. A completed setup shows every n8n step done; a
- * configuration step is done only once saved or skipped. Connect your
- * n8n reads the site (the key passes, or a URL is saved); the other steps
- * read GET /setup's `steps`, which the dialog patches after a save: Set up
- * the workflow and Set up by hand stay open after a failed ping.
+ * configuration step is done only once saved or skipped. A step ticks only
+ * what the plugin did: Connect your n8n only while the stored key passes
+ * (a saved URL never ticks it); the other steps read GET /setup's `steps`
+ * (Set up the workflow needs the plugin's own setup), which the dialog
+ * re-reads after a URL save and patches after provisioning: Set up the
+ * workflow and Set up by hand stay open after a failed ping.
  *
  * @param {Object} state GET /setup state.
  * @param {Object} step  Step entry from STEPS.
@@ -68,7 +83,7 @@ function stepDone( state, step ) {
 	}
 	switch ( step.key ) {
 		case 'n8n':
-			return !! state.connected || keyPasses( state );
+			return keyPasses( state );
 		default:
 			return !! state.steps[ step.key ];
 	}
@@ -178,15 +193,36 @@ export default function SetupIsland() {
 			);
 	};
 
-	// A saved URL whose ping failed leaves the URL steps open (GET /setup's rule).
-	const onConnected = ( url, pingOk ) =>
-		setState( ( prev ) => ( {
-			...prev,
-			connected: true,
-			// eslint-disable-next-line camelcase -- REST field name.
-			webhook_url: url,
-			steps: { ...prev.steps, provision: pingOk, manual: pingOk },
-		} ) );
+	// The path and the ticks follow the saved URL and the n8n connection
+	// (GET /setup's rules), so once either changed the dialog re-reads the
+	// state instead of patching it. It stays on the current step while the
+	// new path has it, else it moves to the new path's first open step (from
+	// the manual step, once a key passes on a site without a URL: Set up the
+	// workflow). A failed read names the cause in the dialog.
+	const reread = () =>
+		apiFetch( { path: SETUP_PATH } ).then(
+			( fresh ) => {
+				setState( fresh );
+				setCurrent( ( key ) =>
+					! key ||
+					key === FINISH ||
+					stepsFor( fresh ).some( ( item ) => item.key === key )
+						? key
+						: resumeAt( fresh )
+				);
+			},
+			( err ) =>
+				setSaveError(
+					( err && err.message ) ||
+						__(
+							'Could not load the setup guide. Reload the page and try again.',
+							'post-quality-manager'
+						)
+				)
+		);
+
+	// A URL was saved (pinged or not): re-read the state.
+	const onConnected = () => reread();
 
 	// POST /n8n/provision saved the connected origin + /webhook/ + the path.
 	const onProvisioned = ( pingOk ) =>
@@ -211,18 +247,11 @@ export default function SetupIsland() {
 		setCurrent( key );
 	};
 
-	// The island read or stored the connection. A passing key outranks the
-	// manual choice (pqm_manual_reason()): the key path's steps come back,
-	// so the manual step moves on to Set up the workflow.
+	// The island read or stored the connection: re-read the state once it
+	// changed (a key connected or forgotten), not on the island's own read.
 	const onN8nChange = ( n8n ) => {
-		const passes = !! ( n8n.key_set && n8n.probe );
-		setState( ( prev ) => ( {
-			...prev,
-			n8n,
-			manual: passes ? false : prev.manual,
-		} ) );
-		if ( passes && current === 'manual' ) {
-			goTo( 'provision' );
+		if ( ! sameConnection( n8n, state.n8n ) ) {
+			reread();
 		}
 	};
 

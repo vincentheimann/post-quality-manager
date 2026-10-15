@@ -77,7 +77,8 @@ const SETTINGS = '/post-quality/v1/setup/settings';
 const FOOD_TEXT = 'A food blog for home cooks.';
 
 /**
- * GET /setup on a completed site whose configuration steps are open.
+ * GET /setup on a completed site the plugin set up (the setup map, a
+ * passing key: the key path) whose configuration steps are open.
  *
  * @param {Object} values Stored settings the steps show.
  * @return {Object} Setup state.
@@ -96,10 +97,14 @@ function completedState( values = {} ) {
 			standards: false,
 			schedule: false,
 		},
-		n8n: { base_url: '', key_set: false, probe: null },
+		n8n: {
+			base_url: 'https://n8n.example.com',
+			key_set: true,
+			probe: { ok: true, cause: '', message: 'Connected to n8n.', at: 1 },
+		},
 		manual: false,
 		manual_reason: null,
-		provisioned: false,
+		provisioned: true,
 		leftovers: false,
 		blog_profile: 'custom',
 		website_context: '',

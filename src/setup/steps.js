@@ -5,8 +5,9 @@
  * - the key path: Connect your n8n (the n8n Instance island, reused), then
  *   Set up the workflow (the Anthropic key, sent once to POST
  *   /n8n/provision and never kept);
- * - the manual path, once the owner chose it or a connection check offered
- *   it (`state.manual`, pqm_manual_reason()): one step, Set up by hand. It
+ * - the manual path, once the owner chose it, a connection check offered
+ *   it, or the saved workflow was made by hand (`state.manual`, GET
+ *   /setup's rule): one step, Set up by hand. It
  *   links to the Workflow File section of the n8n Workflow page, the one
  *   place for the manual steps, and keeps the paste-URL body so the setup
  *   can still finish.
@@ -25,6 +26,16 @@ const PROVISION_PATH = '/post-quality/v1/n8n/provision';
 
 /** The Workflow File heading on the n8n Workflow page (PQM_Admin::render_workflow()). */
 export const WORKFLOW_FILE_ID = 'pqm-workflow-file';
+
+/**
+ * Whether the stored n8n key passed its last check (the island's state).
+ *
+ * @param {Object} state GET /setup state.
+ * @return {boolean} Passing.
+ */
+export function keyPasses( state ) {
+	return !! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+}
 
 /**
  * Swap the page's status block, which sits outside the island, for the
@@ -150,9 +161,7 @@ export function Connect( { state, onConnected } ) {
  * @return {Element} The step body.
  */
 function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
-	const done =
-		!! state.connected ||
-		!! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+	const done = !! state.connected || keyPasses( state );
 	return (
 		<>
 			<p>
@@ -348,9 +357,13 @@ function Provision( { state, onProvisioned, onConnected } ) {
 }
 
 /**
- * Set up by hand: why, the way to the Workflow File section (the steps
- * live there, never here), the paste-URL body, and the key path behind
- * "Connect by key instead" — a passing check there outranks the choice.
+ * Set up by hand: why (a stored choice, a failed check, or a workflow made
+ * by hand: a saved URL without the plugin's setup), the way to the Workflow
+ * File section (the steps live there, never here), the paste-URL body, and
+ * the key path behind "Connect by key instead" while no webhook URL is
+ * saved — a passing check there outranks the choice. A hand-made workflow
+ * (a URL saved) keeps this path whatever the key (adoption, 6.8), so it is
+ * not offered there.
  *
  * @param {Object}   props
  * @param {Object}   props.state              GET /setup state.
@@ -374,6 +387,11 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 		);
 	} else if ( reason && reason.kind === 'choice' ) {
 		why = __( 'You chose to set up n8n by hand.', 'post-quality-manager' );
+	} else if ( ! reason && state.connected && ! state.provisioned ) {
+		why = __(
+			"This site's workflow was set up by hand.",
+			'post-quality-manager'
+		);
 	}
 
 	return (
@@ -401,12 +419,17 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 				) }
 			</p>
 			<Connect state={ state } onConnected={ onConnected } />
-			<details className="pqm-setup-by-key">
-				<summary>
-					{ __( 'Connect by key instead', 'post-quality-manager' ) }
-				</summary>
-				<N8nConnection onChange={ onN8nChange } />
-			</details>
+			{ ! state.connected && (
+				<details className="pqm-setup-by-key">
+					<summary>
+						{ __(
+							'Connect by key instead',
+							'post-quality-manager'
+						) }
+					</summary>
+					<N8nConnection onChange={ onN8nChange } />
+				</details>
+			) }
 		</>
 	);
 }
@@ -446,7 +469,8 @@ export const STEPS = [
 
 /**
  * The steps this site walks: the manual path once `state.manual` is set
- * (a passing key clears it, server and dialog alike), else the key path;
+ * (GET /setup decides it; the dialog re-reads it after the connection
+ * changes), else the key path;
  * the Free build (story 54) has no schedule step, and a progress key of a
  * step it leaves out is ignored.
  *

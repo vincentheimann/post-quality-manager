@@ -112,6 +112,53 @@ function siteState( values = {} ) {
 		...values,
 	};
 }
+const HAND_URL = 'https://n8n.example.com/webhook/by-hand';
+const FORGOTTEN = { base_url: BASE, key_set: false, probe: null };
+
+/**
+ * GET /setup of a site the plugin set up: the setup map, the URL saved and
+ * pinged, the key passing; `values` override it.
+ *
+ * @param {Object} values Fields to change.
+ * @return {Object} Setup state.
+ */
+function provisionedSite( values = {} ) {
+	return siteState( {
+		n8n: PASSING,
+		provisioned: true,
+		connected: true,
+		webhook_url: `${ BASE }/webhook/${ PATH }`,
+		steps: {
+			...siteState().steps,
+			n8n: ! values.n8n || values.n8n.key_set,
+			provision: true,
+			manual: true,
+		},
+		...values,
+	} );
+}
+
+/**
+ * GET /setup of a site whose workflow was made by hand: a URL saved, no
+ * setup map, so the manual path, its one step done; `values` override it.
+ *
+ * @param {Object} values Fields to change.
+ * @return {Object} Setup state.
+ */
+function handMadeSite( values = {} ) {
+	return siteState( {
+		connected: true,
+		webhook_url: HAND_URL,
+		manual: true,
+		steps: {
+			...siteState().steps,
+			n8n: !! ( values.n8n && values.n8n.key_set ),
+			manual: true,
+			review: !! values.complete,
+		},
+		...values,
+	} );
+}
 /* eslint-enable camelcase */
 
 let root;
@@ -165,6 +212,30 @@ const posts = () =>
 	apiFetch.mock.calls
 		.map( ( [ options ] ) => options )
 		.filter( ( options ) => options.method === 'POST' );
+
+const setupReads = () =>
+	apiFetch.mock.calls.filter(
+		( [ options ] ) => options.path === SETUP && ! options.method
+	).length;
+const navButton = ( text ) =>
+	[ ...document.querySelectorAll( '.pqm-setup-nav button' ) ].find( ( el ) =>
+		el.textContent.endsWith( text )
+	);
+
+/**
+ * A reply of the n8n connection route that also changes what GET /setup
+ * answers from then on, as storing or forgetting the key does on the server.
+ *
+ * @param {Object} next  GET /setup's answer afterwards.
+ * @param {Object} reply The route's own reply (default: the passing key).
+ * @return {Function} Reply function for `openDialog`'s answers.
+ */
+function storeKey( next, reply = PASSING ) {
+	return () => {
+		replies[ `GET ${ SETUP }` ] = next;
+		return reply;
+	};
+}
 
 /**
  * Type into a mocked TextControl (React's own value setter, then input).
@@ -227,9 +298,14 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( nav() ).not.toContain( 'Set up by hand' );
 	} );
 
-	test( 'the island passes: Connect your n8n is done, Next leads to Set up the workflow', async () => {
+	test( 'the island passes: the state re-read, Connect your n8n is done, Next leads to Set up the workflow', async () => {
 		await openDialog( siteState(), {
-			[ `POST ${ CONNECTION }` ]: PASSING,
+			[ `POST ${ CONNECTION }` ]: storeKey(
+				siteState( {
+					n8n: PASSING,
+					steps: { ...siteState().steps, n8n: true },
+				} )
+			),
 		} );
 		await typeInto( 'n8n address', BASE );
 		await typeInto( 'n8n API key', 'n8n-key' );
@@ -441,14 +517,21 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		);
 	} );
 
-	test( 'the key passes from the manual step: the key path comes back, on Set up the workflow', async () => {
+	test( 'the key passes from the manual step, no URL saved: the key path comes back, on Set up the workflow', async () => {
 		await openDialog(
 			siteState( {
 				manual: true,
 				// eslint-disable-next-line camelcase -- REST field name.
 				manual_reason: { kind: 'choice' },
 			} ),
-			{ [ `POST ${ CONNECTION }` ]: PASSING }
+			{
+				[ `POST ${ CONNECTION }` ]: storeKey(
+					siteState( {
+						n8n: PASSING,
+						steps: { ...siteState().steps, n8n: true },
+					} )
+				),
+			}
 		);
 		await typeInto( 'n8n address', BASE );
 		await typeInto( 'n8n API key', 'n8n-key' );
@@ -479,22 +562,131 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		jest.useRealTimers();
 	} );
 
-	test( 'already connected (any path): both n8n steps done, the dialog opens on the first review', async () => {
-		/* eslint-disable camelcase -- REST field names. */
+	test( 'provisioned (setup map, URL, key passes): the key path, both n8n steps done, the dialog opens on the first review', async () => {
+		await openDialog( provisionedSite() );
+		expect( heading() ).toBe( 'Step 3 of 6: Run your first review' );
+		expect( nav() ).toContain( 'Done: Connect your n8n' );
+		expect( nav() ).toContain( 'Done: Set up the workflow' );
+		expect( nav() ).not.toContain( 'Set up by hand' );
+	} );
+
+	test( 'provisioned, key forgotten: Connect your n8n open, Set up the workflow done, no "by hand" anywhere', async () => {
+		await openDialog( provisionedSite( { n8n: FORGOTTEN } ) );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+		expect( nav() ).not.toContain( 'Done: Connect your n8n' );
+		expect( nav() ).toContain( 'Done: Set up the workflow' );
+		expect( document.body.textContent ).not.toContain( 'by hand' );
+	} );
+
+	test( 'hand-made (URL, no setup map, no key): the manual path, Set up by hand done, its sentence, no "Connect by key instead"', async () => {
+		await openDialog( handMadeSite() );
+		expect( heading() ).toBe( 'Step 2 of 5: Run your first review' );
+		expect( nav() ).toContain( 'Done: Set up by hand' );
+		expect( nav() ).not.toContain( 'Connect your n8n' );
+		expect( nav() ).not.toContain( 'Set up the workflow' );
+		await act( async () => {
+			navButton( 'Set up by hand' ).click();
+		} );
+		expect(
+			document.querySelector( '.mock-notice-info' ).textContent
+		).toBe( "This site's workflow was set up by hand." );
+		expect(
+			document.querySelector( 'details.pqm-setup-by-key' )
+		).toBeNull();
+		expect( field( 'Anthropic API key' ) ).toBeNull();
+	} );
+
+	test( 'hand-made, a passing key: still the manual path, no "Connect by key instead", no setup offered', async () => {
+		await openDialog( handMadeSite( { n8n: PASSING } ) );
+		expect( heading() ).toBe( 'Step 2 of 5: Run your first review' );
+		expect( nav() ).not.toContain( 'Connect your n8n' );
+		expect( nav() ).not.toContain( 'Set up the workflow' );
+		await act( async () => {
+			navButton( 'Set up by hand' ).click();
+		} );
+		expect(
+			document.querySelector( '.mock-notice-info' ).textContent
+		).toBe( "This site's workflow was set up by hand." );
+		expect(
+			document.querySelector( 'details.pqm-setup-by-key' )
+		).toBeNull();
+		expect( field( 'Anthropic API key' ) ).toBeNull();
+		expect( button( 'Set up by hand instead' ) ).toBeUndefined();
+	} );
+
+	test( 'hand-made, complete: every n8n step done, the guide opens on the finish panel once the configuration steps are done', async () => {
 		await openDialog(
-			siteState( {
-				connected: true,
-				webhook_url: `${ BASE }/webhook/${ PATH }`,
+			handMadeSite( {
+				complete: true,
 				steps: {
 					...siteState().steps,
-					n8n: true,
-					provision: true,
 					manual: true,
+					review: true,
+					profile: true,
+					standards: true,
+					schedule: true,
 				},
 			} )
 		);
-		/* eslint-enable camelcase */
-		expect( heading() ).toBe( 'Step 3 of 6: Run your first review' );
+		expect( heading() ).toBe( "You're set up" );
+		expect( nav() ).toContain( 'Done: Set up by hand' );
+		expect( nav() ).toContain( 'Done: Run your first review' );
+		expect( nav() ).not.toContain( 'Connect your n8n' );
+	} );
+
+	test( 'hand-made, the ping after a by-hand paste failed: Set up by hand open, with the paste-URL body', async () => {
+		await openDialog(
+			handMadeSite( {
+				steps: { ...siteState().steps, manual: false },
+			} )
+		);
+		expect( heading() ).toBe( 'Step 1 of 5: Set up by hand' );
+		expect( field( 'Production webhook URL' ).value ).toBe( HAND_URL );
+		expect( document.querySelector( '.pqm-setup-done' ).textContent ).toBe(
+			'This step ticks itself once a test ping gets through.'
+		);
+	} );
+
+	test( 'Forget key in the dialog: the state re-read from GET /setup, the path and ticks follow it', async () => {
+		await openDialog( provisionedSite(), {
+			[ `DELETE ${ CONNECTION }` ]: storeKey(
+				provisionedSite( { n8n: FORGOTTEN } ),
+				FORGOTTEN
+			),
+		} );
+		await act( async () => {
+			navButton( 'Connect your n8n' ).click();
+		} );
+		expect( setupReads() ).toBe( 1 );
+		await act( async () => {
+			document.querySelector( '.pqm-n8n-forget' ).click();
+		} );
+		expect( setupReads() ).toBe( 2 );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+		expect( nav() ).not.toContain( 'Done: Connect your n8n' );
+		expect( nav() ).toContain( 'Done: Set up the workflow' );
+		expect( document.querySelector( '.pqm-setup-done' ).textContent ).toBe(
+			'This step ticks itself once the connection check passes.'
+		);
+	} );
+
+	test( 'Forget key, the re-read fails: the load error in the dialog', async () => {
+		await openDialog( provisionedSite(), {
+			[ `DELETE ${ CONNECTION }` ]: storeKey(
+				{ reject: { message: 'Could not reach the site.' } },
+				FORGOTTEN
+			),
+		} );
+		await act( async () => {
+			navButton( 'Connect your n8n' ).click();
+		} );
+		await act( async () => {
+			document.querySelector( '.pqm-n8n-forget' ).click();
+		} );
+		expect(
+			document.querySelector( '.pqm-setup-step > .mock-notice-error' )
+				.textContent
+		).toBe( 'Could not reach the site.' );
 	} );
 
 	test( 'reopened after provisioning whose ping failed: Set up the workflow is still open, with the paste-URL body', async () => {

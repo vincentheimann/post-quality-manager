@@ -314,18 +314,51 @@ $s = setup_state();
 check('a failed check that offered the manual path: manual, with its date and cause; no step done',
     $s['manual'] === true && $s['manual_reason'] === ['kind' => 'probe', 'message' => 'The public API is turned off on this instance.', 'at' => wp_date('F j, Y', 1760000000)]
     && !in_array(true, $n8n_steps($s), true));
+// Only what the plugin did ticks a step (owner, 2026-10-15): a saved URL follows how its workflow was made.
+$map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]];
 site($connected);
-check('a webhook URL saved without a ping record (legacy, Settings): every n8n step done', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true]);
-site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
-check('... on the manual path too', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true] && setup_state()['manual'] === true);
-site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => true], 'complete' => false]]);
-check('a URL whose last dialog ping passed: every n8n step done', $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => true, 'manual' => true]);
-site($connected + $key + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
-check('a URL whose last dialog ping failed (provision passes, ping fails): Set up the workflow and Set up by hand stay open, the record not listed',
-    $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => false, 'manual' => false] && !array_key_exists('connect', setup_state()['steps']));
-site($fresh + $key + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]]);
 $s = setup_state();
-check('provisioned, URL missing: provisioned, Set up the workflow open', $s['provisioned'] === true && $s['steps']['provision'] === false && $s['connected'] === false);
+check('hand-made: a URL saved without the setup map, no key (legacy, Settings, no ping record): the manual path, Set up by hand done, no reason stored',
+    $s['manual'] === true && $s['manual_reason'] === null && $s['provisioned'] === false
+    && $n8n_steps($s) === ['n8n' => false, 'provision' => false, 'manual' => true]);
+site($connected + $key);
+$s = setup_state();
+check('hand-made, a passing key: still the manual path (the key waits for adoption, 6.8); Connect your n8n reads the key, Set up the workflow never ticked',
+    $s['manual'] === true && $s['manual_reason'] === null && $n8n_steps($s) === ['n8n' => true, 'provision' => false, 'manual' => true]);
+site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
+$s = setup_state();
+check('hand-made, complete: the manual path, complete', $s['manual'] === true && $s['complete'] === true && $s['steps']['review'] === true);
+site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+$s = setup_state();
+check('hand-made with the choice stored: the manual path, the choice as its reason, Set up by hand done',
+    $s['manual'] === true && $s['manual_reason'] === ['kind' => 'choice'] && $n8n_steps($s) === ['n8n' => false, 'provision' => false, 'manual' => true]);
+site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => true], 'complete' => false]]);
+check('hand-made, its last dialog ping passed: Set up by hand done, nothing else',
+    $n8n_steps(setup_state()) === ['n8n' => false, 'provision' => false, 'manual' => true] && setup_state()['manual'] === true);
+site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
+check('hand-made, the ping after a by-hand paste failed: the manual path, Set up by hand open, the record not listed',
+    $n8n_steps(setup_state()) === ['n8n' => false, 'provision' => false, 'manual' => false] && setup_state()['manual'] === true
+    && !array_key_exists('connect', setup_state()['steps']));
+site($connected + $key + $map);
+$s = setup_state();
+check('provisioned: the setup map, a URL, a passing key: the key path, both n8n steps done',
+    $s['manual'] === false && $s['provisioned'] === true && $n8n_steps($s) === ['n8n' => true, 'provision' => true, 'manual' => true]);
+site($connected + $map + [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com']]);
+$s = setup_state();
+check('provisioned, key forgotten: the key path, Connect your n8n open, Set up the workflow done',
+    $s['manual'] === false && $s['manual_reason'] === null && $n8n_steps($s) === ['n8n' => false, 'provision' => true, 'manual' => true]);
+site($connected + $key + $map + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
+check('provisioned, the ping failed: the key path, Set up the workflow open, the record not listed',
+    $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => false, 'manual' => false] && setup_state()['manual'] === false
+    && !array_key_exists('connect', setup_state()['steps']));
+site($fresh + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+$s = setup_state();
+check('the choice stored, no key, no URL: the manual path, Set up by hand open (unchanged)',
+    $s['manual'] === true && $s['manual_reason'] === ['kind' => 'choice'] && !in_array(true, $n8n_steps($s), true));
+site($fresh + $key + $map);
+$s = setup_state();
+check('provisioned, URL missing: provisioned, the key path, Set up the workflow open', $s['provisioned'] === true && $s['manual'] === false
+    && $s['steps']['provision'] === false && $s['connected'] === false);
 site($fresh + $key + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example.com', 'credentials' => ['c1'], 'at' => 1]]);
 check('leftovers waiting: leftovers', setup_state()['leftovers'] === true && setup_state()['provisioned'] === false);
 site($fresh + [PQM_SETUP_OPTION => ['steps' => ['instance' => true, 'import' => true, 'credentials' => true, 'link' => true, 'publish' => true, 'connect' => true], 'complete' => false]]);
@@ -379,9 +412,10 @@ check('... merge-save: only the URL changed in pqm_settings',
 check('... one ping to that URL with the X-PQM-Token header',
     count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === $prod
     && $GLOBALS['tw']['pings'][0][1]['headers'] === ['Content-Type' => 'application/json', 'X-PQM-Token' => $token]);
-check('... the ping recorded (autoload off): the URL steps read done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
-    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false
-    && setup_state()['steps']['provision'] === true && setup_state()['steps']['manual'] === true && setup_state()['connected'] === true);
+check('... the ping recorded (autoload off): Set up by hand reads done, on the manual path (no setup map: made by hand); Set up the workflow never',
+    ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false
+    && setup_state()['steps']['manual'] === true && setup_state()['steps']['provision'] === false && setup_state()['manual'] === true
+    && setup_state()['connected'] === true);
 
 site($fresh);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"message":"Workflow was started"}'];
@@ -389,7 +423,7 @@ $r = connect($prod);
 check('production URL, n8n 2xx without a version (v1–v4 import): connected, outdated (the dialog warns), older-version message, {0, via test}, notice in status_html',
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version')
     && ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === 0
-    && str_contains($r['status_html'], 'Workflow update available.') && setup_state()['steps']['provision'] === true);
+    && str_contains($r['status_html'], 'Workflow update available.') && setup_state()['steps']['manual'] === true);
 
 $before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
 site($fresh + ['pqm_workflow_version_seen' => $before, PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
@@ -402,7 +436,7 @@ check('production URL, n8n 404: stored, message names the cause and the next ste
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === $prod);
 check('... the failed ping recorded, other ticks kept: the URL steps stay open (the dialog offers the paste-URL body again)',
     $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'connect' => false], 'complete' => false]
-    && setup_state()['steps']['provision'] === false && setup_state()['steps']['manual'] === false && setup_state()['steps']['n8n'] === true);
+    && setup_state()['steps']['provision'] === false && setup_state()['steps']['manual'] === false && setup_state()['steps']['n8n'] === false);
 
 site($fresh);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 403]];

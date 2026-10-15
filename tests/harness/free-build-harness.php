@@ -315,6 +315,14 @@ check('the same n8n steps as Pro (provisioning is free, entry 6): n8n, provision
 $by_hand = PQM_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
 check('... and "Set up by hand instead" stores the choice there too', $by_hand instanceof WP_REST_Response && $by_hand->get_data()['manual'] === true);
 unset($GLOBALS['tw']['options']['pqm_setup_progress']); // the rows below start from a site without the choice
+$options_before = $GLOBALS['tw']['options'];
+$GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
+unset($GLOBALS['tw']['options']['pqm_n8n_setup'], $GLOBALS['tw']['options']['pqm_n8n_api']);
+$hand_made = PQM_REST_API::get_setup_callback()->get_data();
+check('... a hand-made site (a URL, no setup map, no key) takes the manual path there too: Set up by hand done, neither Connect your n8n nor Set up the workflow',
+    $hand_made['manual'] === true && $hand_made['provisioned'] === false
+    && array_slice($hand_made['steps'], 0, 3, true) === ['n8n' => false, 'provision' => false, 'manual' => true]);
+$GLOBALS['tw']['options'] = $options_before;
 $refused = PQM_REST_API::setup_settings_callback(new WP_REST_Request(['cron_enabled' => true]));
 check('the setup guide cannot switch scheduled reviews on (400, unknown setting)', $refused instanceof WP_Error
     && $refused->code === 'pqm_setup_bad_setting' && ($refused->data['status'] ?? null) === 400);

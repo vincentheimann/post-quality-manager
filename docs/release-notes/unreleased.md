@@ -14,7 +14,7 @@ These changes reach a site that ran an earlier version of Post Quality Manager w
 
 **The setup guide now continues past the first review.** Reopen it from the n8n Workflow page ("Setup guide"): after the first review it offers your Blog Profile, your Editorial Standards and scheduled reviews (Pro), one step each, every one skippable. A site set up earlier sees these three steps open; nothing changes until you save one, and skipping leaves your settings as they are.
 
-**The setup guide now sets n8n up for you.** It connects your n8n with an n8n API key, asks once for your Anthropic API key and creates the workflow and its credentials in n8n itself; the key is passed on, never stored. The step-by-step manual setup now lives in the Workflow File section of the n8n Workflow page, where "Set up by hand instead" in the guide leads. A site already connected sees its n8n steps done.
+**The setup guide now sets n8n up for you.** It connects your n8n with an n8n API key, asks once for your Anthropic API key and creates the workflow and its credentials in n8n itself; the key is passed on, never stored. The step-by-step manual setup now lives in the Workflow File section of the n8n Workflow page, where "Set up by hand instead" in the guide leads. A site whose workflow was set up by hand keeps that path: its guide shows one n8n step, Set up by hand, done.
 
 **The menu shows the plugin's own icon.** The plugin's entry in the admin menu carries the Q-and-check mark instead of the generic chart icon; nothing else changes.
 

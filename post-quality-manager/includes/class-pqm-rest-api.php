@@ -977,18 +977,26 @@ class PQM_REST_API {
 
     /**
      * The setup steps (n8n provisioning, entry 6). The n8n steps are derived
-     * from the site, never ticked: `n8n` (Connect your n8n) is done once a
-     * key is stored with a passing check or a webhook URL is saved;
-     * `provision` (Set up the workflow) and `manual` (Set up by hand, the
-     * other path's one step) once a webhook URL is saved and its last ping
+     * from the site, never ticked, and tick only what the plugin did: `n8n`
+     * (Connect your n8n) is done while a key is stored with a passing check;
+     * `provision` (Set up the workflow) once the plugin set the workflow up
+     * (the setup map exists) and its webhook URL is saved; `manual` (Set up
+     * by hand, the other path's one step) once a webhook URL is saved. A
+     * saved URL ticks `provision` and `manual` only while its last ping
      * through the dialog did not fail (the `connect` record that POST
      * /setup/connect and POST /n8n/provision write; a URL saved without one,
-     * in Settings or before the dialog, counts as done). `review` reads the
-     * site's completion. The dialog shows `n8n` and `provision`, or `manual`,
-     * then `review`. The three configuration steps after it (story 55) are
-     * ticked when saved or skipped; they never count toward completion. A
-     * stored key of a step not listed here (the manual steps before entry 6)
-     * is ignored; `connect` is read only through `provision` and `manual`.
+     * in Settings or before the dialog, counts as done). A saved URL never
+     * ticks `n8n`. `review` reads the site's completion. The dialog shows
+     * `n8n` and `provision` (the key path), or `manual` (the manual path),
+     * then `review`; the path is GET /setup's `manual`: with a URL saved, how
+     * the workflow was made (by the plugin → the key path, by hand → the
+     * manual path, even with a passing key: adoption, entry 6.8, takes it
+     * over); without one, pqm_manual_reason() (a stored choice or a failed
+     * check, outranked by a passing key). The three configuration steps
+     * after it (story 55) are ticked when saved or skipped; they never count
+     * toward completion. A stored key of a step not listed here (the manual
+     * steps before entry 6) is ignored; `connect` is read only through
+     * `provision` and `manual`.
      */
     public const SETUP_STEPS = [ 'n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule' ];
 
@@ -1035,12 +1043,17 @@ class PQM_REST_API {
         $n8n       = PQM_N8n::public_state();
         $connected = ! empty( $settings['n8n_webhook_url'] );
         $reason    = pqm_manual_reason();
+        $key_ok    = $n8n['key_set'] && ! empty( $n8n['probe'] );
+        // What the plugin set up in n8n (entry 6.4); a URL without it was made by hand.
+        $provisioned = (bool) get_option( PQM_N8n::SETUP_OPTION );
         // A failed ping keeps the step open, so the dialog offers the paste-URL body again.
         $url_done  = $connected && false !== ( $progress['steps']['connect'] ?? null );
 
+        // Only what the plugin did ticks a step: a saved URL ticks neither
+        // Connect your n8n nor, without the setup map, Set up the workflow.
         $derived = [
-            'n8n'       => $connected || ( $n8n['key_set'] && ! empty( $n8n['probe'] ) ),
-            'provision' => $url_done,
+            'n8n'       => $key_ok,
+            'provision' => $provisioned && $url_done,
             'manual'    => $url_done,
             'review'    => $complete,
         ];
@@ -1075,13 +1088,16 @@ class PQM_REST_API {
             'webhook_url'   => (string) $settings['n8n_webhook_url'],
             // The Webhook Trigger's per-site path, for the URL field's placeholder.
             'webhook_path'  => pqm_webhook_path(),
-            // n8n provisioning, entry 6: the connection (no key), the manual
-            // path — chosen, or a failed check that offers it; a passing key
-            // outranks both (pqm_manual_reason()) — and what provisioning left.
+            // n8n provisioning, entry 6: the connection (no key), the path
+            // the n8n steps take — with a URL saved, how the workflow was
+            // made (a hand-made one keeps the manual path, even with a
+            // passing key); without one, a stored choice or a failed check,
+            // which a passing key outranks (pqm_manual_reason()) — and what
+            // provisioning left.
             'n8n'           => $n8n,
-            'manual'        => null !== $reason,
+            'manual'        => $connected ? ! $provisioned : null !== $reason,
             'manual_reason' => $reason,
-            'provisioned'   => (bool) get_option( PQM_N8n::SETUP_OPTION ),
+            'provisioned'   => $provisioned,
             'leftovers'     => (bool) get_option( PQM_N8n::LEFTOVERS_OPTION ),
             // Story 55: the configuration steps' stored choices and presets.
             'blog_profile'       => (string) $settings['blog_profile'],
