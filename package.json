@@ -7,7 +7,8 @@
     "build": "wp-scripts build --webpack-src-dir=src --output-path=post-quality-manager/admin/build",
     "start": "wp-scripts start --webpack-src-dir=src --output-path=post-quality-manager/admin/build",
     "lint:js": "wp-scripts lint-js src tests/js",
-    "test:unit": "wp-scripts test-unit-js tests/js"
+    "test:unit": "wp-scripts test-unit-js tests/js",
+    "zip": "node bin/zip.js"
   },
   "devDependencies": {
     "@wordpress/scripts": "^30.7.0",

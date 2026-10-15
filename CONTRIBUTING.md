@@ -22,6 +22,8 @@ Once agreed:
   npm run lint:js && npm run test:unit && npm run build
   ```
 
+- To try a branch on a WordPress site, commit it, run `npm run zip` and install `dist/post-quality-manager-<branch>.zip` with Plugins → Add New → Upload Plugin → Replace current with uploaded. WordPress swaps the whole folder, so removed files go and the plugin stays active. Staying active means the activation code does not run: after a branch that changes the reviews table, deactivate and reactivate the plugin (safe, the uninstall runs only on Delete). Never use the Plugins screen's Delete link to clear the old copy: it runs the uninstall, which drops the reviews table and the settings.
+
 - Follow [AGENTS.md](AGENTS.md): `PQM_` / `pqm_` prefixes, WordPress APIs over raw SQL, sanitize and escape everything, nonces on forms and AJAX, a `permission_callback` on every REST route, native WP admin components. The Definition of Done there is the pull-request checklist.
 - A change existing sites meet without being told (a new default, a new permission, a removed screen, a workflow re-import) adds one line to `docs/release-notes/unreleased.md` in the same pull request.
 - When a REST route or the webhook payload changes, change `post-quality-manager/templates/n8n-workflow.json` to match, with `__PQM_*__` placeholders and no site-specific values.

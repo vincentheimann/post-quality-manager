@@ -15,6 +15,9 @@ _bmad/render/
 node_modules/
 post-quality-manager/admin/build/
 
+# Local plugin zips written by `npm run zip` (bin/zip.js)
+/dist/
+
 # Personal agent notes (Headroom `headroom learn` default target, ADR 0007);
 # accepted findings are folded into memory/lessons.md by hand.
 CLAUDE.local.md
