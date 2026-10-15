@@ -100,6 +100,7 @@ function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 /* A passing ping answers the page's refreshed status block (entry 6). */
 define('MINUTE_IN_SECONDS', 60);
 function esc_html($s) { return (string) $s; }
+function esc_html__($s, $d = null) { return (string) $s; } // the status block's re-import button label
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }

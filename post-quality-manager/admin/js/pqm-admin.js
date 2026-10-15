@@ -2,8 +2,9 @@
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
  * The Settings tabs, blog-profile / Editorial Standards preset choice,
- * per-agent model controls, the connection ping, the workflow status refresh
- * and the Workflow File section's Copy rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
+ * per-agent model controls, the connection ping, the workflow status refresh,
+ * the update notice's re-import link and the Workflow File section's Copy
+ * rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
  * never load this file; the setup dialog on the n8n Workflow page is React
  * too (src/setup/, story 36).
  */
@@ -21,6 +22,7 @@
         initPatternLinks();
         initTestConnection();
         initWorkflowStatusRefresh();
+        initReimportLink();
         initCopyRows();
     });
 
@@ -335,11 +337,16 @@
         el.classList.toggle('is-error', ok === false);
     }
 
-    /** Replace the n8n Workflow page's status block with a fresh server render. */
+    /**
+     * Replace the n8n Workflow page's status block with a fresh server render,
+     * then tell the page's React islands (src/kit/use-reimport-shown.js), which
+     * read the block's re-import button to know whether an update is needed.
+     */
     function swapWorkflowStatus(html) {
         var status = document.querySelector('.pqm-workflow-status');
         if (status && typeof html === 'string') {
             status.outerHTML = html;
+            document.dispatchEvent(new CustomEvent('pqm:workflow-status'));
         }
     }
 
@@ -366,6 +373,24 @@
                     }
                 })
                 .catch(function () { /* silent: keep the block */ });
+        });
+    }
+
+    /* ================================================================
+     *  RE-IMPORT THE WORKFLOW (workflow page): the update notice's
+     *  primary action brings the Workflow File section into view and
+     *  moves focus to its heading. Delegated, so the button keeps
+     *  working after swapWorkflowStatus() replaces the block. Without
+     *  script, the link's own #pqm-workflow-file jump still works.
+     * ================================================================ */
+    function initReimportLink() {
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest && e.target.closest('.pqm-reimport');
+            var heading = link && document.getElementById('pqm-workflow-file');
+            if (!heading) return;
+            e.preventDefault();
+            heading.scrollIntoView();
+            heading.focus();
         });
     }
 

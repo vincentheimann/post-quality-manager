@@ -35,7 +35,11 @@ jest.mock(
 			variant,
 			__next40pxDefaultSize,
 			...props
-		} ) => <button { ...props }>{ children }</button>,
+		} ) => (
+			<button data-variant={ variant } { ...props }>
+				{ children }
+			</button>
+		),
 		Dashicon: () => null,
 		Modal: ( { title, children } ) => (
 			<div className="mock-modal">
@@ -715,5 +719,86 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		await openDialog( siteState( { build: 'free' } ) );
 		expect( heading() ).toBe( 'Step 1 of 5: Connect your n8n' );
 		expect( nav() ).toContain( 'Set up the workflow' );
+	} );
+} );
+
+describe( "The guide's button yields to the update notice's Re-import the workflow (plan-update-notice-primary-action)", () => {
+	const REIMPORT_BLOCK =
+		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p><p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p></div></div>';
+	const guideVariant = () =>
+		document.querySelector( '.pqm-setup > button' ).dataset.variant;
+
+	/**
+	 * Swap the page's status block as pqm-admin.js does (a test, window focus).
+	 *
+	 * @param {string} html The new block.
+	 */
+	async function swap( html ) {
+		await act( async () => {
+			document.querySelector( '.pqm-workflow-status' ).outerHTML = html;
+			document.dispatchEvent(
+				new window.CustomEvent( 'pqm:workflow-status' )
+			);
+		} );
+	}
+
+	/**
+	 * Mount the island beside this status block, the dialog closed.
+	 *
+	 * @param {string}  block The page's status block.
+	 * @param {Object=} state GET /setup state; none = still loading.
+	 */
+	async function mountBeside( block, state ) {
+		document.body.innerHTML = `<div id="pqm-setup-root"></div>${ block }`;
+		apiFetch.mockReset();
+		apiFetch.mockImplementation( () =>
+			state ? Promise.resolve( state ) : new Promise( () => {} )
+		);
+		root = createRoot( document.getElementById( 'pqm-setup-root' ) );
+		await act( async () => {
+			root.render( <SetupIsland /> );
+		} );
+	}
+
+	test( 'setup not complete, the re-import button shown at mount: secondary', async () => {
+		await mountBeside( REIMPORT_BLOCK, handMadeSite() );
+		expect( guideVariant() ).toBe( 'secondary' );
+		expect(
+			document.querySelector( '.pqm-setup > button' ).textContent
+		).toBe( 'Set up the workflow' );
+	} );
+
+	test( 'while GET /setup loads, the re-import button shown: already secondary', async () => {
+		await mountBeside( REIMPORT_BLOCK );
+		expect( guideVariant() ).toBe( 'secondary' );
+	} );
+
+	test( 'it flips after a swap that removes the button, and back', async () => {
+		await mountBeside( REIMPORT_BLOCK, handMadeSite() );
+		await swap( NEW_BLOCK );
+		expect( guideVariant() ).toBe( 'primary' );
+		await swap( REIMPORT_BLOCK );
+		expect( guideVariant() ).toBe( 'secondary' );
+	} );
+
+	test( 'setup not complete, up to date: primary', async () => {
+		await mountBeside( OLD_BLOCK, handMadeSite() );
+		expect( guideVariant() ).toBe( 'primary' );
+	} );
+
+	test( "provisioning swaps in a block with the button: the guide's button follows", async () => {
+		await openDialog( siteState( { n8n: PASSING } ), {
+			[ `POST ${ PROVISION }` ]: {
+				provisioned: true,
+				// eslint-disable-next-line camelcase -- REST field name.
+				ping_ok: true,
+				message: 'Ping OK — older version.',
+				// eslint-disable-next-line camelcase -- REST field name.
+				status_html: REIMPORT_BLOCK,
+			},
+		} );
+		expect( guideVariant() ).toBe( 'primary' );
+		await provision();
+		expect( guideVariant() ).toBe( 'secondary' );
 	} );
 } );

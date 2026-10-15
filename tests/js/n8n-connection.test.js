@@ -18,7 +18,9 @@ jest.mock(
 	'@wordpress/components',
 	() => ( {
 		Button: ( { children, isBusy, isDestructive, variant, ...props } ) => (
-			<button { ...props }>{ children }</button>
+			<button data-variant={ variant } { ...props }>
+				{ children }
+			</button>
 		),
 		Notice: ( { status, children } ) => (
 			<div className={ 'mock-notice-' + status }>{ children }</div>
@@ -245,5 +247,59 @@ describe( 'n8n Instance section', () => {
 		} );
 		expect( onChange ).toHaveBeenCalledTimes( 3 );
 		expect( onChange ).toHaveBeenLastCalledWith( forgotten );
+	} );
+} );
+
+describe( "Connect yields to the update notice's Re-import the workflow (plan-update-notice-primary-action)", () => {
+	const REIMPORT_BLOCK =
+		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p><p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p></div></div>';
+	const CURRENT_BLOCK =
+		'<div class="pqm-workflow-status"><p class="description">Up to date.</p></div>';
+	const connectVariant = () =>
+		document.querySelector( 'button[type="submit"]' ).dataset.variant;
+
+	/**
+	 * Mount the section beside this status block.
+	 *
+	 * @param {string}    block    The page's status block.
+	 * @param {Function=} onChange The setup wizard's prop.
+	 */
+	async function mountBeside( block, onChange ) {
+		document.body.innerHTML = `${ block }<div id="pqm-n8n-connection-root"></div>`;
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValueOnce( CONNECTED );
+		root = createRoot(
+			document.getElementById( 'pqm-n8n-connection-root' )
+		);
+		await act( async () => {
+			root.render( <N8nConnection onChange={ onChange } /> );
+		} );
+	}
+
+	test( 'on the page, with the re-import button shown: secondary', async () => {
+		await mountBeside( REIMPORT_BLOCK );
+		expect( connectVariant() ).toBe( 'secondary' );
+	} );
+
+	test( 'on the page, up to date: primary', async () => {
+		await mountBeside( CURRENT_BLOCK );
+		expect( connectVariant() ).toBe( 'primary' );
+	} );
+
+	test( 'on the page, it follows each swap of the block', async () => {
+		await mountBeside( CURRENT_BLOCK );
+		await act( async () => {
+			document.querySelector( '.pqm-workflow-status' ).outerHTML =
+				REIMPORT_BLOCK;
+			document.dispatchEvent(
+				new window.CustomEvent( 'pqm:workflow-status' )
+			);
+		} );
+		expect( connectVariant() ).toBe( 'secondary' );
+	} );
+
+	test( 'in the setup guide (onChange), the Modal is its own surface: primary', async () => {
+		await mountBeside( REIMPORT_BLOCK, jest.fn() );
+		expect( connectVariant() ).toBe( 'primary' );
 	} );
 } );

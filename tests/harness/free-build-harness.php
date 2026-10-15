@@ -338,7 +338,12 @@ foreach (['Free template' => ',"workflow_variant":"free"', 'Pro template' => '']
     pqm_record_workflow_version($ping['version'], 'test', $ping['variant']);
     check("$label answers: up to date, no variant notice", $ping['ok'] === true && $ping['outdated'] === false
         && !str_contains(PQM_Admin::render_workflow_status(), $free_notice));
+    check('... and no re-import button', !str_contains(PQM_Admin::render_workflow_status(), 'pqm-reimport'));
 }
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION - 1, 'test', 'free');
+check('an older Free template: the update notice with its one re-import button',
+    substr_count(PQM_Admin::render_workflow_status(), 'pqm-reimport') === 1);
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'pro');
 check('pqm_workflow_json() serves the Free template, filled with the host',
     ($json = json_decode((string) pqm_workflow_json(), true)) !== null && $json['name'] === 'Post Quality — example.com'
     && !in_array('Build Rewrite Body', array_column($json['nodes'], 'name'), true));

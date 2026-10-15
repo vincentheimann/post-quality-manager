@@ -605,8 +605,35 @@ check('update notice renders for an older import and no longer promises untouche
     && !str_contains($outdated, 'credentials are untouched'));
 check('update notice tells a re-importing site its production URL changes (provisioning entry 3)',
     str_contains($outdated, '<strong>Workflow update available.</strong>')
-    && str_contains($outdated, 'Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline, then paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.'));
+    && str_contains($outdated, 'Your n8n workflow is older than this plugin needs.')
+    && str_contains($outdated, 'A re-import gives it a new production URL.'));
+// A report of version 6 or later against a newer template keeps its per-site path: no new URL.
+// Not renderable while PQM_WORKFLOW_VERSION is 6 (a v6 report is current), so the guard is
+// asserted on the source: the clause renders only under `version < 6`.
+check('update notice: the new-production-URL clause only for a workflow older than version 6 (source)',
+    (bool) preg_match('/if \(\$report\[\'version\'\] < 6\) \{\s*esc_html_e\(\'A re-import gives it a new production URL\.\'/', $src));
+
+/* The update notice carries the one primary action (plan-update-notice-primary-action) */
+$reimport = '<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
+$status_of = static fn(): string => PQM_Admin::render_workflow_status();
+$notices_of = static fn(string $html): array => preg_match_all('/<div class="notice notice-warning inline pqm-inline-notice">.*?<\/div>/s', $html, $m) ? $m[0] : [];
+$primaries = static fn(string $html): int => substr_count($html, 'button-primary');
+$only_in_first = static fn(string $html): bool => count($notices_of($html)) >= 1
+    && substr_count($html, $reimport) === 1 && str_contains($notices_of($html)[0], $reimport);
+check('older workflow: the update notice ends with the primary "Re-import the workflow" button to #pqm-workflow-file, the page\'s only primary',
+    $only_in_first($status = $status_of()) && str_ends_with(trim(str_replace('</div>', '', $notices_of($status)[0])), $reimport)
+    && $primaries($outdated) === 1 && str_contains($outdated, '<h2 id="pqm-workflow-file" tabindex="-1">'));
+check('... the notice no longer says "Download or re-import it below"', !str_contains($outdated, 'Download or re-import it below'));
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
+check('Free variant on Pro: the same button, in that notice', $only_in_first($status = $status_of()) && count($notices_of($status)) === 1
+    && str_contains($notices_of($status)[0], 'Your workflow is the Free variant'));
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
+check('older and Free at once: two notices, one button, in the first (the update notice)', $only_in_first($status = $status_of())
+    && count($notices_of($status)) === 2 && str_contains($notices_of($status)[0], 'Workflow update available.') && $primaries($status) === 1);
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
+check('up to date: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
 $GLOBALS['tw_options'] = [];
+check('not checked yet: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
 $GLOBALS['tw_settings'] = [];
 
 /* Story 35: the token's reach, both directions */
@@ -747,8 +774,8 @@ $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERS
 $r = ping('');
 check('reply with an older number: older-version message, the notice, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
     && str_contains($r->data['message'], 'an older version') && str_contains($r->data['status_html'], $notice) && $r->data['outdated'] === true);
-check('reply with an older number: message and notice say the re-import gives a new production URL to paste',
-    str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.'));
+check('reply with an older number: message and notice say the re-import gives a new production URL',
+    str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A re-import gives it a new production URL.'));
 
 /* Row: ping, unsaved URL (Settings field ≠ saved) — message only */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
@@ -759,7 +786,7 @@ check('unsaved URL: up-to-date message, outdated false, nothing stored, no statu
     && $seen() === PQM_WORKFLOW_VERSION - 1);
 
 /* Rows (story 54): the template variant on the Pro build (the harness runs the Pro build) */
-$free_notice = 'Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches. Download the template below and re-import it.';
+$free_notice = 'Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.';
 $GLOBALS['tw_options'] = [];
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
 $r = ping('');

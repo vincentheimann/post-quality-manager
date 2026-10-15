@@ -1474,13 +1474,30 @@ class PQM_Admin
             );
         }
 
+        // The fix is the notice's one primary action (EXPERIENCE.md, state 5):
+        // it leads to the Workflow File steps; pqm-admin.js moves focus there.
+        // Only the first notice carries it. The rendered button is also how the
+        // page's React islands learn an update is needed (src/kit/use-reimport-shown.js).
+        // Entry 6.9 replaces it with "Update workflow" on sites the plugin set up.
+        $outdated = $report !== null && $report['version'] < PQM_WORKFLOW_VERSION;
+        $reimport = '<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">'
+            . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a></p>';
+
         ob_start();
 ?>
         <div class="pqm-workflow-status">
-            <?php if ($report !== null && $report['version'] < PQM_WORKFLOW_VERSION): ?>
+            <?php if ($outdated): ?>
             <div class="notice notice-warning inline pqm-inline-notice">
                 <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
-                <?php esc_html_e('Your n8n instance runs an older version of the workflow. Download or re-import it below to get the latest pipeline, then paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'); ?></p>
+                <?php esc_html_e('Your n8n workflow is older than this plugin needs.', 'post-quality-manager'); ?>
+                <?php
+                // 6 = the first version with a per-site webhook path (pqm_webhook_path()):
+                // only an older workflow gets a new production URL on re-import.
+                if ($report['version'] < 6) {
+                    esc_html_e('A re-import gives it a new production URL.', 'post-quality-manager');
+                }
+                ?></p>
+                <?php echo $reimport; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
             </div>
             <?php endif; ?>
             <?php
@@ -1488,8 +1505,9 @@ class PQM_Admin
             if ( pqm_fs()->is__premium_only() ) {
                 if (($report['variant'] ?? '') === 'free') {
                     printf(
-                        '<div class="notice notice-warning inline pqm-inline-notice"><p>%s</p></div>',
-                        esc_html__('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches. Download the template below and re-import it.', 'post-quality-manager')
+                        '<div class="notice notice-warning inline pqm-inline-notice"><p>%s</p>%s</div>',
+                        esc_html__('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager'),
+                        $outdated ? '' : $reimport // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
                     );
                 }
             }

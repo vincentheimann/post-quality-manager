@@ -17,6 +17,7 @@ import { Button, Notice, TextControl } from '@wordpress/components';
 import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
+import useReimportShown from '../kit/use-reimport-shown';
 import './style.css';
 
 const PATH = '/post-quality/v1/n8n/connection';
@@ -49,6 +50,9 @@ export default function N8nConnection( { onChange } ) {
 	const [ key, setKey ] = useState( '' );
 	const [ busy, setBusy ] = useState( false );
 	const [ failure, setFailure ] = useState( '' ); // the last call's cause
+	// On the page, the update notice's Re-import the workflow is then the one
+	// primary action; inside the setup guide (onChange), the Modal is its own surface.
+	const reimportShown = useReimportShown();
 
 	// One read on mount; a new `onChange` prop never re-reads.
 	useEffect( () => {
@@ -180,7 +184,11 @@ export default function N8nConnection( { onChange } ) {
 				/>
 				<div className="pqm-n8n-connection-actions">
 					<Button
-						variant="primary"
+						variant={
+							! onChange && reimportShown
+								? 'secondary'
+								: 'primary'
+						}
 						type="submit"
 						isBusy={ busy }
 						disabled={ busy || ! canSubmit }

@@ -2,18 +2,26 @@
  * Workflow version handshake (v5): the n8n Workflow page's status block in
  * pqm-admin.js, run in jsdom. The ping swaps the block in place and warns
  * when an older workflow answered (D2); a regained tab focus re-reads the
- * block from WordPress (D1). The fixture mirrors render_workflow()'s markup;
- * render-matrix-harness.php locks the PHP side (status_html, outdated).
+ * block from WordPress (D1); the update notice's Re-import the workflow
+ * button moves focus to the Workflow File heading, also after a swap. The
+ * fixture mirrors render_workflow()'s markup; render-matrix-harness.php
+ * locks the PHP side (status_html, outdated, the button).
  */
 
 const SCRIPT = '../../post-quality-manager/admin/js/pqm-admin.js';
 
+const REIMPORT =
+	'<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
 const OLD_BLOCK =
-	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p></div><p class="description">Template version: 5 · Your n8n workflow: version 4, reported by a command.</p></div>';
+	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p>' +
+	REIMPORT +
+	'</div><p class="description">Template version: 5 · Your n8n workflow: version 4, reported by a command.</p></div>';
 const NEW_BLOCK =
 	'<div class="pqm-workflow-status"><p class="description">Template version: 5 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
 const OLDER_BLOCK =
-	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p></div><p class="description">Template version: 5 · Your n8n workflow: an older version that does not report its number, checked just now by a test ping.</p></div>';
+	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p>' +
+	REIMPORT +
+	'</div><p class="description">Template version: 5 · Your n8n workflow: an older version that does not report its number, checked just now by a test ping.</p></div>';
 const SERVED_BLOCK =
 	'<div class="pqm-workflow-status"><p class="description">Template version: 5 · Your n8n workflow: not checked yet — send a test ping once it is imported and active.</p></div>';
 
@@ -23,7 +31,7 @@ function renderPage() {
 		<div class="wrap pqm-wrap">
 			<div id="pqm-setup-root"></div>
 			${ OLD_BLOCK }
-			<h2>Workflow File</h2>
+			<h2 id="pqm-workflow-file" tabindex="-1">Workflow File</h2>
 			<h2>Connection Test</h2>
 			<p>
 				<button type="button" class="button pqm-test-connection">Send test ping</button>
@@ -33,6 +41,7 @@ function renderPage() {
 }
 
 const windowListeners = [];
+const documentListeners = [];
 
 /** Load pqm-admin.js fresh and run its DOMContentLoaded boot once. */
 function boot() {
@@ -47,8 +56,11 @@ function boot() {
 	const [ , init ] = listen.mock.calls.find(
 		( [ type ] ) => type === 'DOMContentLoaded'
 	);
-	listen.mockRestore();
+	listen.mockClear();
 	init();
+	// The boot's own document listeners (the re-import click), removed after each test.
+	documentListeners.push( ...listen.mock.calls );
+	listen.mockRestore();
 	windowListeners.push( ...listenWindow.mock.calls );
 	listenWindow.mockRestore();
 }
@@ -77,6 +89,11 @@ afterEach( () => {
 	windowListeners
 		.splice( 0 )
 		.forEach( ( [ type, fn ] ) => window.removeEventListener( type, fn ) );
+	documentListeners
+		.splice( 0 )
+		.forEach( ( [ type, fn ] ) =>
+			document.removeEventListener( type, fn )
+		);
 	delete global.fetch;
 } );
 
@@ -203,5 +220,135 @@ describe( 'Status refresh when the tab regains focus', () => {
 		answer( { success: true, data: { status_html: NEW_BLOCK } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		expect( global.fetch ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'Re-import the workflow, in the update notice', () => {
+	const heading = () => document.getElementById( 'pqm-workflow-file' );
+	const reimport = () => document.querySelector( '.pqm-reimport' );
+
+	beforeEach( () => {
+		window.HTMLElement.prototype.scrollIntoView = jest.fn();
+	} );
+
+	afterEach( () => {
+		delete window.HTMLElement.prototype.scrollIntoView;
+	} );
+
+	test( 'a click brings the Workflow File section into view and focuses its heading, without the jump', () => {
+		renderPage();
+		boot();
+		const click = new window.MouseEvent( 'click', {
+			bubbles: true,
+			cancelable: true,
+		} );
+		reimport().dispatchEvent( click );
+		expect( click.defaultPrevented ).toBe( true );
+		expect(
+			window.HTMLElement.prototype.scrollIntoView
+		).toHaveBeenCalledTimes( 1 );
+		expect( document.activeElement ).toBe( heading() );
+	} );
+
+	test( 'the button of a swapped-in block works the same (a test found an older workflow)', async () => {
+		renderPage();
+		boot();
+		answer( {
+			success: true,
+			data: {
+				message: 'Ping OK — older version.',
+				outdated: true,
+				status_html: OLDER_BLOCK,
+			},
+		} );
+		document.querySelector( '.pqm-test-connection' ).click();
+		await flush();
+		expect( status()[ 0 ].outerHTML ).toBe( OLDER_BLOCK );
+		reimport().click();
+		expect( document.activeElement ).toBe( heading() );
+	} );
+
+	test( 'the button of a block swapped in on window focus works the same', async () => {
+		renderPage();
+		boot();
+		answer( { success: true, data: { status_html: OLDER_BLOCK } } );
+		window.dispatchEvent( new window.Event( 'focus' ) );
+		await flush();
+		reimport().click();
+		expect( document.activeElement ).toBe( heading() );
+	} );
+
+	test( 'other clicks on the page move no focus', () => {
+		renderPage();
+		boot();
+		document.querySelector( '.pqm-workflow-status p' ).click();
+		expect( document.activeElement ).not.toBe( heading() );
+		expect(
+			window.HTMLElement.prototype.scrollIntoView
+		).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'Each swap of the block tells the islands (pqm:workflow-status)', () => {
+	let heard;
+	const listener = () => heard++;
+
+	beforeEach( () => {
+		heard = 0;
+		document.addEventListener( 'pqm:workflow-status', listener );
+	} );
+
+	afterEach( () => {
+		document.removeEventListener( 'pqm:workflow-status', listener );
+	} );
+
+	test( 'a test ping that swaps the block dispatches it once, after the swap', async () => {
+		renderPage();
+		boot();
+		let seen = null;
+		document.addEventListener(
+			'pqm:workflow-status',
+			() => ( seen = document.querySelector( '.pqm-reimport' ) ),
+			{ once: true }
+		);
+		answer( {
+			success: true,
+			data: {
+				message: 'Ping OK — up to date.',
+				outdated: false,
+				status_html: NEW_BLOCK,
+			},
+		} );
+		document.querySelector( '.pqm-test-connection' ).click();
+		await flush();
+		expect( heard ).toBe( 1 );
+		expect( seen ).toBeNull(); // the new block, without the button
+	} );
+
+	test( 'a window-focus refresh that swaps the block dispatches it once', async () => {
+		renderPage();
+		boot();
+		answer( { success: true, data: { status_html: SERVED_BLOCK } } );
+		window.dispatchEvent( new window.Event( 'focus' ) );
+		await flush();
+		expect( heard ).toBe( 1 );
+	} );
+
+	test.each( [
+		[
+			'an error string',
+			{ success: false, data: 'n8n responded with 404.' },
+		],
+		[
+			'a success without status_html',
+			{ success: true, data: { message: 'Ping OK.', outdated: false } },
+		],
+	] )( 'no swap (%s), no event', async ( _, body ) => {
+		renderPage();
+		boot();
+		answer( body );
+		document.querySelector( '.pqm-test-connection' ).click();
+		await flush();
+		expect( heard ).toBe( 0 );
 	} );
 } );

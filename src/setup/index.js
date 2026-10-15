@@ -32,6 +32,7 @@ import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
+import useReimportShown from '../kit/use-reimport-shown';
 import FirstReview from './first-review';
 import {
 	NextSteps,
@@ -109,6 +110,8 @@ export default function SetupIsland() {
 	const [ current, setCurrent ] = useState( null ); // null = dialog closed
 	const [ saving, setSaving ] = useState( false );
 	const [ saveError, setSaveError ] = useState( '' );
+	// The update notice's Re-import the workflow is then the page's primary action.
+	const reimportShown = useReimportShown();
 
 	useEffect( () => {
 		apiFetch( { path: SETUP_PATH } ).then(
@@ -309,7 +312,7 @@ export default function SetupIsland() {
 				</p>
 			) }
 			<Button
-				variant={ complete ? 'secondary' : 'primary' }
+				variant={ complete || reimportShown ? 'secondary' : 'primary' }
 				onClick={ () => goTo( resumeAt( state ) ) }
 				disabled={ ! state }
 				isBusy={ ! state }
