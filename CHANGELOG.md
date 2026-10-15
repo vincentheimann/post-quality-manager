@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.9.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.8.0...v3.9.0) (2026-10-15)
+
+
+### Features
+
+* **n8n:** roll back a failed provisioning (entry 6.5) ([df42480](https://github.com/vincentheimann/post-quality-manager/commit/df4248030fa2ca0a9c7b5bba3a0f7c8c0f2d385e))
+* **n8n:** the setup wizard connects and provisions n8n, or hands over to the manual path (entry 6.6) ([5a57125](https://github.com/vincentheimann/post-quality-manager/commit/5a5712571bc2ac1324b3b1f6067e091741b5741b))
+
+
+### Bug Fixes
+
+* **release:** write the variable property as Freemius prints it (story 58) ([472bce5](https://github.com/vincentheimann/post-quality-manager/commit/472bce545469b77be9e7e80ddd0b5c53a3cfb822))
+
 ## [3.8.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.7.0...v3.8.0) (2026-10-14)
 
 
