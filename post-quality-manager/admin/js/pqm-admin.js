@@ -283,45 +283,49 @@
         var i18n = pqmAdmin.i18n || {};
         var webhookField = document.getElementById('pqm_n8n_webhook_url');
 
-        document.querySelectorAll('.pqm-test-connection').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var result = btn.parentElement.querySelector('.pqm-test-result');
-                // No field on the workflow page: send empty, the server
-                // falls back to the saved webhook URL.
-                var url = webhookField ? webhookField.value.trim() : '';
+        // Delegated, so the status block's Test again (n8n provisioning,
+        // entry 7) keeps working after swapWorkflowStatus() replaces it.
+        // Its result line shows a failure; a passing check swaps the block.
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest && e.target.closest('.pqm-test-connection');
+            if (!btn || btn.disabled) return;
+            var result = btn.parentElement.querySelector('.pqm-test-result');
+            // No field on the workflow page: send empty, the server
+            // falls back to the saved webhook URL.
+            var url = webhookField ? webhookField.value.trim() : '';
 
-                if (webhookField && !url) {
-                    showTestResult(result, false, i18n.enterWebhookUrl);
-                    webhookField.focus();
-                    return;
-                }
+            if (webhookField && !url) {
+                showTestResult(result, false, i18n.enterWebhookUrl);
+                webhookField.focus();
+                return;
+            }
 
-                btn.disabled = true;
-                showTestResult(result, null, i18n.testing);
+            btn.disabled = true;
+            showTestResult(result, null, i18n.testing);
 
-                var form = new FormData();
-                form.append('action', 'pqm_test_connection');
-                form.append('webhook_url', url);
-                form.append('_wpnonce', pqmAdmin.pageNonce);
+            var form = new FormData();
+            form.append('action', 'pqm_test_connection');
+            form.append('webhook_url', url);
+            form.append('_wpnonce', pqmAdmin.pageNonce);
 
-                fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
-                    .then(function (r) { return r.json(); })
-                    .then(function (resp) {
-                        // Errors answer a string; success answers {message,
-                        // outdated}, plus status_html when the saved URL was
-                        // pinged. An older workflow is connected but warned.
-                        var data = resp.data || {};
-                        var msg = typeof resp.data === 'string' ? resp.data : data.message;
-                        showTestResult(result, !!resp.success, typeof msg === 'string' ? msg : i18n.networkError, !!data.outdated);
-                        swapWorkflowStatus(data.status_html);
-                    })
-                    .catch(function () {
-                        showTestResult(result, false, i18n.networkError);
-                    })
-                    .finally(function () {
-                        btn.disabled = false;
-                    });
-            });
+            fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (resp) {
+                    // Errors answer a string; success answers {message,
+                    // outdated}, plus status_html when the saved URL was
+                    // pinged. An older workflow is connected but warned.
+                    var data = resp.data || {};
+                    var msg = typeof resp.data === 'string' ? resp.data : data.message;
+                    showTestResult(result, !!resp.success, typeof msg === 'string' ? msg : i18n.networkError, !!data.outdated);
+                    swapWorkflowStatus(data.status_html);
+                })
+                .catch(function () {
+                    showTestResult(result, false, i18n.networkError);
+                })
+                .finally(function () {
+                    // A Test again swapped out with its block stays as it is.
+                    if (btn.isConnected) btn.disabled = false;
+                });
         });
     }
 
@@ -340,12 +344,19 @@
     /**
      * Replace the n8n Workflow page's status block with a fresh server render,
      * then tell the page's React islands (src/kit/use-reimport-shown.js), which
-     * read the block's re-import button to know whether an update is needed.
+     * read the block's primary button to know whether theirs must yield.
      */
     function swapWorkflowStatus(html) {
         var status = document.querySelector('.pqm-workflow-status');
         if (status && typeof html === 'string') {
+            // Focus inside the old block (Test again) would drop to <body>: keep it on the new block.
+            var hadFocus = status.contains(document.activeElement);
             status.outerHTML = html;
+            var fresh = hadFocus && document.querySelector('.pqm-workflow-status');
+            if (fresh) {
+                fresh.setAttribute('tabindex', '-1');
+                fresh.focus();
+            }
             document.dispatchEvent(new CustomEvent('pqm:workflow-status'));
         }
     }

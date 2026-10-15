@@ -634,6 +634,47 @@ $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKF
 check('up to date: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
 $GLOBALS['tw_options'] = [];
 check('not checked yet: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
+
+/* n8n provisioning entry 7: a stored mis-wiring sentence comes first, its Test again the one primary */
+echo "Status block — the mis-wiring sentence (provisioning entry 7)\n";
+$sentence    = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
+$test_again = '<p><button type="button" class="button button-primary pqm-test-connection">Test again</button>
+                <span class="pqm-test-result" aria-live="polite"></span></p>';
+$error_of    = static fn(string $html): string => preg_match('/<div class="notice notice-error inline pqm-inline-notice">.*?<\/div>/s', $html, $m) ? $m[0] : '';
+$secondary   = '<p><a class="button pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
+$any_notice  = static fn(string $html): bool => (bool) preg_match('/class="notice notice-/', $html);
+$one_primary = static fn(string $html): bool => $any_notice($html) ? $primaries($html) === 1 : $primaries($html) === 0;
+$states      = [];
+foreach ([
+    'up to date'           => ['version' => PQM_WORKFLOW_VERSION],
+    'older'                => ['version' => PQM_WORKFLOW_VERSION - 1],
+    'Free variant on Pro'  => ['version' => PQM_WORKFLOW_VERSION, 'variant' => 'free'],
+    'older and Free'       => ['version' => PQM_WORKFLOW_VERSION - 1, 'variant' => 'free'],
+] as $label => $report) {
+    $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report + ['via' => 'test', 'at' => time(), 'miswired' => $sentence]];
+    $states[] = $status = $status_of();
+    check("sentence stored, $label: an error notice first, the sentence and Test again (a .pqm-test-connection) with its own result line",
+        ($error = $error_of($status)) !== '' && strpos($status, 'class="notice notice-error') === strpos($status, 'class="notice ')
+        && str_contains($error, '<p>' . $sentence . '</p>') && str_contains($error, $test_again) && substr_count($status, 'pqm-test-result') === 1);
+    check("... $label: Test again is the one primary; every re-import button secondary", $primaries($status) === 1
+        && substr_count($status, 'pqm-reimport') === substr_count($status, $secondary) && str_contains($status, 'Template version: '));
+}
+check('... the sentence is escaped once, where it renders (stored raw)', substr_count($src, 'esc_html($miswired)') === 1);
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => '']];
+check('an empty sentence: no error notice, no button', $error_of($status = $status_of()) === '' && $primaries($status) === 0);
+foreach ([
+    [], // not checked yet
+    ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1],
+    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]],
+    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']],
+    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'command', 'at' => time(), 'variant' => 'free']],
+] as $options) {
+    $GLOBALS['tw_options'] = $options;
+    $states[] = $status_of();
+}
+check('every state (' . count($states) . '): at most one .button-primary in the block, one whenever it shows a notice',
+    !array_filter($states, static fn($s) => !$one_primary($s)));
+$GLOBALS['tw_options'] = [];
 $GLOBALS['tw_settings'] = [];
 
 /* Story 35: the token's reach, both directions */
@@ -750,6 +791,8 @@ check('v5 reply, saved URL: pinged the saved URL, stored {5, via test, at now}',
 check('v5 reply: message says reachable, credential right, workflow up to date', $r->ok === true
     && $r->data['message'] === 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.');
 check('v5 reply: outdated false (the page shows a success)', ($r->data['outdated'] ?? null) === false);
+check('v5 reply: the shape unchanged by entry 7 (no miswired key; no n8n key stored, so no diagnosis)', array_keys($r->data) === ['message', 'outdated', 'status_html']
+    && !isset($seen()['miswired']));
 check('v5 reply: status_html = the renderer\'s block, notice gone, "version 5, checked just now by a test ping"',
     ($r->data['status_html'] ?? '') === PQM_Admin::render_workflow_status() && !str_contains($r->data['status_html'], $notice)
     && str_contains($r->data['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.'));

@@ -15,7 +15,8 @@
  * probe() tells whether an instance can be provisioned, read-only: it
  * creates, changes and deletes nothing on n8n. provision() (entry 4) sets
  * the whole workflow up through request() and removes again what a failed
- * run created (entry 5); later entries call request().
+ * run created (entry 5); diagnose() (entry 7) reads the workflow behind the
+ * saved webhook URL, GET only; later entries call request().
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -309,6 +310,169 @@ class PQM_N8n {
 
     private static function result( string $cause, string $message ): array {
         return [ 'ok' => false, 'cause' => $cause, 'message' => $message, 'at' => time() ];
+    }
+
+    /* ─── Mis-wiring diagnosis (entry 7) ─────────────────────────────── */
+
+    /**
+     * Is the workflow behind the saved webhook URL wired to the right
+     * credentials? GET only. The workflow is found by the setup map's id,
+     * else as the active workflow whose Webhook trigger path is the URL's
+     * last segment; never by name. Its published nodes are read (n8n 2.x
+     * runs `activeVersion`; a save changes only the draft), disabled ones
+     * skipped. Nodes are told apart by type and parameters, never by their
+     * names, which the owner may change. Two shapes count, the first found
+     * is reported: Claude nodes carrying the trigger's credential (the
+     * 2026-10-13 import), then nodes that need a credential and have none.
+     * Node and credential names are n8n's: the sentence is raw text, escaped
+     * where it is shown.
+     *
+     * @return string|null The sentence naming the nodes, the credential and
+     *                     the fix; '' when the workflow is clean or no key is
+     *                     stored; null when the check could not run (n8n
+     *                     unreachable or refusing, no matching workflow).
+     */
+    public static function diagnose( string $webhook_url ): ?string {
+        if ( '' === self::connection()['api_key'] ) {
+            return '';
+        }
+        $setup = get_option( self::SETUP_OPTION, false );
+        $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' ) ? $setup : null;
+
+        if ( null !== $setup ) {
+            $response = self::request( 'GET', '/workflows/' . rawurlencode( (string) $setup['workflow_id'] ) );
+            $nodes    = self::answered( $response ) ? self::published_nodes( $response['json'] ) : null;
+        } else {
+            $nodes = self::published_nodes_at( $webhook_url );
+        }
+        if ( null === $nodes ) {
+            return null;
+        }
+
+        $trigger = self::trigger( $nodes );
+        if ( null === $trigger ) {
+            return null; // Not a workflow read (e.g. a 2xx `{}`): the check could not run.
+        }
+        $hook = (string) ( $trigger['credentials']['httpHeaderAuth']['id'] ?? '' );
+        // D1: a provisioned site without Application Passwords leaves Update WP Post (Rewrite) name-only.
+        $skip_basic = null !== $setup && ! isset( $setup['credentials']['wordpress'] );
+        $shared     = [];
+        $missing    = [];
+        foreach ( $nodes as $node ) {
+            $parameters  = is_array( $node['parameters'] ?? null ) ? $node['parameters'] : [];
+            $credentials = is_array( $node['credentials'] ?? null ) ? $node['credentials'] : [];
+            $name        = (string) ( $node['name'] ?? '' );
+
+            if ( '' !== $hook && str_contains( (string) ( $parameters['url'] ?? '' ), 'api.anthropic.com' )
+                && $hook === (string) ( $credentials['httpHeaderAuth']['id'] ?? '' ) ) {
+                $shared[] = $name;
+            }
+            $auth = (string) ( $parameters['authentication'] ?? '' );
+            if ( '' !== $auth && 'none' !== $auth && ! self::has_credential( $credentials )
+                && ! ( $skip_basic && 'httpBasicAuth' === ( $parameters['genericAuthType'] ?? '' ) ) ) {
+                $missing[] = $name;
+            }
+        }
+
+        if ( [] !== $shared ) {
+            $credential = (string) ( $trigger['credentials']['httpHeaderAuth']['name'] ?? '' );
+
+            return '' !== $credential
+                ? sprintf(
+                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
+                    $credential,
+                    wp_sprintf( '%l', $shared )
+                )
+                : sprintf(
+                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
+                    wp_sprintf( '%l', $shared )
+                );
+        }
+        if ( [] !== $missing ) {
+            return sprintf(
+                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
+                __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then test again.', 'post-quality-manager' ),
+                wp_sprintf( '%l', $missing )
+            );
+        }
+
+        return '';
+    }
+
+    /**
+     * The published nodes of the active workflow whose Webhook trigger path
+     * is the URL's segment after /webhook/, null when there is none or n8n
+     * did not answer. Ceiling: one page of 250 active workflows (n8n's
+     * maximum `limit`); following `nextCursor` is the upgrade path.
+     *
+     * @return array[]|null
+     */
+    private static function published_nodes_at( string $webhook_url ): ?array {
+        $path = (string) wp_parse_url( $webhook_url, PHP_URL_PATH );
+        $at   = strpos( $path, '/webhook/' );
+        $path = false === $at ? '' : trim( substr( $path, $at + strlen( '/webhook/' ) ), '/' );
+        if ( '' === $path ) {
+            return null;
+        }
+
+        $response = self::request( 'GET', '/workflows?active=true&limit=250&excludePinnedData=true' );
+        if ( ! self::answered( $response ) ) {
+            return null;
+        }
+        foreach ( (array) ( $response['json']['data'] ?? [] ) as $workflow ) {
+            $nodes   = is_array( $workflow ) ? self::published_nodes( $workflow ) : [];
+            $trigger = self::trigger( $nodes );
+            if ( null !== $trigger && trim( (string) ( $trigger['parameters']['path'] ?? '' ), '/' ) === $path ) {
+                return $nodes;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A workflow's published nodes (`activeVersion`, else the draft `nodes`
+     * when n8n gives no published version), disabled ones left out.
+     *
+     * @return array[]
+     */
+    private static function published_nodes( array $workflow ): array {
+        $nodes = $workflow['activeVersion']['nodes'] ?? $workflow['nodes'] ?? [];
+
+        return array_values( array_filter( is_array( $nodes ) ? $nodes : [], static fn( $node ) => is_array( $node ) && empty( $node['disabled'] ) ) );
+    }
+
+    /** The Webhook trigger among these nodes, null when there is none. */
+    private static function trigger( array $nodes ): ?array {
+        foreach ( $nodes as $node ) {
+            if ( 'n8n-nodes-base.webhook' === ( $node['type'] ?? '' ) ) {
+                return $node;
+            }
+        }
+
+        return null;
+    }
+
+    /** Whether a node's `credentials` link at least one credential by id. */
+    private static function has_credential( array $credentials ): bool {
+        foreach ( $credentials as $credential ) {
+            if ( is_array( $credential ) && '' !== (string) ( $credential['id'] ?? '' ) ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether a request() came back 2xx with a JSON object.
+     *
+     * @param array|WP_Error $response
+     */
+    private static function answered( $response ): bool {
+        return ! is_wp_error( $response ) && $response['code'] >= 200 && $response['code'] < 300 && is_array( $response['json'] );
     }
 
     /* ─── Provisioning (entry 4) ─────────────────────────────────────── */

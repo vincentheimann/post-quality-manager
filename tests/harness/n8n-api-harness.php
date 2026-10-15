@@ -14,6 +14,9 @@
  * instance model: what the create calls answered minus what a DELETE
  * removed. Entry 6: a passing provisioning answers the page's status block;
  * the ping's record (`steps.connect`) keeps the dialog's step open on a failure.
+ * Entry 7 rows: the mis-wiring diagnosis a passing ping of the saved URL
+ * runs, one per line of its plan's matrix, on workflows built from the
+ * build's template with the ids rewired; every diagnosis call is a GET.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -101,6 +104,14 @@ function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 define('MINUTE_IN_SECONDS', 60);
 function esc_html($s) { return (string) $s; }
 function esc_html__($s, $d = null) { return (string) $s; } // the status block's re-import button label
+function esc_html_e($s, $d = null) { echo $s; } // the status block's notices (entry 7: Test again)
+/* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
+function wp_sprintf($pattern, ...$args) {
+    if ($pattern !== '%l') { return vsprintf($pattern, $args); }
+    $list = array_values($args[0]);
+    if (count($list) < 3) { return implode(' and ', $list); }
+    return implode(', ', array_slice($list, 0, -1)) . ', and ' . end($list);
+}
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
@@ -451,7 +462,48 @@ const HOOK         = BASE . '/webhook/pqm-execute-example-com';
 define('MODELS_OK', resp(200, ['data' => [['id' => 'claude-model', 'type' => 'model']], 'has_more' => true]));
 define('ACTIVE', resp(200, ['id' => 'wf1', 'active' => true]));
 function created(string $id): array { return resp(200, ['id' => $id, 'name' => 'stored name']); }
-define('PRO_OK', [MODELS_OK, created('c-webhook'), created('c-anthropic'), created('c-wp'), created('wf1'), ACTIVE]);
+
+/* Entry 7: the workflow as n8n stores it, read back by the passing ping's diagnosis. */
+const WEBHOOK_CRED   = ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com'];
+const ANTHROPIC_CRED = ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude'];
+const WP_CRED        = ['id' => 'c-wp', 'name' => 'WordPress - example.com'];
+const WIRED          = ['Post Quality webhook - example.com' => WEBHOOK_CRED, 'Anthropic - Claude' => ANTHROPIC_CRED, 'WordPress - example.com' => WP_CRED];
+
+/**
+ * The build's template nodes (pqm_workflow_json()) with the ids rewired:
+ * template credential name => the {id, name} n8n stores, or null (name-only).
+ * `$edit`: node name => fn(array $node): array, for a single node.
+ */
+function wired(array $credentials = WIRED, array $edit = []): array {
+    $nodes = json_decode((string) pqm_workflow_json(), true)['nodes'];
+    foreach ($nodes as &$node) {
+        foreach ($node['credentials'] ?? [] as $type => $ref) {
+            $node['credentials'][$type] = $credentials[$ref['name']] ?? ['name' => $ref['name']];
+        }
+        if (isset($edit[$node['name']])) {
+            $node = $edit[$node['name']]($node);
+        }
+    }
+    return $nodes;
+}
+
+/** The same nodes, the Webhook Trigger listening on $path. */
+function with_path(array $nodes, string $path): array {
+    return array_map(static function ($n) use ($path) {
+        if ($n['type'] === 'n8n-nodes-base.webhook') { $n['parameters']['path'] = $path; }
+        return $n;
+    }, $nodes);
+}
+
+/** A workflow as GET /workflows answers it: draft `nodes`, and `activeVersion` = the published version. */
+function stored_workflow(string $id, array $published, ?array $draft = null): array {
+    return ['id' => $id, 'name' => 'Post Quality — example.com', 'active' => true, 'nodes' => $draft ?? $published, 'connections' => [],
+        'activeVersion' => ['versionId' => "v-$id", 'nodes' => $published, 'connections' => []]];
+}
+
+define('CLEAN_WF', resp(200, stored_workflow('wf1', wired())));
+const READ_WF = 'GET ' . BASE . '/api/v1/workflows/wf1';
+define('PRO_OK', [MODELS_OK, created('c-webhook'), created('c-anthropic'), created('c-wp'), created('wf1'), ACTIVE, CLEAN_WF]);
 
 /** A connected site, nothing provisioned, the given answers scripted; the ping answers the current version. */
 function connected(array $queue, array $extra = []): void {
@@ -491,13 +543,14 @@ $strip    = static fn(array $nodes) => array_map(static function ($n) { unset($n
 echo "Provisioning: Pro, fresh instance\n";
 connected(PRO_OK);
 $r = provision();
-check('calls, in order: models GET, 3x POST /credentials, POST /workflows, activate', calls() === [
+check('calls, in order: models GET, 3x POST /credentials, POST /workflows, activate; then the diagnosis of the ping reads the workflow (entry 7)', calls() === [
     MODELS,
     'POST ' . BASE . '/api/v1/credentials',
     'POST ' . BASE . '/api/v1/credentials',
     'POST ' . BASE . '/api/v1/credentials',
     'POST ' . BASE . '/api/v1/workflows',
     'POST ' . BASE . '/api/v1/workflows/wf1/activate',
+    READ_WF,
 ] && $GLOBALS['tw']['queue'] === []);
 check('the models request: x-api-key = the provider key, anthropic-version 2023-06-01, no n8n key; every call with the plugin UA, no redirect',
     $GLOBALS['tw']['calls'][0][1]['headers'] === ['x-api-key' => PROVIDER_KEY, 'anthropic-version' => '2023-06-01'] && calls_signed(KEY));
@@ -549,11 +602,15 @@ check('GET /n8n/connection and GET /setup after provisioning: no provider key, n
     !str_contains($conn . $setup_reply, PROVIDER_KEY) && !str_contains($conn . $setup_reply, APP_PASSWORD) && str_contains($setup_reply, '"webhook_url"'));
 
 echo "Provisioning: Pro, no Application Passwords (D1)\n";
-connected([MODELS_OK, created('c-webhook'), created('c-anthropic'), created('wf1'), ACTIVE]);
+// What n8n stores of it: Update WP Post (Rewrite) without a credential id.
+connected([MODELS_OK, created('c-webhook'), created('c-anthropic'), created('wf1'), ACTIVE,
+    resp(200, stored_workflow('wf1', wired(['WordPress - example.com' => null] + WIRED)))]);
 $GLOBALS['tw']['app_passwords'] = false;
 $r = provision();
 $links = linked(body(3));
-check('2 credentials, no Application Password, no httpBasicAuth credential', count(calls()) === 5 && $GLOBALS['tw']['app_created'] === []
+check('entry 7, D1: the diagnosis reads GET /workflows/{id} only and skips the name-only Update WP Post: clean, nothing stored, the ping message unchanged',
+    calls()[5] === READ_WF && !isset(pqm_workflow_report()['miswired']) && str_starts_with($r['message'], 'Ping OK'));
+check('2 credentials, no Application Password, no httpBasicAuth credential', count(calls()) === 6 && $GLOBALS['tw']['app_created'] === []
     && !str_contains(json_encode(array_slice($GLOBALS['tw']['calls'], 1, 2)), 'httpBasicAuth'));
 check('7 nodes linked, Update WP Post left name-only', count(array_filter($links, static fn($c) => isset(reset($c)['id']))) === 7
     && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['name' => 'WordPress - example.com']]);
@@ -744,7 +801,7 @@ $cleanup = [N8N . 'workflows/wf-old/deactivate', DEL . 'workflows/wf-old', DEL .
 connected(array_merge([MODELS_OK, INACTIVE, DELETED, DELETED, NOT_FOUND, DELETED], array_slice(PRO_OK, 1)), $old);
 $r = provision();
 check('removable: deactivate → DELETE workflow → DELETE credentials, before anything is created; then the normal run',
-    calls() === array_merge([MODELS], $cleanup, array_slice(CREATE_ALL, 1)) && rollback_ordered() && $r['provisioned'] === true && $GLOBALS['tw']['queue'] === []);
+    calls() === array_merge([MODELS], $cleanup, array_slice(CREATE_ALL, 1), [READ_WF]) && rollback_ordered() && $r['provisioned'] === true && $GLOBALS['tw']['queue'] === []);
 check('... the record deleted; the model holds only the new setup', !isset($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION])
     && in_array('-' . PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true)
     && on_instance(OLD_OBJECTS) === ['credentials/c-anthropic', 'credentials/c-webhook', 'credentials/c-wp', 'workflows/wf1']);
@@ -765,7 +822,7 @@ check('credentials only, the last one unreachable: no deactivate, the record kee
     && array_diff_key($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'credentials' => ['c-old2']]);
 connected(PRO_OK, [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://old.example.com'] + $old[PQM_N8n::LEFTOVERS_OPTION]]);
 $r = provision();
-check('a record of another instance: dropped, nothing sent there, the normal run', calls() === CREATE_ALL && $r['provisioned'] === true
+check('a record of another instance: dropped, nothing sent there, the normal run', calls() === [...CREATE_ALL, READ_WF] && $r['provisioned'] === true
     && !isset($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION]));
 connected([resp(401, ['type' => 'error'])], $old);
 $r = provision();
@@ -790,6 +847,156 @@ check('after every run (' . count($provision_runs) . '): the provider key and th
 check('... and in no outgoing call but the models request and the Anthropic credential body',
     !array_filter($provision_runs, static fn($run) => array_filter($run[1], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)
         && $c[0] !== 'https://api.anthropic.com/v1/models?limit=1' && !str_starts_with($c[1]['body'] ?? '', '{"name":"Anthropic - Claude"'))));
+
+/* ─── Entry 7: the handshake reports a mis-wired workflow ───────────── */
+echo "Diagnosis: one row per line of the plan's matrix\n";
+const LIST_READ = 'GET ' . BASE . '/api/v1/workflows?active=true&limit=250&excludePinnedData=true';
+const V5_HOOK   = BASE . '/webhook/pqm-execute';
+const SHARED    = ['id' => 'c-hdr', 'name' => 'Header Auth account']; // n8n's default name for a Header Auth credential
+const SHARED_SENTENCE = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent, Claude - Takeaways Agent, Claude - Sources Agent, Claude - SEO Agent, Claude - Audit Agent, and Claude - Rewrite Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
+const MISSING_SENTENCE = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then test again.';
+const PING_OK  = 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.';
+$diagnosis_calls = []; // every call the rows below made, for the GET-only check
+$status_blocks   = []; // every status block a connect ping below answered
+$setup_map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]];
+$miswired_map = static fn(array $published, ?array $draft = null): array => [resp(200, stored_workflow('wf1', $published, $draft))];
+
+/** POST /setup/connect: save the URL, ping it, record (the dialog's connect step, D2). */
+function connect_ping(string $url): array {
+    $r = PQM_REST_API::setup_connect_callback(new WP_REST_Request(['webhook_url' => $url]))->get_data();
+    $GLOBALS['replies'][] = json_encode($r);
+    $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
+    $GLOBALS['status_blocks'][]  = $r['status_html'] ?? '';
+    return $r;
+}
+/** diagnose() on the given site, its calls kept for the GET-only check. */
+function diagnosed(string $url = HOOK): ?string {
+    $r = PQM_N8n::diagnose($url);
+    $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
+    return $r;
+}
+/** The status block holds at most one primary, and exactly one whenever it shows a notice. */
+function one_primary(string $html): bool {
+    $primaries = substr_count($html, 'button-primary');
+    return str_contains($html, 'class="notice ') ? $primaries === 1 : $primaries === 0;
+}
+$stored = static fn() => pqm_workflow_report()['miswired'] ?? null;
+$a_sentence = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]];
+
+// Row: the 2026-10-13 shape — no setup map, the v5 path, the trigger's Header Auth credential spread to every Claude node.
+$oct13 = with_path(wired(['Post Quality webhook - example.com' => SHARED, 'Anthropic - Claude' => SHARED] + WIRED), 'pqm-execute');
+connected([resp(200, ['data' => [stored_workflow('wf-other', with_path(wired(), 'pqm-execute-other-example')), stored_workflow('wf-prod', $oct13)], 'nextCursor' => null])]);
+$GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => 5]);
+$r = connect_ping(V5_HOOK);
+check('2026-10-13 shape: one GET of the active workflows, signed; the one whose trigger path is the URL\'s last segment is read', calls() === [LIST_READ] && calls_signed(KEY));
+check('... the reply: the sentence names the six Claude nodes, the credential and the fix; a warning (outdated, D2), the step ticks',
+    $r['ping_ok'] === true && $r['message'] === SHARED_SENTENCE && $r['outdated'] === true
+    && ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true);
+check('... the sentence stored with the report; the reply keeps its shape', $stored() === SHARED_SENTENCE
+    && array_keys($r) === ['saved', 'ping_ok', 'outdated', 'message', 'status_html']);
+$block = $r['status_html'];
+check('... the status block: the sentence first, in an error notice, with Test again as the one primary', strpos($block, 'notice-error') < strpos($block, 'Workflow update available.')
+    && str_contains($block, '<p>' . SHARED_SENTENCE . '</p>') && str_contains($block, '<button type="button" class="button button-primary pqm-test-connection">Test again</button>')
+    && one_primary($block) && substr_count($block, '<span class="pqm-test-result" aria-live="polite"></span>') === 1);
+check('... the re-import button of the update notice turns secondary', str_contains($block, '<a class="button pqm-reimport" href="#pqm-workflow-file">'));
+
+// Row: a node that needs a credential has none (no setup map: every rule applies, D1).
+connected([resp(200, ['data' => [stored_workflow('wf-prod', wired(['WordPress - example.com' => null] + WIRED))]])]);
+check('missing credential: the sentence names Update WP Post (Rewrite) and the fix', diagnosed() === MISSING_SENTENCE && calls() === [LIST_READ]);
+connected([resp(200, ['data' => [stored_workflow('wf-prod', wired(['WordPress - example.com' => null, 'Post Quality webhook - example.com' => SHARED, 'Anthropic - Claude' => SHARED] + WIRED))]])]);
+check('... shared and missing at once: the shared credential is reported first', diagnosed() === SHARED_SENTENCE);
+connected([resp(200, ['data' => [stored_workflow('wf-prod', wired(WIRED, ['Claude - SEO Agent' => static function ($n) { unset($n['credentials']); return $n; }]))]])]);
+check('... a Claude node with no credential at all is missing too', diagnosed() === 'In n8n, no credential is set on Claude - SEO Agent: add one there, publish the workflow, then test again.');
+connected([resp(200, ['data' => [stored_workflow('wf-prod', wired(['Post Quality webhook - example.com' => ['id' => 'c-webhook', 'name' => ''], 'Anthropic - Claude' => ['id' => 'c-webhook', 'name' => '']] + WIRED))]])]);
+check('... a shared credential n8n gives no name: the sentence without one', str_starts_with((string) diagnosed(), 'In n8n, the webhook credential is set on Claude - Review Agent, '));
+
+// Row: provisioned — GET /workflows/{id} only (the provisioning rows above run it end to end).
+connected($miswired_map(wired()), $setup_map);
+check('provisioned: GET /workflows/{id} only, clean', diagnosed() === '' && calls() === [READ_WF]);
+connected($miswired_map(wired(['WordPress - example.com' => null] + WIRED)), [PQM_N8n::SETUP_OPTION => ['credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']] + $setup_map[PQM_N8n::SETUP_OPTION]]);
+check('... without a wordpress credential in the map (D1): Update WP Post (Rewrite) skipped, clean', diagnosed() === '');
+connected($miswired_map(wired(['WordPress - example.com' => null] + WIRED)), $setup_map);
+check('... with one in the map, the same node is reported', diagnosed() === MISSING_SENTENCE);
+connected($miswired_map(wired()), $setup_map);
+check('... the map wins over the URL: another saved path reads the provisioned workflow all the same', diagnosed(BASE . '/webhook/elsewhere') === '' && calls() === [READ_WF]);
+
+// Row: fixed in the draft, not published — the published version runs.
+connected($miswired_map($oct13, wired()), $setup_map);
+check('draft fixed, not published: reported (activeVersion is read, not nodes)', diagnosed() === SHARED_SENTENCE);
+connected($miswired_map(wired(), $oct13), $setup_map);
+check('... and the reverse: a mis-wired draft over a clean published version is clean', diagnosed() === '');
+connected([resp(200, ['activeVersion' => null] + stored_workflow('wf1', $oct13))], $setup_map);
+check('... activeVersion null: the draft nodes are read', diagnosed() === SHARED_SENTENCE);
+
+// Row: a disabled node is not reported.
+connected($miswired_map(wired(['WordPress - example.com' => null] + WIRED, ['Update WP Post (Rewrite)' => static fn($n) => ['disabled' => true] + $n])), $setup_map);
+check('disabled node without a credential: not reported', diagnosed() === '');
+
+// Row: no key stored — the stored sentence clears on the next test, zero n8n calls.
+site(['pqm_settings' => ['webhook_token' => TOKEN]] + $a_sentence);
+$GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
+$r = connect_ping(HOOK);
+check('no key stored: diagnose answers \'\', zero calls; the sentence clears, the handshake is ping-only', PQM_N8n::diagnose(HOOK) === '' && calls() === []
+    && $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false && !str_contains($r['status_html'], 'notice'));
+
+// Row: the check could not run — the stored sentence (or none) stays, the ping message unchanged.
+foreach ([
+    'n8n unreachable (WP_Error)'           => [timed_out()],
+    'the key refused (401)'                => [resp(401, ['message' => 'unauthorized'])],
+    'a proxy\'s non-JSON 200'              => [resp(200, '<html>ok</html>')],
+    'no active workflow with this path'    => [resp(200, ['data' => [stored_workflow('wf-other', with_path($oct13, 'pqm-execute-other-example'))], 'nextCursor' => null])],
+    'an empty list'                        => [LIST_OK],
+] as $label => $queue) {
+    connected($queue, $a_sentence);
+    $r = connect_ping(HOOK);
+    check("could not run ($label): the ping message unchanged, the stored sentence kept", $r['ping_ok'] === true && $r['message'] === PING_OK
+        && $r['outdated'] === false && $stored() === SHARED_SENTENCE && calls() === [LIST_READ]);
+}
+connected([NOT_FOUND], $setup_map + $a_sentence);
+$r = connect_ping(HOOK);
+check('could not run (the setup map\'s workflow is gone, 404): the stored sentence kept, still shown', calls() === [READ_WF] && $r['message'] === PING_OK
+    && $stored() === SHARED_SENTENCE && str_contains($r['status_html'], SHARED_SENTENCE));
+connected([resp(200, (object) [])], $setup_map + $a_sentence);
+$r = connect_ping(HOOK);
+check('could not run (a 2xx `{}` by id: no nodes, no trigger): null, the stored sentence kept', calls() === [READ_WF] && $r['message'] === PING_OK && $stored() === SHARED_SENTENCE);
+connected([LIST_OK]);
+check('... with none stored, none stored', connect_ping(HOOK)['message'] === PING_OK && $stored() === null);
+connected([]);
+check('... a URL without /webhook/: null, no call', PQM_N8n::diagnose(BASE . '/hooks/pqm-execute') === null && calls() === []);
+
+// Row: a command reports the version — only a test clears the sentence (rest-reviews-harness runs the callback itself).
+connected([], $a_sentence);
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'command', 'pro');
+check('command report while a sentence is stored: kept', $stored() === SHARED_SENTENCE && pqm_workflow_report()['via'] === 'command');
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'pro', null);
+check('... a test that could not diagnose (null): kept', $stored() === SHARED_SENTENCE);
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'pro', '');
+check('... a clean test (\'\'): cleared, the stored report back to its shape before entry 7',
+    $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => $GLOBALS['tw']['options']['pqm_workflow_version_seen']['at']]);
+
+// Row: fixed in n8n, published, Test again — the status shows the version line.
+connected($miswired_map(wired()), $setup_map + $a_sentence);
+$r = connect_ping(HOOK);
+check('fixed, Test again: \'\' stored (the sentence gone), the up-to-date message', $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false);
+check('... the status block shows the version line, no notice, no primary', !str_contains($r['status_html'], 'notice') && one_primary($r['status_html'])
+    && str_contains($r['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.'));
+
+// The Settings field pings an unsaved URL: not diagnosed.
+connected([LIST_OK]);
+$GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = HOOK;
+$ping = PQM_Admin::ping_webhook(BASE . '/webhook/pqm-execute-unsaved');
+check('a ping of an unsaved URL: miswired null, no n8n call', array_key_exists('miswired', $ping) && $ping['miswired'] === null && calls() === []);
+$ping = PQM_Admin::ping_webhook(HOOK);
+check('... the saved URL: diagnosed', $ping['miswired'] === null && calls() === [LIST_READ]); // LIST_OK holds no workflow: could not run
+$GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'not registered']);
+$GLOBALS['tw']['calls'] = [];
+check('... a failed ping: no miswired key, no n8n call', !array_key_exists('miswired', PQM_Admin::ping_webhook(HOOK)) && calls() === []);
+
+echo "Diagnosis: n8n is only read\n";
+check('every call the diagnosis rows made is a GET (' . count($diagnosis_calls) . ' calls)', $diagnosis_calls !== []
+    && array_unique(array_map(static fn($c) => $c[1]['method'], $diagnosis_calls)) === ['GET']);
+check('every status block the pings above answered (' . count($status_blocks) . '): at most one primary, one whenever a notice shows',
+    count($status_blocks) >= 9 && !array_filter($status_blocks, static fn($b) => !one_primary($b)));
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";

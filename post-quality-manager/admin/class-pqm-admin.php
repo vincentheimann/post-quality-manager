@@ -1428,8 +1428,9 @@ class PQM_Admin
     }
 
     /**
-     * The workflow's version status: the "update available" notice when the
-     * last report is older than the bundled template, and the line saying
+     * The workflow's version status: the mis-wiring notice when the last
+     * test found one (n8n provisioning, entry 7), the "update available"
+     * notice when the last report is older than the bundled template, and the line saying
      * which version answered, when and how. One renderer for the page load
      * and the ping replies (AJAX ping, POST /setup/connect), whose
      * `status_html` the page swaps in for `.pqm-workflow-status`.
@@ -1476,16 +1477,30 @@ class PQM_Admin
 
         // The fix is the notice's one primary action (EXPERIENCE.md, state 5):
         // it leads to the Workflow File steps; pqm-admin.js moves focus there.
-        // Only the first notice carries it. The rendered button is also how the
-        // page's React islands learn an update is needed (src/kit/use-reimport-shown.js).
-        // Entry 6.9 replaces it with "Update workflow" on sites the plugin set up.
+        // Only the first notice carries it. A rendered primary button is also how
+        // the page's React islands learn the block holds the page's one primary
+        // action (src/kit/use-reimport-shown.js). Entry 6.9 replaces it with
+        // "Update workflow" on sites the plugin set up.
+        // A mis-wiring (entry 7) comes first among the fixes: its Test again is
+        // then the one primary, and the re-import button turns secondary.
+        $miswired = (string) ($report['miswired'] ?? '');
         $outdated = $report !== null && $report['version'] < PQM_WORKFLOW_VERSION;
-        $reimport = '<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">'
+        $reimport = '<p><a class="button' . ($miswired === '' ? ' button-primary' : '') . ' pqm-reimport" href="#pqm-workflow-file">'
             . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a></p>';
 
         ob_start();
 ?>
         <div class="pqm-workflow-status">
+            <?php if ($miswired !== ''):
+                // Stored raw (n8n supplies the node and credential names): escaped here, once.
+                // The result line shows a failed check; a passing one swaps the block.
+            ?>
+            <div class="notice notice-error inline pqm-inline-notice">
+                <p><?php echo esc_html($miswired); ?></p>
+                <p><button type="button" class="button button-primary pqm-test-connection"><?php esc_html_e('Test again', 'post-quality-manager'); ?></button>
+                <span class="pqm-test-result" aria-live="polite"></span></p>
+            </div>
+            <?php endif; ?>
             <?php if ($outdated): ?>
             <div class="notice notice-warning inline pqm-inline-notice">
                 <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
@@ -1803,13 +1818,14 @@ class PQM_Admin
      * Shared by the AJAX handler and the setup dialog's connect route
      * (story 36); the callers decide whether to record the version.
      *
-     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string}
+     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string}
      *         `version` is the replied workflow version (0 = an older
      *         workflow that does not report it), null when the ping failed.
      *         `outdated`: a 2xx from a workflow older than the bundled
      *         template — connected, but shown as a warning (D2); on the Pro
      *         build also the Free template. `variant` ('free' or 'pro', a
-     *         reply without one is the Pro template) comes with every 2xx.
+     *         reply without one is the Pro template) and `miswired`
+     *         (diagnosed()) come with every 2xx.
      */
     public static function ping_webhook(string $url): array
     {
@@ -1846,12 +1862,12 @@ class PQM_Admin
             if ($version >= PQM_WORKFLOW_VERSION) {
                 if ( pqm_fs()->is__premium_only() ) {
                     if ($variant === 'free') {
-                        return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
+                        return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
                     }
                 }
-                return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant];
+                return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant]);
             }
-            return ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant];
+            return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
         }
 
         if ($code === 401 || $code === 403) {
@@ -1871,6 +1887,25 @@ class PQM_Admin
             __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
             $code
         ), 'version' => null, 'outdated' => false];
+    }
+
+    /**
+     * A passing ping, plus `miswired` (n8n provisioning, entry 7): for the
+     * saved webhook URL, PQM_N8n::diagnose()'s answer — a sentence, '' or
+     * null when the check could not run; null for any other URL (with a
+     * setup map, the read would describe the provisioned workflow, not the
+     * URL pinged). A sentence becomes the message and the reply a warning
+     * (D2); anything else leaves the ping's own reply as it is.
+     */
+    private static function diagnosed(string $url, array $ping): array
+    {
+        $ping['miswired'] = $url === pqm_get_settings()['n8n_webhook_url'] ? PQM_N8n::diagnose($url) : null;
+        if ($ping['miswired'] !== null && $ping['miswired'] !== '') {
+            $ping['message']  = $ping['miswired'];
+            $ping['outdated'] = true;
+        }
+
+        return $ping;
     }
 
     /* ─── AJAX: Test Connection ──────────────────────────────────────── */
@@ -1907,7 +1942,7 @@ class PQM_Admin
 
         $data = ['message' => $ping['message'], 'outdated' => $ping['outdated']];
         if ($url === $saved_url) {
-            pqm_record_workflow_version($ping['version'], 'test', $ping['variant']);
+            pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null);
             $data['status_html'] = self::render_workflow_status();
         }
         wp_send_json_success($data);

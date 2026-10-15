@@ -1213,7 +1213,7 @@ class PQM_REST_API {
             ], 200 );
         }
 
-        pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'] );
+        pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
 
         return new WP_REST_Response( [
             'saved'       => true,
@@ -1392,7 +1392,7 @@ class PQM_REST_API {
             ),
         ];
         if ( $ping['ok'] ) {
-            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'] );
+            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
             // The page's status block, as POST /setup/connect answers it (entry 6).
             $reply['status_html'] = PQM_Admin::render_workflow_status();
         }

@@ -291,6 +291,18 @@ foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
 }
 $GLOBALS['tw']['options'] = [];
 check('option absent: no report', pqm_workflow_report() === null);
+/* n8n provisioning entry 7: a test's mis-wiring sentence rides with the report; only a test clears it */
+$sentence = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then check again.';
+$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]];
+check('a stored sentence: the report carries miswired', pqm_workflow_report() === $ping_report + ['miswired' => $sentence]);
+save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
+check('a command\'s callback while a sentence is stored: via command, the sentence kept', pqm_workflow_report()['via'] === 'command'
+    && pqm_workflow_report()['miswired'] === $sentence);
+$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => '']];
+check('an empty sentence: the report carries no miswired key', pqm_workflow_report() === $ping_report);
+$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]];
+PQM_REST_API::workflow_callback();
+check('GET /workflow (a serve) forgets the report, the sentence with it', pqm_workflow_report() === null);
 $GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report];
 $res = PQM_REST_API::workflow_callback();
 check('GET /workflow (n8n Import from URL): serves the template and forgets the report',

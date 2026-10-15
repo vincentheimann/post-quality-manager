@@ -289,6 +289,103 @@ describe( 'Re-import the workflow, in the update notice', () => {
 	} );
 } );
 
+describe( 'Test again, in the mis-wiring notice (n8n provisioning, entry 7)', () => {
+	const MISWIRED_BLOCK =
+		'<div class="pqm-workflow-status"><div class="notice notice-error inline pqm-inline-notice"><p>In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.</p><p><button type="button" class="button button-primary pqm-test-connection">Test again</button><span class="pqm-test-result" aria-live="polite"></span></p></div><p class="description">Template version: 5 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
+	const checkAgain = () =>
+		document.querySelector( '.pqm-workflow-status .pqm-test-connection' );
+	// Two result lines now: Test again's, in the block, and the Connection Test's.
+	const againResult = () =>
+		document.querySelector( '.pqm-workflow-status .pqm-test-result' );
+	const testResult = () =>
+		document.querySelector( '.pqm-wrap > p > .pqm-test-result' );
+
+	/** The page after a test found the mis-wiring: the block swapped in. */
+	async function miswiredPage() {
+		renderPage();
+		boot();
+		answer( {
+			success: true,
+			data: {
+				message: 'In n8n, the webhook credential …',
+				outdated: true,
+				status_html: MISWIRED_BLOCK,
+			},
+		} );
+		document.querySelector( '.pqm-test-connection' ).click();
+		await flush();
+	}
+
+	test( 'a test that finds it: the block shows the sentence and Test again, the result line a warning', async () => {
+		await miswiredPage();
+		expect( status()[ 0 ].outerHTML ).toBe( MISWIRED_BLOCK );
+		expect( testResult().classList ).toContain( 'is-warning' );
+	} );
+
+	test( 'the Test again button inside the swapped block pings, swaps again, keeps the focus on the new block and writes nothing to a detached node', async () => {
+		await miswiredPage();
+		const resultBefore = testResult().outerHTML;
+		const button = checkAgain();
+		button.focus();
+		answer( {
+			success: true,
+			data: {
+				message: 'Ping OK — up to date.',
+				outdated: false,
+				status_html: NEW_BLOCK,
+			},
+		} );
+		button.click();
+		expect( button.disabled ).toBe( true );
+		await flush();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+		expect( sent() ).toMatchObject( {
+			action: 'pqm_test_connection',
+			webhook_url: '',
+			_wpnonce: 'nonce-123',
+		} );
+		expect( status() ).toHaveLength( 1 );
+		expect( status()[ 0 ].outerHTML ).toBe(
+			NEW_BLOCK.replace(
+				'class="pqm-workflow-status"',
+				'class="pqm-workflow-status" tabindex="-1"'
+			)
+		);
+		// The focused button went with the old block: focus lands on the new one.
+		expect( document.activeElement ).toBe( status()[ 0 ] );
+		// Swapped out with its block: left as it was once the ping went out.
+		expect( button.isConnected ).toBe( false );
+		expect( button.disabled ).toBe( true );
+		// The Connection Test's result line is not Test again's.
+		expect( testResult().outerHTML ).toBe( resultBefore );
+	} );
+
+	test.each( [
+		[
+			'an error reply',
+			[ { success: false, data: 'n8n responded with 404.' } ],
+			'n8n responded with 404.',
+		],
+		[ 'a network failure', [ null, true ], 'Network error.' ],
+	] )(
+		'a Test again that fails (%s): the block stays, the message shows beside the button, the button enabled again',
+		async ( _, args, message ) => {
+			await miswiredPage();
+			const resultBefore = testResult().outerHTML;
+			answer( ...args );
+			checkAgain().click();
+			await flush();
+			expect( status() ).toHaveLength( 1 );
+			expect( againResult().textContent ).toBe( message );
+			expect( againResult().className ).toBe(
+				'pqm-test-result is-error'
+			);
+			expect( checkAgain().disabled ).toBe( false );
+			expect( testResult().outerHTML ).toBe( resultBefore );
+		}
+	);
+} );
+
 describe( 'Each swap of the block tells the islands (pqm:workflow-status)', () => {
 	let heard;
 	const listener = () => heard++;

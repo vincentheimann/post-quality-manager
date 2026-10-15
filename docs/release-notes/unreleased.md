@@ -16,6 +16,8 @@ These changes reach a site that ran an earlier version of Post Quality Manager w
 
 **The setup guide now sets n8n up for you.** It connects your n8n with an n8n API key, asks once for your Anthropic API key and creates the workflow and its credentials in n8n itself; the key is passed on, never stored. The step-by-step manual setup now lives in the Workflow File section of the n8n Workflow page, where "Set up by hand instead" in the guide leads. A site whose workflow was set up by hand keeps that path: its guide shows one n8n step, Set up by hand, done.
 
+**A test ping also checks your workflow's credentials.** With an n8n API key stored on the n8n Workflow page, each test ping also reads your workflow in n8n, without changing it. When a Claude node carries the webhook credential, or a node has no credential, the page says which nodes and how to fix them; fix them in n8n, publish the workflow, then press Test again.
+
 **The menu shows the plugin's own icon.** The plugin's entry in the admin menu carries the Q-and-check mark instead of the generic chart icon; nothing else changes.
 
 **Post Quality Manager now comes as a Free and a Pro build.** The Free version, the one WordPress.org will host, contains Review and Key Takeaways and nothing else: no Pro settings, and an n8n workflow without the Sources, SEO, Audit and Rewrite branches. Pro is the version you download after checkout and holds everything, as before. If a Pro site imported the Free workflow, the n8n Workflow page says so: download the workflow there and re-import it. To move from Free to Pro, upload the Pro version you downloaded after checkout as a new plugin and activate it; the Free copy is switched off for you, and your settings and reviews stay.

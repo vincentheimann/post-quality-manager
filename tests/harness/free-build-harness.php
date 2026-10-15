@@ -235,6 +235,13 @@ function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$route
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'admin']; }
 function wp_is_application_passwords_available_for_user($u) { return true; }
 function wp_remote_post($url, $args) { return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
+/* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
+function wp_sprintf($pattern, ...$args) {
+    if ($pattern !== '%l') { return vsprintf($pattern, $args); }
+    $list = array_values($args[0]);
+    if (count($list) < 3) { return implode(' and ', $list); }
+    return implode(', ', array_slice($list, 0, -1)) . ', and ' . end($list);
+}
 /* Provisioning (entry 4): the Anthropic check and the n8n calls answer from a scripted queue. */
 function wp_remote_request($url, $args) {
     $GLOBALS['tw']['calls'][] = [$url, $args];
@@ -363,19 +370,33 @@ $GLOBALS['tw']['options'] = [
     'pqm_settings' => ['webhook_token' => 'free-token'],
 ];
 $GLOBALS['tw']['calls'] = [];
-$GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']), $ok(['id' => 'wf-free', 'active' => true])];
+/* Entry 7: the Free template as n8n stores it, ids rewired — what the passing ping's diagnosis reads back. */
+$free_wired = static function (array $ids): array {
+    $nodes = json_decode((string) pqm_workflow_json(), true)['nodes'];
+    foreach ($nodes as &$node) {
+        foreach ($node['credentials'] ?? [] as $type => $ref) {
+            $node['credentials'][$type] = $ids[$ref['name']] + ['name' => $ref['name']];
+        }
+    }
+    return $nodes;
+};
+$free_stored = static fn(array $nodes): array => $ok(['id' => 'wf-free', 'active' => true, 'nodes' => $nodes, 'activeVersion' => ['nodes' => $nodes]]);
+$free_clean  = $free_wired(['Post Quality webhook - example.com' => ['id' => 'c-webhook'], 'Anthropic - Claude' => ['id' => 'c-anthropic']]);
+$GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
 $GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
 $reply = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
 $reply = $reply instanceof WP_REST_Response ? $reply->get_data() : null;
 $sent  = array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']);
 $bodies = array_map(static fn($c) => json_decode($c[1]['body'] ?? 'null', true), $GLOBALS['tw']['calls']);
-check('calls: the models check, 2 credentials, the workflow, activate', $sent === [
+check('calls: the models check, 2 credentials, the workflow, activate; then the diagnosis reads the workflow (entry 7)', $sent === [
     'GET https://api.anthropic.com/v1/models?limit=1',
     'POST https://n8n.example/api/v1/credentials',
     'POST https://n8n.example/api/v1/credentials',
     'POST https://n8n.example/api/v1/workflows',
     'POST https://n8n.example/api/v1/workflows/wf-free/activate',
+    'GET https://n8n.example/api/v1/workflows/wf-free',
 ]);
+check('... the Free workflow reads clean: the ping message, nothing stored', str_starts_with($reply['message'] ?? '', 'Ping OK') && !isset(pqm_workflow_report()['miswired']));
 check('... the webhook and Anthropic credentials, no httpBasicAuth anywhere', array_column(array_slice($bodies, 1, 2), 'name') === ['Post Quality webhook - example.com', 'Anthropic - Claude']
     && !str_contains(json_encode($bodies), 'httpBasicAuth'));
 $linked = array_column(array_filter($bodies[3]['nodes'] ?? [], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
@@ -389,6 +410,25 @@ check('... reply provisioned and pinged, no rewrite_ready; map without a WordPre
     && $GLOBALS['tw']['options']['pqm_n8n_setup']['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === 'https://n8n.example/webhook/pqm-execute-example-com');
 check('... the provider key in no option and not in the reply', !str_contains(json_encode([$GLOBALS['tw']['options'], $reply]), 'sk-ant-free-provider-key'));
+
+/* ─── Row: the mis-wiring diagnosis on the Free build (entry 7) ──────── */
+echo "Row — Free build: the 2026-10-13 shape, reported in one sentence\n";
+$shared = ['id' => 'c-hdr', 'name' => 'Header Auth account'];
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [$free_stored($free_wired(['Post Quality webhook - example.com' => $shared, 'Anthropic - Claude' => $shared]))];
+$ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com'); // the saved URL
+pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
+$status = PQM_Admin::render_workflow_status();
+check('the provisioned Free workflow read by id; the sentence names its two Claude nodes, the credential and the fix',
+    array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === ['GET https://n8n.example/api/v1/workflows/wf-free']
+    && $ping['message'] === 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent and Claude - Takeaways Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.'
+    && $ping['outdated'] === true);
+check('... the status block: the sentence and Test again, the one primary', str_contains($status, 'notice-error') && str_contains($status, 'pqm-test-connection')
+    && substr_count($status, 'button-primary') === 1);
+$GLOBALS['tw']['queue'] = [$free_stored($free_clean)];
+$ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com');
+pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
+check('... fixed, Test again: clean, the sentence gone, no primary', $ping['miswired'] === '' && !str_contains(PQM_Admin::render_workflow_status(), 'button-primary'));
 
 /* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */
 echo "Row — Free provisioning, activation refused: rolled back, no Application Password\n";

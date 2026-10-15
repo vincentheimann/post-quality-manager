@@ -343,7 +343,9 @@ function pqm_workflow_json(): ?string
  * What the n8n workflow last reported about itself:
  * ['version' => int, 'via' => 'test'|'command', 'at' => timestamp], plus
  * 'variant' => 'free' when the Free template answered (story 54: a report
- * without it is the Pro template, as every template before the Free one).
+ * without it is the Pro template, as every template before the Free one),
+ * and 'miswired' => the sentence when the last diagnosing test found the
+ * workflow mis-wired (n8n provisioning, entry 7; raw text, escape it).
  * Version 0 = an older workflow that does not report its number (a v1–v4
  * trigger answering a test ping). Null when nothing was reported since the
  * template was last served. A pre-v5 plugin stored a bare int from a
@@ -363,19 +365,27 @@ function pqm_workflow_report(): ?array
         'version' => absint($report['version'] ?? 0),
         'via'     => ($report['via'] ?? '') === 'test' ? 'test' : 'command',
         'at'      => absint($report['at'] ?? 0),
-    ] + (($report['variant'] ?? '') === 'free' ? ['variant' => 'free'] : []);
+    ] + (($report['variant'] ?? '') === 'free' ? ['variant' => 'free'] : [])
+      + (is_string($report['miswired'] ?? null) && $report['miswired'] !== '' ? ['miswired' => $report['miswired']] : []);
 }
 
 /**
  * Store the version the workflow just reported, how ('test' = a test ping,
  * 'command' = a command's result callback), when, and its variant when it
- * is the Free template ('pro' is stored as no variant).
+ * is the Free template ('pro' is stored as no variant). `$miswired` is a
+ * test's diagnosis (PQM_N8n::diagnose()): a sentence is stored, '' clears
+ * the stored one, null (the check could not run, or a command's report)
+ * keeps it — only a test clears it.
  */
-function pqm_record_workflow_version(int $version, string $via, string $variant): void
+function pqm_record_workflow_version(int $version, string $via, string $variant, ?string $miswired = null): void
 {
-    $report = ['version' => $version, 'via' => $via, 'at' => time()];
+    $miswired = $miswired ?? (pqm_workflow_report()['miswired'] ?? '');
+    $report   = ['version' => $version, 'via' => $via, 'at' => time()];
     if ($variant === 'free') {
         $report['variant'] = 'free';
+    }
+    if ($miswired !== '') {
+        $report['miswired'] = $miswired;
     }
     update_option('pqm_workflow_version_seen', $report, false);
 }
