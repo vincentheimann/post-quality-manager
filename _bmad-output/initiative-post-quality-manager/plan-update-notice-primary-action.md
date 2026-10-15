@@ -3,7 +3,7 @@ title: 'The workflow update notice carries the one primary action: Re-import the
 type: 'feature'
 ticket: ''
 created: '2026-10-15'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
