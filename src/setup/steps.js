@@ -300,13 +300,32 @@ function Provision( { state, onProvisioned, onConnected } ) {
 			},
 			( err ) => {
 				setBusy( false );
+				// The key is never stored, so the field clears; where a
+				// retry can pass, the message says to type it again.
 				setKey( '' );
-				setError(
+				const code = err && err.code;
+				const step = err && err.data && err.data.step;
+				const retype =
+					code === 'pqm_provider_key_invalid' ||
+					code === 'pqm_provider_unreachable' ||
+					( code === 'pqm_provision_failed' &&
+						step !== 'template' &&
+						step !== 'link' );
+				const message =
 					( err && err.message ) ||
-						__(
-							'Could not reach the site REST API. Reload the page and try again.',
-							'post-quality-manager'
-						)
+					__(
+						'Could not reach the site REST API. Reload the page and try again.',
+						'post-quality-manager'
+					);
+				setError(
+					retype
+						? message +
+								' ' +
+								__(
+									'Enter the key again.',
+									'post-quality-manager'
+								)
+						: message
 				);
 			}
 		);

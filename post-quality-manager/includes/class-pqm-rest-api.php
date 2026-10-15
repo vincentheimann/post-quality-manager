@@ -1302,8 +1302,9 @@ class PQM_REST_API {
     /* ─── n8n instance connection (n8n provisioning, entry 1) ───────── */
 
     /**
-     * The stored connection: `{ base_url, key_set, probe }`, the key itself
-     * never. Calls nothing on n8n: the page shows the last passing probe.
+     * The stored connection: `{ base_url, key_set, key_hint, probe }`, the
+     * key itself never (only its last 4 characters). Calls nothing on n8n:
+     * the page shows the last passing probe.
      */
     public static function get_n8n_connection_callback(): WP_REST_Response {
         return new WP_REST_Response( PQM_N8n::public_state(), 200 );

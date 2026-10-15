@@ -21,7 +21,7 @@ Nothing is sent before you configure a webhook address or connect an n8n instanc
 
 - A table of review results (post ID, command, score, status, the AI output, the date), kept until you delete the plugin.
 - The plugin settings, including your n8n webhook address and token and your settings text.
-- If you connect your n8n instance by key: its address, the n8n API key and the result of the last check; once the plugin has set the workflow up, the IDs of the workflow and credentials it created there. The key is kept in your site's database, as WordPress keeps other secrets, and is never shown again in WP Admin or sent anywhere but that address; **Forget key** on the n8n Workflow page removes it. An n8n API key opens your whole n8n instance, so create one for this site alone, with an expiration date, and delete it in n8n when you stop using the plugin.
+- If you connect your n8n instance by key: its address, the n8n API key and the result of the last check; once the plugin has set the workflow up, the IDs of the workflow and credentials it created there. The key is kept in your site's database, as WordPress keeps other secrets, and is never sent anywhere but that address; only its last four characters are shown in WP Admin, so you can tell which key is stored. **Forget key** on the n8n Workflow page removes it. An n8n API key opens your whole n8n instance, so create one for this site alone, with an expiration date, and delete it in n8n when you stop using the plugin.
 - A monthly counter of AI actions per user, used for the Author quota.
 - Per-role plugin capabilities, stored in your site's roles.
 

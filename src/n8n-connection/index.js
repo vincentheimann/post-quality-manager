@@ -1,16 +1,17 @@
 /**
  * n8n Instance section (n8n provisioning, entry 1) — an island on the PHP
  * n8n Workflow page, reused by the setup wizard (entry 6), which passes
- * `onChange`. The Administrator enters the instance's address and an n8n API key; the
- * server probes the instance and stores both only when the probe passes
- * (POST /n8n/connection). The key is write-only: the server never sends it
- * back, so the field always starts empty and the page shows "set" or
- * "not set". The state comes from GET /n8n/connection, which calls nothing
- * on n8n: a reload shows the last passing probe. Forget (DELETE) removes
- * the key and keeps the address. The setup wizard (entry 6) passes
- * `onChange`, called with the stored state after every call that reads or
- * changes it (a failed probe changes nothing, so it is not called then);
- * the page mount passes none.
+ * `onChange`. The Administrator enters the instance's address and an n8n
+ * API key; the server probes the instance and stores both only when the
+ * probe passes (POST /n8n/connection). The key is write-only: the server
+ * never sends it back, only its last four characters (`key_hint`), so the
+ * field always starts empty, with the hint as its masked placeholder, and
+ * the page shows "set, ending in …" or "not set". The state comes from GET
+ * /n8n/connection, which calls nothing on n8n: a reload shows the last
+ * passing probe. Forget (DELETE) removes the key and keeps the address.
+ * The setup wizard (entry 6) passes `onChange`, called with the stored
+ * state after every call that reads or changes it (a failed probe changes
+ * nothing, so it is not called then); the page mount passes none.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, TextControl } from '@wordpress/components';
@@ -40,11 +41,11 @@ function errorMessage( err ) {
 
 /**
  * @param {Object}    props
- * @param {Function=} props.onChange `( { base_url, key_set, probe } )` after a call that read or stored the state.
+ * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe } )` after a call that read or stored the state.
  * @return {Element|null} The section.
  */
 export default function N8nConnection( { onChange } ) {
-	const [ state, setState ] = useState( null ); // { base_url, key_set, probe }
+	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe }
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ url, setUrl ] = useState( '' );
 	const [ key, setKey ] = useState( '' );
@@ -122,6 +123,27 @@ export default function N8nConnection( { onChange } ) {
 	};
 
 	const connected = state.key_set && state.probe;
+	// The stored key's last 4 characters, empty for a short key (server rule).
+	const hint = ( state.key_set && state.key_hint ) || '';
+	let keyState = __( 'API key: not set', 'post-quality-manager' );
+	let keyHelp = __(
+		'Create one in n8n under Settings → n8n API. Use a key for this site alone, with an expiration date.',
+		'post-quality-manager'
+	);
+	if ( hint ) {
+		keyState = sprintf(
+			/* translators: %s: the stored key's last four characters */
+			__( 'API key: set, ending in %s', 'post-quality-manager' ),
+			hint
+		);
+		keyHelp = __( 'Type a new key to replace it.', 'post-quality-manager' );
+	} else if ( state.key_set ) {
+		keyState = __( 'API key: set', 'post-quality-manager' );
+		keyHelp = __(
+			'A key is stored. Type a new key to replace it.',
+			'post-quality-manager'
+		);
+	}
 	// The stored key is re-used for the stored address only (server rule).
 	const canSubmit =
 		!! url.trim() &&
@@ -145,11 +167,7 @@ export default function N8nConnection( { onChange } ) {
 					) }
 				</Notice>
 			) : null }
-			<p className="pqm-n8n-key-state">
-				{ state.key_set
-					? __( 'API key: set', 'post-quality-manager' )
-					: __( 'API key: not set', 'post-quality-manager' ) }
-			</p>
+			<p className="pqm-n8n-key-state">{ keyState }</p>
 			<form className="pqm-n8n-connection-form" onSubmit={ connect }>
 				<TextControl
 					label={ __( 'n8n address', 'post-quality-manager' ) }
@@ -165,19 +183,10 @@ export default function N8nConnection( { onChange } ) {
 				/>
 				<TextControl
 					label={ __( 'n8n API key', 'post-quality-manager' ) }
-					help={
-						state.key_set
-							? __(
-									'A key is stored and never shown again. Leave this empty to keep it.',
-									'post-quality-manager'
-							  )
-							: __(
-									'Create one in n8n under Settings → n8n API. Use a key for this site alone, with an expiration date.',
-									'post-quality-manager'
-							  )
-					}
+					help={ keyHelp }
 					type="password"
 					autoComplete="new-password"
+					placeholder={ hint ? '••••••••' + hint : undefined }
 					value={ key }
 					onChange={ setKey }
 					__nextHasNoMarginBottom

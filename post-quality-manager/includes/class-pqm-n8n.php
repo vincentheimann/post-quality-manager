@@ -6,9 +6,11 @@
  * instance's base URL and an n8n API key — in its own option, autoload off,
  * never in pqm_settings (the Settings save rebuilds that array from the
  * posted form). The key never leaves the server: no REST reply, no page
- * source, no log. Every call sends the plugin User-Agent (a generic one gets
- * banned by some proxies in front of n8n, spike 56) and never follows a
- * redirect, so the key header cannot travel to another address.
+ * source, no log carries it; only its last four characters are shown, so an
+ * owner can tell which key is stored (key_hint). Every call sends the
+ * plugin User-Agent (a generic one gets banned by some proxies in front of
+ * n8n, spike 56) and never follows a redirect, so the key header cannot
+ * travel to another address.
  *
  * probe() tells whether an instance can be provisioned, read-only: it
  * creates, changes and deletes nothing on n8n. provision() (entry 4) sets
@@ -33,6 +35,9 @@ class PQM_N8n {
 
     /** The n8n version every call was confirmed on (spike 56). */
     const TESTED_VERSION = '2.42.3';
+
+    /** A key shorter than this shows no hint: its last four would give away too large a share. */
+    const KEY_HINT_MIN_LENGTH = 16;
 
     /**
      * Own option (autoload off, deleted on uninstall): what provision()
@@ -69,16 +74,20 @@ class PQM_N8n {
     }
 
     /**
-     * What a REST reply may carry: never the key itself.
+     * What a REST reply may carry: never the key itself. `key_hint` is the
+     * stored key's last four characters, computed here and never stored,
+     * empty when no key is stored or it is shorter than KEY_HINT_MIN_LENGTH.
      *
-     * @return array{base_url: string, key_set: bool, probe: ?array}
+     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array}
      */
     public static function public_state(): array {
         $connection = self::connection();
+        $key        = (string) $connection['api_key'];
 
         return [
             'base_url' => $connection['base_url'],
-            'key_set'  => '' !== $connection['api_key'],
+            'key_set'  => '' !== $key,
+            'key_hint' => strlen( $key ) >= self::KEY_HINT_MIN_LENGTH ? substr( $key, -4 ) : '',
             'probe'    => $connection['probe'],
         ];
     }

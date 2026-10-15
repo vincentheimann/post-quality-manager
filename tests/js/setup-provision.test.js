@@ -52,10 +52,18 @@ jest.mock(
 		),
 		SelectControl: () => null,
 		Spinner: () => null,
-		TextControl: ( { label, type, value, onChange, disabled } ) => (
+		TextControl: ( {
+			label,
+			type,
+			placeholder,
+			value,
+			onChange,
+			disabled,
+		} ) => (
 			<input
 				aria-label={ label }
 				type={ type }
+				placeholder={ placeholder }
 				value={ value }
 				disabled={ disabled }
 				onChange={ ( e ) => onChange( e.target.value ) }
@@ -78,10 +86,11 @@ const NEW_BLOCK =
 	'<div class="pqm-workflow-status"><p>Your workflow answers.</p></div>';
 
 /* eslint-disable camelcase -- REST field names. */
-const NOT_SET = { base_url: '', key_set: false, probe: null };
+const NOT_SET = { base_url: '', key_set: false, key_hint: '', probe: null };
 const PASSING = {
 	base_url: BASE,
 	key_set: true,
+	key_hint: 'ab12',
 	probe: { ok: true, cause: '', message: 'Connected to n8n.', at: 1 },
 };
 
@@ -117,7 +126,7 @@ function siteState( values = {} ) {
 	};
 }
 const HAND_URL = 'https://n8n.example.com/webhook/by-hand';
-const FORGOTTEN = { base_url: BASE, key_set: false, probe: null };
+const FORGOTTEN = { base_url: BASE, key_set: false, key_hint: '', probe: null };
 
 /**
  * GET /setup of a site the plugin set up: the setup map, the URL saved and
@@ -317,6 +326,12 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( document.querySelector( '.pqm-setup-done' ).textContent ).toBe(
 			'Done — connected to n8n.'
 		);
+		// The island shows the stored key's last 4, never the key.
+		expect(
+			document.querySelector( '.pqm-n8n-key-state' ).textContent
+		).toBe( 'API key: set, ending in ab12' );
+		expect( field( 'n8n API key' ).value ).toBe( '' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '••••••••ab12' );
 		// A passing key outranks the manual choice: no longer offered.
 		expect( button( 'Set up by hand instead' ) ).toBeUndefined();
 		await act( async () => {
@@ -407,25 +422,45 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( document.querySelector( '.mock-notice-success' ) ).toBeNull();
 	} );
 
-	test( 'provision refused: the REST message at the field, the key cleared, the step left open', async () => {
+	test( 'provision refused: the REST message at the field, the key cleared and asked for again, the step left open', async () => {
 		await openDialog( siteState( { n8n: PASSING } ), {
 			[ `POST ${ PROVISION }` ]: {
 				reject: {
 					code: 'pqm_provider_key_invalid',
-					message: 'Anthropic refused this API key.',
+					message:
+						'Anthropic refused this API key. Copy it again from the Anthropic Console under API Keys. Nothing was created in n8n.',
+					data: { status: 400 },
 				},
 			},
 		} );
 		await provision();
 		expect(
 			document.querySelector( '.mock-notice-error' ).textContent
-		).toBe( 'Anthropic refused this API key.' );
+		).toBe(
+			'Anthropic refused this API key. Copy it again from the Anthropic Console under API Keys. Nothing was created in n8n. Enter the key again.'
+		);
 		expect( field( 'Anthropic API key' ).value ).toBe( '' );
 		expect( document.body.innerHTML ).not.toContain( PROVIDER_KEY );
 		expect( document.querySelector( '.pqm-setup-done' ).textContent ).toBe(
 			'This step ticks itself once a test ping gets through.'
 		);
 		expect( heading() ).toBe( 'Step 2 of 6: Set up the workflow' );
+	} );
+
+	test( 'provision refused as already set up (409): the REST message alone, no "Enter the key again."', async () => {
+		await openDialog( siteState( { n8n: PASSING } ), {
+			[ `POST ${ PROVISION }` ]: {
+				reject: {
+					code: 'pqm_already_provisioned',
+					message: 'n8n is already set up for this site.',
+					data: { status: 409 },
+				},
+			},
+		} );
+		await provision();
+		expect(
+			document.querySelector( '.mock-notice-error' ).textContent
+		).toBe( 'n8n is already set up for this site.' );
 	} );
 
 	test( 'provisioned, URL missing: the paste-URL body instead of the key field', async () => {

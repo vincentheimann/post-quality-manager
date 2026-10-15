@@ -243,8 +243,8 @@ site([], [LIST_OK, ROUTE_OK, ROUTE_OK]);
 $r = post(['base_url' => '  https://n8n.example.com/home/workflows?x=1  ', 'api_key' => ' ' . KEY . ' ']);
 check('probe ok, "Connected to n8n.", no version claimed', $r['probe'] === ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => $r['probe']['at']]
     && abs($r['probe']['at'] - time()) <= 5);
-check('reply: base URL = the origin (editor path dropped), key set, the probe',
-    $r['base_url'] === BASE && $r['key_set'] === true && array_keys($r) === ['probe', 'base_url', 'key_set']);
+check('reply: base URL = the origin (editor path dropped), key set, its last 4 characters, the probe',
+    $r['base_url'] === BASE && $r['key_set'] === true && $r['key_hint'] === '6789' && array_keys($r) === ['probe', 'base_url', 'key_set', 'key_hint']);
 check('calls, in order: one-item workflow list, the two route probes (D2)', calls() === [
     'GET ' . BASE . '/api/v1/workflows?limit=1',
     'POST ' . BASE . '/api/v1/workflows/pqm-probe-unknown-id/activate',
@@ -262,7 +262,20 @@ check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes']
 $GLOBALS['tw']['calls'] = [];
 $s = get_state();
 check('reload (GET): the stored state — connected, key set — and zero calls to n8n',
-    $s === ['base_url' => BASE, 'key_set' => true, 'probe' => $r['probe']] && $GLOBALS['tw']['calls'] === []);
+    $s === ['base_url' => BASE, 'key_set' => true, 'key_hint' => '6789', 'probe' => $r['probe']] && $GLOBALS['tw']['calls'] === []);
+
+/* ─── Rows: the key hint (last 4 characters, computed at read time) ──── */
+echo "Key hint\n";
+foreach ([
+    'a 40-character key ending ab12: its last 4' => [str_repeat('k', 36) . 'ab12', 'ab12'],
+    'a 16-character key (the shortest with a hint)' => ['0123456789abcdef', 'cdef'],
+    'a 15-character key: set, no hint (too large a share)' => ['0123456789abcde', ''],
+    'a 4-character key: set, no hint' => ['ab12', ''],
+] as $label => [$stored_key, $hint]) {
+    site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => $stored_key, 'probe' => null]]);
+    $s = get_state();
+    check($label, $s['key_set'] === true && $s['key_hint'] === $hint && $GLOBALS['tw']['writes'] === []);
+}
 
 /* ─── Row: Missing endpoint vs existing (D2, the 2.42.3 shapes) ─────── */
 echo "Endpoint probe shapes\n";
@@ -271,7 +284,7 @@ $r = post(['base_url' => BASE, 'api_key' => KEY]);
 check('the router\'s generic 404 "not found" on activate = missing endpoint; only its cause stored (entry 2), no URL, no key', $r['probe']['cause'] === 'missing_endpoint'
     && $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['failed' => ['cause' => 'missing_endpoint', 'message' => 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later.', 'at' => $r['probe']['at']]]
-    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'probe' => null]);
+    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null]);
 site([], [LIST_OK, ROUTE_OK, resp(404, ['message' => 'NOT FOUND '])]);
 check('... case and spaces do not matter', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'missing_endpoint');
 foreach ([
@@ -371,7 +384,7 @@ check('fresh site: connection() carries failed => null', PQM_N8n::connection()['
 site([], [new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host')]);
 post(['base_url' => BASE, 'api_key' => KEY]);
 check('the stored failure never carries the key', !str_contains(json_encode($GLOBALS['tw']['options']), KEY));
-check('public_state() leaves the failure out (the island is unchanged)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'probe']);
+check('public_state() leaves the failure out (the island is unchanged)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'key_hint', 'probe']);
 
 /* ─── Row: Re-check ──────────────────────────────────────────────────── */
 echo "Re-check\n";
@@ -386,6 +399,12 @@ $before = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => 
 site($before, [resp(401, ['message' => 'unauthorized'])]);
 $r = post([]);
 check('re-check refused (key expired): cause key, stored key and last passing probe unchanged', $r['probe']['cause'] === 'key' && unchanged($before));
+site($stored_conn, [LIST_OK, ROUTE_OK, ROUTE_OK]);
+$r = post(['base_url' => BASE, 'api_key' => KEY]);
+check('Connect with a new key: the reply carries the last 4 of the new key at once', $r['probe']['ok'] === true && $r['key_hint'] === '6789');
+site($stored_conn, [resp(401, ['message' => 'unauthorized'])]);
+$r = post(['base_url' => 'https://old.example.com', 'api_key' => KEY]);
+check('Connect with a refused key: the hint of the stored key is unchanged', $r['probe']['cause'] === 'key' && $r['key_hint'] === '3210' && unchanged($stored_conn));
 site($stored_conn);
 $r = post(['base_url' => BASE]);
 check('a new address without a key: 400, the stored key never sent there (zero calls)', $r instanceof WP_Error && $r->data['status'] === 400
@@ -398,12 +417,12 @@ check('no key given, none stored: 400, zero calls, nothing stored', $r instanceo
 echo "Forget\n";
 site($stored_conn);
 $r = forget();
-check('DELETE: key and probe removed, URL kept, "not set"', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'probe' => null]
+check('DELETE: key and probe removed, URL kept, "not set", no hint', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'key_hint' => '', 'probe' => null]
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => 'https://old.example.com'] && $GLOBALS['tw']['autoload'][PQM_N8n::OPTION] === false);
 check('... nothing sent to n8n', $GLOBALS['tw']['calls'] === []);
 check('... a reload shows "not set"', get_state() === $r);
 site();
-check('fresh site GET: nothing stored, not set', get_state() === ['base_url' => '', 'key_set' => false, 'probe' => null] && $GLOBALS['tw']['writes'] === []);
+check('fresh site GET: nothing stored, not set, no hint', get_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null] && $GLOBALS['tw']['writes'] === []);
 
 /* ─── The client boundary later entries call ─────────────────────────── */
 echo "PQM_N8n::request()\n";

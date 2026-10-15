@@ -2,7 +2,9 @@
  * n8n Instance section (n8n provisioning, entry 1; src/n8n-connection/) run
  * in jsdom: the stored state on load (connected, key set) without
  * a probe, a failed probe's cause with the stored state kept, and Forget.
- * The key field is write-only: never prefilled, emptied after a save. The
+ * The key field is write-only: never prefilled, emptied after a save; the
+ * stored key's last 4 characters (`key_hint`) show only in the status line
+ * and as the field's masked placeholder. The
  * api-fetch and components packages are WordPress-provided externals, not
  * installed here: both are mocked.
  */
@@ -25,10 +27,19 @@ jest.mock(
 		Notice: ( { status, children } ) => (
 			<div className={ 'mock-notice-' + status }>{ children }</div>
 		),
-		TextControl: ( { label, type, value, onChange } ) => (
+		TextControl: ( {
+			label,
+			help,
+			type,
+			placeholder,
+			value,
+			onChange,
+		} ) => (
 			<input
 				aria-label={ label }
+				data-help={ help }
 				type={ type }
+				placeholder={ placeholder }
 				value={ value }
 				onChange={ ( e ) => onChange( e.target.value ) }
 			/>
@@ -44,6 +55,8 @@ const CONNECTED = {
 	base_url: BASE,
 	// eslint-disable-next-line camelcase -- REST field name.
 	key_set: true,
+	// eslint-disable-next-line camelcase -- REST field name.
+	key_hint: 'ab12',
 	probe: {
 		ok: true,
 		cause: '',
@@ -52,7 +65,7 @@ const CONNECTED = {
 	},
 };
 // eslint-disable-next-line camelcase -- REST field names.
-const NOT_SET = { base_url: '', key_set: false, probe: null };
+const NOT_SET = { base_url: '', key_set: false, key_hint: '', probe: null };
 
 let root;
 
@@ -121,17 +134,37 @@ describe( 'n8n Instance section', () => {
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
 		).toContain( 'Connected to n8n.' );
-		expect( text() ).toContain( 'API key: set' );
+		expect( text() ).toContain( 'API key: set, ending in ab12' );
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '••••••••ab12' );
+		expect( field( 'n8n API key' ).dataset.help ).toBe(
+			'Type a new key to replace it.'
+		);
 		expect( field( 'n8n API key' ).type ).toBe( 'password' );
 		expect( document.querySelector( '.pqm-n8n-forget' ) ).not.toBeNull();
 		expect( document.querySelector( '.pqm-n8n-recheck' ) ).not.toBeNull();
 	} );
 
+	test( 'a short stored key (no hint): "set" without an ending, no placeholder', async () => {
+		// eslint-disable-next-line camelcase -- REST field name.
+		await mount( { ...CONNECTED, key_hint: '' } );
+		expect(
+			document.querySelector( '.pqm-n8n-key-state' ).textContent
+		).toBe( 'API key: set' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '' );
+		expect( field( 'n8n API key' ).dataset.help ).toBe(
+			'A key is stored. Type a new key to replace it.'
+		);
+	} );
+
 	test( 'not set: no notice, no Check again or Forget, Connect waits for a key', async () => {
 		await mount( NOT_SET );
 		expect( text() ).toContain( 'API key: not set' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '' );
+		expect( field( 'n8n API key' ).dataset.help ).toContain(
+			'Create one in n8n under Settings → n8n API.'
+		);
 		expect( document.querySelector( '.mock-notice-success' ) ).toBeNull();
 		expect( document.querySelector( '.pqm-n8n-forget' ) ).toBeNull();
 		expect( document.querySelector( '.pqm-n8n-recheck' ) ).toBeNull();
@@ -148,8 +181,9 @@ describe( 'n8n Instance section', () => {
 	test( 'connect: URL and key posted; on success the state shows connected and the key field empties', async () => {
 		await mount( NOT_SET );
 		await typeInto( 'n8n address', ` ${ BASE }/home/workflows ` );
-		await typeInto( 'n8n API key', ' secret-key ' );
-		apiFetch.mockResolvedValueOnce( CONNECTED );
+		await typeInto( 'n8n API key', ' secret-key-0123-wxyz ' );
+		// eslint-disable-next-line camelcase -- REST field name.
+		apiFetch.mockResolvedValueOnce( { ...CONNECTED, key_hint: 'wxyz' } );
 		await submit();
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: PATH,
@@ -157,14 +191,15 @@ describe( 'n8n Instance section', () => {
 			// eslint-disable-next-line camelcase -- REST field names.
 			data: {
 				base_url: `${ BASE }/home/workflows`,
-				api_key: 'secret-key',
+				api_key: 'secret-key-0123-wxyz',
 			},
 		} );
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
 		).toContain( 'Connected to n8n.' );
-		expect( text() ).toContain( 'API key: set' );
+		expect( text() ).toContain( 'API key: set, ending in wxyz' );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '••••••••wxyz' );
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 	} );
 
@@ -185,7 +220,9 @@ describe( 'n8n Instance section', () => {
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
 		).toContain( 'Connected to n8n.' );
-		expect( text() ).toContain( 'API key: set' );
+		expect( text() ).toContain( 'API key: set, ending in ab12' );
+		expect( field( 'n8n API key' ).value ).toBe( 'new-key' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '••••••••ab12' );
 	} );
 
 	test( 'Check again posts without a key; Forget deletes and shows "not set"', async () => {
@@ -203,6 +240,7 @@ describe( 'n8n Instance section', () => {
 		apiFetch.mockResolvedValueOnce( {
 			base_url: BASE,
 			key_set: false,
+			key_hint: '',
 			probe: null,
 		} );
 		await act( async () => {
@@ -213,10 +251,12 @@ describe( 'n8n Instance section', () => {
 			method: 'DELETE',
 		} );
 		expect( text() ).toContain( 'API key: not set' );
+		expect( text() ).not.toContain( 'ab12' );
 		expect( document.querySelector( '.mock-notice-success' ) ).toBeNull();
 		expect( document.querySelector( '.pqm-n8n-forget' ) ).toBeNull();
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
+		expect( field( 'n8n API key' ).placeholder ).toBe( '' );
 	} );
 
 	test( 'onChange (the setup wizard, entry 6) gets the stored state after the read, a passing connect and Forget — never after a failed probe', async () => {
@@ -240,7 +280,12 @@ describe( 'n8n Instance section', () => {
 		expect( onChange ).toHaveBeenLastCalledWith( CONNECTED );
 
 		// eslint-disable-next-line camelcase -- REST field names.
-		const forgotten = { base_url: BASE, key_set: false, probe: null };
+		const forgotten = {
+			base_url: BASE,
+			key_set: false,
+			key_hint: '',
+			probe: null,
+		};
 		apiFetch.mockResolvedValueOnce( forgotten );
 		await act( async () => {
 			document.querySelector( '.pqm-n8n-forget' ).click();
