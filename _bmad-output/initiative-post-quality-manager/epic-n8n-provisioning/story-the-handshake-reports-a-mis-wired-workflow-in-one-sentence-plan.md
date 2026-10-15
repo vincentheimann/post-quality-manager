@@ -3,7 +3,7 @@ title: 'The handshake reports a mis-wired workflow in one sentence'
 type: 'feature'
 ticket: '7'
 created: '2026-10-15'
-status: 'built'
+status: done
 baseline_revision: '6932020430927412809a04cc3dbc7214db2b953d'
 route: 'full'
 route_source: 'auto'
