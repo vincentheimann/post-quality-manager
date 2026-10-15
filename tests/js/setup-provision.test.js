@@ -27,18 +27,24 @@ jest.mock(
 jest.mock(
 	'@wordpress/components',
 	() => ( {
-		Button: ( {
-			children,
-			isBusy,
-			isPressed,
-			isDestructive,
-			variant,
-			__next40pxDefaultSize,
-			...props
-		} ) => (
-			<button data-variant={ variant } { ...props }>
-				{ children }
-			</button>
+		// A forwardRef, as the real Button: the n8n island focuses it.
+		Button: require( '@wordpress/element' ).forwardRef(
+			(
+				{
+					children,
+					isBusy,
+					isPressed,
+					isDestructive,
+					variant,
+					__next40pxDefaultSize,
+					...props
+				},
+				ref
+			) => (
+				<button ref={ ref } data-variant={ variant } { ...props }>
+					{ children }
+				</button>
+			)
 		),
 		Dashicon: () => null,
 		Modal: ( { title, children } ) => (
@@ -326,12 +332,11 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( document.querySelector( '.pqm-setup-done' ).textContent ).toBe(
 			'Done — connected to n8n.'
 		);
-		// The island shows the stored key's last 4, never the key.
+		// The island shows its connected summary: the stored key's last 4, never the key.
 		expect(
 			document.querySelector( '.pqm-n8n-key-state' ).textContent
-		).toBe( 'API key: set, ending in ab12' );
-		expect( field( 'n8n API key' ).value ).toBe( '' );
-		expect( field( 'n8n API key' ).placeholder ).toBe( '••••••••ab12' );
+		).toBe( 'n8n at n8n.example.com · API key: set, ending in ab12' );
+		expect( field( 'n8n API key' ) ).toBeNull();
 		// A passing key outranks the manual choice: no longer offered.
 		expect( button( 'Set up by hand instead' ) ).toBeUndefined();
 		await act( async () => {
