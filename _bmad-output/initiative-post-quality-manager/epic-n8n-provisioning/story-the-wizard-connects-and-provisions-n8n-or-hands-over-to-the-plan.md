@@ -3,7 +3,7 @@ title: 'The wizard connects and provisions n8n, or hands over to the manual path
 type: 'feature'
 ticket: '6'
 created: '2026-10-14'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'

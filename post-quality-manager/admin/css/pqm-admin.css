@@ -79,6 +79,6 @@ td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
 .pqm-copy-row { margin: 8px 0; }
 .pqm-copy-label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 4px; }
 .pqm-copy-controls { display: flex; align-items: center; gap: 6px; max-width: 480px; }
-.pqm-copy-field { flex: 1; }
+.pqm-copy-field { flex: 1; min-width: 16em; } /* min-width carried over from the removed setup copy-value rules (entry 6.6 done chore). */
 /* Kept rendered when empty: a hidden live region can drop its first announcement. */
 .pqm-copy-feedback:empty { margin: 0; }

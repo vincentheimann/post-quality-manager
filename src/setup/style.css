@@ -50,35 +50,6 @@
 	margin-top: 0;
 }
 
-.pqm-copy-value {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 6px 8px;
-	margin: 8px 0;
-}
-
-.pqm-copy-field {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 16em;
-}
-
-.pqm-copy-label {
-	font-weight: 600;
-}
-
-.pqm-copy-status {
-	flex-basis: 100%;
-	font-size: 12px;
-}
-
-.pqm-copy-status:empty {
-	display: none;
-}
-
 .pqm-setup-connect,
 .pqm-setup-run {
 	display: flex;
