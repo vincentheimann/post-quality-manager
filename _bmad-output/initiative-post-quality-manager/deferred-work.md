@@ -71,3 +71,6 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/initiative-post-quality-manager/epic-n8n-provisioning/story-the-wizard-connects-and-provisions-n8n-or-hands-over-to-the-plan.md`
   summary: The comment above the deterministic credential names in `PQM_N8n::provision()` (`class-pqm-n8n.php` ~L346) says the setup dialog carries them too; entry 6.6 removed the dialog's credential names.
   evidence: Entry 6.6 quick review, finding 8. Comment-only drift inside `provision()`, which entry 6.6's frozen Never excludes; fix in entry 11's refactor sweep.
+- source_plan: `C:/Git/Post Quality/post-quality-manager/_bmad-output/initiative-post-quality-manager/epic-n8n-provisioning/story-an-administrator-adopts-an-existing-manual-setup-plan.md`
+  summary: `docs/policies/privacy.md` and `readme-external-services.md` do not say that, with an n8n API key stored, every test ping of the saved webhook URL also reads the workflow through the n8n API (entry 6.7's diagnosis, GET only); entry 6.8 added the adoption reads beside it.
+  evidence: Entry 6.8 quick review, row 10. Pre-existing since PR #134: the policy lines name Connect, Check again, setup and now adoption, never the diagnosis. Fix with story 68's site sync or entry 12's records.

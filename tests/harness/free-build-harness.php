@@ -194,6 +194,7 @@ function is_admin() { return true; }
 function wp_generate_uuid4() { return 'stub-uuid'; }
 function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d; }
 function update_option($k, $v, $a = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
+function add_option($k, $v, $deprecated = '', $a = null) { if (array_key_exists($k, $GLOBALS['tw']['options'])) { return false; } $GLOBALS['tw']['options'][$k] = $v; return true; }
 function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); return true; }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
@@ -429,6 +430,31 @@ $GLOBALS['tw']['queue'] = [$free_stored($free_clean)];
 $ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com');
 pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
 check('... fixed, Test again: clean, the sentence gone, no primary', $ping['miswired'] === '' && !str_contains(PQM_Admin::render_workflow_status(), 'button-primary'));
+
+/* ─── Row: adoption on the Free build (entry 8) ──────────────────────── */
+echo "Row — Free build: a hand-made Free workflow adopted, no WordPress credential, no rewrite_ready\n";
+$before_adoption = $GLOBALS['tw']['options'];
+unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
+$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+$GLOBALS['tw']['calls'] = [];
+$hand      = $free_wired(['Post Quality webhook - example.com' => ['id' => 'c-h1', 'name' => 'Header Auth account'], 'Anthropic - Claude' => ['id' => 'c-k1', 'name' => 'my claude key']]);
+$hand_list = $ok(['data' => [['id' => 'wf-hand', 'name' => 'My reviews', 'active' => true, 'nodes' => $hand, 'activeVersion' => ['nodes' => $hand]]], 'nextCursor' => null]);
+$GLOBALS['tw']['queue'] = [$hand_list, $hand_list];
+$offered  = PQM_N8n::public_state()['adoptable'];
+$proposal = PQM_REST_API::get_n8n_adoption_callback();
+$proposal = $proposal instanceof WP_REST_Response ? $proposal->get_data() : null;
+check('offered; the proposal names the webhook and Anthropic credentials, no wordpress, no rewrite_ready', $offered === true && $proposal === [
+    'workflow'    => ['id' => 'wf-hand', 'name' => 'My reviews', 'path' => 'pqm-execute-example-com'],
+    'credentials' => ['webhook' => ['id' => 'c-h1', 'name' => 'Header Auth account'], 'anthropic' => ['id' => 'c-k1', 'name' => 'my claude key']],
+]);
+$adopted = PQM_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => 'wf-hand']));
+$adopted = $adopted instanceof WP_REST_Response ? $adopted->get_data() : null;
+$map     = $GLOBALS['tw']['options']['pqm_n8n_setup'] ?? [];
+check('... confirmed: the map without wordpress, wizard_created false; the reply has no rewrite_ready; GET calls only', $adopted !== null
+    && !array_key_exists('rewrite_ready', $adopted) && $adopted['setup'] === ['wizard_created' => false, 'at' => $map['at'] ?? null]
+    && array_diff_key($map, ['at' => 0]) === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute-example-com', 'wizard_created' => false]
+    && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === array_fill(0, 2, 'GET https://n8n.example/api/v1/workflows?active=true&limit=250&excludePinnedData=true'));
+$GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */
 echo "Row — Free provisioning, activation refused: rolled back, no Application Password\n";

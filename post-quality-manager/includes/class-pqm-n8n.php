@@ -16,7 +16,9 @@
  * creates, changes and deletes nothing on n8n. provision() (entry 4) sets
  * the whole workflow up through request() and removes again what a failed
  * run created (entry 5); diagnose() (entry 7) reads the workflow behind the
- * saved webhook URL, GET only; later entries call request().
+ * saved webhook URL, GET only; propose_adoption() and adopt() (entry 8)
+ * take over a hand-made workflow by storing its setup map, GET only; later
+ * entries call request().
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -41,12 +43,16 @@ class PQM_N8n {
     const KEY_HINT_MIN_LENGTH = 16;
 
     /**
-     * Own option (autoload off, deleted on uninstall): what provision()
-     * created, {workflow_id, credentials: {webhook, anthropic, wordpress?},
-     * path, wizard_created, at}. Not in OPTION: save() and forget() rewrite
-     * that one whole.
+     * Own option (autoload off, deleted on uninstall): the workflow the
+     * plugin manages, {workflow_id, credentials: {webhook, anthropic,
+     * wordpress?}, path, wizard_created, at} — what provision() created
+     * (wizard_created true) or what adopt() took over (false). Not in
+     * OPTION: save() and forget() rewrite that one whole.
      */
     const SETUP_OPTION = 'pqm_n8n_setup';
+
+    /** The active workflows, one page of 250 (n8n's maximum `limit`): the diagnosis and the adoption read them. */
+    const ACTIVE_WORKFLOWS = '/workflows?active=true&limit=250&excludePinnedData=true';
 
     /**
      * Own option (autoload off, deleted on uninstall): what a failed run's
@@ -78,18 +84,24 @@ class PQM_N8n {
      * What a REST reply may carry: never the key itself. `key_hint` is the
      * stored key's last four characters, computed here and never stored,
      * empty when no key is stored or it is shorter than KEY_HINT_MIN_LENGTH.
+     * `setup` is what the setup map says of itself ({wizard_created, at}),
+     * null without one; `adoptable` whether the plugin may take over the
+     * site's workflow (entry 8: a passing key, a saved webhook URL, no map).
      *
-     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array}
+     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, setup: ?array, adoptable: bool}
      */
     public static function public_state(): array {
         $connection = self::connection();
         $key        = (string) $connection['api_key'];
+        $setup      = get_option( self::SETUP_OPTION, false );
 
         return [
-            'base_url' => $connection['base_url'],
-            'key_set'  => '' !== $key,
-            'key_hint' => strlen( $key ) >= self::KEY_HINT_MIN_LENGTH ? substr( $key, -4 ) : '',
-            'probe'    => $connection['probe'],
+            'base_url'  => $connection['base_url'],
+            'key_set'   => '' !== $key,
+            'key_hint'  => strlen( $key ) >= self::KEY_HINT_MIN_LENGTH ? substr( $key, -4 ) : '',
+            'probe'     => $connection['probe'],
+            'setup'     => is_array( $setup ) ? [ 'wizard_created' => ! empty( $setup['wizard_created'] ), 'at' => (int) ( $setup['at'] ?? 0 ) ] : null,
+            'adoptable' => null === self::adoption_blocked(),
         ];
     }
 
@@ -316,16 +328,12 @@ class PQM_N8n {
 
     /**
      * Is the workflow behind the saved webhook URL wired to the right
-     * credentials? GET only. The workflow is found by the setup map's id,
-     * else as the active workflow whose Webhook trigger path is the URL's
-     * last segment; never by name. Its published nodes are read (n8n 2.x
-     * runs `activeVersion`; a save changes only the draft), disabled ones
-     * skipped. Nodes are told apart by type and parameters, never by their
-     * names, which the owner may change. Two shapes count, the first found
-     * is reported: Claude nodes carrying the trigger's credential (the
-     * 2026-10-13 import), then nodes that need a credential and have none.
-     * Node and credential names are n8n's: the sentence is raw text, escaped
-     * where it is shown.
+     * credentials? GET only. The workflow is found by the setup map's id
+     * while the URL's path is the map's (entry 8, D3: the status block
+     * describes what the site calls), else as the active workflow whose
+     * Webhook trigger path is the URL's last segment; never by name. Its
+     * published nodes are read (n8n 2.x runs `activeVersion`; a save changes
+     * only the draft), disabled ones skipped; miswiring() names the shape.
      *
      * @return string|null The sentence naming the nodes, the credential and
      *                     the fix; '' when the workflow is clean or no key is
@@ -337,34 +345,47 @@ class PQM_N8n {
             return '';
         }
         $setup = get_option( self::SETUP_OPTION, false );
-        $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' ) ? $setup : null;
+        $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' )
+            && self::webhook_segment( $webhook_url ) === (string) ( $setup['path'] ?? '' ) ? $setup : null;
 
         if ( null !== $setup ) {
             $response = self::request( 'GET', '/workflows/' . rawurlencode( (string) $setup['workflow_id'] ) );
             $nodes    = self::answered( $response ) ? self::published_nodes( $response['json'] ) : null;
         } else {
-            $nodes = self::published_nodes_at( $webhook_url );
+            $workflow = self::workflow_at( $webhook_url );
+            $nodes    = is_array( $workflow ) ? $workflow['nodes'] : null;
         }
-        if ( null === $nodes ) {
-            return null;
+        if ( null === $nodes || null === self::trigger( $nodes ) ) {
+            return null; // n8n did not answer, no workflow listens there, or not a workflow read (a 2xx `{}`).
         }
 
-        $trigger = self::trigger( $nodes );
-        if ( null === $trigger ) {
-            return null; // Not a workflow read (e.g. a 2xx `{}`): the check could not run.
-        }
-        $hook = (string) ( $trigger['credentials']['httpHeaderAuth']['id'] ?? '' );
         // D1: a provisioned site without Application Passwords leaves Update WP Post (Rewrite) name-only.
-        $skip_basic = null !== $setup && ! isset( $setup['credentials']['wordpress'] );
-        $shared     = [];
-        $missing    = [];
+        return self::miswiring( $nodes, null !== $setup && ! isset( $setup['credentials']['wordpress'] ), false );
+    }
+
+    /**
+     * The wiring the diagnosis reports among these published nodes (their
+     * trigger included), as one sentence; '' when clean. Nodes are told
+     * apart by type and parameters, never by their names, which the owner
+     * may change. Two shapes count, the first found is reported: Claude
+     * nodes carrying the trigger's credential (the 2026-10-13 import), then
+     * nodes that need a credential and have none. Node and credential names
+     * are n8n's: the sentence is raw text, escaped where it is shown.
+     *
+     * @param bool $skip_basic The node saving a rewrite (httpBasicAuth) may go without one.
+     * @param bool $adopting   The adoption (entry 8) asks: the sentence ends "then try again", not "then test again".
+     */
+    private static function miswiring( array $nodes, bool $skip_basic, bool $adopting ): string {
+        $trigger = self::trigger( $nodes ) ?? [];
+        $hook    = (string) ( $trigger['credentials']['httpHeaderAuth']['id'] ?? '' );
+        $shared  = [];
+        $missing = [];
         foreach ( $nodes as $node ) {
             $parameters  = is_array( $node['parameters'] ?? null ) ? $node['parameters'] : [];
             $credentials = is_array( $node['credentials'] ?? null ) ? $node['credentials'] : [];
             $name        = (string) ( $node['name'] ?? '' );
 
-            if ( '' !== $hook && str_contains( (string) ( $parameters['url'] ?? '' ), 'api.anthropic.com' )
-                && $hook === (string) ( $credentials['httpHeaderAuth']['id'] ?? '' ) ) {
+            if ( '' !== $hook && self::is_claude( $node ) && $hook === (string) ( $credentials['httpHeaderAuth']['id'] ?? '' ) ) {
                 $shared[] = $name;
             }
             $auth = (string) ( $parameters['authentication'] ?? '' );
@@ -376,56 +397,84 @@ class PQM_N8n {
 
         if ( [] !== $shared ) {
             $credential = (string) ( $trigger['credentials']['httpHeaderAuth']['name'] ?? '' );
-
-            return '' !== $credential
-                ? sprintf(
-                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
-                    $credential,
-                    wp_sprintf( '%l', $shared )
-                )
-                : sprintf(
-                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
+            if ( '' === $credential ) {
+                return sprintf(
+                    $adopting
+                        /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                        ? __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' )
+                        /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                        : __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
                     wp_sprintf( '%l', $shared )
                 );
+            }
+
+            return sprintf(
+                $adopting
+                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    ? __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' )
+                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    : __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
+                $credential,
+                wp_sprintf( '%l', $shared )
+            );
         }
         if ( [] !== $missing ) {
-            return sprintf(
-                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
-                __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then test again.', 'post-quality-manager' ),
-                wp_sprintf( '%l', $missing )
-            );
+            return self::no_credential( $missing, $adopting );
         }
 
         return '';
     }
 
-    /**
-     * The published nodes of the active workflow whose Webhook trigger path
-     * is the URL's segment after /webhook/, null when there is none or n8n
-     * did not answer. Ceiling: one page of 250 active workflows (n8n's
-     * maximum `limit`); following `nextCursor` is the upgrade path.
-     *
-     * @return array[]|null
-     */
-    private static function published_nodes_at( string $webhook_url ): ?array {
+    /** The sentence for nodes that need a credential and have none; `$adopting` as in miswiring(). */
+    private static function no_credential( array $names, bool $adopting ): string {
+        return sprintf(
+            $adopting
+                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
+                ? __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then try again.', 'post-quality-manager' )
+                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
+                : __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then test again.', 'post-quality-manager' ),
+            wp_sprintf( '%l', $names )
+        );
+    }
+
+    /** Whether a node calls Claude: an HTTP Request to api.anthropic.com. */
+    private static function is_claude( array $node ): bool {
+        return str_contains( (string) ( $node['parameters']['url'] ?? '' ), 'api.anthropic.com' );
+    }
+
+    /** The webhook URL's path after /webhook/, '' when it has none. */
+    private static function webhook_segment( string $webhook_url ): string {
         $path = (string) wp_parse_url( $webhook_url, PHP_URL_PATH );
         $at   = strpos( $path, '/webhook/' );
-        $path = false === $at ? '' : trim( substr( $path, $at + strlen( '/webhook/' ) ), '/' );
+
+        return false === $at ? '' : trim( substr( $path, $at + strlen( '/webhook/' ) ), '/' );
+    }
+
+    /**
+     * The active workflow whose Webhook trigger path is the URL's segment
+     * after /webhook/: {id, name, path, nodes} (its published nodes), null
+     * when none listens there. Ceiling: one page of 250 active workflows
+     * (n8n's maximum `limit`); following `nextCursor` is the upgrade path.
+     *
+     * @return array{id: string, name: string, path: string, nodes: array[]}|WP_Error|null
+     *         WP_Error (502 pqm_adoption_failed) when n8n did not answer.
+     */
+    private static function workflow_at( string $webhook_url ): array|WP_Error|null {
+        $path = self::webhook_segment( $webhook_url );
         if ( '' === $path ) {
             return null;
         }
 
-        $response = self::request( 'GET', '/workflows?active=true&limit=250&excludePinnedData=true' );
+        $response = self::request( 'GET', self::ACTIVE_WORKFLOWS );
         if ( ! self::answered( $response ) ) {
-            return null;
+            return new WP_Error( 'pqm_adoption_failed', self::stopped( 'read', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' ), [ 'status' => 502 ] );
         }
         foreach ( (array) ( $response['json']['data'] ?? [] ) as $workflow ) {
-            $nodes   = is_array( $workflow ) ? self::published_nodes( $workflow ) : [];
+            $id      = is_array( $workflow ) && is_scalar( $workflow['id'] ?? null ) ? (string) $workflow['id'] : '';
+            $nodes   = '' !== $id ? self::published_nodes( $workflow ) : [];
             $trigger = self::trigger( $nodes );
             if ( null !== $trigger && trim( (string) ( $trigger['parameters']['path'] ?? '' ), '/' ) === $path ) {
-                return $nodes;
+                return [ 'id' => $id, 'name' => (string) ( $workflow['name'] ?? '' ), 'path' => $path, 'nodes' => $nodes ];
             }
         }
 
@@ -475,6 +524,141 @@ class PQM_N8n {
         return ! is_wp_error( $response ) && $response['code'] >= 200 && $response['code'] < 300 && is_array( $response['json'] );
     }
 
+    /* ─── Adoption of a hand-made workflow (entry 8) ─────────────────── */
+
+    /**
+     * What the plugin would manage: the active workflow listening on the
+     * saved webhook URL's path, and the credentials its own nodes carry —
+     * the trigger's is the webhook one, the Claude nodes' the Anthropic one,
+     * the node saving a rewrite (httpBasicAuth) the WordPress one (D1).
+     * One GET, the list read of the diagnosis; credential names are shown,
+     * never matched. A wiring the diagnosis would report is refused with its
+     * sentence, and so are Claude nodes on different credentials; a node
+     * saving a rewrite without one leaves `wordpress` out (D2).
+     *
+     * @return array|WP_Error {workflow: {id, name, path}, credentials: {webhook: {id, name}, anthropic: {id, name}, wordpress?: {id, name}}}
+     */
+    public static function propose_adoption(): array|WP_Error {
+        $blocked = self::adoption_blocked();
+        if ( null !== $blocked ) {
+            return $blocked;
+        }
+        $workflow = self::workflow_at( (string) pqm_get_settings()['n8n_webhook_url'] );
+        if ( is_wp_error( $workflow ) ) {
+            return $workflow;
+        }
+        // No Claude node: not a Post Quality workflow, whatever listens there.
+        $claude = null === $workflow ? [] : array_values( array_filter( $workflow['nodes'], [ __CLASS__, 'is_claude' ] ) );
+        if ( [] === $claude ) {
+            return new WP_Error( 'pqm_workflow_not_found', __( 'No published workflow in n8n listens on your n8n Webhook URL. Check the URL, or publish the workflow in n8n, then try again.', 'post-quality-manager' ), [ 'status' => 404 ] );
+        }
+
+        $sentence = self::miswiring( $workflow['nodes'], true, true );
+        if ( '' === $sentence && count( array_unique( array_map( static fn( $node ) => (string) ( $node['credentials']['httpHeaderAuth']['id'] ?? '' ), $claude ) ) ) > 1 ) {
+            $sentence = sprintf(
+                /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                __( 'In n8n, %s use different credentials: pick one Anthropic credential on all of them, publish the workflow, then try again.', 'post-quality-manager' ),
+                wp_sprintf( '%l', array_map( static fn( $node ) => (string) ( $node['name'] ?? '' ), $claude ) )
+            );
+        }
+        $trigger     = self::trigger( $workflow['nodes'] );
+        $credentials = [
+            'webhook'   => self::credential_of( $trigger, 'httpHeaderAuth' ),
+            'anthropic' => self::credential_of( $claude[0], 'httpHeaderAuth' ),
+        ];
+        // A trigger without authentication, or Claude nodes on another credential type: nothing to map.
+        foreach ( [ 'webhook' => [ $trigger ], 'anthropic' => $claude ] as $role => $nodes ) {
+            if ( '' === $sentence && null === $credentials[ $role ] ) {
+                $sentence = self::no_credential( array_map( static fn( $node ) => (string) ( $node['name'] ?? '' ), $nodes ), true );
+            }
+        }
+        if ( '' !== $sentence ) {
+            return new WP_Error( 'pqm_workflow_miswired', $sentence, [ 'status' => 409 ] );
+        }
+
+        foreach ( $workflow['nodes'] as $node ) {
+            if ( 'httpBasicAuth' === ( $node['parameters']['genericAuthType'] ?? '' ) ) {
+                $credentials['wordpress'] = self::credential_of( $node, 'httpBasicAuth' );
+                break;
+            }
+        }
+
+        return [
+            'workflow'    => [ 'id' => $workflow['id'], 'name' => $workflow['name'], 'path' => $workflow['path'] ],
+            'credentials' => array_filter( $credentials ),
+        ];
+    }
+
+    /**
+     * Store the setup map of the workflow the owner confirmed, in the shape
+     * provision() stores, with `wizard_created` false. The proposal is read
+     * again first, so the map is what n8n holds now: another workflow at the
+     * URL than the one shown refuses (409 pqm_adoption_changed), a failed
+     * read answers its own error, and a map stored meanwhile is kept (409
+     * pqm_already_provisioned). Nothing else is written; n8n is only read.
+     *
+     * @return array|WP_Error The stored setup map.
+     */
+    public static function adopt( string $workflow_id ): array|WP_Error {
+        $proposal = self::propose_adoption();
+        if ( is_wp_error( $proposal ) ) {
+            return $proposal;
+        }
+        if ( $proposal['workflow']['id'] !== $workflow_id ) {
+            return new WP_Error( 'pqm_adoption_changed', __( 'n8n changed since you looked: another workflow listens on your n8n Webhook URL now. Press Let the plugin manage this workflow again to see it.', 'post-quality-manager' ), [ 'status' => 409 ] );
+        }
+
+        $setup = [
+            'workflow_id'    => $workflow_id,
+            'credentials'    => array_map( static fn( $credential ) => $credential['id'], $proposal['credentials'] ),
+            'path'           => $proposal['workflow']['path'],
+            'wizard_created' => false,
+            'at'             => time(),
+        ];
+        // add_option(), not update_option(): a map a concurrent run stored during the read is never rewritten.
+        if ( ! add_option( self::SETUP_OPTION, $setup, '', false ) ) {
+            return self::already_provisioned();
+        }
+
+        return $setup;
+    }
+
+    /**
+     * Why the plugin may not take the site's workflow over, null when it
+     * may: a setup map already names one (as provision() refuses), no key
+     * with a passing check, no saved webhook URL. Calls nothing.
+     */
+    private static function adoption_blocked(): ?WP_Error {
+        if ( false !== get_option( self::SETUP_OPTION, false ) ) {
+            return self::already_provisioned();
+        }
+        $connection = self::connection();
+        if ( '' === $connection['api_key'] || empty( $connection['probe']['ok'] ) ) {
+            return self::not_connected();
+        }
+        if ( '' === (string) pqm_get_settings()['n8n_webhook_url'] ) {
+            return new WP_Error( 'pqm_webhook_url_missing', __( 'Save your n8n Webhook URL first: the plugin finds your workflow by it.', 'post-quality-manager' ), [ 'status' => 400 ] );
+        }
+
+        return null;
+    }
+
+    /**
+     * The credential of this type a node links by id, {id, name}; null when none.
+     *
+     * @return array{id: string, name: string}|null
+     */
+    private static function credential_of( array $node, string $type ): ?array {
+        $credential = $node['credentials'][ $type ] ?? null;
+        $id         = is_array( $credential ) && is_scalar( $credential['id'] ?? null ) ? (string) $credential['id'] : '';
+
+        return '' === $id ? null : [ 'id' => $id, 'name' => (string) ( $credential['name'] ?? '' ) ];
+    }
+
+    private static function already_provisioned(): WP_Error {
+        return new WP_Error( 'pqm_already_provisioned', __( 'n8n is already set up for this site.', 'post-quality-manager' ), [ 'status' => 409 ] );
+    }
+
     /* ─── Provisioning (entry 4) ─────────────────────────────────────── */
 
     /**
@@ -496,7 +680,7 @@ class PQM_N8n {
      */
     public static function provision( string $provider_key ): array|WP_Error {
         if ( false !== get_option( self::SETUP_OPTION, false ) ) {
-            return new WP_Error( 'pqm_already_provisioned', __( 'n8n is already set up for this site.', 'post-quality-manager' ), [ 'status' => 409 ] );
+            return self::already_provisioned();
         }
         if ( '' === self::connection()['api_key'] ) {
             return self::not_connected();
@@ -795,12 +979,15 @@ class PQM_N8n {
             'credential_wordpress' => __( 'creating the WordPress credential', 'post-quality-manager' ),
             'workflow'             => __( 'creating the workflow', 'post-quality-manager' ),
             'activate'             => __( 'activating the workflow', 'post-quality-manager' ),
+            'read'                 => __( 'reading your workflows', 'post-quality-manager' ), // entry 8
         ];
         if ( is_wp_error( $response ) ) {
             /* translators: %s: connection error message */
             $answer = sprintf( __( 'n8n could not be reached: %s', 'post-quality-manager' ), $response->get_error_message() );
         } elseif ( $response['code'] >= 200 && $response['code'] < 300 ) {
-            $answer = __( 'n8n did not return what it created', 'post-quality-manager' );
+            $answer = 'read' === $step
+                ? __( 'n8n did not answer with your workflows', 'post-quality-manager' )
+                : __( 'n8n did not return what it created', 'post-quality-manager' );
         } else {
             /* translators: %d: HTTP status code */
             $answer = sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );

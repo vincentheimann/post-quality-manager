@@ -175,6 +175,23 @@ class PQM_REST_API {
                 'anthropic_key' => [ 'required' => true, 'type' => 'string' ],
             ],
         ] );
+
+        // n8n provisioning, entry 8: take over a hand-made workflow — the proposal (GET), the owner's confirm (POST).
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/adoption', [
+            [
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => [ __CLASS__, 'get_n8n_adoption_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            ],
+            [
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => [ __CLASS__, 'adopt_n8n_callback' ],
+                'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+                'args'                => [
+                    'workflow_id' => [ 'required' => true, 'type' => 'string' ],
+                ],
+            ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -1401,6 +1418,44 @@ class PQM_REST_API {
             if ( ! $reply['rewrite_ready'] ) {
                 $reply['message'] .= ' ' . __( 'Application Passwords are turned off on this site, so no WordPress credential was created. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Rewrite stays off until Application Passwords are available and a WordPress credential is added in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
+        }
+
+        return new WP_REST_Response( $reply, 200 );
+    }
+
+    /* ─── Adoption of a hand-made workflow (n8n provisioning, entry 8) ─ */
+
+    /**
+     * What the plugin would manage (PQM_N8n::propose_adoption()): the
+     * workflow at the saved webhook URL and its credentials by name. One GET
+     * on n8n, nothing stored. On the Pro build `rewrite_ready` says whether
+     * the node saving a rewrite carries a credential (D2).
+     */
+    public static function get_n8n_adoption_callback(): WP_REST_Response|WP_Error {
+        $proposal = PQM_N8n::propose_adoption();
+        if ( is_wp_error( $proposal ) ) {
+            return $proposal;
+        }
+        if ( pqm_fs()->is__premium_only() ) {
+            $proposal['rewrite_ready'] = isset( $proposal['credentials']['wordpress'] );
+        }
+
+        return new WP_REST_Response( $proposal, 200 );
+    }
+
+    /**
+     * The owner's confirm: store the setup map of the workflow shown
+     * (PQM_N8n::adopt(), which reads n8n again and refuses a changed one).
+     * Answers the n8n Instance section's state, plus `rewrite_ready` on Pro.
+     */
+    public static function adopt_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $setup = PQM_N8n::adopt( sanitize_text_field( (string) $request->get_param( 'workflow_id' ) ) );
+        if ( is_wp_error( $setup ) ) {
+            return $setup;
+        }
+        $reply = PQM_N8n::public_state();
+        if ( pqm_fs()->is__premium_only() ) {
+            $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
         }
 
         return new WP_REST_Response( $reply, 200 );

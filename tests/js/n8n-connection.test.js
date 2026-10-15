@@ -19,10 +19,13 @@ jest.mock( '@wordpress/api-fetch', () => jest.fn(), { virtual: true } );
 jest.mock(
 	'@wordpress/components',
 	() => ( {
-		Button: ( { children, isBusy, isDestructive, variant, ...props } ) => (
-			<button data-variant={ variant } { ...props }>
-				{ children }
-			</button>
+		// A forwardRef, as the real Button: the island focuses it (entry 8).
+		Button: require( '@wordpress/element' ).forwardRef(
+			( { children, isBusy, isDestructive, variant, ...props }, ref ) => (
+				<button ref={ ref } data-variant={ variant } { ...props }>
+					{ children }
+				</button>
+			)
 		),
 		Notice: ( { status, children } ) => (
 			<div className={ 'mock-notice-' + status }>{ children }</div>
@@ -63,9 +66,20 @@ const CONNECTED = {
 		message: 'Connected to n8n.',
 		at: 1760000000,
 	},
+	setup: null,
+	adoptable: false,
 };
-// eslint-disable-next-line camelcase -- REST field names.
-const NOT_SET = { base_url: '', key_set: false, key_hint: '', probe: null };
+const NOT_SET = {
+	// eslint-disable-next-line camelcase -- REST field name.
+	base_url: '',
+	// eslint-disable-next-line camelcase -- REST field name.
+	key_set: false,
+	// eslint-disable-next-line camelcase -- REST field name.
+	key_hint: '',
+	probe: null,
+	setup: null,
+	adoptable: false,
+};
 
 let root;
 
@@ -346,5 +360,206 @@ describe( "Connect yields to the update notice's Re-import the workflow (plan-up
 	test( 'in the setup guide (onChange), the Modal is its own surface: primary', async () => {
 		await mountBeside( REIMPORT_BLOCK, jest.fn() );
 		expect( connectVariant() ).toBe( 'primary' );
+	} );
+} );
+
+describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8)', () => {
+	const ADOPTION_PATH = '/post-quality/v1/n8n/adoption';
+	const HAND_MADE = { ...CONNECTED, adoptable: true };
+	const PROPOSAL = {
+		workflow: {
+			id: 'wf-hand',
+			name: 'My blog reviews',
+			path: 'pqm-execute',
+		},
+		credentials: {
+			webhook: { id: 'c-h1', name: 'Header Auth account' },
+			anthropic: { id: 'c-k1', name: 'my claude key' },
+			wordpress: { id: 'c-b1', name: 'wp basic' },
+		},
+		// eslint-disable-next-line camelcase -- REST field name.
+		rewrite_ready: true,
+	};
+	const ADOPTED = {
+		...CONNECTED,
+		setup: { wizard_created: false, at: 1760000000 }, // eslint-disable-line camelcase -- REST field name.
+		// eslint-disable-next-line camelcase -- REST field name.
+		rewrite_ready: true,
+	};
+	const offer = () => document.querySelector( '.pqm-n8n-adopt' );
+	const click = async ( selector ) =>
+		act( async () => {
+			document.querySelector( selector ).click();
+		} );
+
+	test( 'the offer shows only while adoptable', async () => {
+		await mount( CONNECTED );
+		expect( offer() ).toBeNull();
+		expect( text() ).not.toContain( 'set up by hand' );
+
+		await mount( HAND_MADE );
+		expect( offer().textContent ).toBe(
+			'Let the plugin manage this workflow'
+		);
+		expect( offer().dataset.variant ).toBe( 'secondary' );
+		expect( text() ).toContain(
+			'Your workflow was set up by hand. Let the plugin manage it, and you can update it and rotate the webhook token from here later. Nothing in n8n changes.'
+		);
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'Let the plugin manage: one GET, the proposal by name in place of the form', async () => {
+		await mount( HAND_MADE );
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
+		expect( apiFetch ).toHaveBeenLastCalledWith( { path: ADOPTION_PATH } );
+		expect( text() ).toContain(
+			'Found at your webhook URL: My blog reviews, listening on /webhook/pqm-execute.'
+		);
+		const roles = [
+			...document.querySelectorAll( '.pqm-n8n-proposal-credentials li' ),
+		].map( ( item ) => item.textContent );
+		expect( roles ).toEqual( [
+			'Webhook token: Header Auth account',
+			'Anthropic: my claude key',
+			'WordPress: wp basic',
+		] );
+		expect( text() ).toContain( 'Nothing in n8n changes.' );
+		expect(
+			document.querySelector( '.pqm-n8n-connection-form' )
+		).toBeNull();
+		expect( offer() ).toBeNull();
+		expect(
+			document.querySelector( '.pqm-n8n-adopt-confirm' ).dataset.variant
+		).toBe( 'primary' );
+		// The offer button unmounted: focus moves to the proposal.
+		expect( document.activeElement ).toBe(
+			document.querySelector( '.pqm-n8n-proposal' )
+		);
+
+		await click( '.pqm-n8n-adopt-cancel' );
+		expect(
+			document.querySelector( '.pqm-n8n-connection-form' )
+		).not.toBeNull();
+		expect( document.querySelector( '.pqm-n8n-proposal' ) ).toBeNull();
+		expect( offer() ).not.toBeNull();
+		// Cancel unmounted: focus back on the offer button.
+		expect( document.activeElement ).toBe( offer() );
+	} );
+
+	test( 'Rewrite unwired (Pro): "none", Rewrite stays off; the Free build shows no WordPress line', async () => {
+		await mount( HAND_MADE );
+		apiFetch.mockResolvedValueOnce( {
+			...PROPOSAL,
+			credentials: {
+				webhook: PROPOSAL.credentials.webhook,
+				anthropic: PROPOSAL.credentials.anthropic,
+			},
+			// eslint-disable-next-line camelcase -- REST field name.
+			rewrite_ready: false,
+		} );
+		await click( '.pqm-n8n-adopt' );
+		expect( text() ).toContain(
+			'WordPress: none. Rewrite stays off until a credential is set on Update WP Post (Rewrite).'
+		);
+
+		await mount( HAND_MADE );
+		apiFetch.mockResolvedValueOnce( {
+			workflow: PROPOSAL.workflow,
+			credentials: {
+				webhook: PROPOSAL.credentials.webhook,
+				anthropic: PROPOSAL.credentials.anthropic,
+			},
+		} );
+		await click( '.pqm-n8n-adopt' );
+		expect(
+			document.querySelectorAll( '.pqm-n8n-proposal-credentials li' )
+		).toHaveLength( 2 );
+		expect( text() ).not.toContain( 'WordPress' );
+	} );
+
+	test( 'confirm: POST with the id, the managed line, onChange called', async () => {
+		const onChange = jest.fn();
+		await mount( HAND_MADE, onChange );
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
+		apiFetch.mockResolvedValueOnce( ADOPTED );
+		await click( '.pqm-n8n-adopt-confirm' );
+		expect( apiFetch ).toHaveBeenLastCalledWith( {
+			path: ADOPTION_PATH,
+			method: 'POST',
+			// eslint-disable-next-line camelcase -- REST field name.
+			data: { workflow_id: 'wf-hand' },
+		} );
+		expect( document.querySelector( '.pqm-n8n-managed' ).textContent ).toBe(
+			`The plugin has managed this workflow since ${ new Date(
+				1760000000 * 1000
+			).toLocaleDateString() }.`
+		);
+		expect( offer() ).toBeNull();
+		expect( document.querySelector( '.pqm-n8n-proposal' ) ).toBeNull();
+		expect(
+			document.querySelector( '.pqm-n8n-connection-form' )
+		).not.toBeNull();
+		expect( onChange ).toHaveBeenLastCalledWith( ADOPTED );
+		expect( onChange ).toHaveBeenCalledTimes( 2 );
+		// No offer any more: focus on the managed line.
+		expect( document.activeElement ).toBe(
+			document.querySelector( '.pqm-n8n-managed' )
+		);
+	} );
+
+	test( 'a provisioned site: "set this workflow up on", no offer', async () => {
+		await mount( {
+			...CONNECTED,
+			// eslint-disable-next-line camelcase -- REST field name.
+			setup: { wizard_created: true, at: 1760000000 },
+		} );
+		expect( document.querySelector( '.pqm-n8n-managed' ).textContent ).toBe(
+			`The plugin set this workflow up on ${ new Date(
+				1760000000 * 1000
+			).toLocaleDateString() }.`
+		);
+		expect( offer() ).toBeNull();
+	} );
+
+	test( 'a refused proposal shows its message in the failure Notice; the form stays', async () => {
+		const onChange = jest.fn();
+		await mount( HAND_MADE, onChange );
+		const message =
+			'In n8n, Claude - Review Agent and Claude - SEO Agent use different credentials: pick one Anthropic credential on all of them, publish the workflow, then try again.';
+		apiFetch.mockRejectedValueOnce( {
+			code: 'pqm_workflow_miswired',
+			message,
+		} );
+		await click( '.pqm-n8n-adopt' );
+		expect(
+			document.querySelector( '.mock-notice-error' ).textContent
+		).toBe( message );
+		expect( document.querySelector( '.pqm-n8n-proposal' ) ).toBeNull();
+		expect(
+			document.querySelector( '.pqm-n8n-connection-form' )
+		).not.toBeNull();
+		expect( offer() ).not.toBeNull();
+		expect( onChange ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'a refused confirm (n8n changed since): its message, the offer again to look again', async () => {
+		await mount( HAND_MADE );
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
+		const message =
+			'n8n changed since you looked: another workflow listens on your n8n Webhook URL now. Press Let the plugin manage this workflow again to see it.';
+		apiFetch.mockRejectedValueOnce( {
+			code: 'pqm_adoption_changed',
+			message,
+		} );
+		await click( '.pqm-n8n-adopt-confirm' );
+		expect(
+			document.querySelector( '.mock-notice-error' ).textContent
+		).toBe( message );
+		expect( document.querySelector( '.pqm-n8n-proposal' ) ).toBeNull();
+		expect( offer() ).not.toBeNull();
+		expect( document.querySelector( '.pqm-n8n-managed' ) ).toBeNull();
 	} );
 } );
