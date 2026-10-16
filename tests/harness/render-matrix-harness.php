@@ -907,8 +907,10 @@ check('updated_option is hooked with its three args (old and new value)',
 
 /* The setup dialog swaps the block after its connect and its provisioning (pqm-admin.js: tests/js/workflow-status.test.js) */
 $steps_js = file_get_contents(dirname(__DIR__, 2) . '/src/setup/steps.js');
+$swap_js  = file_get_contents(dirname(__DIR__, 2) . '/src/kit/swap-status-block.js'); // the one swap since n8n provisioning entry 10
 check('the setup dialog replaces .pqm-workflow-status with status_html (connect and provisioning) and warns when outdated',
-    str_contains($steps_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($steps_js, 'block.outerHTML = html')
+    str_contains($swap_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($swap_js, 'block.outerHTML = html')
+    && str_contains($steps_js, "import swapStatusBlock from '../kit/swap-status-block';")
     && str_contains($steps_js, 'swapStatusBlock( data.status_html )') && str_contains($steps_js, 'swapStatusBlock( reply.status_html )')
     && (bool) preg_match("/data\\.outdated \\) \\{\\s*status = 'warning';/", $steps_js));
 

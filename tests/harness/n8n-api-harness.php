@@ -21,6 +21,9 @@
  * /n8n/adoption), one per line of its plan's matrix, with freely named
  * credentials; every adoption call is a GET, and D3's rule (the map's
  * workflow only while the URL's path is the map's) in the diagnosis rows.
+ * Entry 10 rows: the webhook token rotation (POST /n8n/token), one per line
+ * of its plan's matrix; its one n8n call is the PATCH of the map's webhook
+ * credential, and the new token is in no reply, error or other option.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -91,7 +94,7 @@ function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['m
 function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
+function wp_generate_uuid4() { return $GLOBALS['tw']['uuid'] ?? 'stub-uuid'; } // entry 10 rotates to a distinct token
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function apply_filters($tag, $value) { return $value; }
 function esc_url_raw($s) { return trim((string) $s); }
@@ -267,7 +270,7 @@ $r = post(['base_url' => '  https://n8n.example.com/home/workflows?x=1  ', 'api_
 check('probe ok, "Connected to n8n.", no version claimed', $r['probe'] === ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => $r['probe']['at']]
     && abs($r['probe']['at'] - time()) <= 5);
 check('reply: base URL = the origin (editor path dropped), key set, its last 4 characters, the probe',
-    $r['base_url'] === BASE && $r['key_set'] === true && $r['key_hint'] === '6789' && array_keys($r) === ['probe', 'base_url', 'key_set', 'key_hint', 'setup', 'adoptable']);
+    $r['base_url'] === BASE && $r['key_set'] === true && $r['key_hint'] === '6789' && array_keys($r) === ['probe', 'base_url', 'key_set', 'key_hint', 'setup', 'adoptable', 'rotatable']);
 check('calls, in order: one-item workflow list, the two route probes (D2)', calls() === [
     'GET ' . BASE . '/api/v1/workflows?limit=1',
     'POST ' . BASE . '/api/v1/workflows/pqm-probe-unknown-id/activate',
@@ -285,7 +288,7 @@ check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes']
 $GLOBALS['tw']['calls'] = [];
 $s = get_state();
 check('reload (GET): the stored state — connected, key set — and zero calls to n8n',
-    $s === ['base_url' => BASE, 'key_set' => true, 'key_hint' => '6789', 'probe' => $r['probe'], 'setup' => null, 'adoptable' => false] && $GLOBALS['tw']['calls'] === []);
+    $s === ['base_url' => BASE, 'key_set' => true, 'key_hint' => '6789', 'probe' => $r['probe'], 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['calls'] === []);
 
 /* ─── Rows: the key hint (last 4 characters, computed at read time) ──── */
 echo "Key hint\n";
@@ -307,7 +310,7 @@ $r = post(['base_url' => BASE, 'api_key' => KEY]);
 check('the router\'s generic 404 "not found" on activate = missing endpoint; only its cause stored (entry 2), no URL, no key', $r['probe']['cause'] === 'missing_endpoint'
     && $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['failed' => ['cause' => 'missing_endpoint', 'message' => 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later.', 'at' => $r['probe']['at']]]
-    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false]);
+    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false]);
 site([], [LIST_OK, ROUTE_OK, resp(404, ['message' => 'NOT FOUND '])]);
 check('... case and spaces do not matter', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'missing_endpoint');
 foreach ([
@@ -407,7 +410,7 @@ check('fresh site: connection() carries failed => null', PQM_N8n::connection()['
 site([], [new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host')]);
 post(['base_url' => BASE, 'api_key' => KEY]);
 check('the stored failure never carries the key', !str_contains(json_encode($GLOBALS['tw']['options']), KEY));
-check('public_state() leaves the failure out (entry 8 adds setup and adoptable only)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'key_hint', 'probe', 'setup', 'adoptable']);
+check('public_state() leaves the failure out (entries 8 and 10 add setup, adoptable and rotatable only)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'key_hint', 'probe', 'setup', 'adoptable', 'rotatable']);
 
 /* ─── Row: Re-check ──────────────────────────────────────────────────── */
 echo "Re-check\n";
@@ -440,12 +443,12 @@ check('no key given, none stored: 400, zero calls, nothing stored', $r instanceo
 echo "Forget\n";
 site($stored_conn);
 $r = forget();
-check('DELETE: key and probe removed, URL kept, "not set", no hint', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false]
+check('DELETE: key and probe removed, URL kept, "not set", no hint', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false]
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => 'https://old.example.com'] && $GLOBALS['tw']['autoload'][PQM_N8n::OPTION] === false);
 check('... nothing sent to n8n', $GLOBALS['tw']['calls'] === []);
 check('... a reload shows "not set"', get_state() === $r);
 site();
-check('fresh site GET: nothing stored, not set, no hint', get_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false] && $GLOBALS['tw']['writes'] === []);
+check('fresh site GET: nothing stored, not set, no hint', get_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['writes'] === []);
 
 /* ─── The client boundary later entries call ─────────────────────────── */
 echo "PQM_N8n::request()\n";
@@ -1241,6 +1244,187 @@ $src_n8n = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includ
 preg_match('/function propose_adoption\(.*?\n    \/\* ─── Provisioning/s', $src_n8n, $m);
 check('the adoption code sends no POST, PUT, PATCH or DELETE and never calls GET /credentials', ($m[0] ?? '') !== ''
     && !preg_match("/'(POST|PUT|PATCH|DELETE)'|\\/credentials/", $m[0]));
+
+/* ─── Entry 10: an Administrator rotates the webhook token ──────────── */
+echo "Rotation: route\n";
+$route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/n8n/token'] ?? [];
+check('/n8n/token: POST, gated by check_manage_settings, no arguments', ($route['methods'] ?? null) === 'POST'
+    && ($route['permission_callback'] ?? null) === $gate && !array_key_exists('args', $route));
+
+const ROTATED          = 'rotated-token-SECRET';
+const PATCH_WEBHOOK    = 'PATCH ' . BASE . '/api/v1/credentials/c-webhook';
+const ROTATION_STOPPED = 'The n8n setup stopped while updating the webhook credential (%s). Try again in a moment.';
+const ROTATED_PREFIX   = 'The token was rotated in n8n and saved here.';
+const OTHER_CREDENTIAL = ROTATED_PREFIX . ' n8n still refused the test ping: your Webhook Trigger uses another credential than the one the plugin manages. In n8n, pick that credential on the Webhook Trigger, publish the workflow, then send a test ping.';
+define('PATCHED', resp(200, ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com', 'type' => 'httpHeaderAuth', 'updatedAt' => '2026-10-16T10:00:00.000Z']));
+$GLOBALS['tw']['uuid'] = ROTATED; // wp_generate_uuid4(): the new token, distinct from TOKEN
+$rotation_runs = []; // [reply, options, calls, pings] after every rotation, for the leak scan
+$adopted_map   = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'wizard_created' => false, 'at' => HAND_MAP_AT]];
+
+/** A managed site: a passing key, a setup map (the provisioned one by default), the saved URL on its path (D3). */
+function managed(array $queue, ?array $map = null, string $url = HOOK): void {
+    connected($queue, $map ?? $GLOBALS['setup_map']);
+    $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = $url;
+    $GLOBALS['tw']['writes'] = [];
+}
+function rotate() {
+    $r     = PQM_REST_API::rotate_n8n_token_callback();
+    $reply = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
+    $GLOBALS['replies'][]       = $reply;
+    $GLOBALS['rotation_runs'][] = [$reply, $GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
+    return $r instanceof WP_Error ? $r : $r->get_data();
+}
+/** The stored webhook token. */
+function token_now(): ?string { return $GLOBALS['tw']['options']['pqm_settings']['webhook_token'] ?? null; }
+
+echo "Rotation: offered or not\n";
+managed([]);
+$s = get_state();
+check('offer: a passing key, a map, the saved URL on the map\'s path — rotatable; zero calls', $s['rotatable'] === true && $s['setup'] !== null && calls() === []);
+managed([], $adopted_map, V5_HOOK);
+check('... an adopted map (wizard_created false) on its own path: rotatable', get_state()['rotatable'] === true);
+$not_offered = [
+    'no key'                             => static function () { unset($GLOBALS['tw']['options'][PQM_N8n::OPTION]['api_key']); },
+    'a key without a passing check'      => static function () { $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe'] = null; },
+    'no map'                             => static function () { unset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]); },
+    'a map without a webhook credential' => static function () { unset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['credentials']['webhook']); },
+    'no URL saved'                       => static function () { unset($GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url']); },
+    'the URL on another path'            => static function () { $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = BASE . '/webhook/elsewhere'; },
+];
+foreach ($not_offered as $label => $change) {
+    managed([]);
+    $change();
+    check("not offered ($label): rotatable false, zero calls", get_state()['rotatable'] === false && calls() === []);
+}
+
+echo "Rotation: rotate\n";
+$token_at_patch = null;
+managed([static function () use (&$token_at_patch) { $token_at_patch = token_now(); return PATCHED; }]);
+$settings_before = $GLOBALS['tw']['options']['pqm_settings'];
+$r = rotate();
+check('one call: PATCH /credentials/{the map\'s webhook id}, signed with the key and the plugin User-Agent', calls() === [PATCH_WEBHOOK] && calls_signed(KEY));
+check('... its body: {data: {name: X-PQM-Token, value: the new token}}, JSON', body(0) === ['data' => ['name' => 'X-PQM-Token', 'value' => ROTATED]]
+    && $GLOBALS['tw']['calls'][0][1]['headers']['Content-Type'] === 'application/json');
+check('... PATCH first: the stored token was still the old one when n8n got the new one', $token_at_patch === TOKEN);
+check('... then pqm_settings written once, only webhook_token changed; then the version record', $GLOBALS['tw']['writes'] === ['pqm_settings', 'pqm_workflow_version_seen']
+    && $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => ROTATED] + $settings_before);
+check('... then one ping of the saved URL, with the new token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
+    && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === ROTATED);
+check('... reply {rotated, ping_ok, outdated, message, status_html}: "Token rotated." + the ping\'s message', is_array($r)
+    && array_keys($r) === ['rotated', 'ping_ok', 'outdated', 'message', 'status_html'] && $r['rotated'] === true && $r['ping_ok'] === true && $r['outdated'] === false
+    && $r['message'] === 'Token rotated. ' . PING_OK);
+check('... the version recorded by a test, as provisioning does; the status block says so', pqm_workflow_report()['via'] === 'test'
+    && str_contains($r['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.') && one_primary($r['status_html']));
+check('... no diagnosis read: n8n is not read after the PATCH', calls() === [PATCH_WEBHOOK]);
+check('... the map and the connection untouched', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION]
+    && !in_array(PQM_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) && !in_array(PQM_N8n::OPTION, $GLOBALS['tw']['writes'], true));
+managed([PATCHED], $adopted_map, V5_HOOK);
+$r = rotate();
+check('an adopted map: the PATCH goes to its own webhook credential id', calls() === ['PATCH ' . BASE . '/api/v1/credentials/c-h1'] && $r['rotated'] === true && token_now() === ROTATED);
+managed([PATCHED], [PQM_N8n::SETUP_OPTION => ['credentials' => ['webhook' => 'c/../x y'] + $setup_map[PQM_N8n::SETUP_OPTION]['credentials']] + $setup_map[PQM_N8n::SETUP_OPTION]]);
+rotate();
+check('... an id with path characters: URL-encoded', calls() === ['PATCH ' . BASE . '/api/v1/credentials/c%2F..%2Fx%20y']);
+managed([PATCHED], null, HOOK . '/');
+check('... the saved URL with a trailing slash: the same path, rotated', rotate()['rotated'] === true);
+managed([PATCHED]);
+$GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION - 1]);
+$r = rotate();
+check('... an older workflow answers the ping: rotated, ping_ok and outdated true, its message after "Token rotated.", status_html present', $r['rotated'] === true
+    && $r['ping_ok'] === true && $r['outdated'] === true && str_starts_with($r['message'], 'Token rotated. Ping OK — this site reaches n8n, but your n8n workflow is an older version')
+    && isset($r['status_html']) && token_now() === ROTATED);
+managed([PATCHED]);
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE];
+rotate();
+check('... a stored mis-wiring sentence: kept (no diagnosis ran), still shown', pqm_workflow_report()['miswired'] === SHARED_SENTENCE);
+
+echo "Rotation: refused at the gate — zero calls, nothing written\n";
+foreach ([
+    'no key'                             => ['pqm_n8n_not_connected', 400],
+    'a key without a passing check'      => ['pqm_n8n_not_connected', 400],
+    'no map'                             => ['pqm_workflow_not_managed', 409],
+    'a map without a webhook credential' => ['pqm_workflow_not_managed', 409],
+    'no URL saved'                       => ['pqm_webhook_url_changed', 409],
+    'the URL on another path'            => ['pqm_webhook_url_changed', 409],
+] as $label => [$code, $status]) {
+    managed([PATCHED]);
+    $not_offered[$label]();
+    $r = rotate();
+    check("$label: $status $code, zero calls, nothing written, no ping, the token kept", refused($r, $code, $status) && calls() === [] && token_now() === TOKEN);
+}
+managed([]);
+$not_offered['no map']();
+check('... not managed: the sentence says to let the plugin set up or manage the workflow first', rotate()->message
+    === 'The plugin does not manage your n8n workflow yet. Let it set the workflow up, or manage the one you set up by hand, then try again.');
+managed([]);
+$not_offered['the URL on another path']();
+check('... the URL changed: the sentence says the URL no longer points at the managed workflow, the token stays', rotate()->message
+    === 'Your n8n Webhook URL no longer points at the workflow the plugin manages, so the token stays as it is. Save that workflow\'s production URL as the n8n Webhook URL, then try again.');
+
+echo "Rotation: n8n refuses the PATCH — the stored token unchanged, no ping\n";
+foreach ([
+    'a 400 quoting the request'  => [resp(400, ['message' => 'request/body/data must match ' . ROTATED]), 'n8n answered HTTP 400'],
+    'a 500'                      => [resp(500, ['message' => 'Internal error']), 'n8n answered HTTP 500'],
+    'the key refused (401)'      => [resp(401, ['message' => 'unauthorized']), 'n8n answered HTTP 401'],
+    'a proxy\'s non-JSON 404'    => [resp(404, '<html>Not Found</html>'), 'n8n answered HTTP 404'],
+    'a 2xx without JSON'         => [resp(200, '<html>Just a moment...</html>'), 'n8n did not confirm the change'],
+    'n8n unreachable (WP_Error)' => [timed_out(), 'n8n could not be reached: cURL error 28: timed out'],
+] as $label => [$answer, $says]) {
+    managed([$answer]);
+    $r = rotate();
+    check("$label: 502 pqm_rotation_failed, stopped('credential')'s sentence, n8n's body not repeated", refused($r, 'pqm_rotation_failed', 502)
+        && $r->message === sprintf(ROTATION_STOPPED, $says) && !str_contains($r->message, 'Internal error') && !str_contains($r->message, 'must match')
+        && calls() === [PATCH_WEBHOOK] && token_now() === TOKEN);
+}
+managed([NOT_FOUND]);
+$r = rotate();
+check('the credential is gone (a JSON 404): 502 pqm_rotation_failed, the sentence names it and the check in n8n', refused($r, 'pqm_rotation_failed', 502)
+    && $r->message === 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.'
+    && calls() === [PATCH_WEBHOOK] && token_now() === TOKEN);
+
+echo "Rotation: the ping fails after — the token kept on both sides\n";
+foreach ([
+    'the URL does not answer (404)' => [resp(404, ['message' => 'The requested webhook is not registered.']), ROTATED_PREFIX . ' n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'],
+    'the webhook unreachable'       => [timed_out(), ROTATED_PREFIX . ' Could not connect to n8n: cURL error 28: timed out'],
+    'a 401'                         => [resp(401, ''), OTHER_CREDENTIAL],
+    'a 403'                         => [resp(403, ''), OTHER_CREDENTIAL],
+] as $label => [$ping, $message]) {
+    managed([PATCHED]);
+    $GLOBALS['tw']['ping_response'] = $ping;
+    $r = rotate();
+    check("$label: rotated, ping_ok false, the message says so; no status_html, no version recorded", $r === ['rotated' => true, 'ping_ok' => false, 'outdated' => false, 'message' => $message]
+        && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']));
+    check('... the new token stored, pqm_settings the one write', token_now() === ROTATED && $GLOBALS['tw']['writes'] === ['pqm_settings'] && calls() === [PATCH_WEBHOOK]);
+}
+
+echo "Rotation: after\n";
+managed([PATCHED]);
+rotate();
+$GLOBALS['tw']['calls'] = [];
+$s = forget();
+check('forget key after: rotatable false (the button goes), the token stays as rotated, the map stays', $s['rotatable'] === false && token_now() === ROTATED
+    && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION] && calls() === []);
+$r = rotate();
+check('... a rotation then: 400 pqm_n8n_not_connected, zero calls', $r instanceof WP_Error && $r->code === 'pqm_n8n_not_connected' && calls() === []);
+
+echo "Rotation: leak scan and the one call\n";
+$rotation_calls = array_merge(...array_map(static fn($run) => $run[2], $rotation_runs));
+check('every n8n call of the rotations (' . count($rotation_calls) . ') is a PATCH on a map\'s webhook credential id', count($rotation_calls) >= 15
+    && !array_filter($rotation_calls, static fn($c) => $c[1]['method'] !== 'PATCH' || !preg_match('#/api/v1/credentials/(c-webhook|c-h1|c%2F\.\.%2Fx%20y)$#', $c[0])));
+check('... and no rotation made more than one', !array_filter($rotation_runs, static fn($run) => count($run[2]) > 1));
+check('the new token is in no reply and no error (' . count($rotation_runs) . ' rotations)', !array_filter($rotation_runs, static fn($run) => str_contains($run[0], ROTATED)));
+check('... in no stored option but pqm_settings[webhook_token]', !array_filter($rotation_runs, static function ($run) {
+    $options = $run[1];
+    unset($options['pqm_settings']['webhook_token']);
+    return str_contains(json_encode($options), ROTATED);
+}));
+check('... in no outgoing call\'s address or headers (only the PATCH body), and in the ping only as its X-PQM-Token header', !array_filter($rotation_runs, static fn($run) =>
+    array_filter($run[2], static fn($c) => str_contains(json_encode([$c[0], $c[1]['headers']]), ROTATED))
+    || array_filter($run[3], static fn($p) => str_contains(json_encode([$p[0], $p[1]['body'] ?? '', array_diff_key($p[1]['headers'], ['X-PQM-Token' => 0])]), ROTATED))));
+check('... and in no REST reply of this harness (' . count($replies) . ')', !array_filter($replies, static fn($r) => str_contains($r, ROTATED)));
+preg_match('/function rotate_token\(.*?\n    }\n.*?function rotation_blocked\(.*?\n    }\n/s', $src_n8n, $m);
+check('the rotation code calls n8n once, a PATCH through request(), and never reads /credentials', ($m[0] ?? '') !== ''
+    && !preg_match("/'(GET|POST|PUT|DELETE)'/", $m[0]) && substr_count($m[0], 'self::request(') === 1 && substr_count($m[0], "self::request( 'PATCH'") === 1);
+unset($GLOBALS['tw']['uuid']);
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";

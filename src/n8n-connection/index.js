@@ -18,6 +18,9 @@
  * and the owner's confirm (POST) stores the setup map; n8n is only read.
  * With a setup map (`setup`), the section says since when the plugin
  * manages the workflow.
+ * Entry 10: under that line, while `rotatable`, Rotate the webhook token
+ * (POST /n8n/token, no dialog) writes a new token to n8n and here, pings,
+ * and swaps the page's status block in; its outcome shows in that block.
  * Two blocks that never swap (plan-n8n-connection-states): the connection
  * block shows connected (a summary, Check again, Change, Forget key),
  * changing (the fields, Save and check, Cancel) or connecting (the fields,
@@ -29,11 +32,13 @@ import { Button, Notice, TextControl } from '@wordpress/components';
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
+import swapStatusBlock from '../kit/swap-status-block';
 import useReimportShown from '../kit/use-reimport-shown';
 import './style.css';
 
 const PATH = '/post-quality/v1/n8n/connection';
 const ADOPTION_PATH = '/post-quality/v1/n8n/adoption';
+const TOKEN_PATH = '/post-quality/v1/n8n/token';
 
 /**
  * A credential as the proposal shows it: n8n's name, else its id.
@@ -79,11 +84,11 @@ function errorMessage( err ) {
 
 /**
  * @param {Object}    props
- * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, setup, adoptable } )` after a call that read or stored the state.
+ * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, setup, adoptable, rotatable } )` after a call that read or stored the state.
  * @return {Element|null} The section.
  */
 export default function N8nConnection( { onChange } ) {
-	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe, setup, adoptable }
+	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe, setup, adoptable, rotatable }
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ url, setUrl ] = useState( '' );
 	const [ key, setKey ] = useState( '' );
@@ -92,19 +97,22 @@ export default function N8nConnection( { onChange } ) {
 	const [ failure, setFailure ] = useState( {} ); // { connection?, adoption? }
 	const [ changing, setChanging ] = useState( false ); // Change pressed on a connected site
 	const [ proposal, setProposal ] = useState( null ); // GET /n8n/adoption, while open
+	const [ rotated, setRotated ] = useState( null ); // POST /n8n/token's outcome: { status, message }
 	// Where keyboard focus goes after a state change: the pressed button unmounts.
-	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed'
+	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed' | 'rotate'
 	const formRef = useRef( null );
 	const changeRef = useRef( null );
 	const proposalRef = useRef( null );
 	const offerRef = useRef( null );
 	const managedRef = useRef( null );
+	const rotateRef = useRef( null );
 	// On the page, the update notice's Re-import the workflow is then the one
 	// primary action; inside the setup guide (onChange), the Modal is its own surface.
 	const reimportShown = useReimportShown();
 
 	// change: the address field. summary: the Change button. proposal: the
 	// proposal. closed: the offer button when it shows again, else the managed line.
+	// rotate: the rotate button, which busy disabled meanwhile.
 	useEffect( () => {
 		if ( ! focusTo ) {
 			return;
@@ -115,6 +123,7 @@ export default function N8nConnection( { onChange } ) {
 			summary: () => changeRef.current,
 			proposal: () => proposalRef.current,
 			closed: () => offerRef.current || managedRef.current,
+			rotate: () => rotateRef.current,
 		};
 		const target = targets[ focusTo ]();
 		if ( target ) {
@@ -199,6 +208,7 @@ export default function N8nConnection( { onChange } ) {
 	 */
 	const stored = ( data ) => {
 		setState( data );
+		setRotated( null ); // a rotation's outcome belongs to the state it was made in
 		if ( ! data.adoptable ) {
 			setProposal( null );
 		}
@@ -287,6 +297,27 @@ export default function N8nConnection( { onChange } ) {
 				setFocusTo( 'closed' );
 			}
 		);
+	// Entry 10: one action, no dialog (rotating again is the undo). A passing
+	// ping's reply refreshes the page's status block; a refusal changed nothing.
+	const rotate = () => {
+		setRotated( null );
+		call(
+			'adoption',
+			{ path: TOKEN_PATH, method: 'POST' },
+			( data ) => {
+				setRotated( {
+					// An older workflow answered: rotated, but never shown as a success.
+					status:
+						! data.ping_ok || data.outdated ? 'warning' : 'success',
+					message: data.message,
+				} );
+				swapStatusBlock( data.status_html );
+				setFocusTo( 'rotate' );
+			},
+			() => setFocusTo( 'rotate' )
+		);
+	};
+
 	const cancelProposal = () => {
 		setProposal( null );
 		clearFailure( 'adoption' );
@@ -462,9 +493,34 @@ export default function N8nConnection( { onChange } ) {
 	let adoption = null;
 	if ( managed ) {
 		adoption = (
-			<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
-				{ managed }
-			</p>
+			<>
+				<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
+					{ managed }
+				</p>
+				{ state.rotatable && (
+					<p>
+						<Button
+							variant="secondary"
+							type="button"
+							className="pqm-n8n-rotate"
+							ref={ rotateRef }
+							isBusy={ busy }
+							disabled={ busy }
+							onClick={ rotate }
+						>
+							{ __(
+								'Rotate the webhook token',
+								'post-quality-manager'
+							) }
+						</Button>
+					</p>
+				) }
+				{ rotated && (
+					<Notice status={ rotated.status } isDismissible={ false }>
+						{ rotated.message }
+					</Notice>
+				) }
+			</>
 		);
 	} else if ( proposal ) {
 		adoption = (

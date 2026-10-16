@@ -17,8 +17,9 @@
  * the whole workflow up through request() and removes again what a failed
  * run created (entry 5); diagnose() (entry 7) reads the workflow behind the
  * saved webhook URL, GET only; propose_adoption() and adopt() (entry 8)
- * take over a hand-made workflow by storing its setup map, GET only; later
- * entries call request().
+ * take over a hand-made workflow by storing its setup map, GET only;
+ * rotate_token() (entry 10) PATCHes the map's webhook credential with a new
+ * token, its one call; later entries call request().
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -86,9 +87,11 @@ class PQM_N8n {
      * empty when no key is stored or it is shorter than KEY_HINT_MIN_LENGTH.
      * `setup` is what the setup map says of itself ({wizard_created, at}),
      * null without one; `adoptable` whether the plugin may take over the
-     * site's workflow (entry 8: a passing key, a saved webhook URL, no map).
+     * site's workflow (entry 8: a passing key, a saved webhook URL, no map);
+     * `rotatable` whether it may rotate the webhook token (entry 10: a
+     * passing key, a map, the saved URL on the map's path).
      *
-     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, setup: ?array, adoptable: bool}
+     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, setup: ?array, adoptable: bool, rotatable: bool}
      */
     public static function public_state(): array {
         $connection = self::connection();
@@ -102,6 +105,7 @@ class PQM_N8n {
             'probe'     => $connection['probe'],
             'setup'     => is_array( $setup ) ? [ 'wizard_created' => ! empty( $setup['wizard_created'] ), 'at' => (int) ( $setup['at'] ?? 0 ) ] : null,
             'adoptable' => null === self::adoption_blocked(),
+            'rotatable' => null === self::rotation_blocked(),
         ];
     }
 
@@ -980,14 +984,17 @@ class PQM_N8n {
             'workflow'             => __( 'creating the workflow', 'post-quality-manager' ),
             'activate'             => __( 'activating the workflow', 'post-quality-manager' ),
             'read'                 => __( 'reading your workflows', 'post-quality-manager' ), // entry 8
+            'credential'           => __( 'updating the webhook credential', 'post-quality-manager' ), // entry 10
         ];
         if ( is_wp_error( $response ) ) {
             /* translators: %s: connection error message */
             $answer = sprintf( __( 'n8n could not be reached: %s', 'post-quality-manager' ), $response->get_error_message() );
         } elseif ( $response['code'] >= 200 && $response['code'] < 300 ) {
-            $answer = 'read' === $step
-                ? __( 'n8n did not answer with your workflows', 'post-quality-manager' )
-                : __( 'n8n did not return what it created', 'post-quality-manager' );
+            $answer = match ( $step ) {
+                'read'       => __( 'n8n did not answer with your workflows', 'post-quality-manager' ),
+                'credential' => __( 'n8n did not confirm the change', 'post-quality-manager' ),
+                default      => __( 'n8n did not return what it created', 'post-quality-manager' ),
+            };
         } else {
             /* translators: %d: HTTP status code */
             $answer = sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );
@@ -999,5 +1006,60 @@ class PQM_N8n {
             $labels[ $step ] ?? $step,
             $answer
         );
+    }
+
+    /* ─── Webhook token rotation (entry 10) ──────────────────────────── */
+
+    /**
+     * Write a new webhook token into the setup map's webhook credential in
+     * n8n: one PATCH, nothing else there is read or changed. The token is
+     * wp_generate_uuid4(), as activation makes it. Answered after a passing
+     * PATCH and never stored here: the caller saves it (PATCH first, save
+     * second, so a refused PATCH leaves both sides as they were). It is in
+     * no error, and n8n's reply body is never repeated.
+     *
+     * @return string|WP_Error The new token; why nothing changed otherwise.
+     */
+    public static function rotate_token(): string|WP_Error {
+        $blocked = self::rotation_blocked();
+        if ( null !== $blocked ) {
+            return $blocked;
+        }
+        $token    = wp_generate_uuid4();
+        $id       = (string) get_option( self::SETUP_OPTION )['credentials']['webhook'];
+        $response = self::request( 'PATCH', '/credentials/' . rawurlencode( $id ), [ 'data' => [ 'name' => 'X-PQM-Token', 'value' => $token ] ] );
+        if ( self::answered( $response ) ) {
+            return $token;
+        }
+        // A JSON 404 is n8n's own answer for an id it does not know (as removed() reads it); a non-JSON one comes from a proxy.
+        $sentence = ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json']
+            ? __( 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.', 'post-quality-manager' )
+            : self::stopped( 'credential', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' );
+
+        return new WP_Error( 'pqm_rotation_failed', $sentence, [ 'status' => 502 ] );
+    }
+
+    /**
+     * Why the plugin may not rotate the webhook token, null when it may: no
+     * key with a passing check, no setup map naming a webhook credential, or
+     * a saved webhook URL off the map's path (entry 8, D3: the site must
+     * call the workflow whose credential the PATCH changes). Calls nothing.
+     */
+    private static function rotation_blocked(): ?WP_Error {
+        $connection = self::connection();
+        if ( '' === $connection['api_key'] || empty( $connection['probe']['ok'] ) ) {
+            return self::not_connected();
+        }
+        $setup   = get_option( self::SETUP_OPTION, false );
+        $webhook = is_array( $setup ) ? ( $setup['credentials']['webhook'] ?? null ) : null;
+        if ( ! is_scalar( $webhook ) || '' === (string) $webhook ) {
+            return new WP_Error( 'pqm_workflow_not_managed', __( 'The plugin does not manage your n8n workflow yet. Let it set the workflow up, or manage the one you set up by hand, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
+        }
+        $path = self::webhook_segment( (string) pqm_get_settings()['n8n_webhook_url'] );
+        if ( '' === $path || (string) ( $setup['path'] ?? '' ) !== $path ) {
+            return new WP_Error( 'pqm_webhook_url_changed', __( 'Your n8n Webhook URL no longer points at the workflow the plugin manages, so the token stays as it is. Save that workflow\'s production URL as the n8n Webhook URL, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
+        }
+
+        return null;
     }
 }

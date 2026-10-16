@@ -16,6 +16,7 @@
  *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
  *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
  *  POST /post-quality/v1/n8n/provision    — set the workflow up on that instance, then ping it (n8n provisioning, entry 4)
+ *  POST /post-quality/v1/n8n/token        — rotate the webhook token in n8n and here, then ping (n8n provisioning, entry 10)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -191,6 +192,13 @@ class PQM_REST_API {
                     'workflow_id' => [ 'required' => true, 'type' => 'string' ],
                 ],
             ],
+        ] );
+
+        // n8n provisioning, entry 10: rotate the webhook token — n8n's credential first, then the setting, then a ping.
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/token', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'rotate_n8n_token_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
         ] );
     }
 
@@ -1456,6 +1464,47 @@ class PQM_REST_API {
         $reply = PQM_N8n::public_state();
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
+        }
+
+        return new WP_REST_Response( $reply, 200 );
+    }
+
+    /* ─── Webhook token rotation (n8n provisioning, entry 10) ────────── */
+
+    /**
+     * Rotate the webhook token: PQM_N8n::rotate_token() writes a new one
+     * into the setup map's webhook credential in n8n, then the one-key save
+     * here, then a ping of the saved URL with it, which proves the pair (no
+     * diagnosis read: the PATCH stays the one n8n API call). A refused
+     * rotation answers its error, nothing written. The return path needs
+     * nothing: the workflow sends back the token of the payload it got.
+     * Answers `{ rotated, ping_ok, outdated, message }`, plus the page's refreshed
+     * `status_html` when the ping passed (the version recorded, as
+     * provisioning does). The token is in no reply.
+     */
+    public static function rotate_n8n_token_callback(): WP_REST_Response|WP_Error {
+        $token = PQM_N8n::rotate_token();
+        if ( is_wp_error( $token ) ) {
+            return $token;
+        }
+        PQM_Admin::save_webhook_token( $token );
+
+        $ping = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'], false );
+        if ( $ping['ok'] ) {
+            /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
+            $message = sprintf( __( 'Token rotated. %s', 'post-quality-manager' ), $ping['message'] );
+        } elseif ( ! empty( $ping['refused'] ) ) {
+            // n8n holds the new token in the map's credential: a refusal means the trigger carries another one.
+            $message = __( 'The token was rotated in n8n and saved here. n8n still refused the test ping: your Webhook Trigger uses another credential than the one the plugin manages. In n8n, pick that credential on the Webhook Trigger, publish the workflow, then send a test ping.', 'post-quality-manager' );
+        } else {
+            /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+            $message = sprintf( __( 'The token was rotated in n8n and saved here. %s', 'post-quality-manager' ), $ping['message'] );
+        }
+
+        $reply = [ 'rotated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
+        if ( $ping['ok'] ) {
+            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
+            $reply['status_html'] = PQM_Admin::render_workflow_status();
         }
 
         return new WP_REST_Response( $reply, 200 );

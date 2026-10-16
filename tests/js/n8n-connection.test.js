@@ -2,8 +2,9 @@
  * n8n Instance section (n8n provisioning, entry 1; src/n8n-connection/) run
  * in jsdom, one test per row of plan-n8n-connection-states' matrix: the
  * connection block (connected summary, changing, connecting) and the
- * adoption block under it (offer, proposal, managed line), each in place,
- * with the call made and where keyboard focus lands. The key field is
+ * adoption block under it (offer, proposal, managed line, and under that
+ * line the webhook token rotation, entry 10), each in place, with the call
+ * made and where keyboard focus lands. The key field is
  * write-only: never prefilled, emptied after a save; the stored key's last
  * 4 characters (`key_hint`) show only in the status line and as the field's
  * masked placeholder. The api-fetch and components packages are
@@ -69,6 +70,7 @@ const CONNECTED = {
 	},
 	setup: null,
 	adoptable: false,
+	rotatable: false,
 };
 const NOT_SET = {
 	// eslint-disable-next-line camelcase -- REST field name.
@@ -881,5 +883,177 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		expect( summaryLine() ).toBe( 'API key: not set' );
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( document.activeElement ).toBe( field( 'n8n address' ) );
+	} );
+} );
+
+describe( 'Webhook token rotation (n8n provisioning, entry 10): the managed block', () => {
+	const TOKEN_PATH = '/post-quality/v1/n8n/token';
+	const MANAGED = {
+		...CONNECTED,
+		// eslint-disable-next-line camelcase -- REST field name.
+		setup: { wizard_created: false, at: 1760000000 },
+		rotatable: true,
+	};
+	const OLD_BLOCK =
+		'<div class="pqm-workflow-status"><p>Not checked yet.</p></div>';
+	const NEW_BLOCK =
+		'<div class="pqm-workflow-status"><p>Your workflow answers.</p></div>';
+	const ROTATED = {
+		rotated: true,
+		// eslint-disable-next-line camelcase -- REST field name.
+		ping_ok: true,
+		outdated: false,
+		message:
+			'Token rotated. Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.',
+		// eslint-disable-next-line camelcase -- REST field name.
+		status_html: NEW_BLOCK,
+	};
+	const rotateButton = () => $( '.pqm-n8n-rotate' );
+	const statusBlock = () => $( '.pqm-workflow-status' ).textContent;
+
+	/**
+	 * Mount the section under the page's status block.
+	 *
+	 * @param {Object} state GET reply.
+	 */
+	async function mountOnPage( state ) {
+		document.body.innerHTML = `${ OLD_BLOCK }<div id="pqm-n8n-connection-root"></div>`;
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValueOnce( state );
+		root = createRoot(
+			document.getElementById( 'pqm-n8n-connection-root' )
+		);
+		await act( async () => {
+			root.render( <N8nConnection /> );
+		} );
+	}
+
+	test( 'the button only while rotatable: under the managed line, secondary, no call on mount', async () => {
+		await mount( { ...MANAGED, rotatable: false } );
+		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+		expect( rotateButton() ).toBeNull();
+
+		await mount( MANAGED );
+		expect( rotateButton().textContent ).toBe( 'Rotate the webhook token' );
+		expect( rotateButton().dataset.variant ).toBe( 'secondary' );
+		expect( primaries() ).toHaveLength( 0 );
+		expect(
+			$( '.pqm-n8n-adoption .pqm-n8n-managed' ).nextElementSibling
+		).toBe( rotateButton().parentElement );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'not managed: no button, whatever rotatable says', async () => {
+		await mount( { ...CONNECTED, rotatable: true } );
+		expect( rotateButton() ).toBeNull();
+	} );
+
+	test( 'Rotate: one POST, no dialog; the success Notice in the managed block, the status block swapped, focus stays on the button', async () => {
+		await mountOnPage( MANAGED );
+		const swapped = jest.fn();
+		document.addEventListener( 'pqm:workflow-status', swapped );
+		apiFetch.mockResolvedValueOnce( ROTATED );
+		await click( '.pqm-n8n-rotate' );
+		document.removeEventListener( 'pqm:workflow-status', swapped );
+
+		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
+		expect( apiFetch ).toHaveBeenLastCalledWith( {
+			path: TOKEN_PATH,
+			method: 'POST',
+		} );
+		expect(
+			$( '.pqm-n8n-adoption .mock-notice-success' ).textContent
+		).toBe( ROTATED.message );
+		expect( statusBlock() ).toBe( 'Your workflow answers.' );
+		expect( swapped ).toHaveBeenCalledTimes( 1 );
+		expect( rotateButton() ).not.toBeNull();
+		expect( document.activeElement ).toBe( rotateButton() );
+		// The connection block is not touched.
+		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
+	} );
+
+	test( 'the ping fails after: the message in a warning Notice, the status block kept', async () => {
+		await mountOnPage( MANAGED );
+		const message =
+			'The token was rotated in n8n and saved here. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
+		apiFetch.mockResolvedValueOnce( {
+			rotated: true,
+			// eslint-disable-next-line camelcase -- REST field name.
+			ping_ok: false,
+			outdated: false,
+			message,
+		} );
+		await click( '.pqm-n8n-rotate' );
+		expect(
+			$( '.pqm-n8n-adoption .mock-notice-warning' ).textContent
+		).toBe( message );
+		expect( $( '.mock-notice-error' ) ).toBeNull();
+		expect( statusBlock() ).toBe( 'Not checked yet.' );
+	} );
+
+	test( 'an older workflow answers the ping (outdated): a warning Notice, the status block swapped', async () => {
+		await mountOnPage( MANAGED );
+		const message =
+			'Token rotated. Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page.';
+		apiFetch.mockResolvedValueOnce( {
+			...ROTATED,
+			outdated: true,
+			message,
+		} );
+		await click( '.pqm-n8n-rotate' );
+		expect(
+			$( '.pqm-n8n-adoption .mock-notice-warning' ).textContent
+		).toBe( message );
+		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).toBeNull();
+		expect( statusBlock() ).toBe( 'Your workflow answers.' );
+	} );
+
+	test( 'Forget key after a rotation: the button and its Notice are gone', async () => {
+		await mountOnPage( MANAGED );
+		apiFetch.mockResolvedValueOnce( ROTATED );
+		await click( '.pqm-n8n-rotate' );
+		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).not.toBeNull();
+		apiFetch.mockResolvedValueOnce( {
+			...MANAGED,
+			// eslint-disable-next-line camelcase -- REST field names.
+			key_set: false,
+			// eslint-disable-next-line camelcase -- REST field name.
+			key_hint: '',
+			probe: null,
+			rotatable: false,
+		} );
+		await click( '.pqm-n8n-forget' );
+		expect( rotateButton() ).toBeNull();
+		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+		expect( text() ).not.toContain( 'Token rotated.' );
+	} );
+
+	test( "a refusal: its message in the managed block's error Notice, the earlier outcome gone, nothing swapped, focus on the button", async () => {
+		await mountOnPage( MANAGED );
+		apiFetch.mockResolvedValueOnce( {
+			...ROTATED,
+			// eslint-disable-next-line camelcase -- REST field name.
+			status_html: undefined,
+		} );
+		await click( '.pqm-n8n-rotate' );
+		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).not.toBeNull();
+
+		const message =
+			"n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger's credential in n8n, then try again.";
+		apiFetch.mockRejectedValueOnce( {
+			code: 'pqm_rotation_failed',
+			message,
+		} );
+		await click( '.pqm-n8n-rotate' );
+		expect( $( '.pqm-n8n-adoption .mock-notice-error' ).textContent ).toBe(
+			message
+		);
+		expect( $( '.mock-notice-success' ).textContent ).toContain(
+			'Connected to n8n.'
+		); // the connection block's, not the rotation's
+		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).toBeNull();
+		expect( statusBlock() ).toBe( 'Not checked yet.' );
+		expect( rotateButton() ).not.toBeNull();
+		expect( document.activeElement ).toBe( rotateButton() );
 	} );
 } );

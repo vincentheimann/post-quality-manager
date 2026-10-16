@@ -9,7 +9,8 @@
  * read at first render (the PHP block is in the page before the islands
  * mount, so there is no flash) and again on each `pqm:workflow-status`
  * event, which every swap of the block dispatches (pqm-admin.js'
- * swapWorkflowStatus(), the setup dialog's swapStatusBlock()).
+ * swapWorkflowStatus(), src/kit/swap-status-block.js, used by the setup
+ * dialog and the n8n Instance section's token rotation).
  */
 import { useEffect, useState } from '@wordpress/element';
 

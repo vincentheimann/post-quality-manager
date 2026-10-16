@@ -191,7 +191,7 @@ function plugin_dir_url($f) { return '/wp-content/plugins/post-quality-manager/'
 function plugin_basename($f) { return basename($f); }
 function load_plugin_textdomain(...$a) {}
 function is_admin() { return true; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
+function wp_generate_uuid4() { return $GLOBALS['tw']['uuid'] ?? 'stub-uuid'; } // entry 10 rotates to a distinct token
 function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d; }
 function update_option($k, $v, $a = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
 function add_option($k, $v, $deprecated = '', $a = null) { if (array_key_exists($k, $GLOBALS['tw']['options'])) { return false; } $GLOBALS['tw']['options'][$k] = $v; return true; }
@@ -454,6 +454,26 @@ check('... confirmed: the map without wordpress, wizard_created false; the reply
     && !array_key_exists('rewrite_ready', $adopted) && $adopted['setup'] === ['wizard_created' => false, 'at' => $map['at'] ?? null]
     && array_diff_key($map, ['at' => 0]) === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute-example-com', 'wizard_created' => false]
     && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === array_fill(0, 2, 'GET https://n8n.example/api/v1/workflows?active=true&limit=250&excludePinnedData=true'));
+$GLOBALS['tw']['options'] = $before_adoption;
+
+/* ─── Row: token rotation on the Free build (entry 10) ───────────────── */
+echo "Row — Free build: the webhook token rotates the same way (provisioning is free)\n";
+$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+$GLOBALS['tw']['uuid']  = 'free-rotated-token';
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [$ok(['id' => 'c-webhook', 'type' => 'httpHeaderAuth'])];
+$offered = PQM_N8n::public_state()['rotatable'];
+$rotated = PQM_REST_API::rotate_n8n_token_callback();
+$rotated = $rotated instanceof WP_REST_Response ? $rotated->get_data() : null;
+check('the provisioned Free site: offered; one PATCH of its webhook credential with the new token; saved; pinged, the status block back; the token in no reply',
+    $offered === true && $rotated !== null
+    && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === ['PATCH https://n8n.example/api/v1/credentials/c-webhook']
+    && json_decode($GLOBALS['tw']['calls'][0][1]['body'] ?? 'null', true) === ['data' => ['name' => 'X-PQM-Token', 'value' => 'free-rotated-token']]
+    && $GLOBALS['tw']['options']['pqm_settings']['webhook_token'] === 'free-rotated-token'
+    && $rotated['rotated'] === true && $rotated['ping_ok'] === true && isset($rotated['status_html']) && !str_contains(json_encode($rotated), 'free-rotated-token'));
+check('... the token route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/token']['methods'] ?? null) === 'POST'
+    && ($GLOBALS['pqm_routes']['/n8n/token']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+unset($GLOBALS['tw']['uuid']);
 $GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */

@@ -1810,6 +1810,18 @@ class PQM_Admin
     }
 
     /**
+     * Merge-save only the webhook token, as save_webhook_url() saves the
+     * URL: one write of pqm_settings, every other key as stored. Used by the
+     * token rotation (n8n provisioning, entry 10) once n8n holds the token.
+     */
+    public static function save_webhook_token(string $token): void
+    {
+        $settings = get_option('pqm_settings', []);
+        $settings['webhook_token'] = $token;
+        update_option('pqm_settings', $settings);
+    }
+
+    /**
      * Send a lightweight "ping" command to the n8n webhook. A v5+ Webhook
      * Trigger answers `{"ok":true,"workflow_version":N}`; with an up-to-date
      * import a 2xx then proves that this site reaches n8n and that the
@@ -1818,16 +1830,20 @@ class PQM_Admin
      * Shared by the AJAX handler and the setup dialog's connect route
      * (story 36); the callers decide whether to record the version.
      *
-     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string}
+     * @param bool $diagnose False: no diagnosis read on n8n, `miswired` null
+     *                       (the token rotation's ping, n8n provisioning
+     *                       entry 10: its PATCH is the one n8n API call).
+     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool}
      *         `version` is the replied workflow version (0 = an older
      *         workflow that does not report it), null when the ping failed.
      *         `outdated`: a 2xx from a workflow older than the bundled
      *         template — connected, but shown as a warning (D2); on the Pro
      *         build also the Free template. `variant` ('free' or 'pro', a
      *         reply without one is the Pro template) and `miswired`
-     *         (diagnosed()) come with every 2xx.
+     *         (diagnosed()) come with every 2xx; `refused` (true) with a
+     *         401/403, n8n refusing the token.
      */
-    public static function ping_webhook(string $url): array
+    public static function ping_webhook(string $url, bool $diagnose = true): array
     {
         // A test URL would answer while the n8n editor listens and then miss
         // every real run — refuse before sending.
@@ -1862,12 +1878,12 @@ class PQM_Admin
             if ($version >= PQM_WORKFLOW_VERSION) {
                 if ( pqm_fs()->is__premium_only() ) {
                     if ($variant === 'free') {
-                        return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
+                        return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
                     }
                 }
-                return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant]);
+                return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant]);
             }
-            return self::diagnosed($url, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
+            return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
         }
 
         if ($code === 401 || $code === 403) {
@@ -1875,7 +1891,7 @@ class PQM_Admin
                 /* translators: %d: HTTP status code (401 or 403) */
                 __('n8n refused the webhook credential (HTTP %d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be X-PQM-Token and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
                 $code
-            ), 'version' => null, 'outdated' => false];
+            ), 'version' => null, 'outdated' => false, 'refused' => true];
         }
 
         if ($code === 404) {
@@ -1894,10 +1910,11 @@ class PQM_Admin
      * saved webhook URL, PQM_N8n::diagnose()'s answer — a sentence, '' or
      * null when the check could not run; null for any other URL (with a
      * setup map, the read would describe the provisioned workflow, not the
-     * URL pinged). A sentence becomes the message and the reply a warning
-     * (D2); anything else leaves the ping's own reply as it is.
+     * URL pinged), or for null (no diagnosis asked, entry 10). A sentence
+     * becomes the message and the reply a warning (D2); anything else
+     * leaves the ping's own reply as it is.
      */
-    private static function diagnosed(string $url, array $ping): array
+    private static function diagnosed(?string $url, array $ping): array
     {
         $ping['miswired'] = $url === pqm_get_settings()['n8n_webhook_url'] ? PQM_N8n::diagnose($url) : null;
         if ($ping['miswired'] !== null && $ping['miswired'] !== '') {

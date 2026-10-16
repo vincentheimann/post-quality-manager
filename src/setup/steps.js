@@ -18,7 +18,7 @@ import { Button, Notice, TextControl } from '@wordpress/components';
 import { createInterpolateElement, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
-import { WORKFLOW_STATUS_EVENT } from '../kit/use-reimport-shown';
+import swapStatusBlock from '../kit/swap-status-block';
 import N8nConnection from '../n8n-connection';
 import { CONFIG_STEPS } from './config-steps';
 
@@ -36,22 +36,6 @@ export const WORKFLOW_FILE_ID = 'pqm-workflow-file';
  */
 export function keyPasses( state ) {
 	return !! ( state.n8n && state.n8n.key_set && state.n8n.probe );
-}
-
-/**
- * Swap the page's status block, which sits outside the island, for the
- * one a ping refreshed, then tell the islands (useReimportShown()).
- *
- * @param {string=} html The reply's `status_html`.
- */
-function swapStatusBlock( html ) {
-	const block = document.querySelector( '.pqm-workflow-status' );
-	if ( block && html ) {
-		block.outerHTML = html;
-		document.dispatchEvent(
-			new window.CustomEvent( WORKFLOW_STATUS_EVENT )
-		);
-	}
 }
 
 /**

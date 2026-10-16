@@ -205,7 +205,7 @@ check('seven steps (the key path\'s n8n and provision, the manual path\'s manual
     array_keys($s['steps']) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule']
     && !in_array(true, $s['steps'], true));
 check('entry 6 fields: the n8n connection (no key), not manual, nothing provisioned, no leftovers',
-    $s['n8n'] === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false] && $s['manual'] === false && $s['manual_reason'] === null
+    $s['n8n'] === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $s['manual'] === false && $s['manual_reason'] === null
     && $s['provisioned'] === false && $s['leftovers'] === false);
 check('not complete, not connected, no result', $s['complete'] === false && $s['connected'] === false && $s['first_result'] === false);
 check('per-site webhook path for the URL field placeholder', $s['webhook_path'] === 'pqm-execute-example-com');
@@ -305,7 +305,7 @@ site($fresh + $key);
 $s = setup_state();
 check('key stored with a passing check: Connect your n8n done, Set up the workflow open, the key path',
     $n8n_steps($s) === ['n8n' => true, 'provision' => false, 'manual' => false] && $s['manual'] === false
-    && $s['n8n'] === ['base_url' => 'https://n8n.example.com', 'key_set' => true, 'key_hint' => 'ab12', 'probe' => $passing, 'setup' => null, 'adoptable' => false]);
+    && $s['n8n'] === ['base_url' => 'https://n8n.example.com', 'key_set' => true, 'key_hint' => 'ab12', 'probe' => $passing, 'setup' => null, 'adoptable' => false, 'rotatable' => false]);
 check('... the n8n API key is in no field of the reply, only its last 4 characters', !str_contains(json_encode($s), 'n8n-secret-key'));
 site($fresh + $key + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
 check('key path wins: a passing key with the choice stored reads not manual', setup_state()['manual'] === false && setup_state()['manual_reason'] === null);
