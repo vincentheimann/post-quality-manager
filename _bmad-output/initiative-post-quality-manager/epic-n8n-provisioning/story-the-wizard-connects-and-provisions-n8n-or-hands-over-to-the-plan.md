@@ -143,3 +143,4 @@ Pass 1 (2026-10-14, lens `quick`): 0 high, 5 medium, 9 low, 0 false, 0 maybe-fal
 
 **Manual checks:**
 - The owner's walk of the wizard on the environment they name, with a dedicated expiring n8n key: fresh key path to the first review, and by hand by choice. This doubles as entry 5's real-instance forced failure if the owner wants one (a wrong Anthropic key leaves nothing; a refused step is shown).
+- **Owner's walk, 2026-10-16:** the key path walked in the browser on the owner's Local sandbox (Connect your n8n, Set up the workflow, the first review started; its landing not provable there) — the entry 6.12 walk of 2026-10-16 on the owner's Local sandbox against their n8n instance, recorded in `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification. The manual path by choice was walked 2026-10-14 (entry 2).

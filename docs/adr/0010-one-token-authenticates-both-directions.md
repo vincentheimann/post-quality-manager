@@ -1,6 +1,6 @@
 # 0010. One webhook token authenticates both directions of the n8n link
 
-- Status: accepted
+- Status: accepted; the rotate action this ADR deferred is delivered by [0015](0015-plugin-provisions-n8n-via-public-api.md), the rest stands
 - Date: 2026-10-07
 
 ## Context

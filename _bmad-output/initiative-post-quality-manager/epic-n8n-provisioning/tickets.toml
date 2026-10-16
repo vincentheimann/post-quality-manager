@@ -64,7 +64,7 @@ covers = ["CAP-3"]
 after = [4]
 hitl = false
 risk = "high"
-unknown = "None known; the 409 and silent-delete behaviours are confirmed by the spike."
+unknown = "Settled 2026-10-16 (entry 12 walk, the owner's Local sandbox against their n8n instance): a workflow whose activation n8n refused (409, path held by another active workflow) was never published, so deactivate and DELETE passed at once and nothing was left; the 'still being unpublished' 409 that n8n 2.42.3's source shows for up to one outbox poll after an unpublish was not hit on this shape and stays covered by the leftovers record."
 
 [[entry]]
 id = 6

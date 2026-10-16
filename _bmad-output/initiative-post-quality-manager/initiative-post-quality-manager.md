@@ -25,7 +25,7 @@ Unrealized Value, ranked (`docs/user-paths.md`, "EBM summary"):
 - UV1: Insight → action loop — edit tracking, deep-links, proof that reviews cause edits (B3–B4)
 - UV2: Perceived no-re-import — validate the pivot, say it in the UI (B5); shipped 2026-07-24, pending validation
 - UV3: Pull-back mechanism — digest / notifications (A6, B1)
-- UV4: Guided activation — welcome → checklist → first review (A3–A5); wizard shipped 2026-07-24, pending validation
+- UV4: Guided activation — welcome → checklist → first review (A3–A5); wizard shipped 2026-07-24; the n8n-provisioning epic made it three typed values and no n8n UI visit, owner-validated 2026-10-16 on a Local sandbox up to the first review's landing (still pending on a fresh reachable site)
 - UV5: Round-trip connection test — n8n → WP callback with the token verified (A4)
 - UV6: Cron for seo/audit commands (B1)
 - UV7: Distribution — WordPress.org, updater (A1–A2); deliberately post-MVP

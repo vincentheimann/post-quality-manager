@@ -108,3 +108,4 @@ Pass 1 (2026-10-14, lens `quick`): 0 high, 2 medium, 1 low, 0 false, 0 maybe-fal
 - `php -l` on every touched PHP file -- expected: no syntax errors
 - `for h in tests/harness/*-harness.php; do php "$h" || echo "FAIL $h"; done` -- expected: no FAIL
 - `npm run test:unit` -- expected: green (no JS touched)
+- **Forced failure on a real instance, 2026-10-16:** a second run with the map deleted hit `activate` 409 (path held), rollback left nothing in n8n, the Application Password revoked, no leftovers — the entry 6.12 walk of 2026-10-16 on the owner's Local sandbox against their n8n instance, recorded in `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification.

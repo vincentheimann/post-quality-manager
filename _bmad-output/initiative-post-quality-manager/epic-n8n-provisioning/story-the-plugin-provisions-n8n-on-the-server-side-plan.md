@@ -115,3 +115,4 @@ Pass 1 (2026-10-14, lens `quick`): 0 high, 4 medium, 1 low, 1 false, 0 maybe-fal
 - `php -l` on each touched PHP file -- expected: no syntax errors
 - `for h in tests/harness/*-harness.php; do php "$h" || echo "FAIL $h"; done` -- expected: no FAIL
 - `npm run test:unit` -- expected: green (no JS touched)
+- **Real-site check, 2026-10-16:** provisioning ran on the owner's Local sandbox against their n8n instance (three credentials, the workflow linked by id, map, Application Password, ping version 6) — the entry 6.12 walk of 2026-10-16 on the owner's Local sandbox against their n8n instance, recorded in `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification.

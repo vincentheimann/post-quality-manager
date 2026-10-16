@@ -1,6 +1,6 @@
 # 0009. Agents run on several model providers through two request shapes, under one site-wide token limit
 
-- Status: accepted
+- Status: accepted; the provider-key policy wording ("the plugin never sees the key") amended by [0015](0015-plugin-provisions-n8n-via-public-api.md) — forwarded once during setup, never stored — the rest stands
 - Date: 2026-10-06
 
 ## Context

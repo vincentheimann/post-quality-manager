@@ -128,3 +128,4 @@ Skipped: a dry-run or a diff of what changes — the template is the plugin's. S
 
 **Manual checks (if no CLI):**
 - HITL deferred to the next template version bump (entry 12 or the first bump after): on the owner's site with its adopted map, the notice offers **Update workflow**; press it; the status block reports the new version; in n8n the workflow is published, same URL, credentials on every node; a Review goes through. Until then, harness-only, as entry 4 was. Record here.
+- **First real PUT, 2026-10-16:** with the stored version set to 5 by hand on the owner's Local sandbox, Update workflow rewrote the workflow in place (ids and path kept, a mis-wired node repaired, version 6 recorded, the workflow active) — the entry 6.12 walk of 2026-10-16 on the owner's Local sandbox against their n8n instance, recorded in `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification. The next template bump walks it unforced.
