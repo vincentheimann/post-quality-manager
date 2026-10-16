@@ -3,7 +3,7 @@ title: 'An Administrator rotates the webhook token from the plugin'
 type: 'feature'
 ticket: '10'
 created: '2026-10-16'
-status: 'built'
+status: done
 baseline_revision: '8ebe115eed6a3be28df78777dae1eb5dab13f330'
 route: 'full'
 route_source: 'pinned'
@@ -129,3 +129,4 @@ Skipped: refreshing the Workflow File copy row and the Settings field after a ro
 
 **Manual checks (if no CLI):**
 - HITL on the owner's production site (named by the owner; the adopted map from the 6.8 walk, a key stored): the managed block shows the button; press it; the status block re-renders with the version; `wp option get pqm_settings` shows the new `webhook_token`; in n8n the webhook credential's updated time changed and the workflow's did not; a Review on a post goes through. Record the walk here.
+- **HITL walk, 2026-10-16, on the owner's production site (named by the owner), run by the agent at the owner's request, on a zip of main 75f367d the owner installed (Replace current with uploaded); the adopted map and the stored key from the 6.8 walk; REST calls with the project Application Password, reads with wp-cli over SSH, the n8n API read on the server with the stored key (never shown):** ping with the old token: 200 · `POST /n8n/token`: `{rotated: true, ping_ok: true, outdated: false}`, message "Token rotated. Ping OK — …", `status_html` "version 6, checked just now by a test ping" · `pqm_settings['webhook_token']` changed (36 characters, a new UUID) · old token: 403, new token: 200 on the webhook (CAP-6's success criterion) · in n8n the webhook credential's `updatedAt` is the rotation second (2026-10-16T11:32:26Z) and the workflow's `updatedAt` is unchanged (2026-10-15T13:05:14Z, `versionId` unchanged, still active); the Anthropic and WordPress credentials untouched · the setup map untouched · a Review on a post over `POST /trigger-review`: n8n answered 200 and two result rows landed through the return path within 15 seconds, the version record now `via: command`. Not walked by a human: the button in the n8n Instance section's managed block and its Notice (the route was pressed over REST); jsdom covers them. **Pass.**
