@@ -1,0 +1,14 @@
+{
+  "primary": "#1b2a41",
+  "primaryDark": "#141f30",
+  "primaryBorder": "#0e1624",
+  "accent": "#00802a",
+  "accentDark": "#005e1e",
+  "text": "#111827",
+  "muted": "#6b7280",
+  "bg": "#f6f7f7",
+  "line": "#475569",
+  "assetsDir": "assets/portfolio",
+  "pageSize": "A4",
+  "pdfFile": "Portfolio - Post Quality"
+}
