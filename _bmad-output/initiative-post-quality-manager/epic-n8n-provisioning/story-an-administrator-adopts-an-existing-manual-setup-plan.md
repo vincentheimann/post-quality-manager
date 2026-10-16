@@ -3,7 +3,7 @@ title: 'An Administrator adopts an existing manual setup'
 type: 'feature'
 ticket: '8'
 created: '2026-10-15'
-status: 'built'
+status: done
 baseline_revision: '2db32f40c6ca497d0be13a48163cd7427514c650'
 route: 'full'
 route_source: 'auto'
@@ -134,3 +134,4 @@ Skipped: un-adopt (dropping the map) — add when a walk needs it; story 69's Da
 
 **Manual checks (if no CLI):**
 - HITL on the owner's production site (named by the owner; a hand-made setup with a key stored since 6.7's walk): the offer shows; the proposal names their workflow and credentials; confirm; `wp option get pqm_n8n_setup` shows the map; in n8n the workflow's updated time is unchanged; the setup guide shows Connect your n8n and Set up the workflow ticked; **Test again** reads the workflow by id (`GET /workflows/{id}`, 6.7's harness-only path, now real). Record the walk here. The ticket carries `hitl = false`; the done-chore may flip it to record the walk.
+- **HITL walk: pending as of 2026-10-16.** The owner's walk on their production site (named by the owner), on a zip of main after PR #137 and the section fix PR #138, has not been reported yet. Record here when it is: `pqm_n8n_setup` stored after the confirm; the n8n workflow's updated time unchanged; the setup guide showing Connect your n8n and Set up the workflow ticked; **Test again** reading the workflow by id (`GET /workflows/{id}`, 6.7's setup-map path, its first run on a real site). The n8n Instance section's own checks are recorded in `../plan-n8n-connection-states.md`. The ticket's `hitl` was flipped to true in the done chore, since this criterion is the owner's walk.

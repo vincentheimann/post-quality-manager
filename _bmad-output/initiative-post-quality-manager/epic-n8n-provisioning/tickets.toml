@@ -98,7 +98,7 @@ description = "Lists the instance's workflows and credentials by metadata only, 
 verify = "The harness adopts a stub instance whose names do not follow the deterministic patterns and checks that no write call reaches n8n; the stored map then serves entries 9 and 10."
 covers = ["CAP-4"]
 after = [6, 7]
-hitl = false
+hitl = true
 risk = "medium"
 
 [[entry]]
