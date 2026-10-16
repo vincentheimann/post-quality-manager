@@ -3,7 +3,7 @@ title: 'The success-signal walk passes and the records say so'
 type: 'chore'
 ticket: '12'
 created: '2026-10-16'
-status: 'built'
+status: done
 baseline_revision: '5be19b948cd70c64ab55ad130c3facb0e977056e'
 route: 'full'
 route_source: 'pinned'
