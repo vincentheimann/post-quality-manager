@@ -473,7 +473,7 @@ class PQM_N8n {
 
         $response = self::request( 'GET', self::ACTIVE_WORKFLOWS );
         if ( ! self::answered( $response ) ) {
-            return new WP_Error( 'pqm_adoption_failed', self::stopped( 'read', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' ), [ 'status' => 502 ] );
+            return new WP_Error( 'pqm_adoption_failed', self::could_not( 'read', $response ), [ 'status' => 502 ] );
         }
         foreach ( (array) ( $response['json']['data'] ?? [] ) as $workflow ) {
             $id      = is_array( $workflow ) && is_scalar( $workflow['id'] ?? null ) ? (string) $workflow['id'] : '';
@@ -638,8 +638,7 @@ class PQM_N8n {
         if ( false !== get_option( self::SETUP_OPTION, false ) ) {
             return self::already_provisioned();
         }
-        $connection = self::connection();
-        if ( '' === $connection['api_key'] || empty( $connection['probe']['ok'] ) ) {
+        if ( ! self::connected_key() ) {
             return self::not_connected();
         }
         if ( '' === (string) pqm_get_settings()['n8n_webhook_url'] ) {
@@ -767,7 +766,7 @@ class PQM_N8n {
     /**
      * The deterministic credential names, by role: what the template's
      * nodes carry once __PQM_SITE_HOST__ is filled, what provision()
-     * creates, and what the setup dialog and the Workflow File section show.
+     * creates, and what the Workflow File section shows.
      *
      * @return array{webhook: string, anthropic: string, wordpress: string}
      */
@@ -970,14 +969,12 @@ class PQM_N8n {
     }
 
     /**
-     * Whether a DELETE left the object gone: 2xx, or a JSON 404 (n8n 2.42.3
-     * answers `404 {"message":"Not Found"}` for an id it does not know; a
-     * non-JSON 404 comes from a proxy, so the object may still be there).
+     * Whether a DELETE left the object gone: 2xx, or n8n's own 404 (gone()).
      *
      * @param array|WP_Error $response
      */
     private static function removed( $response ): bool {
-        return ! is_wp_error( $response ) && ( ( 404 === $response['code'] && null !== $response['json'] ) || ( $response['code'] >= 200 && $response['code'] < 300 ) );
+        return self::gone( $response ) || ( ! is_wp_error( $response ) && $response['code'] >= 200 && $response['code'] < 300 );
     }
 
     /**
@@ -1006,42 +1003,18 @@ class PQM_N8n {
     }
 
     /**
-     * Why an n8n step stopped the run, in plain words. n8n's reply body is
-     * not repeated (it may quote the request).
+     * Why a provisioning step stopped the run, in plain words; fail() adds
+     * what was rolled back. A single call on a site already set up (a read,
+     * a token rotation, a workflow update) says could_not() instead.
      *
      * @param array|WP_Error $response
      */
     private static function stopped( string $step, $response ): string {
-        $labels = [
-            'credential_webhook'   => __( 'creating the webhook credential', 'post-quality-manager' ),
-            'credential_anthropic' => __( 'creating the Anthropic credential', 'post-quality-manager' ),
-            'credential_wordpress' => __( 'creating the WordPress credential', 'post-quality-manager' ),
-            'workflow'             => __( 'creating the workflow', 'post-quality-manager' ),
-            'activate'             => __( 'activating the workflow', 'post-quality-manager' ),
-            'read'                 => __( 'reading your workflows', 'post-quality-manager' ), // entry 8
-            'credential'           => __( 'updating the webhook credential', 'post-quality-manager' ), // entry 10
-            'update'               => __( 'updating the workflow', 'post-quality-manager' ), // entry 9
-        ];
-        if ( is_wp_error( $response ) ) {
-            /* translators: %s: connection error message */
-            $answer = sprintf( __( 'n8n could not be reached: %s', 'post-quality-manager' ), $response->get_error_message() );
-        } elseif ( $response['code'] >= 200 && $response['code'] < 300 ) {
-            $answer = match ( $step ) {
-                'read'       => __( 'n8n did not answer with your workflows', 'post-quality-manager' ),
-                'credential' => __( 'n8n did not confirm the change', 'post-quality-manager' ),
-                'update'     => __( 'n8n did not confirm the update', 'post-quality-manager' ),
-                default      => __( 'n8n did not return what it created', 'post-quality-manager' ),
-            };
-        } else {
-            /* translators: %d: HTTP status code */
-            $answer = sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );
-        }
-
         return sprintf(
             /* translators: 1: setup step, e.g. "creating the webhook credential"; 2: what n8n answered, e.g. "n8n answered HTTP 400" */
             __( 'The n8n setup stopped while %1$s (%2$s).', 'post-quality-manager' ),
-            $labels[ $step ] ?? $step,
-            $answer
+            self::label( $step ),
+            self::answer( $step, $response )
         );
     }
 
@@ -1068,10 +1041,9 @@ class PQM_N8n {
         if ( self::answered( $response ) ) {
             return $token;
         }
-        // A JSON 404 is n8n's own answer for an id it does not know (as removed() reads it); a non-JSON one comes from a proxy.
-        $sentence = ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json']
+        $sentence = self::gone( $response )
             ? __( 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.', 'post-quality-manager' )
-            : self::stopped( 'credential', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' );
+            : self::could_not( 'credential', $response );
 
         return new WP_Error( 'pqm_rotation_failed', $sentence, [ 'status' => 502 ] );
     }
@@ -1085,8 +1057,7 @@ class PQM_N8n {
      * the status block asks it to choose the update notice's fix.
      */
     public static function managed_blocked(): ?WP_Error {
-        $connection = self::connection();
-        if ( '' === $connection['api_key'] || empty( $connection['probe']['ok'] ) ) {
+        if ( ! self::connected_key() ) {
             return self::not_connected();
         }
         $setup   = get_option( self::SETUP_OPTION, false );
@@ -1135,10 +1106,9 @@ class PQM_N8n {
         $path     = '/workflows/' . rawurlencode( (string) $setup['workflow_id'] );
         $response = self::request( 'GET', $path );
         if ( ! self::answered( $response ) ) {
-            // A JSON 404 is n8n's own answer for an id it does not know (as removed() reads it); a non-JSON one comes from a proxy.
-            $sentence = ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json']
+            $sentence = self::gone( $response )
                 ? __( 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.', 'post-quality-manager' )
-                : self::stopped( 'read', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' );
+                : self::could_not( 'read', $response );
 
             return new WP_Error( 'pqm_update_failed', $sentence, [ 'status' => 502 ] );
         }
@@ -1164,9 +1134,87 @@ class PQM_N8n {
 
         $response = self::request( 'PUT', $path, $body );
         if ( ! self::answered( $response ) ) {
-            return new WP_Error( 'pqm_update_failed', self::stopped( 'update', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' ), [ 'status' => 502 ] );
+            return new WP_Error( 'pqm_update_failed', self::could_not( 'update', $response ), [ 'status' => 502 ] );
         }
 
         return $setup;
+    }
+
+    /* ─── Shared helpers (entry 11) ──────────────────────────────────── */
+
+    /**
+     * Why a single call on a site already set up — a read, a token
+     * rotation, a workflow update — did not go through, with the fix:
+     * "The plugin could not finish updating the workflow (n8n answered
+     * HTTP 500). Try again in a moment." Provisioning says stopped().
+     *
+     * @param array|WP_Error $response
+     */
+    private static function could_not( string $step, $response ): string {
+        return sprintf(
+            /* translators: 1: the action, e.g. "updating the workflow"; 2: what n8n answered, e.g. "n8n answered HTTP 500" */
+            __( 'The plugin could not finish %1$s (%2$s). Try again in a moment.', 'post-quality-manager' ),
+            self::label( $step ),
+            self::answer( $step, $response )
+        );
+    }
+
+    /** What stopped() and could_not() call a step, e.g. "creating the workflow". */
+    private static function label( string $step ): string {
+        $labels = [
+            'credential_webhook'   => __( 'creating the webhook credential', 'post-quality-manager' ),
+            'credential_anthropic' => __( 'creating the Anthropic credential', 'post-quality-manager' ),
+            'credential_wordpress' => __( 'creating the WordPress credential', 'post-quality-manager' ),
+            'workflow'             => __( 'creating the workflow', 'post-quality-manager' ),
+            'activate'             => __( 'activating the workflow', 'post-quality-manager' ),
+            'read'                 => __( 'reading your workflows', 'post-quality-manager' ), // entry 8
+            'credential'           => __( 'updating the webhook credential', 'post-quality-manager' ), // entry 10
+            'update'               => __( 'updating the workflow', 'post-quality-manager' ), // entry 9
+        ];
+
+        return $labels[ $step ] ?? $step;
+    }
+
+    /**
+     * What n8n answered a step, for stopped() and could_not(): unreachable,
+     * an HTTP status, or a 2xx without the JSON the step needs. n8n's reply
+     * body is not repeated (it may quote the request).
+     *
+     * @param array|WP_Error $response
+     */
+    private static function answer( string $step, $response ): string {
+        if ( is_wp_error( $response ) ) {
+            /* translators: %s: connection error message */
+            return sprintf( __( 'n8n could not be reached: %s', 'post-quality-manager' ), $response->get_error_message() );
+        }
+        if ( $response['code'] >= 200 && $response['code'] < 300 ) {
+            return match ( $step ) {
+                'read'       => __( 'n8n did not answer with your workflows', 'post-quality-manager' ),
+                'credential' => __( 'n8n did not confirm the change', 'post-quality-manager' ),
+                'update'     => __( 'n8n did not confirm the update', 'post-quality-manager' ),
+                default      => __( 'n8n did not return what it created', 'post-quality-manager' ),
+            };
+        }
+
+        /* translators: %d: HTTP status code */
+        return sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );
+    }
+
+    /**
+     * Whether n8n says the object is gone: a JSON 404 (n8n 2.42.3 answers
+     * `404 {"message":"Not Found"}` for an id it does not know; a non-JSON
+     * 404 comes from a proxy, so the object may still be there).
+     *
+     * @param array|WP_Error $response
+     */
+    private static function gone( $response ): bool {
+        return ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json'];
+    }
+
+    /** Whether an n8n API key is stored and its last probe passed. */
+    private static function connected_key(): bool {
+        $connection = self::connection();
+
+        return '' !== $connection['api_key'] && ! empty( $connection['probe']['ok'] );
     }
 }

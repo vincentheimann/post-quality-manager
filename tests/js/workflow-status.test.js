@@ -530,11 +530,11 @@ describe( 'Update workflow, in the update notice of a managed site (n8n provisio
 				{
 					code: 'pqm_update_failed',
 					message:
-						'The n8n setup stopped while updating the workflow (n8n answered HTTP 500). Try again in a moment.',
+						'The plugin could not finish updating the workflow (n8n answered HTTP 500). Try again in a moment.',
 					data: { status: 502 },
 				},
 			],
-			'The n8n setup stopped while updating the workflow (n8n answered HTTP 500). Try again in a moment.',
+			'The plugin could not finish updating the workflow (n8n answered HTTP 500). Try again in a moment.',
 		],
 		[ 'a network failure', [ 0, null, true ], 'Network error.' ],
 	] )(

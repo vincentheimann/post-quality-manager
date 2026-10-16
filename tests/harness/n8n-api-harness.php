@@ -1144,8 +1144,8 @@ foreach ([
 ] as $label => [$answer, $says]) {
     hand_made([$answer]);
     $r = proposal();
-    check("$label: 502 pqm_adoption_failed, stopped()'s sentence, n8n's body never repeated", refused($r, 'pqm_adoption_failed', 502)
-        && $r->message === "The n8n setup stopped while reading your workflows ($says). Try again in a moment."
+    check("$label: 502 pqm_adoption_failed, could_not()'s sentence, n8n's body never repeated", refused($r, 'pqm_adoption_failed', 502)
+        && $r->message === "The plugin could not finish reading your workflows ($says). Try again in a moment."
         && !str_contains($r->message, 'Internal error') && !str_contains($r->message, 'Just a moment'));
 }
 
@@ -1258,7 +1258,7 @@ check('/n8n/token: POST, gated by check_manage_settings, no arguments', ($route[
 
 const ROTATED          = 'rotated-token-SECRET';
 const PATCH_WEBHOOK    = 'PATCH ' . BASE . '/api/v1/credentials/c-webhook';
-const ROTATION_STOPPED = 'The n8n setup stopped while updating the webhook credential (%s). Try again in a moment.';
+const ROTATION_STOPPED = 'The plugin could not finish updating the webhook credential (%s). Try again in a moment.';
 const ROTATED_PREFIX   = 'The token was rotated in n8n and saved here.';
 const OTHER_CREDENTIAL = ROTATED_PREFIX . ' n8n still refused the test ping: your Webhook Trigger uses another credential than the one the plugin manages. In n8n, pick that credential on the Webhook Trigger, publish the workflow, then send a test ping.';
 define('PATCHED', resp(200, ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com', 'type' => 'httpHeaderAuth', 'updatedAt' => '2026-10-16T10:00:00.000Z']));
@@ -1438,7 +1438,7 @@ check('/n8n/workflow: POST, gated by check_manage_settings, no arguments', ($rou
     && ($route['permission_callback'] ?? null) === $gate && !array_key_exists('args', $route));
 
 const PUT_WF         = 'PUT ' . BASE . '/api/v1/workflows/wf1';
-const UPDATE_STOPPED = 'The n8n setup stopped while updating the workflow (%s). Try again in a moment.';
+const UPDATE_STOPPED = 'The plugin could not finish updating the workflow (%s). Try again in a moment.';
 const UPDATE_BUTTON  = '<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
 const IN_PLACE       = 'The plugin can update it in place: your credentials and production URL stay.';
 const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.';
@@ -1581,8 +1581,8 @@ foreach ([
 ] as $label => [$answer, $says]) {
     managed([$answer, UPDATED], $setup_map + $older_report);
     $r = update();
-    check("$label: 502 pqm_update_failed, stopped('read')'s sentence, n8n's body not repeated; no PUT, nothing written, no ping", refused($r, 'pqm_update_failed', 502)
-        && $r->message === "The n8n setup stopped while reading your workflows ($says). Try again in a moment." && !str_contains($r->message, 'Internal error')
+    check("$label: 502 pqm_update_failed, could_not('read')'s sentence, n8n's body not repeated; no PUT, nothing written, no ping", refused($r, 'pqm_update_failed', 502)
+        && $r->message === "The plugin could not finish reading your workflows ($says). Try again in a moment." && !str_contains($r->message, 'Internal error')
         && calls() === [READ_WF] && $GLOBALS['tw']['queue'] === [UPDATED]);
 }
 
