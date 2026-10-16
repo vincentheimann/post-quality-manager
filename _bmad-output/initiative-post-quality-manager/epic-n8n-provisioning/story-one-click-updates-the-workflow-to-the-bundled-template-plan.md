@@ -3,7 +3,7 @@ title: 'One click updates the workflow to the bundled template'
 type: 'feature'
 ticket: '9'
 created: '2026-10-16'
-status: 'built'
+status: done
 baseline_revision: '75f367da9f6906ed2f6c99f9fa1379a042c06515'
 route: 'full'
 route_source: 'pinned'
