@@ -317,10 +317,13 @@ function pqm_webhook_path(): string
 
 /**
  * Bundled workflow template with this site's values injected. Shared by the
- * n8n Workflow page download and the REST import-from-URL endpoint.
- * Returns null when the template file is missing.
+ * n8n Workflow page download, the REST import-from-URL endpoint and the
+ * n8n provisioning (entries 4 and 9). `$path` is the Webhook Trigger's
+ * path, this site's own (pqm_webhook_path()) unless the caller names the one
+ * a managed workflow already listens on (entry 9, D1: an adopted workflow
+ * keeps its path). Returns null when the template file is missing.
  */
-function pqm_workflow_json(): ?string
+function pqm_workflow_json(?string $path = null): ?string
 {
     // ADR 0014: the Free build serves the template without the paid branches.
     $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow-free.json';
@@ -331,9 +334,10 @@ function pqm_workflow_json(): ?string
         return null;
     }
 
+    // The placeholders sit inside JSON strings: each value goes in as JSON string contents (an adopted path is the trigger's raw string, entry 9).
     return str_replace(
         ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'],
-        [pqm_site_host(), pqm_webhook_path()],
+        array_map(static fn(string $value): string => substr((string) wp_json_encode($value), 1, -1), [pqm_site_host(), $path ?? pqm_webhook_path()]),
         file_get_contents($template_path)
     );
 }

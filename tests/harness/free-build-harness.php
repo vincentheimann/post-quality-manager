@@ -476,6 +476,35 @@ check('... the token route is there, as on Pro, gated by check_manage_settings',
 unset($GLOBALS['tw']['uuid']);
 $GLOBALS['tw']['options'] = $before_adoption;
 
+/* ─── Row: the workflow update on the Free build (entry 9) ───────────── */
+echo "Row — Free build: Update workflow PUTs the Free template the same way, no WordPress credential\n";
+$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1];
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [$free_stored($free_clean), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
+$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
+$offered = str_contains(PQM_Admin::render_workflow_status(), 'class="button button-primary pqm-update-workflow"');
+$updated = PQM_REST_API::update_n8n_workflow_callback();
+$updated = $updated instanceof WP_REST_Response ? $updated->get_data() : null;
+$sent    = json_decode($GLOBALS['tw']['calls'][1][1]['body'] ?? 'null', true);
+$linked  = array_column(array_filter($sent['nodes'] ?? [], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
+check('the provisioned Free site: offered; GET then PUT /workflows/wf-free, then the ping\'s diagnosis read; the Free template with its 3 credentialed nodes on the map\'s ids, no httpBasicAuth',
+    $offered === true && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === [
+        'GET https://n8n.example/api/v1/workflows/wf-free', 'PUT https://n8n.example/api/v1/workflows/wf-free', 'GET https://n8n.example/api/v1/workflows/wf-free']
+    && array_keys($sent) === ['name', 'nodes', 'connections', 'settings'] && !str_contains(json_encode($sent), 'httpBasicAuth')
+    && !in_array('Build Rewrite Body', array_column($sent['nodes'], 'name'), true) && $linked === [
+        'Webhook Trigger'          => ['httpHeaderAuth' => ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com']],
+        'Claude - Review Agent'    => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
+        'Claude - Takeaways Agent' => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
+    ] && array_column($sent['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] === 'pqm-execute-example-com');
+check('... reply updated and pinged, the status block back, no rewrite_ready; the version recorded; the key in no reply', $updated !== null
+    && $updated['updated'] === true && $updated['ping_ok'] === true && isset($updated['status_html']) && !array_key_exists('rewrite_ready', $updated)
+    && str_starts_with($updated['message'], 'Workflow updated. Ping OK') && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
+    && !str_contains(json_encode($updated), 'free-build-n8n-key-secret') && !str_contains($GLOBALS['tw']['calls'][1][1]['body'], 'free-token'));
+check('... the workflow route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/workflow']['methods'] ?? null) === 'POST'
+    && ($GLOBALS['pqm_routes']['/n8n/workflow']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+$GLOBALS['tw']['options'] = $before_adoption;
+
 /* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */
 echo "Row — Free provisioning, activation refused: rolled back, no Application Password\n";
 $client = (string) file_get_contents($free . '/includes/class-pqm-n8n.php');

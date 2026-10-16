@@ -19,7 +19,8 @@
  * saved webhook URL, GET only; propose_adoption() and adopt() (entry 8)
  * take over a hand-made workflow by storing its setup map, GET only;
  * rotate_token() (entry 10) PATCHes the map's webhook credential with a new
- * token, its one call; later entries call request().
+ * token, its one call; update_workflow() (entry 9) reads the map's workflow
+ * once and PUTs the build's template onto it, credentials and path kept.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -89,7 +90,8 @@ class PQM_N8n {
      * null without one; `adoptable` whether the plugin may take over the
      * site's workflow (entry 8: a passing key, a saved webhook URL, no map);
      * `rotatable` whether it may rotate the webhook token (entry 10: a
-     * passing key, a map, the saved URL on the map's path).
+     * passing key, a map, the saved URL on the map's path) — the same gate
+     * that offers the workflow update (entry 9), managed_blocked().
      *
      * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, setup: ?array, adoptable: bool, rotatable: bool}
      */
@@ -105,7 +107,7 @@ class PQM_N8n {
             'probe'     => $connection['probe'],
             'setup'     => is_array( $setup ) ? [ 'wizard_created' => ! empty( $setup['wizard_created'] ), 'at' => (int) ( $setup['at'] ?? 0 ) ] : null,
             'adoptable' => null === self::adoption_blocked(),
-            'rotatable' => null === self::rotation_blocked(),
+            'rotatable' => null === self::managed_blocked(),
         ];
     }
 
@@ -704,11 +706,11 @@ class PQM_N8n {
             return $blocked;
         }
 
-        // The deterministic names: the template's nodes, the setup dialog and the Workflow File section carry them too.
         $host        = pqm_site_host();
+        $names       = self::credential_names( $host );
         $credentials = [
-            'webhook'   => [ 'name' => 'Post Quality webhook - ' . $host, 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'X-PQM-Token', 'value' => (string) pqm_get_settings()['webhook_token'] ] ],
-            'anthropic' => [ 'name' => 'Anthropic - Claude', 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'x-api-key', 'value' => $provider_key ] ],
+            'webhook'   => [ 'name' => $names['webhook'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'X-PQM-Token', 'value' => (string) pqm_get_settings()['webhook_token'] ] ],
+            'anthropic' => [ 'name' => $names['anthropic'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'x-api-key', 'value' => $provider_key ] ],
         ];
         if ( pqm_fs()->is__premium_only() ) {
             $wordpress = self::wordpress_credential__premium_only( $host );
@@ -735,30 +737,11 @@ class PQM_N8n {
             $created[ $role ]           = $id;
         }
 
-        // Link by credential name: both builds carry two httpHeaderAuth credentials.
-        foreach ( $workflow->nodes as $node ) {
-            foreach ( (array) ( $node->credentials ?? [] ) as $type => $ref ) {
-                $name = (string) ( $ref->name ?? '' );
-                if ( ! array_key_exists( $name, $ids ) ) {
-                    return self::fail( 'link', sprintf(
-                        /* translators: %s: credential name from the workflow template */
-                        __( 'The workflow template names a credential the setup does not create (%s).', 'post-quality-manager' ),
-                        $name
-                    ), $credentials, $created );
-                }
-                if ( null !== $ids[ $name ] ) {
-                    $node->credentials->{$type} = [ 'id' => $ids[ $name ], 'name' => $name ];
-                }
-            }
+        $body = self::linked_template( $workflow, $ids );
+        if ( is_wp_error( $body ) ) {
+            return self::fail( 'link', $body->get_error_message(), $credentials, $created );
         }
-
-        // No `active`: the public API sets it through activate only.
-        $response    = self::request( 'POST', '/workflows', [
-            'name'        => $workflow->name,
-            'nodes'       => $workflow->nodes,
-            'connections' => $workflow->connections,
-            'settings'    => $workflow->settings,
-        ] );
+        $response    = self::request( 'POST', '/workflows', $body );
         $workflow_id = self::created_id( $response );
         if ( null === $workflow_id ) {
             return self::fail( 'workflow', self::stopped( 'workflow', $response ), $credentials, $created );
@@ -779,6 +762,58 @@ class PQM_N8n {
         update_option( self::SETUP_OPTION, $setup, false );
 
         return $setup;
+    }
+
+    /**
+     * The deterministic credential names, by role: what the template's
+     * nodes carry once __PQM_SITE_HOST__ is filled, what provision()
+     * creates, and what the setup dialog and the Workflow File section show.
+     *
+     * @return array{webhook: string, anthropic: string, wordpress: string}
+     */
+    private static function credential_names( string $host ): array {
+        return [ 'webhook' => 'Post Quality webhook - ' . $host, 'anthropic' => 'Anthropic - Claude', 'wordpress' => 'WordPress - ' . $host ];
+    }
+
+    /**
+     * The decoded template (pqm_workflow_json(), objects) rendered for n8n:
+     * the four keys a create or an update takes — `name`, `nodes`,
+     * `connections`, `settings`, never `active` (the public API sets it
+     * through activate only) — with every credentialed node linked by id.
+     * Linked by credential name, the one thing the template carries: `$ids`
+     * is template credential name => id, null for a credential deliberately
+     * left name-only (D1); `$names` is template credential name => the name
+     * n8n shows beside that id, the template's own when absent (entry 9: an
+     * adopted workflow's credentials carry the owner's names). Both builds'
+     * templates carry two httpHeaderAuth credentials, so the type alone
+     * would not tell them apart. A template credential `$ids` does not
+     * name is the plugin's own fault: WP_Error `pqm_template_link`.
+     *
+     * @return array{name: mixed, nodes: array, connections: object, settings: object}|WP_Error
+     */
+    private static function linked_template( object $workflow, array $ids, array $names = [] ): array|WP_Error {
+        foreach ( $workflow->nodes as $node ) {
+            foreach ( (array) ( $node->credentials ?? [] ) as $type => $ref ) {
+                $name = (string) ( $ref->name ?? '' );
+                if ( ! array_key_exists( $name, $ids ) ) {
+                    return new WP_Error( 'pqm_template_link', sprintf(
+                        /* translators: %s: credential name from the workflow template */
+                        __( 'The workflow template names a credential the setup does not create (%s).', 'post-quality-manager' ),
+                        $name
+                    ), [ 'status' => 500 ] );
+                }
+                if ( null !== $ids[ $name ] ) {
+                    $node->credentials->{$type} = [ 'id' => $ids[ $name ], 'name' => $names[ $name ] ?? $name ];
+                }
+            }
+        }
+
+        return [
+            'name'        => $workflow->name,
+            'nodes'       => $workflow->nodes,
+            'connections' => $workflow->connections,
+            'settings'    => $workflow->settings,
+        ];
     }
 
     /**
@@ -823,7 +858,7 @@ class PQM_N8n {
      * n8n.
      */
     private static function wordpress_credential__premium_only( string $host ): array|WP_Error {
-        $credential = [ 'name' => 'WordPress - ' . $host, 'type' => 'httpBasicAuth', 'data' => null ];
+        $credential = [ 'name' => self::credential_names( $host )['wordpress'], 'type' => 'httpBasicAuth', 'data' => null ];
         $user       = wp_get_current_user();
         if ( ! wp_is_application_passwords_available_for_user( $user ) ) {
             return $credential;
@@ -985,6 +1020,7 @@ class PQM_N8n {
             'activate'             => __( 'activating the workflow', 'post-quality-manager' ),
             'read'                 => __( 'reading your workflows', 'post-quality-manager' ), // entry 8
             'credential'           => __( 'updating the webhook credential', 'post-quality-manager' ), // entry 10
+            'update'               => __( 'updating the workflow', 'post-quality-manager' ), // entry 9
         ];
         if ( is_wp_error( $response ) ) {
             /* translators: %s: connection error message */
@@ -993,6 +1029,7 @@ class PQM_N8n {
             $answer = match ( $step ) {
                 'read'       => __( 'n8n did not answer with your workflows', 'post-quality-manager' ),
                 'credential' => __( 'n8n did not confirm the change', 'post-quality-manager' ),
+                'update'     => __( 'n8n did not confirm the update', 'post-quality-manager' ),
                 default      => __( 'n8n did not return what it created', 'post-quality-manager' ),
             };
         } else {
@@ -1021,7 +1058,7 @@ class PQM_N8n {
      * @return string|WP_Error The new token; why nothing changed otherwise.
      */
     public static function rotate_token(): string|WP_Error {
-        $blocked = self::rotation_blocked();
+        $blocked = self::managed_blocked();
         if ( null !== $blocked ) {
             return $blocked;
         }
@@ -1040,26 +1077,96 @@ class PQM_N8n {
     }
 
     /**
-     * Why the plugin may not rotate the webhook token, null when it may: no
-     * key with a passing check, no setup map naming a webhook credential, or
-     * a saved webhook URL off the map's path (entry 8, D3: the site must
-     * call the workflow whose credential the PATCH changes). Calls nothing.
+     * Why the plugin may not act on the workflow it manages — rotate the
+     * webhook token (entry 10) or update the workflow (entry 9) — null when
+     * it may: no key with a passing check, no setup map naming a webhook
+     * credential, or a saved webhook URL off the map's path (entry 8, D3:
+     * the site must call the workflow the action changes). Calls nothing;
+     * the status block asks it to choose the update notice's fix.
      */
-    private static function rotation_blocked(): ?WP_Error {
+    public static function managed_blocked(): ?WP_Error {
         $connection = self::connection();
         if ( '' === $connection['api_key'] || empty( $connection['probe']['ok'] ) ) {
             return self::not_connected();
         }
         $setup   = get_option( self::SETUP_OPTION, false );
         $webhook = is_array( $setup ) ? ( $setup['credentials']['webhook'] ?? null ) : null;
-        if ( ! is_scalar( $webhook ) || '' === (string) $webhook ) {
+        if ( ! is_scalar( $webhook ) || '' === (string) $webhook || '' === (string) ( $setup['workflow_id'] ?? '' ) ) {
             return new WP_Error( 'pqm_workflow_not_managed', __( 'The plugin does not manage your n8n workflow yet. Let it set the workflow up, or manage the one you set up by hand, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
         }
         $path = self::webhook_segment( (string) pqm_get_settings()['n8n_webhook_url'] );
         if ( '' === $path || (string) ( $setup['path'] ?? '' ) !== $path ) {
-            return new WP_Error( 'pqm_webhook_url_changed', __( 'Your n8n Webhook URL no longer points at the workflow the plugin manages, so the token stays as it is. Save that workflow\'s production URL as the n8n Webhook URL, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
+            return new WP_Error( 'pqm_webhook_url_changed', __( 'Your n8n Webhook URL no longer points at the workflow the plugin manages, so nothing was changed. Save that workflow\'s production URL as the n8n Webhook URL, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
         }
 
         return null;
+    }
+
+    /* ─── One-click workflow update (entry 9) ────────────────────────── */
+
+    /**
+     * Write the build's template onto the workflow the setup map names, in
+     * place: one GET of that workflow — the names its credentials carry (the
+     * map holds ids only, and an adopted workflow's names are the owner's)
+     * and its own name, both kept (D2); a JSON 404 says it is gone — then
+     * one PUT of linked_template(): the map's credential id on every
+     * credentialed node, the trigger on the map's path (D1: an adopted
+     * workflow keeps its own, never pqm_webhook_path()), the four keys n8n
+     * takes and never `active` — n8n republishes a PUT workflow by itself
+     * (spike 56), so the production URL stays. A role the map lacks leaves
+     * its node name-only, as provisioning's D1 does. Nothing else in n8n is
+     * read or changed; nothing is stored here (the caller pings and records
+     * the version). n8n's reply body is never repeated.
+     *
+     * @return array|WP_Error The setup map of the updated workflow.
+     */
+    public static function update_workflow(): array|WP_Error {
+        $blocked = self::managed_blocked();
+        if ( null !== $blocked ) {
+            return $blocked;
+        }
+        $setup = get_option( self::SETUP_OPTION );
+        // Objects, not arrays: an empty `{}` in the template must stay one.
+        $workflow = json_decode( (string) pqm_workflow_json( (string) $setup['path'] ) );
+        if ( ! is_object( $workflow ) ) {
+            return new WP_Error( 'pqm_update_failed', __( 'The workflow template is missing from the plugin. Reinstall the plugin, then try again.', 'post-quality-manager' ), [ 'status' => 500 ] );
+        }
+
+        $path     = '/workflows/' . rawurlencode( (string) $setup['workflow_id'] );
+        $response = self::request( 'GET', $path );
+        if ( ! self::answered( $response ) ) {
+            // A JSON 404 is n8n's own answer for an id it does not know (as removed() reads it); a non-JSON one comes from a proxy.
+            $sentence = ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json']
+                ? __( 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.', 'post-quality-manager' )
+                : self::stopped( 'read', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' );
+
+            return new WP_Error( 'pqm_update_failed', $sentence, [ 'status' => 502 ] );
+        }
+        $carried = []; // credential id => the name the read workflow's nodes carry for it
+        foreach ( self::published_nodes( $response['json'] ) as $node ) {
+            foreach ( (array) ( $node['credentials'] ?? [] ) as $credential ) {
+                if ( is_array( $credential ) && is_scalar( $credential['id'] ?? null ) ) {
+                    $carried[ (string) $credential['id'] ] = (string) ( $credential['name'] ?? '' );
+                }
+            }
+        }
+        $ids   = []; // template credential name => the map's id for that role; null = left name-only (D1)
+        $names = [];
+        foreach ( self::credential_names( pqm_site_host() ) as $role => $name ) {
+            $ids[ $name ]   = isset( $setup['credentials'][ $role ] ) ? (string) $setup['credentials'][ $role ] : null;
+            $names[ $name ] = $carried[ $ids[ $name ] ] ?? '';
+        }
+        $body = self::linked_template( $workflow, $ids, $names );
+        if ( is_wp_error( $body ) ) {
+            return $body;
+        }
+        $body['name'] = (string) ( $response['json']['name'] ?? '' ) ?: $body['name'];
+
+        $response = self::request( 'PUT', $path, $body );
+        if ( ! self::answered( $response ) ) {
+            return new WP_Error( 'pqm_update_failed', self::stopped( 'update', $response ) . ' ' . __( 'Try again in a moment.', 'post-quality-manager' ), [ 'status' => 502 ] );
+        }
+
+        return $setup;
     }
 }

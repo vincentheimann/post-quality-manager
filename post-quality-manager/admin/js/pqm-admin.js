@@ -3,8 +3,8 @@
  *
  * The Settings tabs, blog-profile / Editorial Standards preset choice,
  * per-agent model controls, the connection ping, the workflow status refresh,
- * the update notice's re-import link and the Workflow File section's Copy
- * rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
+ * the update notice's re-import link or Update workflow button and the
+ * Workflow File section's Copy rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
  * never load this file; the setup dialog on the n8n Workflow page is React
  * too (src/setup/, story 36).
  */
@@ -23,6 +23,7 @@
         initTestConnection();
         initWorkflowStatusRefresh();
         initReimportLink();
+        initUpdateWorkflow();
         initCopyRows();
     });
 
@@ -402,6 +403,71 @@
             e.preventDefault();
             heading.scrollIntoView();
             heading.focus();
+        });
+    }
+
+    /* ================================================================
+     *  UPDATE WORKFLOW (workflow page, n8n provisioning entry 9): on a
+     *  site whose workflow the plugin manages, the update notice's
+     *  primary action updates it in place through POST /n8n/workflow,
+     *  the page script's one REST call (restUrl + restNonce localized).
+     *  Delegated, like Test again: the result line beside the button
+     *  shows the progress and a failure; a passing ping swaps the block
+     *  and the message moves into the new block (its own result line
+     *  when it shows a notice again, else one appended), so "Workflow
+     *  updated…", an outdated warning or Pro's Rewrite note is seen.
+     * ================================================================ */
+    function initUpdateWorkflow() {
+        var i18n = pqmAdmin.i18n || {};
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest && e.target.closest('.pqm-update-workflow');
+            if (!btn || btn.disabled) return;
+            var result = btn.parentElement.querySelector('.pqm-test-result');
+
+            btn.disabled = true;
+            showTestResult(result, null, i18n.updating);
+
+            fetch(pqmAdmin.restUrl + 'n8n/workflow', {
+                method: 'POST',
+                headers: { 'X-WP-Nonce': pqmAdmin.restNonce },
+                credentials: 'same-origin'
+            })
+                .then(function (r) {
+                    return r.json().then(function (data) { return { ok: r.ok, data: data || {} }; });
+                })
+                .then(function (resp) {
+                    // A refused update is a REST error {code, message, data}; a
+                    // success answers {updated, ping_ok, outdated, message}, plus
+                    // status_html when the ping passed.
+                    var msg = typeof resp.data.message === 'string' ? resp.data.message : i18n.networkError;
+                    if (!resp.ok) {
+                        showTestResult(result, false, msg);
+                        return;
+                    }
+                    var ok = !!resp.data.ping_ok;
+                    var warning = !!resp.data.outdated;
+                    showTestResult(result, ok, msg, warning);
+                    swapWorkflowStatus(resp.data.status_html);
+                    if (result && !result.isConnected) {
+                        // The line went with the old block: say it in the new one.
+                        var fresh = document.querySelector('.pqm-workflow-status');
+                        var line = fresh && fresh.querySelector('.pqm-test-result');
+                        if (fresh && !line) {
+                            line = document.createElement('p');
+                            line.className = 'pqm-test-result';
+                            fresh.appendChild(line);
+                        }
+                        showTestResult(line, ok, msg, warning);
+                    }
+                })
+                .catch(function () {
+                    showTestResult(result, false, i18n.networkError);
+                })
+                .finally(function () {
+                    // A button swapped out with its block stays as it is.
+                    if (btn.isConnected) btn.disabled = false;
+                });
         });
     }
 

@@ -119,6 +119,12 @@ function wp_roles() {
 }
 function translate_user_role($name, $domain = 'default') { return "[$name]"; } // marks the translated label
 
+/* The status block asks PQM_N8n::managed_blocked() which fix to offer (n8n provisioning, entry 9): a refusal is a WP_Error. */
+class WP_Error {
+    public function __construct(public $code = '', public $message = '', public $data = null) {}
+    public function get_error_message() { return $this->message; }
+}
+
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
 require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
@@ -677,6 +683,55 @@ check('every state (' . count($states) . '): at most one .button-primary in the 
 $GLOBALS['tw_options'] = [];
 $GLOBALS['tw_settings'] = [];
 
+/* n8n provisioning entry 9: on a site the plugin set up or manages, the fix is Update workflow */
+echo "Status block — Update workflow on a managed site (provisioning entry 9)\n";
+$managed_site = [
+    PQM_N8n::OPTION       => ['base_url' => 'https://n8n.example', 'api_key' => 'k', 'probe' => $passing],
+    PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic'], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1],
+];
+$managed_url = ['n8n_webhook_url' => 'https://n8n.example/webhook/pqm-execute-example-com'];
+$update      = '<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
+$in_place    = 'The plugin can update it in place: your credentials and production URL stay.';
+$older       = ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time()];
+$GLOBALS['tw_settings'] = $managed_url;
+$GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];
+$status = $status_of();
+check('older, managed: the update notice ends with the primary Update workflow button and its result line, the page\'s one primary; no re-import, no "new production URL"',
+    count($notices_of($status)) === 1 && str_ends_with(trim(str_replace('</div>', '', $notices_of($status)[0])), $update) && !str_contains($status, 'pqm-reimport')
+    && $primaries($status) === 1 && str_contains($status, 'Your n8n workflow is older than this plugin needs.') && str_contains($status, $in_place) && !str_contains($status, 'new production URL'));
+$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
+check('... a pre-v6 report (a legacy int): no "new production URL" sentence either, the update keeps the URL', str_contains($status = $status_of(), $update)
+    && str_contains($status, $in_place) && !str_contains($status, 'new production URL'));
+$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
+check('Free variant on Pro, managed: the same button, in that notice', count($notices_of($status = $status_of())) === 1
+    && str_contains($notices_of($status)[0], 'Your workflow is the Free variant') && str_contains($status, $update) && !str_contains($status, 'pqm-reimport') && $primaries($status) === 1);
+$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => $older + ['variant' => 'free']];
+check('older and Free at once, managed: two notices, one button, in the first', count($notices_of($status = $status_of())) === 2
+    && str_contains($notices_of($status)[0], $update) && substr_count($status, 'pqm-update-workflow') === 1 && $primaries($status) === 1);
+$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]];
+$status = $status_of();
+check('sentence stored, managed: Test again the one primary, Update workflow secondary, each with its own result line', $error_of($status) !== ''
+    && str_contains($error_of($status), $test_again) && str_contains($status, '<p><button type="button" class="button pqm-update-workflow">Update workflow</button>')
+    && $primaries($status) === 1 && substr_count($status, 'pqm-test-result') === 2 && !str_contains($status, 'pqm-reimport'));
+foreach ([
+    'no key'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::OPTION]); },
+    'a key without a passing probe' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = null; },
+    'no map'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::SETUP_OPTION]); },
+    'the URL on another path'      => static function () { $GLOBALS['tw_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook/elsewhere']; },
+] as $label => $change) {
+    $GLOBALS['tw_settings'] = $managed_url;
+    $GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];
+    $change();
+    check("gate fails ($label): Re-import the workflow as before, no Update workflow", str_contains($status = $status_of(), $reimport)
+        && !str_contains($status, 'pqm-update-workflow') && !str_contains($status, $in_place) && $one_primary($status));
+}
+$GLOBALS['tw_settings'] = $managed_url;
+$GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
+check('up to date, managed: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-update-workflow'));
+check('the block renders no secret: not the n8n key', !str_contains($status, '"k"') && !str_contains($status_of(), 'api_key'));
+$GLOBALS['tw_options'] = [];
+$GLOBALS['tw_settings'] = [];
+
 /* Story 35: the token's reach, both directions */
 echo "n8n Workflow page — secured connection copy (story 35)\n";
 $settings_html = render_for(['pqm_manage_settings'], true);
@@ -703,12 +758,6 @@ function wp_remote_post($url, $args) {
 }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body']; }
-if (!class_exists('WP_Error')) {
-    class WP_Error {
-        public function __construct(public $code = '', public $message = '', public $data = null) {}
-        public function get_error_message() { return $this->message; }
-    }
-}
 function is_wp_error($t) { return $t instanceof WP_Error; }
 function ping(string $url): PQM_Json_Exit {
     $GLOBALS['tw_pings'] = [];
@@ -951,6 +1000,10 @@ check('Copy feedback: the import URL\'s own line, a generic "Copied." for every 
     && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copyFailed'] ?? null) === 'Could not copy automatically. The value is selected — press Ctrl+C.');
 check('the inline wizard\'s i18n keys are gone', !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['saving'])
     && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['savedPingFailed']));
+check('Update workflow (entry 9): the REST root, a wp_rest nonce and the progress line are localized for the page script',
+    ($GLOBALS['tw_localized']['pqm-admin']['restUrl'] ?? null) === '/wp-json/post-quality/v1/'
+    && ($GLOBALS['tw_localized']['pqm-admin']['restNonce'] ?? null) === 'nonce'
+    && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['updating'] ?? null) === 'Updating the workflow…');
 $GLOBALS['tw_enqueued'] = [];
 PQM_Admin::enqueue_assets('content-quality_page_pqm-settings');
 check('Settings page: pqm-admin.js only, no app bundle', $GLOBALS['tw_enqueued'] === ['pqm-admin']);

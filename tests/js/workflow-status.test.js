@@ -3,9 +3,11 @@
  * pqm-admin.js, run in jsdom. The ping swaps the block in place and warns
  * when an older workflow answered (D2); a regained tab focus re-reads the
  * block from WordPress (D1); the update notice's Re-import the workflow
- * button moves focus to the Workflow File heading, also after a swap. The
- * fixture mirrors render_workflow()'s markup; render-matrix-harness.php
- * locks the PHP side (status_html, outdated, the button).
+ * button moves focus to the Workflow File heading, also after a swap; on a
+ * site the plugin manages, its Update workflow button posts to the REST
+ * route and swaps the block (n8n provisioning, entry 9). The fixture
+ * mirrors render_workflow()'s markup; render-matrix-harness.php locks the
+ * PHP side (status_html, outdated, the button).
  */
 
 const SCRIPT = '../../post-quality-manager/admin/js/pqm-admin.js';
@@ -48,7 +50,13 @@ function boot() {
 	window.pqmAdmin = {
 		ajaxUrl: '/wp-admin/admin-ajax.php',
 		pageNonce: 'nonce-123',
-		i18n: { testing: 'Testing…', networkError: 'Network error.' },
+		restUrl: '/wp-json/post-quality/v1/',
+		restNonce: 'rest-nonce-456',
+		i18n: {
+			testing: 'Testing…',
+			updating: 'Updating the workflow…',
+			networkError: 'Network error.',
+		},
 	};
 	const listen = jest.spyOn( document, 'addEventListener' );
 	const listenWindow = jest.spyOn( window, 'addEventListener' );
@@ -382,6 +390,168 @@ describe( 'Test again, in the mis-wiring notice (n8n provisioning, entry 7)', ()
 			);
 			expect( checkAgain().disabled ).toBe( false );
 			expect( testResult().outerHTML ).toBe( resultBefore );
+		}
+	);
+} );
+
+describe( 'Update workflow, in the update notice of a managed site (n8n provisioning, entry 9)', () => {
+	const UPDATE =
+		'<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
+	const MANAGED_BLOCK =
+		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong> Your n8n workflow is older than this plugin needs. The plugin can update it in place: your credentials and production URL stay.</p>' +
+		UPDATE +
+		'</div><p class="description">Template version: 6 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
+	const button = () => document.querySelector( '.pqm-update-workflow' );
+	const line = () =>
+		document.querySelector( '.pqm-workflow-status .pqm-test-result' );
+	let heard;
+	const listener = () => heard++;
+
+	/**
+	 * Answer the REST call with this HTTP status and JSON body (or reject).
+	 *
+	 * @param {number}  httpStatus The HTTP status (a REST error is 4xx/5xx).
+	 * @param {*}       body       Parsed JSON the route answers.
+	 * @param {boolean} reject     The request fails (network).
+	 */
+	function answerRest( httpStatus, body, reject = false ) {
+		global.fetch = jest.fn( () =>
+			reject
+				? Promise.reject( new Error( 'offline' ) )
+				: Promise.resolve( {
+						ok: httpStatus < 400,
+						status: httpStatus,
+						json: () => Promise.resolve( body ),
+				  } )
+		);
+	}
+
+	/** The page of a managed site: the update notice offers Update workflow. */
+	function managedPage() {
+		renderPage();
+		document.querySelector( '.pqm-workflow-status' ).outerHTML =
+			MANAGED_BLOCK;
+		boot();
+	}
+
+	beforeEach( () => {
+		heard = 0;
+		document.addEventListener( 'pqm:workflow-status', listener );
+	} );
+
+	afterEach( () => {
+		document.removeEventListener( 'pqm:workflow-status', listener );
+	} );
+
+	test( 'a click posts to the REST route with the nonce (no body), shows the progress, then swaps the block and tells the islands once', async () => {
+		managedPage();
+		answerRest( 200, {
+			updated: true,
+			ping_ok: true,
+			outdated: false,
+			message: 'Workflow updated. Ping OK — up to date.',
+			status_html: NEW_BLOCK,
+		} );
+		button().click();
+		expect( button().disabled ).toBe( true );
+		expect( line().textContent ).toBe( 'Updating the workflow…' );
+		await flush();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+		const [ url, init ] = global.fetch.mock.calls[ 0 ];
+		expect( url ).toBe( '/wp-json/post-quality/v1/n8n/workflow' );
+		expect( init ).toEqual( {
+			method: 'POST',
+			headers: { 'X-WP-Nonce': 'rest-nonce-456' },
+			credentials: 'same-origin',
+		} );
+		expect( status() ).toHaveLength( 1 );
+		expect( document.body.innerHTML ).not.toContain( 'Update workflow' );
+		// The message moves into the new block: a result line appended to it.
+		expect( status()[ 0 ].outerHTML ).toBe(
+			NEW_BLOCK.replace(
+				'</p></div>',
+				'</p><p class="pqm-test-result is-success">Workflow updated. Ping OK — up to date.</p></div>'
+			)
+		);
+		expect( heard ).toBe( 1 );
+	} );
+
+	test( 'updated, the ping passed but the workflow still answers older: the new block keeps the notice, the message lands in its result line as a warning', async () => {
+		managedPage();
+		answerRest( 200, {
+			updated: true,
+			ping_ok: true,
+			outdated: true,
+			message: 'Workflow updated. Ping OK — older version.',
+			status_html: MANAGED_BLOCK,
+		} );
+		button().click();
+		await flush();
+		expect( status() ).toHaveLength( 1 );
+		expect( heard ).toBe( 1 );
+		expect(
+			status()[ 0 ].querySelectorAll( '.pqm-test-result' )
+		).toHaveLength( 1 );
+		expect( line().textContent ).toBe(
+			'Workflow updated. Ping OK — older version.'
+		);
+		expect( line().className ).toBe( 'pqm-test-result is-warning' );
+		expect( button().disabled ).toBe( false );
+	} );
+
+	test( 'updated, but the ping failed: the block stays, the message beside the button as an error, no event', async () => {
+		managedPage();
+		answerRest( 200, {
+			updated: true,
+			ping_ok: false,
+			outdated: false,
+			message: 'The workflow was updated in n8n. n8n responded with 404.',
+		} );
+		button().click();
+		await flush();
+		// No swap: the same block, its notice and button still there.
+		expect( status() ).toHaveLength( 1 );
+		expect( status()[ 0 ].textContent ).toContain(
+			'Workflow update available.'
+		);
+		expect( line().textContent ).toBe(
+			'The workflow was updated in n8n. n8n responded with 404.'
+		);
+		expect( line().className ).toBe( 'pqm-test-result is-error' );
+		expect( button().disabled ).toBe( false );
+		expect( heard ).toBe( 0 );
+	} );
+
+	test.each( [
+		[
+			'a refused update (a REST error)',
+			[
+				502,
+				{
+					code: 'pqm_update_failed',
+					message:
+						'The n8n setup stopped while updating the workflow (n8n answered HTTP 500). Try again in a moment.',
+					data: { status: 502 },
+				},
+			],
+			'The n8n setup stopped while updating the workflow (n8n answered HTTP 500). Try again in a moment.',
+		],
+		[ 'a network failure', [ 0, null, true ], 'Network error.' ],
+	] )(
+		'%s: the block stays, the message as an error, the button enabled again',
+		async ( _, args, message ) => {
+			managedPage();
+			answerRest( ...args );
+			button().click();
+			await flush();
+			expect( status() ).toHaveLength( 1 );
+			expect( status()[ 0 ].textContent ).toContain(
+				'Workflow update available.'
+			);
+			expect( line().textContent ).toBe( message );
+			expect( line().className ).toBe( 'pqm-test-result is-error' );
+			expect( button().disabled ).toBe( false );
+			expect( heard ).toBe( 0 );
 		}
 	);
 } );

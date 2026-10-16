@@ -200,6 +200,13 @@ class PQM_REST_API {
             'callback'            => [ __CLASS__, 'rotate_n8n_token_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
         ] );
+
+        // n8n provisioning, entry 9: update the managed workflow to the bundled template in place, then a ping.
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/workflow', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'update_n8n_workflow_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+        ] );
     }
 
     /* ─── Permission Callbacks ───────────────────────────────────────── */
@@ -1505,6 +1512,47 @@ class PQM_REST_API {
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
             $reply['status_html'] = PQM_Admin::render_workflow_status();
+        }
+
+        return new WP_REST_Response( $reply, 200 );
+    }
+
+    /* ─── One-click workflow update (n8n provisioning, entry 9) ──────── */
+
+    /**
+     * Update the managed workflow to the bundled template:
+     * PQM_N8n::update_workflow() reads it once and PUTs the build's template
+     * onto it (credentials and path kept), then the ordinary ping of the
+     * saved URL, its diagnosis included, proves the new version answers. A
+     * refused update answers its error, nothing written. Answers
+     * `{ updated, ping_ok, outdated, message }`, plus the page's refreshed
+     * `status_html` when the ping passed (the version recorded, as the
+     * rotation does) and, on the Pro build, `rewrite_ready` (false when the
+     * map has no WordPress credential: that node stays name-only, D1).
+     */
+    public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
+        $setup = PQM_N8n::update_workflow();
+        if ( is_wp_error( $setup ) ) {
+            return $setup;
+        }
+
+        $ping    = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'] );
+        $message = $ping['ok']
+            /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
+            ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
+            /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+            : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
+
+        $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
+        if ( $ping['ok'] ) {
+            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
+            $reply['status_html'] = PQM_Admin::render_workflow_status();
+        }
+        if ( pqm_fs()->is__premium_only() ) {
+            $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
+            if ( ! $reply['rewrite_ready'] ) {
+                $reply['message'] .= ' ' . __( 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
+            }
         }
 
         return new WP_REST_Response( $reply, 200 );

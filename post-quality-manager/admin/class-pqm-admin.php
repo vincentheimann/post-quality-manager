@@ -183,6 +183,9 @@ class PQM_Admin
         wp_localize_script('pqm-admin', 'pqmAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'pageNonce' => wp_create_nonce('pqm_admin_action'),
+            // The status block's Update workflow (n8n provisioning, entry 9) is the page script's one REST call.
+            'restUrl' => rest_url(PQM_REST_NAMESPACE . '/'),
+            'restNonce' => wp_create_nonce('wp_rest'),
             // Effective global default model (Custom resolved like
             // pqm_effective_model()) — the model-caps JS falls back to it when
             // the AI Model section is absent (Editor view of the Settings page).
@@ -199,6 +202,7 @@ class PQM_Admin
             'i18n' => [
                 'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
                 'testing' => __('Sending test ping…', 'post-quality-manager'),
+                'updating' => __('Updating the workflow…', 'post-quality-manager'),
                 'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
                 'copied' => __('Copied! Paste it in n8n under "Import", then "From URL".', 'post-quality-manager'),
                 'copiedValue' => __('Copied.', 'post-quality-manager'),
@@ -1475,18 +1479,24 @@ class PQM_Admin
             );
         }
 
-        // The fix is the notice's one primary action (EXPERIENCE.md, state 5):
-        // it leads to the Workflow File steps; pqm-admin.js moves focus there.
-        // Only the first notice carries it. A rendered primary button is also how
-        // the page's React islands learn the block holds the page's one primary
-        // action (src/kit/use-reimport-shown.js). Entry 6.9 replaces it with
-        // "Update workflow" on sites the plugin set up.
+        // The fix is the notice's one primary action (EXPERIENCE.md, state 5).
+        // On a site whose workflow the plugin set up or manages (n8n provisioning,
+        // entry 9: the gate the token rotation shares), it is Update workflow,
+        // whose click pqm-admin.js sends to POST /n8n/workflow, with its own result
+        // line; elsewhere it leads to the Workflow File steps, where pqm-admin.js
+        // moves focus. Only the first notice carries it. A rendered primary button
+        // is also how the page's React islands learn the block holds the page's one
+        // primary action (src/kit/use-reimport-shown.js).
         // A mis-wiring (entry 7) comes first among the fixes: its Test again is
-        // then the one primary, and the re-import button turns secondary.
+        // then the one primary, and the fix button turns secondary.
         $miswired = (string) ($report['miswired'] ?? '');
         $outdated = $report !== null && $report['version'] < PQM_WORKFLOW_VERSION;
-        $reimport = '<p><a class="button' . ($miswired === '' ? ' button-primary' : '') . ' pqm-reimport" href="#pqm-workflow-file">'
-            . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a></p>';
+        $managed  = PQM_N8n::managed_blocked() === null;
+        $button   = 'button' . ($miswired === '' ? ' button-primary' : '');
+        $fix      = $managed
+            ? '<p><button type="button" class="' . $button . ' pqm-update-workflow">' . esc_html__('Update workflow', 'post-quality-manager') . '</button> '
+                . '<span class="pqm-test-result" aria-live="polite"></span></p>'
+            : '<p><a class="' . $button . ' pqm-reimport" href="#pqm-workflow-file">' . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a></p>';
 
         ob_start();
 ?>
@@ -1507,12 +1517,15 @@ class PQM_Admin
                 <?php esc_html_e('Your n8n workflow is older than this plugin needs.', 'post-quality-manager'); ?>
                 <?php
                 // 6 = the first version with a per-site webhook path (pqm_webhook_path()):
-                // only an older workflow gets a new production URL on re-import.
-                if ($report['version'] < 6) {
+                // only an older workflow gets a new production URL on re-import; an
+                // in-place update (entry 9) keeps the URL whatever the version.
+                if ($managed) {
+                    esc_html_e('The plugin can update it in place: your credentials and production URL stay.', 'post-quality-manager');
+                } elseif ($report['version'] < 6) {
                     esc_html_e('A re-import gives it a new production URL.', 'post-quality-manager');
                 }
                 ?></p>
-                <?php echo $reimport; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+                <?php echo $fix; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
             </div>
             <?php endif; ?>
             <?php
@@ -1522,7 +1535,7 @@ class PQM_Admin
                     printf(
                         '<div class="notice notice-warning inline pqm-inline-notice"><p>%s</p>%s</div>',
                         esc_html__('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager'),
-                        $outdated ? '' : $reimport // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+                        $outdated ? '' : $fix // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
                     );
                 }
             }
