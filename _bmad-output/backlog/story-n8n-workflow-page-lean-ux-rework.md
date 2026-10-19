@@ -6,7 +6,7 @@ parent: none
 covers: [UV4]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: medium
 ---
@@ -15,46 +15,59 @@ risk: medium
 
 ## Description
 
-Owner request (2026-10-14): the n8n Workflow page needs a large UX rework to cut cognitive overload, applying lean UX practices. Today the page stacks every section whatever the site's state:
-- the setup dialog's button;
-- the version status line and update notice;
-- the n8n Instance island (connect by API key);
-- the Workflow File section (four numbered manual steps with copy rows);
-- a five-column table of what each agent sends to Claude;
-- the Connection Test.
-
-The webhook URL it depends on is edited on the Settings page instead.
-
-A blogger evaluating the plugin meets all of this at the funnel's friction wall (user path A4, UV4) and has to work out alone which part applies to them. The provisioning epic will add more to the same page: the wizard path (entry 6.6), the mis-wiring diagnosis (6.7), adoption (6.8), update (6.9) and token rotation (6.10).
-
-This story reshapes the page around the site's state: one primary action per state, and the rest disclosed only when asked for. Each piece of information sits in one place, and the page's copy follows `docs/brand.md`.
+The n8n Workflow page is rebuilt to the target layout the owner approved on 2026-10-14: a status block that is the one place for the site's state, the workflow version and the test; exactly one primary action per state; everything the state does not need behind collapsed disclosures. The five states and their actions are the experience spine's. The page is rebuilt as it ships after the n8n provisioning epic (entries 6.1–6.12), whose controls each landed where the spine's "Where each epic entry lands" table placed them. The webhook URL moves from Settings to this page, the per-agent table moves to Settings → AI, and the page-state findings of the epic's retrospective (item A7) land here. The owner walks the five states at the end (AC6, the hitl step).
 
 ## Acceptance Criteria
 
 1. **An audit before the build**
-   **Given** the page as it ships at refinement time (epic entries included)
+   **Given** the page as it shipped on 2026-10-14
    **When** the story is refined
-   **Then** a `bmad-ux` audit lists every element on the page (section, control, line of copy), the job it does and the site state it serves. The owner approves a target layout per state before any code changes.
+   **Then** a `bmad-ux` audit lists every element on the page (section, control, line of copy), the job it does and the site state it serves, and the owner approves a target layout per state before any code changes. *(Met on 2026-10-14; see Notes.)*
 2. **One primary action per state**
-   **Given** a site in each state the audit names (at least: not connected, connected but not set up, set up and answering, set up but outdated or failing, manual path chosen)
+   **Given** a site in each of the spine's five states: not set up; connected, not set up; manual path; set up; needs attention
    **When** an Administrator opens the page
-   **Then** exactly one primary action is shown. The sections that state does not need are hidden or collapsed behind a disclosure, not removed.
+   **Then** the status block says the state in one sentence, exactly one primary action is shown, and the sections that state does not need are collapsed behind a disclosure, not removed
+   **And** the state is resolved in the spine's order, needs attention first, so a failing or outdated workflow is never shown as set up
 3. **Each thing in one place**
-   **Given** the webhook URL, the connection test and the workflow version
-   **When** the page and the Settings page are compared
-   **Then** each is shown and edited in one place only. The other place links to it instead of repeating it.
+   **Given** the webhook URL, the connection test, the workflow version and the webhook token
+   **When** this page and the Settings page are compared
+   **Then** each is shown and edited in one place only, as the spine's "One place for each thing" table says: the URL is edited on this page and shown read-only on Settings with a link here; the test and the version live in the status block; the token is shown on this page and Settings links to it instead of a field
 4. **Reference material out of the main path**
    **Given** the per-agent parameters table
    **When** the page opens in any state
-   **Then** the table is not part of the setup path. It sits behind a disclosure or on the Settings page's AI tab, as the audit decides.
+   **Then** the table is not on this page; it sits on the Settings page's AI tab beside the values it repeats
 5. **Nothing lost**
-   **Given** the epic's capabilities (CAP-1 to CAP-8) and the manual path (CAP-8)
+   **Given** the epic's capabilities (CAP-1 to CAP-8), the manual path included
    **When** the rework is done
-   **Then** every capability is still reachable from the page, and the Free and Pro builds both render without a locked or empty section.
+   **Then** every capability is still reachable from the page, and the Free and Pro builds both render every state without a locked or empty section
 6. **The owner's pass**
-   **Given** the reworked page on the owner's site
-   **When** the owner walks each state from the audit
-   **Then** they confirm the page answers "what do I do next" in each state without reading the other sections.
+   **Given** the reworked page on a site the owner walks
+   **When** the owner walks each of the five states
+   **Then** they name the next step in each state without reading the other sections
+7. **The page follows the wizard**
+   **Given** the page open behind the setup wizard
+   **When** the wizard connects, provisions, adopts, or hands over to the manual path, and closes
+   **Then** the status block, the primary action and the disclosures show the new state without a reload, and the n8n connection disclosure offers nothing the wizard already did
+8. **A setup's outcome survives the dialog**
+   **Given** a provisioning that finished, or that stopped at a named step
+   **When** the dialog closes, by its own button or by a click outside it
+   **Then** the status block says the outcome and the state's next step
+9. **Settings never restores a stale token or URL**
+   **Given** the Settings page opened before a rotation or a provisioning changed the webhook token or URL
+   **When** that Settings form is saved afterwards
+   **Then** the token and the URL stay as the rotation or provisioning left them
+10. **A managed setup says what managing means**
+    **Given** a provisioned or adopted setup
+    **When** the page opens in the set up state
+    **Then** the n8n connection disclosure says since when the plugin manages the workflow, that it can update the workflow and rotate the token from this page, and, for an adopted setup, that adoption changed nothing in n8n
+11. **One wording per fact**
+    **Given** every sentence and button the page and the wizard's n8n steps show
+    **When** they are read against `docs/brand.md`
+    **Then** each re-check button carries one name per job (the ping, the connection check, the URL save), message endings follow one pattern, the n8n API key hint appears once, every place that asks for the Anthropic key links to the same page of the Anthropic Console, and a Claude node carrying a credential of another type is named as such, never as "no credential is set"
+12. **The status block announces its changes**
+    **Given** a screen reader on the page
+    **When** a test, a check, an update or a rotation replaces the status block
+    **Then** the new state sentence is announced once, focus stays on the block, and opening a disclosure from a link moves focus to its heading
 
 ## Boundaries
 
@@ -62,18 +75,23 @@ This story reshapes the page around the site's state: one primary action per sta
   - the REST routes and their contracts;
   - the workflow template and `PQM_WORKFLOW_VERSION`;
   - the version handshake;
-  - what each capability does. This story changes presentation and copy, not behaviour.
+  - what each capability does: this story changes presentation, state handling and copy, not what the plugin does in n8n;
+  - the wizard's steps and their order (story 55); only its copy (AC11) and the page's reaction to it (AC7, AC8) change.
 - Out of scope:
-  - the Settings page's other sections;
-  - the Dashboard and Post Reviews pages;
-  - the setup dialog's non-n8n steps (story 55).
+  - the Settings page's other sections, beyond the Connection tab's URL and token (AC3) and the AI tab's new table (AC4);
+  - the Dashboard and Post Reviews pages; their "Set up the workflow" entry points keep linking here;
+  - the round-trip test and the bounded first-review wait (story 2, retrospective A8);
+  - a confirmation before Update workflow on an adopted workflow (story 76), unless the owner folds it in while this story is open;
+  - starting the setup over (story 71).
 
 ## References
 
-- user path — `docs/user-paths.md` A4 (setup friction, UV4)
-- epic — `_bmad-output/initiative-post-quality-manager/epic-n8n-provisioning/epic-n8n-provisioning.md` (entries 6.6–6.10 add to this page)
-- copy — `docs/brand.md` (Copy Rules)
-- code — `post-quality-manager/admin/class-pqm-admin.php` `render_workflow()`, `render_workflow_status()`, `render_workflow_file()`; `src/n8n-connection/`; `src/setup/`
+- user path — `docs/user-paths.md`, A4 (setup friction, UV4)
+- design — `_bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/EXPERIENCE.md` (the five states, one place for each thing, build notes), `DESIGN.md`, `audit.md` (AC1), `mockups/key-workflow-page.html` (every state; the spines win on conflict)
+- epic — `_bmad-output/initiative-post-quality-manager/epic-n8n-provisioning/epic-n8n-provisioning.md` (entries 6.6–6.10 added their controls to this page)
+- retrospective — `_bmad-output/initiative-post-quality-manager/epic-n8n-provisioning/epic-n8n-provisioning-retrospective.md`, item A7 and its sources (adversarial 6, duplication 8 and 10, pattern 4 and 5, edge cases E7 and E9)
+- spec — `_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/spec-n8n-provisioning.md` (CAP-1 to CAP-8, for AC5) and `failure-modes.md` (the causes that open the manual path)
+- copy — `docs/brand.md`, Copy Rules
 - precedent — backlog story 1 (the 2026-07-24 lean UX pass), story 28 (Settings tabs UX review)
 
 ## Notes
@@ -104,3 +122,15 @@ This story reshapes the page around the site's state: one primary action per sta
   - The Settings form re-saves the webhook token and URL it rendered, so a Settings tab opened before a rotation or a provisioning and saved after restores the old values locally (adversarial 6). With the URL moved to this page (AC3), the token field stops being posted too.
   - Update workflow's result lands in a vanilla result line and Rotate's in a React notice, from two status-block swap helpers (duplication 8). One renderer for both.
   - Copy pass against `docs/brand.md`: the message endings ("then try again" / "then test again" / "Try again in a moment"), the re-check button named Check again, Test again and Save and check / Save and test, the n8n API hint in three copies, and the "no credential is set" sentence when a Claude node carries a credential of another type (pattern divergence 4, 5; duplication 10; edge-case E7).
+- Refined 2026-10-19 and approved by the owner the same day (bmad-ticket, rendered by hand from the workspace root per the owner's 2026-10-16 rule): criteria 7–12 written from the Notes above and the retrospective's A7; AC2–AC4 now name the spine's five states and its "One place for each thing" table; the Boundaries name the sibling stories that own the neighbouring work (2, 71, 76). The 2026-10-14 audit, the spine, the design spine and the mock stand unchanged.
+- Decision (owner, 2026-10-16, `/prioritize`): this story is built first, before backlog 71–78; story 76 folds in only if it comes up while this story is still open.
+- Decision (spine, 2026-10-14): disclosures are native `<details>` with no remembered state; the status block is an `aria-live="polite"` region (AC12); the page re-reads its state when the wizard closes.
+- Decision (retrospective A7, 2026-10-16): one renderer serves the status block for the page load, the ping, Update workflow and Rotate (duplication 8).
+- Decision (owner, 2026-10-19, confirmed at refinement; drafted as an assumption): AC1 is met by the 2026-10-14 audit and the approved spine; no second audit. Entries 6.6–6.12 placed their controls per the spine's "Where each epic entry lands" table, so the build's plan opens with the delta between the shipped page and the spine, element by element, instead of a new inventory.
+- Decision (owner, 2026-10-19, confirmed at refinement; drafted as an assumption): the per-agent table lands on Settings → AI as a read-only "What each agent sends" block under the fields it repeats (AC4; the spine names the tab, not the placement).
+- Decision (owner, 2026-10-19, confirmed at refinement; drafted as an assumption): on Settings → Connection the Notification URL field stays as it is; the webhook URL becomes a read-only line with "Change it on the n8n Workflow page" and the Webhook Token row becomes one link to this page (AC3, AC9). The sanitizer keeps the stored URL and token when their fields are absent from the post (AGENTS.md "Disabled form controls don't POST").
+- Decision (owner, 2026-10-19, confirmed at refinement; drafted as an assumption): the wizard opens at the state's step without a new start-step argument, because the step it resumes at (the first open one) is derived from the same stored setup progress as the page's state (spine build note); the plan verifies it before building on it.
+- Decision (owner, 2026-10-19, confirmed at refinement; drafted as an assumption): the walk for AC6 runs on the owner's Local sandbox, the standard walk environment since entry 6.12; the needs-attention state is produced by planting an older version with WP-CLI as in that walk; the owner names the environment they used before it is recorded.
+- Risk medium: the Settings sanitizer and the page's shared status-block code are touched; a mistake there resets a site's webhook URL or token silently. The sanitize matrix harness and the render matrix harness cover both paths; the owner's walk (AC6) is the check outside the criteria.
+- Release note: the webhook URL moves from Settings to this page and Settings' Send test ping goes; one line in `docs/release-notes/unreleased.md` in the same PR (AGENTS.md Definition of Done).
+- Paths for the builder (recorded at the owner's convention, not a reference): `post-quality-manager/admin/class-pqm-admin.php` (`render_workflow()`, `render_workflow_status()`, `render_workflow_file()`, the Connection tab in `render_settings()`, `sanitize_settings()`), `post-quality-manager/admin/js/pqm-admin.js` (`initTestConnection()`, `swapWorkflowStatus()`), `src/n8n-connection/`, `src/setup/`, `src/kit/use-reimport-shown.js`, `src/kit/swap-status-block.js`; tests `tests/js/workflow-status.test.js`, `tests/js/n8n-connection.test.js`, `tests/harness/render-matrix-harness.php`, `tests/harness/sanitize-matrix-harness.php`.
