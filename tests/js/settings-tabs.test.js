@@ -42,7 +42,8 @@ function renderPage( slugs ) {
 }
 
 const PANEL_BODY = {
-	connection: '<h2>License</h2><input type="url" id="pqm_n8n_webhook_url" />',
+	connection:
+		'<h2>License</h2><input type="url" id="pqm_notification_url" />',
 	ai: '<h2>AI Model</h2><h2 id="pqm-context-settings">AI Prompts &amp; Context</h2>',
 	automation: '<h2 id="pqm-cron-settings">Automated Reviews (Cron)</h2>',
 	usage: '<h2 id="pqm-quota-settings">Monthly Quota</h2>',
@@ -223,7 +224,7 @@ describe( 'Settings tabs', () => {
 		boot();
 		tab( 'ai' ).click();
 		document
-			.getElementById( 'pqm_n8n_webhook_url' )
+			.getElementById( 'pqm_notification_url' )
 			.dispatchEvent( new Event( 'invalid', { cancelable: true } ) );
 		expect( activeSlugs() ).toEqual( [ 'connection' ] );
 	} );

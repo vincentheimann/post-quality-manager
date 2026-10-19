@@ -415,8 +415,8 @@ check('agents-only role resolves to pqm_manage_agents', PQM_Admin::settings_page
 $GLOBALS['tw'] = ['caps' => ['manage_options'], 'pro' => true];
 check('neither pqm cap (story 42): resolves to manage_options, so the Roles tab stays reachable', PQM_Admin::settings_page_capability() === 'manage_options');
 
-/* n8n Workflow page: the Workflow File section, the manual path (n8n provisioning, entry 2; story 40) */
-echo "n8n Workflow page — Workflow File: four steps, Copy rows, links (entry 2)\n";
+/* n8n Workflow page: Set up by hand, the manual steps (n8n provisioning, entry 2; story 40; inside a disclosure since story 67) */
+echo "n8n Workflow page — Set up by hand: four steps, Copy rows, links (entry 2)\n";
 if (!function_exists('wp_nonce_url')) { function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; } }
 if (!function_exists('add_query_arg')) {
     function add_query_arg($args, $url = '', $unused = null) {
@@ -430,7 +430,7 @@ if (!function_exists('wp_get_current_user')) { function wp_get_current_user() { 
 /* Core prints the profile's Application Passwords section only when this is true (HTTPS or a local environment). */
 $GLOBALS['tw_app_passwords'] = true;
 if (!function_exists('wp_is_application_passwords_available_for_user')) { function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw_app_passwords']; } }
-/* pqm_setup_complete() asks PQM_DB::has_result() once a webhook URL is saved: one get_var, stubbed per row */
+/* The resolver asks PQM_DB::has_result() once a webhook URL is saved: one get_var, stubbed per row */
 $wpdb = new class { public $prefix = 'wp_'; public $has_result = null; public function get_var($sql) { return $this->has_result; } };
 /* $options are stored for this render only, over what the row already stored. */
 $render_workflow = static function (array $settings, array $options = []): string {
@@ -442,8 +442,18 @@ $render_workflow = static function (array $settings, array $options = []): strin
     $GLOBALS['tw_options'] = $kept;
     return ob_get_clean();
 };
-$section_of = static fn(string $html): string => preg_match('/Workflow File<\/h2>.*?<h2/s', $html, $m) ? $m[0] : '';
-$fresh = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']);
+/** The Set up by hand disclosure's content (story 67), '' when the state does not allow it. */
+$section_of = static fn(string $html): string => preg_match('/<details class="pqm-disclosure" id="pqm-by-hand"[^>]*>(.*?)<\/details>/s', $html, $m) ? $m[1] : '';
+/** The status block (story 67): sentence, details, version line, actions. */
+$block_of   = static fn(string $html): string => preg_match('/<div class="pqm-workflow-status"[^>]*>.*?<\/div>/s', $html, $m) ? $m[0] : '';
+$state_of   = static fn(string $html): string => preg_match('/<div class="pqm-workflow-status" data-state="([a-z-]+)">/', $html, $m) ? $m[1] : '';
+$sentence_of = static fn(string $html): string => preg_match('/<p class="pqm-workflow-sentence">([^<]*)<\/p>/', $html, $m) ? $m[1] : '';
+$outcome_of = static fn(string $html): string => preg_match('/<p class="pqm-workflow-outcome (is-[a-z]+)">([^<]*)<\/p>/', $html, $m) ? "$m[1]: $m[2]" : '';
+$primaries  = static fn(string $html): int => substr_count($html, 'button-primary');
+$disclosures_of = static fn(string $html): array => preg_match_all('/<details class="pqm-disclosure" id="([a-z0-9-]+)"( open)?>/', $html, $m) ? array_combine($m[1], array_map(static fn($o) => $o !== '', $m[2])) : [];
+$manual_site = [PQM_SETUP_OPTION => ['steps' => [], 'manual' => true]];
+// The manual path (no URL, the owner's choice): Set up by hand open; a saved URL, not checked: the disclosure collapsed.
+$fresh = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35'], $manual_site);
 $connected = $render_workflow(['webhook_token' => 'tok-35']);
 $section = $section_of($connected);
 
@@ -466,13 +476,22 @@ check('n8n labels as 2.42.3 shows them (en.json at the tag): "Import" → "From 
     str_contains($section, 'choose "Import", then "From URL"') && str_contains($section, 'choose "Import", then "From file"')
     && str_contains($section, 'open the arrow beside "Create workflow" on the n8n Overview page, choose "Create credential"')
     && !preg_match('/Import from (URL|File)"|"Create" in the side menu|first credential of/', $section));
-check('step 4: save, Publish (older n8n: Active), copy the production URL, paste it in Settings, then the test ping',
+check('step 4: save, Publish (older n8n: Active), copy the production URL, paste it here (story 67: the field is in the step)',
     str_contains($section, 'Save the workflow, then click "Publish" in the header above the canvas (older n8n versions: switch the "Active" toggle on).')
     && str_contains($section, 'Double-click the Webhook Trigger, choose "Production URL" and copy the address')
-    && str_contains($section, 'save, then come back and use "Send test ping" below.')
-    && strpos($section, 'Publish and connect') < strpos($section, 'Production URL'));
+    && str_contains($section, '<p>Paste it here: the plugin saves it and tests the connection.</p>')
+    && strpos($section, 'Publish and connect') < strpos($section, 'Production URL') && !str_contains($section, 'Send test ping') && !str_contains($section, 'tab-connection'));
 check('step 4 warns that a Test URL (/webhook-test/) is refused, as the dialog does',
     str_contains($section, '<p class="description">Not the Test URL: an address with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.</p>'));
+$save_form = static fn(string $html, string $suffix, string $button): string => '<form class="pqm-webhook-form" data-pqm-post="setup/connect">'
+    . "\n            <label class=\"pqm-copy-label\" for=\"pqm_webhook_url_$suffix\">n8n Webhook URL</label>\n            <span class=\"pqm-copy-controls\">\n"
+    . "                <input type=\"url\" id=\"pqm_webhook_url_$suffix\" name=\"webhook_url\" class=\"regular-text code pqm-webhook-url-field\"\n"
+    . '                       value="' . $html . "\"\n                       placeholder=\"https://your-n8n.example.com/webhook/pqm-execute-example-com\" />\n"
+    . "                <button type=\"submit\" class=\"$button pqm-save-webhook\" data-pqm-busy=\"Saving and testing…\">Save and test</button>\n            </span>\n        </form>";
+check('step 4 holds the webhook URL field and Save and test, posting to setup/connect (save_webhook_url(), then the ping): secondary on a set-up site…',
+    str_contains($section, $save_form('https://n8n.example/webhook', 'step', 'button')) && substr_count($section, 'pqm-save-webhook') === 1);
+check('... and the manual path\'s one primary, the field empty, Set up by hand open', str_contains($section_of($fresh), $save_form('', 'step', 'button button-primary'))
+    && $primaries($fresh) === 1 && ($disclosures_of($fresh)['pqm-by-hand'] ?? null) === true && $state_of($fresh) === 'manual');
 
 /* AC2: the first-credential warning, before the import */
 /* n8n 2.42.3 (editor-ui source at the tag): import and opening a node pick the most recently saved credential of the type; a hand pick spreads to every empty node of that type */
@@ -497,7 +516,7 @@ check('Copy rows (Pro): import URL, then each credential\'s name and fields, the
         ['Credential name', 'Anthropic - Claude'], ['Name', 'x-api-key'],
         ['Credential name', 'WordPress - example.com'], ['User', 'editor-jo'],
     ]);
-check('... each row: the field\'s aria-label = the Copy button\'s object, naming the credential inside a credential block; aria-live feedback, no id',
+check('... each row: the field\'s aria-label = the Copy button\'s object, naming the credential inside a credential block; aria-live feedback, no id on a row',
     count($rows) === substr_count($section, 'pqm-copy-row') && !array_filter($rows, static fn($r) => $r[3] !== $r[4])
     && array_column($rows, 3) === [
         'Workflow import URL',
@@ -505,7 +524,7 @@ check('... each row: the field\'s aria-label = the Copy button\'s object, naming
         'Anthropic - Claude: Credential name', 'Anthropic - Claude: Name',
         'WordPress - example.com: Credential name', 'WordPress - example.com: User',
     ]
-    && !str_contains($section, ' id="'));
+    && !preg_match('/pqm-copy-(field|button)[^>]* id="/', $section));
 preg_match_all('/<button[^>]* aria-label="([^"]+)"/', $section, $buttons);
 check('... no two buttons in the section share an aria-label', $buttons[1] !== [] && count($buttons[1]) === count(array_unique($buttons[1])));
 check('the token is a labeled value row, never part of a sentence', !str_contains($section, '<code>tok-35</code>')
@@ -519,19 +538,25 @@ check('Application Passwords available: links to the user\'s own profile (Applic
     str_contains($section, 'created in <a href="/wp-admin/profile.php#application-passwords-section">Application Passwords on your profile page</a>. n8n edits posts with it when you run Rewrite, so the user must be allowed to edit posts.')
     && !str_contains($section, $app_off));
 $GLOBALS['tw_app_passwords'] = false;
-$app_off_section = $section_of($render_workflow(['webhook_token' => 'tok-35']));
+$app_off_page = $render_workflow(['webhook_token' => 'tok-35']);
+$app_off_section = $section_of($app_off_page);
 $GLOBALS['tw_app_passwords'] = true;
 check('Application Passwords turned off: says so in words, no profile link, only Rewrite needs it',
     str_contains($app_off_section, '<p>' . $app_off . '</p>') && !str_contains($app_off_section, 'profile.php')
     && str_contains($app_off_section, 'WordPress - example.com: User'));
+$rewrite_off = '<div class="notice notice-warning inline pqm-inline-notice"><p>Application Passwords are turned off on this site, so no WordPress credential can be created for this user. Rewrite stays off until they are available and a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.</p></div>';
+check('... 4b (Pro, state Set up): one warning line right under the status block says Rewrite stays off until a WordPress credential is added; none with Application Passwords on',
+    substr_count($app_off_page, $rewrite_off) === 1 && preg_match('/<\/div>\s*' . preg_quote($rewrite_off, '/') . '/', $app_off_page) === 1
+    && strpos($app_off_page, $rewrite_off) < strpos($app_off_page, '<details') && !str_contains($connected, 'Rewrite stays off'));
+$GLOBALS['tw_app_passwords'] = false;
+check('... not in another state (not set up): the line is state 4\'s', !str_contains($render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']), 'Rewrite stays off'));
+$GLOBALS['tw_app_passwords'] = true;
 check('Anthropic key: links to the API keys page of the Anthropic Console, as the dialog names it',
     str_contains($section, 'Value: your Anthropic API key. Create one on the <a href="https://platform.claude.com/settings/keys">API keys page of the Anthropic Console</a>.'));
-check('step 4 links to the Connection tab of Settings',
-    str_contains($step4, '<a href="/wp-admin/admin.php?page=pqm-settings#tab-connection">the Connection tab of Settings</a>'));
 $n8n_link = static fn(string $s): ?string => preg_match('/In <a href="([^"]+)">your n8n<\/a>, open a new, empty workflow/', $s, $m) ? $m[1] : null;
 check('n8n link: only the webhook URL saved → its origin', $n8n_link($section) === 'https://n8n.example');
 $with_base = $section_of($render_workflow([], [PQM_N8n::OPTION => ['base_url' => 'https://n8n.owner.example:8443', 'api_key' => 'n8n-key-SECRET-42', 'probe' => null]]));
-check('n8n link: a stored n8n Instance address wins', $n8n_link($with_base) === 'https://n8n.owner.example:8443');
+check('n8n link: a stored n8n connection address wins', $n8n_link($with_base) === 'https://n8n.owner.example:8443');
 check('... and the stored n8n API key is not in the page', !str_contains($with_base, 'n8n-key-SECRET-42'));
 check('n8n link: neither stored → no link, plain words', $n8n_link($section_of($fresh)) === null
     && str_contains($section_of($fresh), 'In n8n, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import", then "From URL", and paste this link:'));
@@ -566,120 +591,142 @@ check('the section names the template\'s three credentials, so a rename in one p
     $cred_names === ['Anthropic - Claude', 'Post Quality webhook - example.com', 'WordPress - example.com']
     && !array_filter($cred_names, static fn($cn) => !str_contains($section, 'value="' . $cn . '"')));
 
-/* Story 40 AC4: the novice is handed to the dialog first */
-$lead = 'These are the steps to set up n8n by hand, and to re-import the workflow. To have n8n set up for you with an n8n API key, use "Set up the workflow" at the top of this page.';
-check('setup not complete: the first line names the manual steps and points to the guided setup', str_starts_with(trim(substr($section_of($fresh), strlen('Workflow File</h2>'))), '<p class="description">' . $lead . '</p>'));
-check('connected, no result yet: still recommended', str_contains($section, $lead));
-check('setup complete (the dialog\'s first review): no recommendation, steps unchanged',
-    !str_contains($done = $section_of($render_workflow([], [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]])), $lead)
-    && str_contains($done, '<ol class="pqm-workflow-steps">'));
-$wpdb->has_result = '1';
-check('legacy connected + a result stored: no recommendation', !str_contains($section_of($render_workflow([])), $lead));
+/* Story 40 AC4 / story 67: the intro names the manual steps and points to the key path (the n8n connection disclosure) */
+$lead = '<p class="description">The steps to set up n8n by hand, and to re-import the workflow after a plugin update. To have the plugin set n8n up for you instead, connect your n8n with an API key under "n8n connection".</p>';
+check('the disclosure opens with the intro, on the manual path and on a set-up site alike', str_starts_with(trim(substr(trim($section_of($fresh)), strlen('<summary><h2>Set up by hand</h2></summary>'))), $lead)
+    && str_contains($section, $lead));
+check('... a hand-made site with results: Set up by hand still reachable, collapsed', ($wpdb->has_result = '1') && ($disclosures_of($done = $render_workflow([]))['pqm-by-hand'] ?? null) === false
+    && str_contains($section_of($done), '<ol class="pqm-workflow-steps">'));
 $wpdb->has_result = null;
+check('... a managed site (a setup map): no Set up by hand', $disclosures_of($render_workflow([], [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) === ['pqm-n8n-connection' => false, 'pqm-webhook' => false]);
 
-/* Why the reader is here (pqm_manual_reason()): a stored failure, the owner's choice, or nothing */
+/* Story 67: the five states, one per matrix row — the sentence, the one primary, the body, the disclosures */
+echo "n8n Workflow page — the site's state, one body (story 67)\n";
 $at = 1760400000; // 2025-10-14 00:00 UTC
 $failed = ['cause' => 'api_disabled', 'message' => 'n8n answered 404: the public API is turned off on this instance (N8N_PUBLIC_API_DISABLED), or this is not your n8n address. Check the address.', 'at' => $at];
-$probe_line = 'On ' . gmdate('Y-m-d', $at) . ', the n8n Instance check did not pass: ' . $failed['message'] . ' Set up the workflow by hand with the steps below.';
-$choice_line = 'You chose to set up n8n by hand: follow the steps below.';
 $passing = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => $at];
+$key_passing = [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example', 'api_key' => 'k', 'probe' => $passing]];
+$no_url = ['n8n_webhook_url' => '', 'webhook_token' => 'tok-35'];
+$set_up_button = '<button type="button" class="button button-primary pqm-open-setup">Set up n8n</button>';
+// The JSON body rides a data attribute through esc_attr() (identity here; `&quot;` on WordPress).
+$by_hand_link = '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="{"manual":true}" data-pqm-focus="pqm-by-hand">Set up by hand instead</a></p>';
+// Row 1: not set up
+$page = $render_workflow($no_url);
+check('1 not set up: "Not connected to n8n yet.", the line accent, primary Set up n8n (opens the wizard), no Test again, no version line',
+    $state_of($page) === 'not-set-up' && $sentence_of($page) === 'Not connected to n8n yet.' && str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $set_up_button . '</p>')
+    && $primaries($page) === 1 && !str_contains($page, 'pqm-test-connection') && !str_contains($page, 'pqm-workflow-version'));
+check('... the paragraph names the three values and what the plugin creates; the "Set up by hand instead" link (POST setup {manual: true}, then Set up by hand focused); no disclosure',
+    str_contains($page, '<p>The setup asks for three values: your n8n address, an n8n API key with an expiry date, and an Anthropic API key. The plugin then creates everything in n8n for you: the credentials, the workflow and its publication.</p>')
+    && str_contains($page, $by_hand_link) && $disclosures_of($page) === [] && !str_contains($page, 'pqm-n8n-connection-root'));
+$built = file_exists(dirname(__DIR__, 2) . '/post-quality-manager/admin/build/index.asset.php');
+check('... the page: H1, the setup island root (or, unbuilt, the build notice), then one body region (aria-live polite) holding the renderer\'s output',
+    ($built ? preg_match('/<h1>n8n Workflow<\/h1>\s*<div id="pqm-setup-root"><\/div>\s*<div id="pqm-workflow-body" aria-live="polite">/', $page) === 1 : str_contains($page, 'This page has not been built yet.'))
+    && substr_count($page, 'pqm-workflow-body') === 1 && str_contains($page, PQM_Admin::render_workflow_body()));
+// Row 2: connected, not set up
+$page = $render_workflow($no_url, $key_passing);
+check('2 connected, not set up: "Connected to n8n at {host}. The workflow is not set up yet.", info accent, primary Set up n8n, the n8n connection disclosure only, the by-hand link, no leftovers notice',
+    $state_of($page) === 'connected' && $sentence_of($page) === 'Connected to n8n at n8n.example. The workflow is not set up yet.' && str_contains($page, $set_up_button) && $primaries($page) === 1
+    && $disclosures_of($page) === ['pqm-n8n-connection' => false] && (!$built || str_contains($page, 'id="pqm-n8n-connection-root"')) && str_contains($page, $by_hand_link) && !str_contains($page, 'An earlier setup left'));
+check('... leftovers waiting: the info notice', str_contains($render_workflow($no_url, $key_passing + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example', 'credentials' => ['c1'], 'at' => 1]]),
+    '<div class="notice notice-info inline pqm-inline-notice"><p>An earlier setup left a workflow or credentials in n8n. Setting up removes them first.</p></div>'));
+check('... a passing key with a setup map but no URL saved (the URL save refused): connected too, the wizard offers the paste-URL body', $state_of($render_workflow($no_url, $key_passing + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) === 'connected');
+// Row 3: manual path
+$probe_line = 'On ' . gmdate('Y-m-d', $at) . ', the n8n connection check did not pass: ' . $failed['message'];
 foreach ([
-    'fresh site: no reason line' => [[], null],
-    'a stored failure: the dated line with its cause sentence' => [[PQM_N8n::OPTION => ['failed' => $failed]], $probe_line],
-    'a stored failure on a completed setup: the line still shows' => [[PQM_N8n::OPTION => ['failed' => $failed], PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]], $probe_line],
-    'by choice: "You chose to set up n8n by hand"' => [[PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]], $choice_line],
-    'a failure and the choice: the failure line wins' => [[PQM_N8n::OPTION => ['failed' => $failed], PQM_SETUP_OPTION => ['steps' => [], 'manual' => true]], $probe_line],
-    'choice, then connected (key + passing probe): no reason line' => [[PQM_N8n::OPTION => ['base_url' => 'https://n8n.example', 'api_key' => 'k', 'probe' => $passing], PQM_SETUP_OPTION => ['steps' => [], 'manual' => true]], null],
-    'a re-check failed after a passing probe: the passing probe hides it' => [[PQM_N8n::OPTION => ['base_url' => 'https://n8n.example', 'api_key' => 'k', 'probe' => $passing, 'failed' => $failed]], null],
-] as $label => [$options, $line]) {
-    $s = $section_of($render_workflow([], $options));
-    $shown = array_values(array_filter([$probe_line, $choice_line], static fn($l) => str_contains($s, $l)));
-    check($label, $shown === ($line === null ? [] : [$line])
-        && ($line === null || str_contains($s, '<div class="notice notice-info inline pqm-inline-notice"><p>' . $line . '</p></div>')));
+    'by choice' => [$manual_site, 'You chose to set up n8n by hand.'],
+    'a failed check that offered the manual path' => [[PQM_N8n::OPTION => ['failed' => $failed]], $probe_line],
+    'a failed check on a completed setup: the reason still shows' => [[PQM_N8n::OPTION => ['failed' => $failed], PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]], $probe_line],
+    'a failure and the choice: the failure wins' => [[PQM_N8n::OPTION => ['failed' => $failed]] + $manual_site, $probe_line],
+] as $label => [$options, $reason]) {
+    $page = $render_workflow($no_url, $options);
+    check("3 manual path ($label): \"Setting up by hand.\" + the reason, info accent, Set up by hand open with Save and test the one primary, the n8n connection disclosure (Connect, secondary)",
+        $state_of($page) === 'manual' && $sentence_of($page) === 'Setting up by hand.' && str_contains($block_of($page), '<p>' . $reason . '</p>')
+        && $disclosures_of($page) === ['pqm-by-hand' => true, 'pqm-n8n-connection' => false] && $primaries($page) === 1 && str_contains($page, 'button button-primary pqm-save-webhook')
+        && !str_contains($page, 'pqm-open-setup') && !str_contains($page, 'pqm-test-connection'));
 }
+$page = $render_workflow($no_url, $key_passing + $manual_site);
+check('... the stored choice on a connected site (key + passing probe): state 3, "You chose to set up n8n by hand.", Set up by hand open (the matrix: a stored choice → manual)',
+    $state_of($page) === 'manual' && str_contains($block_of($page), '<p>You chose to set up n8n by hand.</p>') && ($disclosures_of($page)['pqm-by-hand'] ?? null) === true);
+// The link's round trip: state 2's "Set up by hand instead" posts {manual: true}, the page re-renders.
+$GLOBALS['tw_settings'] = $no_url;
+$GLOBALS['tw_options']  = $key_passing + ['date_format' => 'Y-m-d'];
+check('... state 2 offers the link', str_contains($render_workflow($no_url), 'class="pqm-by-hand-link" data-pqm-post="setup"') && $state_of($render_workflow($no_url)) === 'connected');
+// What POST /setup {manual: true} stores (setup-harness.php runs the route itself).
+update_option(PQM_SETUP_OPTION, ['steps' => [], 'manual' => true], false);
+$page = $render_workflow($no_url);
+check('... after its POST setup {manual: true}: the body re-renders as state 3 with #pqm-by-hand open, the link\'s focus target', ($GLOBALS['tw_options'][PQM_SETUP_OPTION]['manual'] ?? null) === true
+    && $state_of($page) === 'manual' && str_contains($page, '<details class="pqm-disclosure" id="pqm-by-hand" open>'));
+$GLOBALS['tw_options'] = [];
+check('... a re-check failed after a passing probe: the passing probe hides it — state 2', $state_of($render_workflow($no_url, $key_passing + [PQM_N8n::OPTION => $key_passing[PQM_N8n::OPTION] + ['failed' => $failed]])) === 'connected');
 $GLOBALS['tw_options'] = ['date_format' => 'Y-m-d', PQM_N8n::OPTION => ['failed' => $failed]];
 check('pqm_manual_reason(): {kind: probe, message, at in the site date format}', pqm_manual_reason() === ['kind' => 'probe', 'message' => $failed['message'], 'at' => gmdate('Y-m-d', $at)]);
-$GLOBALS['tw_options'] = [PQM_SETUP_OPTION => ['manual' => true]];
+$GLOBALS['tw_options'] = $manual_site;
 check('pqm_manual_reason(): {kind: choice}', pqm_manual_reason() === ['kind' => 'choice']);
 $GLOBALS['tw_options'] = [];
 check('pqm_manual_reason(): null on a fresh site', pqm_manual_reason() === null);
-
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
-$outdated = $render_workflow([]);
-check('update notice renders for an older import and no longer promises untouched credentials',
-    str_contains($outdated, 'Workflow update available.') && !str_contains($outdated, 'your plugin settings stay as they are')
-    && !str_contains($outdated, 'credentials are untouched'));
-check('update notice tells a re-importing site its production URL changes (provisioning entry 3)',
-    str_contains($outdated, '<strong>Workflow update available.</strong>')
-    && str_contains($outdated, 'Your n8n workflow is older than this plugin needs.')
-    && str_contains($outdated, 'A re-import gives it a new production URL.'));
-// A report of version 6 or later against a newer template keeps its per-site path: no new URL.
-// Not renderable while PQM_WORKFLOW_VERSION is 6 (a v6 report is current), so the guard is
-// asserted on the source: the clause renders only under `version < 6`.
-check('update notice: the new-production-URL clause only for a workflow older than version 6 (source)',
-    (bool) preg_match('/if \(\$report\[\'version\'\] < 6\) \{\s*esc_html_e\(\'A re-import gives it a new production URL\.\'/', $src));
-
-/* The update notice carries the one primary action (plan-update-notice-primary-action) */
-$reimport = '<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
-$status_of = static fn(): string => PQM_Admin::render_workflow_status();
-$notices_of = static fn(string $html): array => preg_match_all('/<div class="notice notice-warning inline pqm-inline-notice">.*?<\/div>/s', $html, $m) ? $m[0] : [];
-$primaries = static fn(string $html): int => substr_count($html, 'button-primary');
-$only_in_first = static fn(string $html): bool => count($notices_of($html)) >= 1
-    && substr_count($html, $reimport) === 1 && str_contains($notices_of($html)[0], $reimport);
-check('older workflow: the update notice ends with the primary "Re-import the workflow" button to #pqm-workflow-file, the page\'s only primary',
-    $only_in_first($status = $status_of()) && str_ends_with(trim(str_replace('</div>', '', $notices_of($status)[0])), $reimport)
-    && $primaries($outdated) === 1 && str_contains($outdated, '<h2 id="pqm-workflow-file" tabindex="-1">'));
-check('... the notice no longer says "Download or re-import it below"', !str_contains($outdated, 'Download or re-import it below'));
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
-check('Free variant on Pro: the same button, in that notice', $only_in_first($status = $status_of()) && count($notices_of($status)) === 1
-    && str_contains($notices_of($status)[0], 'Your workflow is the Free variant'));
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
-check('older and Free at once: two notices, one button, in the first (the update notice)', $only_in_first($status = $status_of())
-    && count($notices_of($status)) === 2 && str_contains($notices_of($status)[0], 'Workflow update available.') && $primaries($status) === 1);
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
-check('up to date: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
-$GLOBALS['tw_options'] = [];
-check('not checked yet: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-reimport'));
-
-/* n8n provisioning entry 7: a stored mis-wiring sentence comes first, its Test again the one primary */
-echo "Status block — the mis-wiring sentence (provisioning entry 7)\n";
-$sentence    = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
-$test_again = '<p><button type="button" class="button button-primary pqm-test-connection">Test again</button>
-                <span class="pqm-test-result" aria-live="polite"></span></p>';
-$error_of    = static fn(string $html): string => preg_match('/<div class="notice notice-error inline pqm-inline-notice">.*?<\/div>/s', $html, $m) ? $m[0] : '';
-$secondary   = '<p><a class="button pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
-$any_notice  = static fn(string $html): bool => (bool) preg_match('/class="notice notice-/', $html);
-$one_primary = static fn(string $html): bool => $any_notice($html) ? $primaries($html) === 1 : $primaries($html) === 0;
-$states      = [];
-foreach ([
-    'up to date'           => ['version' => PQM_WORKFLOW_VERSION],
-    'older'                => ['version' => PQM_WORKFLOW_VERSION - 1],
-    'Free variant on Pro'  => ['version' => PQM_WORKFLOW_VERSION, 'variant' => 'free'],
-    'older and Free'       => ['version' => PQM_WORKFLOW_VERSION - 1, 'variant' => 'free'],
-] as $label => $report) {
-    $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report + ['via' => 'test', 'at' => time(), 'miswired' => $sentence]];
-    $states[] = $status = $status_of();
-    check("sentence stored, $label: an error notice first, the sentence and Test again (a .pqm-test-connection) with its own result line",
-        ($error = $error_of($status)) !== '' && strpos($status, 'class="notice notice-error') === strpos($status, 'class="notice ')
-        && str_contains($error, '<p>' . $sentence . '</p>') && str_contains($error, $test_again) && substr_count($status, 'pqm-test-result') === 1);
-    check("... $label: Test again is the one primary; every re-import button secondary", $primaries($status) === 1
-        && substr_count($status, 'pqm-reimport') === substr_count($status, $secondary) && str_contains($status, 'Template version: '));
-}
-check('... the sentence is escaped once, where it renders (stored raw)', substr_count($src, 'esc_html($miswired)') === 1);
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => '']];
-check('an empty sentence: no error notice, no button', $error_of($status = $status_of()) === '' && $primaries($status) === 0);
-foreach ([
-    [], // not checked yet
-    ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1],
-    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]],
-    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']],
-    ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'command', 'at' => time(), 'variant' => 'free']],
-] as $options) {
-    $GLOBALS['tw_options'] = $options;
-    $states[] = $status_of();
-}
-check('every state (' . count($states) . '): at most one .button-primary in the block, one whenever it shows a notice',
-    !array_filter($states, static fn($s) => !$one_primary($s)));
+// Row 4: set up (and 4a)
+$current = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
+$page = $render_workflow(['webhook_token' => 'tok-35'], $current);
+$webhook_disclosure = static fn(string $html): string => preg_match('/<details class="pqm-disclosure" id="pqm-webhook">(.*?)<\/details>/s', $html, $m) ? $m[1] : '';
+check('4 set up, no result: "Your workflow answers.", success accent, "Version N · checked just now by a test.", primary Run your first review (the wizard\'s review step), Test again secondary',
+    $state_of($page) === 'set-up' && $sentence_of($page) === 'Your workflow answers.' && str_contains($page, '<p class="description pqm-workflow-version">Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.</p>')
+    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-open-setup" data-step="review">Run your first review</button> <button type="button" class="button pqm-test-connection">Test again</button></p>')
+    && $primaries($page) === 1);
+check('... the three disclosures, collapsed: n8n connection, Webhook, Set up by hand (hand-made: no map)', $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
+check('... Webhook: the URL field with Save and test (secondary), the token as a Copy row, its description; no Rotate token on a hand-made setup',
+    str_contains($webhook_disclosure($page), $save_form('https://n8n.example/webhook', 'disclosure', 'button')) && str_contains($webhook_disclosure($page), '<span class="pqm-copy-label">Webhook token</span>')
+    && str_contains($webhook_disclosure($page), 'value="tok-35"') && !str_contains($page, 'pqm-rotate-token') && str_contains($webhook_disclosure($page), 'Shared secret for both directions, always in the X-PQM-Token header: this site sends it'));
+$wpdb->has_result = '1';
+$page = $render_workflow([], $current);
+$wpdb->has_result = null;
+check('4 set up, results stored: primary Open Post Reviews', str_contains($block_of($page), '<a class="button button-primary" href="/wp-admin/admin.php?page=pqm-posts">Open Post Reviews</a>') && $primaries($page) === 1
+    && !str_contains($page, 'pqm-open-setup'));
+$page = $render_workflow([]);
+check('4a saved, not checked: "Saved, not checked yet.", info accent, primary Test the connection, no version line, the same disclosures',
+    $state_of($page) === 'not-checked' && $sentence_of($page) === 'Saved, not checked yet.' && !str_contains($page, 'pqm-workflow-version')
+    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test the connection</button></p>') && $primaries($page) === 1
+    && $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
+// Row 5: needs attention
+$failed_report = $current;
+$failed_report['pqm_workflow_version_seen']['failed'] = ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => time() - 7200];
+$page = $render_workflow([], $failed_report);
+check('5 ping fails: "The last test {when} did not reach your workflow: {message}", error accent, primary Test again, the last passing version kept under it, the three disclosures',
+    $state_of($page) === 'failing' && $sentence_of($page) === 'The last test 2 hours ago did not reach your workflow: n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
+    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test again</button></p>') && $primaries($page) === 1
+    && str_contains($page, 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.') && $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
+$page = $render_workflow([], ['pqm_workflow_version_seen' => ['failed' => $failed_report['pqm_workflow_version_seen']['failed']]]);
+check('... a failure before any passing check: the same, without a version line', $state_of($page) === 'failing' && !str_contains($page, 'pqm-workflow-version') && $primaries($page) === 1);
+$sentence = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
+$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['miswired' => $sentence]]);
+check('5 mis-wired: the diagnosis sentence is the status sentence, error accent, primary Test again, no other fix', $state_of($page) === 'failing' && $sentence_of($page) === $sentence
+    && str_contains($block_of($page), 'button button-primary pqm-test-connection">Test again</button>') && $primaries($page) === 1 && !str_contains($page, 'pqm-reimport') && !str_contains($page, 'pqm-update-workflow'));
+check('... the sentence is escaped once, where it renders (stored raw)', substr_count($src, "esc_html(\$sentence)") === 1 && str_contains($src, "\$sentence = \$report['miswired']; // raw"));
+$page = $render_workflow([], ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1]);
+check('5 outdated (a legacy int, hand-made): "Your workflow is version N-1; this plugin needs N.", warning accent, the new-production-URL note (pre-v6), primary Re-import the workflow (to #pqm-by-hand), Test again secondary',
+    $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version ' . (PQM_WORKFLOW_VERSION - 1) . '; this plugin needs ' . PQM_WORKFLOW_VERSION . '.'
+    && str_contains($block_of($page), '<p>A re-import gives it a new production URL.</p>') && str_contains($block_of($page), '<p class="description pqm-workflow-version">Version ' . (PQM_WORKFLOW_VERSION - 1) . ' · reported by a command.</p>')
+    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><a class="button button-primary pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a> <button type="button" class="button pqm-test-connection">Test again</button></p>')
+    && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === false);
+// 6 = the first version with a per-site webhook path: a report of version 6 or later keeps its path (not renderable while PQM_WORKFLOW_VERSION is 6), asserted on the source.
+check('... the new-production-URL note only for a workflow older than version 6 (source)',
+    (bool) preg_match("/\\\$state\\['problem'\\] === 'outdated' && \\\$report\\['version'\\] < 6\\) \\{\\s*\\\$details\\[\\] = __\\('A re-import gives it a new production URL\\.'/", $src));
+$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => 0, 'via' => 'test', 'at' => time()]]);
+check('5 outdated (a v1–v4 import): "an older version that does not report its number; this plugin needs N."',
+    $sentence_of($page) === 'Your workflow is an older version that does not report its number; this plugin needs ' . PQM_WORKFLOW_VERSION . '.' && $state_of($page) === 'outdated');
+$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['variant' => 'free']]);
+check('5 Free variant on Pro: the Free-variant sentence, warning accent, Re-import primary', $state_of($page) === 'outdated'
+    && $sentence_of($page) === 'Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.' && str_contains($page, 'button-primary pqm-reimport') && $primaries($page) === 1);
+$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
+check('... older and Free at once: the version sentence wins, one primary', str_starts_with($sentence_of($page), 'Your workflow is version ') && $primaries($page) === 1);
+$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
+check('... mis-wired and older at once (hand-made): the mis-wiring first, Test again the one primary, Re-import the workflow secondary after it, Set up by hand present',
+    $sentence_of($page) === $sentence && $primaries($page) === 1
+    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test again</button> <a class="button pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a></p>')
+    && ($disclosures_of($page)['pqm-by-hand'] ?? null) === false);
+$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['variant' => 'free', 'miswired' => $sentence]]);
+check('... mis-wired and the Free variant at once: the same, Re-import secondary', $sentence_of($page) === $sentence && $primaries($page) === 1 && str_contains($page, '<a class="button pqm-reimport" href="#pqm-by-hand">'));
+$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['miswired' => '']]);
+check('an empty sentence: set up', $state_of($page) === 'set-up');
 $GLOBALS['tw_options'] = [];
 $GLOBALS['tw_settings'] = [];
 
@@ -690,29 +737,28 @@ $managed_site = [
     PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic'], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1],
 ];
 $managed_url = ['n8n_webhook_url' => 'https://n8n.example/webhook/pqm-execute-example-com'];
-$update      = '<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
+$update      = '<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
+$rotate      = '<p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button></p>';
 $in_place    = 'The plugin can update it in place: your credentials and production URL stay.';
 $older       = ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time()];
-$GLOBALS['tw_settings'] = $managed_url;
-$GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];
-$status = $status_of();
-check('older, managed: the update notice ends with the primary Update workflow button and its result line, the page\'s one primary; no re-import, no "new production URL"',
-    count($notices_of($status)) === 1 && str_ends_with(trim(str_replace('</div>', '', $notices_of($status)[0])), $update) && !str_contains($status, 'pqm-reimport')
-    && $primaries($status) === 1 && str_contains($status, 'Your n8n workflow is older than this plugin needs.') && str_contains($status, $in_place) && !str_contains($status, 'new production URL'));
-$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
-check('... a pre-v6 report (a legacy int): no "new production URL" sentence either, the update keeps the URL', str_contains($status = $status_of(), $update)
-    && str_contains($status, $in_place) && !str_contains($status, 'new production URL'));
-$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']];
-check('Free variant on Pro, managed: the same button, in that notice', count($notices_of($status = $status_of())) === 1
-    && str_contains($notices_of($status)[0], 'Your workflow is the Free variant') && str_contains($status, $update) && !str_contains($status, 'pqm-reimport') && $primaries($status) === 1);
-$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => $older + ['variant' => 'free']];
-check('older and Free at once, managed: two notices, one button, in the first', count($notices_of($status = $status_of())) === 2
-    && str_contains($notices_of($status)[0], $update) && substr_count($status, 'pqm-update-workflow') === 1 && $primaries($status) === 1);
-$GLOBALS['tw_options'] = $managed_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]];
-$status = $status_of();
-check('sentence stored, managed: Test again the one primary, Update workflow secondary, each with its own result line', $error_of($status) !== ''
-    && str_contains($error_of($status), $test_again) && str_contains($status, '<p><button type="button" class="button pqm-update-workflow">Update workflow</button>')
-    && $primaries($status) === 1 && substr_count($status, 'pqm-test-result') === 2 && !str_contains($status, 'pqm-reimport'));
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older]);
+check('older, managed: the primary Update workflow (POST n8n/workflow), the in-place sentence; no re-import, no "new production URL", no Set up by hand',
+    str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $update . ' <button type="button" class="button pqm-test-connection">Test again</button></p>') && !str_contains($page, 'pqm-reimport')
+    && $primaries($page) === 1 && str_contains($block_of($page), '<p>' . $in_place . '</p>') && !str_contains($page, 'new production URL')
+    && $disclosures_of($page) === ['pqm-n8n-connection' => false, 'pqm-webhook' => false]);
+check('... Webhook: Rotate token (POST n8n/token) under the token row', str_contains($webhook_disclosure($page), $rotate)
+    && strpos($webhook_disclosure($page), $rotate) > strpos($webhook_disclosure($page), '<span class="pqm-copy-label">Webhook token</span>'));
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1]);
+check('... a pre-v6 report (a legacy int): no "new production URL" sentence either, the update keeps the URL', str_contains($page, $update)
+    && str_contains($page, $in_place) && !str_contains($page, 'new production URL'));
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
+check('Free variant on Pro, managed: the same button', str_contains($sentence_of($page), 'Free variant') && str_contains($page, $update) && !str_contains($page, 'pqm-reimport') && $primaries($page) === 1);
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]]);
+check('sentence stored and older, managed: Test again the one primary, Update workflow secondary after it', $sentence_of($page) === $sentence
+    && str_contains($block_of($page), '<button type="button" class="button button-primary pqm-test-connection">Test again</button> <button type="button" class="button pqm-update-workflow" data-pqm-post="n8n/workflow"')
+    && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === null);
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
+check('sentence stored, current, managed: Test again the one primary, no Update workflow (nothing to update)', $primaries($page) === 1 && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-reimport'));
 foreach ([
     'no key'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::OPTION]); },
     'a key without a passing probe' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = null; },
@@ -722,13 +768,24 @@ foreach ([
     $GLOBALS['tw_settings'] = $managed_url;
     $GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];
     $change();
-    check("gate fails ($label): Re-import the workflow as before, no Update workflow", str_contains($status = $status_of(), $reimport)
-        && !str_contains($status, 'pqm-update-workflow') && !str_contains($status, $in_place) && $one_primary($status));
+    $page = $render_workflow($GLOBALS['tw_settings']);
+    check("gate fails ($label): Re-import the workflow as before, no Update workflow, no Rotate token; its target, the Set up by hand disclosure, is on the page", str_contains($page, 'button-primary pqm-reimport" href="#pqm-by-hand"')
+        && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-rotate-token') && !str_contains($page, $in_place) && $primaries($page) === 1
+        && str_contains($page, '<details class="pqm-disclosure" id="pqm-by-hand">'));
 }
 $GLOBALS['tw_settings'] = $managed_url;
-$GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
-check('up to date, managed: no notice, no button', $notices_of($status = $status_of()) === [] && !str_contains($status, 'pqm-update-workflow'));
-check('the block renders no secret: not the n8n key', !str_contains($status, '"k"') && !str_contains($status_of(), 'api_key'));
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
+check('up to date, managed: set up, no update button, no Set up by hand, Rotate token still there', $state_of($page) === 'set-up' && !str_contains($page, 'pqm-update-workflow')
+    && !str_contains($page, 'id="pqm-by-hand"') && str_contains($page, $rotate));
+/* Without the built assets, nothing can open the dialog: the setup button is left out, the build warning says why. */
+check('the setup button renders only with the built assets (source: app_built() gates $setup_button; render_app_root() uses the same check)',
+    (bool) preg_match('/\$setup_button = static fn\(string \$label, string \$step = \'\'\): string => !self::app_built\(\) \? \'\' :/', $src)
+    && substr_count($src, 'self::app_built()') === 2 && str_contains($src, "private static function app_built(): bool\n    {\n        return file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');"));
+$page = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']);
+check('... state 1 ' . ($built ? 'built: Set up n8n is the one primary' : 'unbuilt: no Set up n8n, no primary, the build warning'), $built
+    ? str_contains($page, 'button-primary pqm-open-setup">Set up n8n</button>') && $primaries($page) === 1
+    : !str_contains($page, 'pqm-open-setup') && $primaries($page) === 0 && str_contains($page, 'This page has not been built yet.'));
+check('the body renders no secret: not the n8n key', !str_contains($page, '"k"') && !str_contains($page, 'api_key'));
 $GLOBALS['tw_options'] = [];
 $GLOBALS['tw_settings'] = [];
 
@@ -793,45 +850,40 @@ $GLOBALS['tw_options'] = [];
 $_POST = [];
 $GLOBALS['tw_settings'] = [];
 
-/* Workflow version handshake (v5): the status block and the ping that refreshes it */
+/* Workflow version handshake (v5): the status block and the ping that refreshes it (story 67: the whole body) */
 echo "Workflow version status and the ping handshake\n";
-$status_of = static function (string $html): string {
-    return preg_match('/<div class="pqm-workflow-status">.*?<p class="description">.*?<\/p>\s*<\/div>/s', $html, $m) ? $m[0] : '';
-};
-$notice = 'Workflow update available.';
 $saved  = 'https://n8n.example/webhook'; // the stub's stored n8n_webhook_url
 $seen   = static fn() => $GLOBALS['tw_options']['pqm_workflow_version_seen'] ?? null;
 
-/* Row: fresh / just served — option absent */
+/* Row: fresh / just served — option absent (the stub saves a URL: not checked yet) */
 $GLOBALS['tw_options'] = [];
 $page = $render_workflow([]);
-$block = $status_of($page);
+$block = $block_of($page);
 $island = max((int) strpos($page, 'id="pqm-setup-root"'), (int) strpos($page, 'This page has not been built yet.')); // built or not
-check('fresh: one status block, right under the setup island, before Workflow File',
+check('fresh: one status block, right under the setup island, first in the body',
     $block !== '' && substr_count($page, 'class="pqm-workflow-status"') === 1 && $island > 0
-    && $island < strpos($page, 'pqm-workflow-status') && strpos($page, 'pqm-workflow-status') < strpos($page, 'Workflow File</h2>'));
-check('fresh: "not checked yet — send a test ping", no notice', !str_contains($block, $notice)
-    && str_contains($block, 'Template version: ' . PQM_WORKFLOW_VERSION . ' · Your n8n workflow: not checked yet — send a test ping once it is imported and active.'));
-check('the page renders the block through the one renderer', str_contains($page, PQM_Admin::render_workflow_status()));
+    && $island < strpos($page, 'pqm-workflow-status') && strpos($page, 'pqm-workflow-body') < strpos($page, 'pqm-workflow-status'));
+check('fresh: "Saved, not checked yet.", no version line', $state_of($page) === 'not-checked' && $sentence_of($page) === 'Saved, not checked yet.' && !str_contains($block, 'pqm-workflow-version'));
+check('the page renders the body through the one renderer', str_contains($page, PQM_Admin::render_workflow_body()));
 
-/* Row: legacy int option from a pre-v5 plugin — notice for N < current, no time */
+/* Row: legacy int option from a pre-v5 plugin — needs attention for N < current, no time */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
-$block = PQM_Admin::render_workflow_status();
-check('legacy int ' . (PQM_WORKFLOW_VERSION - 1) . ': notice, "version N, reported by a command", no time',
-    str_contains($block, $notice) && str_contains($block, 'Your n8n workflow: version ' . (PQM_WORKFLOW_VERSION - 1) . ', reported by a command.')
+$block = $block_of(PQM_Admin::render_workflow_body());
+check('legacy int ' . (PQM_WORKFLOW_VERSION - 1) . ': outdated, "Version N · reported by a command.", no time',
+    str_contains($block, 'this plugin needs ' . PQM_WORKFLOW_VERSION . '.') && str_contains($block, 'Version ' . (PQM_WORKFLOW_VERSION - 1) . ' · reported by a command.')
     && !str_contains($block, 'ago') && !str_contains($block, 'just now'));
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => (string) PQM_WORKFLOW_VERSION];
-check('legacy int = current (stored as a string by WP): no notice', !str_contains(PQM_Admin::render_workflow_status(), $notice));
+check('legacy int = current (stored as a string by WP): set up', $state_of(PQM_Admin::render_workflow_body()) === 'set-up');
 
 /* Row: a command's report, hours old */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200]];
-$block = PQM_Admin::render_workflow_status();
-check('command report, 2 h old: "checked 2 hours ago by a command", no notice', !str_contains($block, $notice)
-    && str_contains($block, 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked 2 hours ago by a command.'));
+$block = $block_of(PQM_Admin::render_workflow_body());
+check('command report, 2 h old: set up, "Version N · checked 2 hours ago by a command."', str_contains($block, 'data-state="set-up"')
+    && str_contains($block, 'Version ' . PQM_WORKFLOW_VERSION . ' · checked 2 hours ago by a command.'));
 
-/* Row: ping, v5 reply, saved URL — starting from the "update available" state */
+/* Row: ping, v5 reply, saved URL — starting from the "needs attention" state */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
-check('before the ping: the notice shows', str_contains($status_of($render_workflow([])), $notice));
+check('before the ping: outdated', $state_of($render_workflow([])) === 'outdated');
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
 $r = ping(''); // the n8n Workflow page sends no URL: the saved one is pinged
 $report = $seen();
@@ -842,11 +894,12 @@ check('v5 reply: message says reachable, credential right, workflow up to date',
 check('v5 reply: outdated false (the page shows a success)', ($r->data['outdated'] ?? null) === false);
 check('v5 reply: the shape unchanged by entry 7 (no miswired key; no n8n key stored, so no diagnosis)', array_keys($r->data) === ['message', 'outdated', 'status_html']
     && !isset($seen()['miswired']));
-check('v5 reply: status_html = the renderer\'s block, notice gone, "version 5, checked just now by a test ping"',
-    ($r->data['status_html'] ?? '') === PQM_Admin::render_workflow_status() && !str_contains($r->data['status_html'], $notice)
-    && str_contains($r->data['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.'));
+check('v5 reply: status_html = the renderer\'s body with the message first (a success): set up, "Version 5 · checked just now by a test."',
+    ($r->data['status_html'] ?? '') === PQM_Admin::render_workflow_body($r->data['message'], 'success') && $state_of($r->data['status_html']) === 'set-up'
+    && $outcome_of($r->data['status_html']) === 'is-success: ' . $r->data['message']
+    && str_contains($r->data['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.'));
 $r = ping($saved);
-check('Settings field holding the saved URL: recorded too, status_html sent', $r->ok === true && isset($r->data['status_html']) && $seen()['via'] === 'test');
+check('a posted URL equal to the saved one: recorded too, status_html sent', $r->ok === true && isset($r->data['status_html']) && $seen()['via'] === 'test');
 
 /* Row: ping, older reply (v1–v4: n8n's default body, or not JSON) */
 foreach (['n8n default body' => '{"message":"Workflow was started"}', 'non-JSON body' => 'Workflow was started', 'empty body' => ''] as $label => $body) {
@@ -858,18 +911,18 @@ foreach (['n8n default body' => '{"message":"Workflow was started"}', 'non-JSON 
         $r->ok === true && !str_contains($r->data['message'], 'credential')
         && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.');
     check("older reply ($label): outdated true (the page shows a warning, not a success)", ($r->data['outdated'] ?? null) === true);
-    check("older reply ($label): status_html shows the notice and \"an older version\"",
-        str_contains($r->data['status_html'], $notice)
-        && str_contains($r->data['status_html'], 'Your n8n workflow: an older version that does not report its number, checked just now by a test ping.'));
+    check("older reply ($label): status_html needs attention, the message a warning, \"an older version that does not report its number\"",
+        $state_of($r->data['status_html']) === 'outdated' && $outcome_of($r->data['status_html']) === 'is-warning: ' . $r->data['message']
+        && str_contains($r->data['status_html'], 'Your workflow is an older version that does not report its number; this plugin needs ' . PQM_WORKFLOW_VERSION . '.'));
 }
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERSION - 1) . '}';
 $r = ping('');
-check('reply with an older number: older-version message, the notice, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
-    && str_contains($r->data['message'], 'an older version') && str_contains($r->data['status_html'], $notice) && $r->data['outdated'] === true);
-check('reply with an older number: message and notice say the re-import gives a new production URL',
+check('reply with an older number: older-version message, needs attention, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
+    && str_contains($r->data['message'], 'an older version') && $state_of($r->data['status_html']) === 'outdated' && $r->data['outdated'] === true);
+check('reply with an older number: message and block say the re-import gives a new production URL',
     str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A re-import gives it a new production URL.'));
 
-/* Row: ping, unsaved URL (Settings field ≠ saved) — message only */
+/* Row: ping, unsaved URL (a posted URL ≠ saved) — message only */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
 $r = ping('https://other.example/webhook/pqm-execute');
@@ -886,32 +939,47 @@ check('Free template answers on the Pro build: stored {5, via test, variant free
     ($seen()['variant'] ?? null) === 'free' && $seen()['version'] === PQM_WORKFLOW_VERSION && $seen()['via'] === 'test');
 check('... outdated true, the message names the Free variant and points to re-importing', $r->ok === true && $r->data['outdated'] === true
     && $r->data['message'] === 'Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.');
-check('... status_html carries the Free-variant notice once, not the update one',
-    substr_count($r->data['status_html'], $free_notice) === 1 && !str_contains($r->data['status_html'], $notice));
+check('... status_html: the Free-variant sentence once, not the version one',
+    $sentence_of($r->data['status_html']) === $free_notice && !str_contains($r->data['status_html'], 'this plugin needs'));
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
 $r = ping('');
-check('legacy v5 reply (no variant): read as Pro, up to date, no Free-variant notice', !isset($seen()['variant'])
-    && $r->data['outdated'] === false && !str_contains($r->data['status_html'], $free_notice));
+check('legacy v5 reply (no variant): read as Pro, up to date, set up', !isset($seen()['variant'])
+    && $r->data['outdated'] === false && $state_of($r->data['status_html']) === 'set-up');
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"pro"}';
 $r = ping('');
 check('a reply stating pro: stored without a variant, up to date', !isset($seen()['variant']) && $r->data['outdated'] === false);
 
-/* Row: ping fails — messages unchanged, nothing stored */
+/* Row: ping fails — the failure recorded on the report (story 67), the version kept; the body needs attention */
 $before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
 foreach ([401, 403, 404, 500] as $code) {
     $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $before];
     $GLOBALS['tw_ping_code'] = $code;
     $r = ping('');
-    check("ping fails (HTTP $code): error string, nothing stored", $r->ok === false && is_string($r->data) && $seen() === $before);
+    check("ping fails (HTTP $code): error {message, status_html}, the failure recorded with its message, the version kept", $r->ok === false && is_array($r->data)
+        && array_keys($r->data) === ['message', 'status_html'] && pqm_workflow_report() === $before + ['failed' => ['message' => $r->data['message'], 'at' => pqm_workflow_report()['failed']['at'] ?? 0]]
+        && abs((pqm_workflow_report()['failed']['at'] ?? 0) - time()) <= 5);
+    check("ping fails (HTTP $code): the body needs attention (failing), the message its outcome line and its sentence, Test again the one primary",
+        $state_of($r->data['status_html']) === 'failing' && $outcome_of($r->data['status_html']) === 'is-error: ' . $r->data['message']
+        && $sentence_of($r->data['status_html']) === 'The last test just now did not reach your workflow: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1
+        && str_contains($r->data['status_html'], 'button button-primary pqm-test-connection">Test again</button>'));
 }
 $GLOBALS['tw_ping_code'] = 200;
 $GLOBALS['tw_ping_error'] = new WP_Error('http_request_failed', 'cURL error 28: Operation timed out');
 $r = ping('');
-check('ping fails (WP_Error): "Could not connect" string, nothing stored',
-    $r->ok === false && $r->data === 'Could not connect to n8n: cURL error 28: Operation timed out' && $seen() === $before);
-unset($GLOBALS['tw_ping_error'], $GLOBALS['tw_ping_body']);
+check('ping fails (WP_Error): "Could not connect" message, recorded',
+    $r->ok === false && $r->data['message'] === 'Could not connect to n8n: cURL error 28: Operation timed out' && (pqm_workflow_report()['failed']['message'] ?? null) === $r->data['message']);
+unset($GLOBALS['tw_ping_error']);
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
+$r = ping('');
+check('a passing ping after: the failure cleared, set up', !isset(pqm_workflow_report()['failed']) && $state_of($r->data['status_html']) === 'set-up');
+$GLOBALS['tw_ping_code'] = 404;
+$GLOBALS['tw_options'] = [];
+ping('https://other.example/webhook/pqm-execute');
+check('a failed ping of an unsaved URL records nothing', $seen() === null);
+$GLOBALS['tw_ping_code'] = 200;
+unset($GLOBALS['tw_ping_body']);
 
-/* Row: tab regains focus — ajax_workflow_status() answers the block, never pings (D1) */
+/* Row: tab regains focus, the dialog closes — ajax_workflow_status() answers the body, never pings (D1) */
 $status_read = static function (): PQM_Json_Exit {
     $GLOBALS['tw_pings'] = [];
     $GLOBALS['tw_referer'] = [];
@@ -922,18 +990,19 @@ $stored = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => time()
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $stored];
 $r = $status_read();
 check('status read: checks the page nonce (pqm_admin_action)', $GLOBALS['tw_referer'] === ['pqm_admin_action']);
-check('status read: answers {status_html} = the renderer\'s block, nothing else', $r->ok === true
-    && $r->data === ['status_html' => PQM_Admin::render_workflow_status()] && str_contains($r->data['status_html'], 'checked 2 hours ago by a command'));
+check('status read: answers {status_html} = the renderer\'s body, no outcome line, nothing else', $r->ok === true
+    && $r->data === ['status_html' => PQM_Admin::render_workflow_body()] && str_contains($r->data['status_html'], 'checked 2 hours ago by a command')
+    && !str_contains($r->data['status_html'], 'pqm-workflow-outcome'));
 check('status read: never pings n8n, writes nothing', $GLOBALS['tw_pings'] === [] && $GLOBALS['tw_options'] === ['pqm_workflow_version_seen' => $stored]);
 unset($GLOBALS['tw_options']['pqm_workflow_version_seen']);
-check('status read after a serve (option gone): "not checked yet"', str_contains($status_read()->data['status_html'], 'not checked yet'));
+check('status read after a serve (option gone): "Saved, not checked yet."', str_contains($status_read()->data['status_html'], 'Saved, not checked yet.'));
 $GLOBALS['tw']['caps'] = ['pqm_manage_agents', 'pqm_view_reviews'];
 $r = $status_read();
-check('status read without pqm_manage_settings: 403 error, no block', $r->ok === false && $r->status === 403 && is_string($r->data));
+check('status read without pqm_manage_settings: 403 error, no body', $r->ok === false && $r->status === 403 && is_string($r->data));
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
 $GLOBALS['tw_bad_nonce'] = true;
 $r = $status_read();
-check('status read with a bad or expired nonce: dies (-1, 403) before any block', $r->ok === false && $r->data === -1 && $r->status === 403);
+check('status read with a bad or expired nonce: dies (-1, 403) before any body', $r->ok === false && $r->data === -1 && $r->status === 403);
 unset($GLOBALS['tw_bad_nonce']);
 check('the status read is hooked as wp_ajax_pqm_workflow_status, beside the ping',
     str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php'),
@@ -954,14 +1023,20 @@ check('updated_option is hooked with its three args (old and new value)',
     str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php'),
         "add_action('updated_option', ['PQM_Admin', 'on_settings_updated'], 10, 3);"));
 
-/* The setup dialog swaps the block after its connect and its provisioning (pqm-admin.js: tests/js/workflow-status.test.js) */
+/* The setup dialog swaps the body after its connect and its provisioning; every close asks for a refresh (src/, tests/js/) */
 $steps_js = file_get_contents(dirname(__DIR__, 2) . '/src/setup/steps.js');
-$swap_js  = file_get_contents(dirname(__DIR__, 2) . '/src/kit/swap-status-block.js'); // the one swap since n8n provisioning entry 10
-check('the setup dialog replaces .pqm-workflow-status with status_html (connect and provisioning) and warns when outdated',
-    str_contains($swap_js, "document.querySelector( '.pqm-workflow-status' )") && str_contains($swap_js, 'block.outerHTML = html')
+$setup_js = file_get_contents(dirname(__DIR__, 2) . '/src/setup/index.js');
+$swap_js  = file_get_contents(dirname(__DIR__, 2) . '/src/kit/swap-status-block.js'); // the one swap for React callers
+$entry_js = file_get_contents(dirname(__DIR__, 2) . '/src/index.js');
+check('the setup dialog swaps #pqm-workflow-body\'s content with status_html (connect and provisioning), warns when outdated, and asks for a refresh on close',
+    str_contains($swap_js, "document.getElementById( 'pqm-workflow-body' )") && str_contains($swap_js, 'body.innerHTML = html')
     && str_contains($steps_js, "import swapStatusBlock from '../kit/swap-status-block';")
     && str_contains($steps_js, 'swapStatusBlock( data.status_html )') && str_contains($steps_js, 'swapStatusBlock( reply.status_html )')
-    && (bool) preg_match("/data\\.outdated \\) \\{\\s*status = 'warning';/", $steps_js));
+    && (bool) preg_match("/data\\.outdated \\) \\{\\s*status = 'warning';/", $steps_js)
+    && str_contains($setup_js, 'requestWorkflowRefresh( SETUP_CLOSED_EVENT, focus )') && !str_contains($setup_js, 'window.location.reload'));
+check('the n8n connection island remounts on every swap, secondary on the page; no island reads the block for a primary button any more',
+    str_contains($entry_js, 'document.addEventListener( WORKFLOW_STATUS_EVENT, mountConnection )') && str_contains($entry_js, '<N8nConnection variant="secondary" />')
+    && !file_exists(dirname(__DIR__, 2) . '/src/kit/use-reimport-shown.js'));
 
 $GLOBALS['tw_options'] = [];
 $_POST = [];
@@ -975,9 +1050,10 @@ foreach (['fresh site' => ['n8n_webhook_url' => ''], 'connected site' => []] as 
     check("$label: the island's root div (or, unbuilt, the build notice) sits under the title",
         $built ? substr_count($html, '<div id="pqm-setup-root"></div>') === 1 : str_contains($html, 'This page has not been built yet.'));
     check("$label: no inline wizard", !str_contains($html, 'pqm-wizard'));
-    check("$label: connected sections always render (Workflow File, import-URL copy, Connection Test)",
-        str_contains($html, 'Workflow File</h2>') && str_contains($html, 'pqm-copy-button') && str_contains($html, 'pqm-test-connection'));
 }
+check('fresh site: the status block\'s Set up n8n opens the dialog (.pqm-open-setup); nothing else on the page', str_contains($render_workflow(['n8n_webhook_url' => '']), 'pqm-open-setup')
+    && !str_contains($render_workflow(['n8n_webhook_url' => '']), 'pqm-copy-button'));
+check('connected site: Set up by hand (import-URL copy) and the test button render', str_contains($html, 'pqm-copy-button') && str_contains($html, 'pqm-test-connection'));
 $GLOBALS['tw_settings'] = [];
 
 /* The Workflow hook loads both the app bundle (island) and pqm-admin.js (ping, copy) */
@@ -1000,10 +1076,12 @@ check('Copy feedback: the import URL\'s own line, a generic "Copied." for every 
     && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['copyFailed'] ?? null) === 'Could not copy automatically. The value is selected — press Ctrl+C.');
 check('the inline wizard\'s i18n keys are gone', !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['saving'])
     && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['savedPingFailed']));
-check('Update workflow (entry 9): the REST root, a wp_rest nonce and the progress line are localized for the page script',
+check('the REST actions (story 67): the REST root and a wp_rest nonce are localized; the busy labels ride the buttons (data-pqm-busy), the test\'s and the network line in i18n; no Settings-field line',
     ($GLOBALS['tw_localized']['pqm-admin']['restUrl'] ?? null) === '/wp-json/post-quality/v1/'
     && ($GLOBALS['tw_localized']['pqm-admin']['restNonce'] ?? null) === 'nonce'
-    && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['updating'] ?? null) === 'Updating the workflow…');
+    && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['testing'] ?? null) === 'Testing the connection…'
+    && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['networkError'] ?? null) === 'The request did not go through. Check your connection and try again.'
+    && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['updating']) && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['enterWebhookUrl']));
 $GLOBALS['tw_enqueued'] = [];
 PQM_Admin::enqueue_assets('content-quality_page_pqm-settings');
 check('Settings page: pqm-admin.js only, no app bundle', $GLOBALS['tw_enqueued'] === ['pqm-admin']);
@@ -1095,7 +1173,8 @@ $GLOBALS['tw_settings'] = [];
 echo "Settings tabs (story 27)\n";
 $headings = [
     'License' => '>License</h2>', 'n8n Connection' => '>n8n Connection</h2>', 'AI Model' => '>AI Model</h2>',
-    'AI Prompts & Context' => '>AI Prompts & Context</h2>', 'Agent-Specific Overrides' => '>Agent-Specific Overrides',
+    'AI Prompts & Context' => '>AI Prompts & Context</h2>', 'What Each Agent Sends to Claude' => '>What Each Agent Sends to Claude</h2>',
+    'Agent-Specific Overrides' => '>Agent-Specific Overrides',
     'Automated Reviews' => '>Automated Reviews (Cron)', 'Monthly Quota' => '>Monthly Quota</h2>',
     'What each role can do' => '>What each role can do',
 ];
@@ -1111,14 +1190,15 @@ function tab_panels(string $html): array {
     return $panels;
 }
 $tab_cases = [
+    // Story 67: the per-agent table (What Each Agent Sends to Claude) sits in AI, after the prompts it reads.
     'Admin'         => [$admin_caps, ['connection' => ['License', 'n8n Connection'],
-        'ai' => ['AI Model', 'AI Prompts & Context', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'], 'usage' => ['Monthly Quota']]],
+        'ai' => ['AI Model', 'AI Prompts & Context', 'What Each Agent Sends to Claude', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'], 'usage' => ['Monthly Quota']]],
     'Editor'        => [$editor_caps, ['ai' => ['Agent-Specific Overrides'], 'automation' => ['Automated Reviews']]],
     'Settings-only' => [['pqm_manage_settings'], ['connection' => ['License', 'n8n Connection'],
-        'ai' => ['AI Model', 'AI Prompts & Context'], 'usage' => ['Monthly Quota']]],
+        'ai' => ['AI Model', 'AI Prompts & Context', 'What Each Agent Sends to Claude'], 'usage' => ['Monthly Quota']]],
     // Story 42: core manage_options adds Roles, last.
     'Site admin'    => [array_merge($admin_caps, ['manage_options']), ['connection' => ['License', 'n8n Connection'],
-        'ai' => ['AI Model', 'AI Prompts & Context', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'],
+        'ai' => ['AI Model', 'AI Prompts & Context', 'What Each Agent Sends to Claude', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'],
         'usage' => ['Monthly Quota'], 'roles' => ['What each role can do']]],
 ];
 foreach ($tab_cases as $who => [$caps, $expect]) {
@@ -1174,7 +1254,24 @@ preg_match_all('/^([^{}\n]*\.pqm-tab-panel[^{]*)\{[^}]*display:\s*none/m', $css,
 check('JS off: the tab bar hides (.no-js) and panels hide only under .js or .pqm-tabs-pending', str_contains($css, '.no-js .pqm-tabs { display: none; }')
     && $m[1] !== [] && array_filter($m[1], static fn($sel) => str_starts_with(trim($sel), '.js ')
         || str_starts_with(trim($sel), '.pqm-tabs-pending ')) === $m[1]);
-check('n8n Workflow page: the Settings link opens the AI tab', str_contains($render_workflow([]), 'href="/wp-admin/admin.php?page=pqm-settings#tab-ai"'));
+/* Story 67: the per-agent table moved to Settings → AI; Settings → Connection shows the URL read-only and links the token to the page */
+$settings_html = render_for($admin_caps, true);
+$connection_panel = tab_panels($settings_html)['connection'] ?? '';
+check('Settings → AI: the per-agent table, after the AI Prompts & Context table; the n8n Workflow page has none',
+    ($t = strpos(tab_panels($settings_html)['ai'] ?? '', '<table class="widefat striped pqm-llm-preview">')) !== false && $t > strpos(tab_panels($settings_html)['ai'], 'Editorial Standards')
+    && !str_contains($render_workflow([]), 'pqm-llm-preview') && !str_contains($render_workflow([]), 'What Each Agent Sends'));
+check('Settings → Connection: the URL read-only with "Change it on the n8n Workflow page", no field, no Send test ping; the token row a link to the page; Notification URL kept',
+    str_contains($connection_panel, '<code class="pqm-settings-readonly">https://n8n.example/webhook</code>')
+    && str_contains($connection_panel, 'Change it on the <a href="/wp-admin/admin.php?page=pqm-workflow">n8n Workflow page</a>.')
+    && !str_contains($connection_panel, 'pqm_settings[n8n_webhook_url]') && !str_contains($connection_panel, 'pqm_settings[webhook_token]') && !str_contains($connection_panel, 'pqm-test-connection')
+    && str_contains($connection_panel, '<a href="/wp-admin/admin.php?page=pqm-workflow">Shown on the n8n Workflow page</a>')
+    && str_contains($connection_panel, 'name="pqm_settings[notification_url]"'));
+$GLOBALS['tw_settings'] = ['n8n_webhook_url' => ''];
+$n = render_for($admin_caps, true);
+check('... no URL saved: "Not set."', str_contains(tab_panels($n)['connection'] ?? '', '<span class="pqm-settings-readonly">Not set.</span>'));
+check('... the "New here?" notice links to the n8n Workflow page only (no "paste its webhook URL")',
+    str_contains($n, 'New here? Set up the n8n workflow first; everything about it lives on one page.')
+    && str_contains($n, '>Open the n8n Workflow page</a>') && !str_contains($n, 'paste'));
 $GLOBALS['tw_settings'] = [];
 
 /* Story 42: the Roles tab — manage_options only, the site's roles × the five caps */

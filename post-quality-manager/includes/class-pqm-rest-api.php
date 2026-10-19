@@ -1213,11 +1213,14 @@ class PQM_REST_API {
      * same two helpers as the n8n Workflow page's AJAX. A refused URL (empty,
      * n8n test URL) is not stored; a stored URL whose ping fails stays
      * stored, and the dialog shows the cause. A ping that gets through
-     * records the replied workflow version (the URL was just saved) and
-     * answers the page's refreshed `status_html`, plus `outdated` when an
-     * older workflow answered: the dialog shows a warning (D2). The dialog's
-     * steps Set up the workflow and Set up by hand read this ping's record
-     * (`steps.connect`, entry 6): a failed one keeps them open.
+     * records the replied workflow version (the URL was just saved; a failed
+     * ping records the failure, story 67) and answers `outdated` when an
+     * older workflow answered: the dialog shows a warning (D2). Every reply
+     * carries the page's refreshed `status_html`, the whole body with this
+     * reply's message as its first line (story 67: the page's Save and test
+     * posts here too). The dialog's steps Set up the workflow and Set up by
+     * hand read this ping's record (`steps.connect`, entry 6): a failed one
+     * keeps them open.
      */
     public static function setup_connect_callback( WP_REST_Request $request ): WP_REST_Response {
         $url   = (string) $request->get_param( 'webhook_url' );
@@ -1225,9 +1228,10 @@ class PQM_REST_API {
 
         if ( is_wp_error( $saved ) ) {
             return new WP_REST_Response( [
-                'saved'   => false,
-                'ping_ok' => false,
-                'message' => $saved->get_error_message(),
+                'saved'       => false,
+                'ping_ok'     => false,
+                'message'     => $saved->get_error_message(),
+                'status_html' => PQM_Admin::render_workflow_body( $saved->get_error_message(), 'error' ),
             ], 200 );
         }
 
@@ -1237,11 +1241,14 @@ class PQM_REST_API {
         update_option( PQM_SETUP_OPTION, $progress, false );
 
         if ( ! $ping['ok'] ) {
+            /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+            $message = sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] );
+
             return new WP_REST_Response( [
-                'saved'   => true,
-                'ping_ok' => false,
-                /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-                'message' => sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] ),
+                'saved'       => true,
+                'ping_ok'     => false,
+                'message'     => $message,
+                'status_html' => PQM_Admin::render_workflow_body( $message, 'error' ),
             ], 200 );
         }
 
@@ -1252,7 +1259,7 @@ class PQM_REST_API {
             'ping_ok'     => true,
             'outdated'    => $ping['outdated'],
             'message'     => $ping['message'],
-            'status_html' => PQM_Admin::render_workflow_status(),
+            'status_html' => PQM_Admin::render_workflow_body( $ping['message'], $ping['outdated'] ? 'warning' : 'success' ),
         ], 200 );
     }
 
@@ -1425,8 +1432,6 @@ class PQM_REST_API {
         ];
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-            // The page's status block, as POST /setup/connect answers it (entry 6).
-            $reply['status_html'] = PQM_Admin::render_workflow_status();
         }
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
@@ -1434,8 +1439,23 @@ class PQM_REST_API {
                 $reply['message'] .= ' ' . __( 'Application Passwords are turned off on this site, so no WordPress credential was created. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Rewrite stays off until Application Passwords are available and a WordPress credential is added in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
         }
+        // The page's body, as POST /setup/connect answers it (entry 6; story 67: in every reply, the message first).
+        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
+    }
+
+    /**
+     * The outcome line's tone for a reply that pinged (story 67): an error
+     * when the ping did not get through, a warning when the workflow answered
+     * older, mis-wired or as the Free variant, or without Rewrite; success otherwise.
+     */
+    private static function tone( array $reply ): string {
+        if ( empty( $reply['ping_ok'] ) ) {
+            return 'error';
+        }
+
+        return ! empty( $reply['outdated'] ) || ( isset( $reply['rewrite_ready'] ) && ! $reply['rewrite_ready'] ) ? 'warning' : 'success';
     }
 
     /* ─── Adoption of a hand-made workflow (n8n provisioning, entry 8) ─ */
@@ -1485,9 +1505,11 @@ class PQM_REST_API {
      * diagnosis read: the PATCH stays the one n8n API call). A refused
      * rotation answers its error, nothing written. The return path needs
      * nothing: the workflow sends back the token of the payload it got.
-     * Answers `{ rotated, ping_ok, outdated, message }`, plus the page's refreshed
-     * `status_html` when the ping passed (the version recorded, as
-     * provisioning does). The token is in no reply.
+     * Answers `{ rotated, ping_ok, outdated, message, status_html }`: the
+     * page's refreshed body with the message first (story 67; the version
+     * recorded when the ping passed, the failure otherwise, as provisioning
+     * does). The token itself is in no reply field: the body shows the
+     * page's own token row, which the saving page already carries.
      */
     public static function rotate_n8n_token_callback(): WP_REST_Response|WP_Error {
         $token = PQM_N8n::rotate_token();
@@ -1511,8 +1533,8 @@ class PQM_REST_API {
         $reply = [ 'rotated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-            $reply['status_html'] = PQM_Admin::render_workflow_status();
         }
+        $reply['status_html'] = PQM_Admin::render_workflow_body( $message, self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
     }
@@ -1525,10 +1547,11 @@ class PQM_REST_API {
      * onto it (credentials and path kept), then the ordinary ping of the
      * saved URL, its diagnosis included, proves the new version answers. A
      * refused update answers its error, nothing written. Answers
-     * `{ updated, ping_ok, outdated, message }`, plus the page's refreshed
-     * `status_html` when the ping passed (the version recorded, as the
-     * rotation does) and, on the Pro build, `rewrite_ready` (false when the
-     * map has no WordPress credential: that node stays name-only, D1).
+     * `{ updated, ping_ok, outdated, message, status_html }`: the page's
+     * refreshed body with the message first (story 67; the version recorded
+     * when the ping passed, the failure otherwise, as the rotation does)
+     * and, on the Pro build, `rewrite_ready` (false when the map has no
+     * WordPress credential: that node stays name-only, D1).
      */
     public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
         $setup = PQM_N8n::update_workflow();
@@ -1546,7 +1569,6 @@ class PQM_REST_API {
         $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-            $reply['status_html'] = PQM_Admin::render_workflow_status();
         }
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
@@ -1554,6 +1576,7 @@ class PQM_REST_API {
                 $reply['message'] .= ' ' . __( 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
         }
+        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
     }

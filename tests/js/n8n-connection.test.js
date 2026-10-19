@@ -2,9 +2,9 @@
  * n8n Instance section (n8n provisioning, entry 1; src/n8n-connection/) run
  * in jsdom, one test per row of plan-n8n-connection-states' matrix: the
  * connection block (connected summary, changing, connecting) and the
- * adoption block under it (offer, proposal, managed line, and under that
- * line the webhook token rotation, entry 10), each in place, with the call
- * made and where keyboard focus lands. The key field is
+ * adoption block under it (offer, proposal, managed line; the token
+ * rotation is a PHP button on the page since story 67), each in place, with
+ * the call made and where keyboard focus lands. The key field is
  * write-only: never prefilled, emptied after a save; the stored key's last
  * 4 characters (`key_hint`) show only in the status line and as the field's
  * masked placeholder. The api-fetch and components packages are
@@ -491,11 +491,7 @@ describe( 'n8n Instance section: the connection block', () => {
 	} );
 } );
 
-describe( "One primary at most; it yields to the update notice's Re-import the workflow (plan-update-notice-primary-action)", () => {
-	const REIMPORT_BLOCK =
-		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p><p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p></div></div>';
-	const CURRENT_BLOCK =
-		'<div class="pqm-workflow-status"><p class="description">Up to date.</p></div>';
+describe( 'The variant prop (story 67): secondary on the page, primary in the setup dialog', () => {
 	const PROPOSAL = {
 		workflow: { id: 'wf-hand', name: 'My blog reviews', path: 'x' },
 		credentials: {
@@ -506,63 +502,52 @@ describe( "One primary at most; it yields to the update notice's Re-import the w
 	const submitVariant = () => submitButton().dataset.variant;
 
 	/**
-	 * Mount the section beside this status block.
+	 * Mount the section with this variant.
 	 *
-	 * @param {string}    block    The page's status block.
-	 * @param {Function=} onChange The setup wizard's prop.
-	 * @param {Object=}   state    GET reply.
+	 * @param {string=} variant The prop; none = the default.
+	 * @param {Object=} state   GET reply.
 	 */
-	async function mountBeside( block, onChange, state = NOT_SET ) {
-		document.body.innerHTML = `${ block }<div id="pqm-n8n-connection-root"></div>`;
+	async function mountWith( variant, state = NOT_SET ) {
+		document.body.innerHTML = '<div id="pqm-n8n-connection-root"></div>';
 		apiFetch.mockReset();
 		apiFetch.mockResolvedValueOnce( state );
 		root = createRoot(
 			document.getElementById( 'pqm-n8n-connection-root' )
 		);
 		await act( async () => {
-			root.render( <N8nConnection onChange={ onChange } /> );
+			root.render( <N8nConnection variant={ variant } /> );
 		} );
 	}
 
-	test( 'on the page, with the re-import button shown: Connect secondary', async () => {
-		await mountBeside( REIMPORT_BLOCK );
-		expect( submitVariant() ).toBe( 'secondary' );
-		expect( primaries() ).toHaveLength( 0 );
-	} );
-
-	test( 'on the page, up to date: Connect primary', async () => {
-		await mountBeside( CURRENT_BLOCK );
+	test( 'the default (the setup dialog): Connect primary', async () => {
+		await mountWith();
 		expect( submitVariant() ).toBe( 'primary' );
 		expect( primaries() ).toHaveLength( 1 );
 	} );
 
-	test( 'on the page, it follows each swap of the block', async () => {
-		await mountBeside( CURRENT_BLOCK );
-		await act( async () => {
-			document.querySelector( '.pqm-workflow-status' ).outerHTML =
-				REIMPORT_BLOCK;
-			document.dispatchEvent(
-				new window.CustomEvent( 'pqm:workflow-status' )
-			);
-		} );
+	test( 'on the page (secondary): no primary anywhere — Connect, Save and check and Manage this workflow all secondary', async () => {
+		await mountWith( 'secondary' );
 		expect( submitVariant() ).toBe( 'secondary' );
+		expect( primaries() ).toHaveLength( 0 );
+
+		await mountWith( 'secondary', { ...CONNECTED, adoptable: true } );
+		await click( '.pqm-n8n-change' );
+		expect( submitVariant() ).toBe( 'secondary' );
+		await click( '.pqm-n8n-change-cancel' );
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
+		expect( $( '.pqm-n8n-adopt-confirm' ).dataset.variant ).toBe(
+			'secondary'
+		);
+		expect( primaries() ).toHaveLength( 0 );
 	} );
 
-	test( 'in the setup guide (onChange), the Modal is its own surface: primary', async () => {
-		await mountBeside( REIMPORT_BLOCK, jest.fn() );
-		expect( submitVariant() ).toBe( 'primary' );
-	} );
-
-	test( 'connected: none in the summary; Save and check while changing; Manage this workflow only while no form is open', async () => {
-		await mountBeside( CURRENT_BLOCK, undefined, {
-			...CONNECTED,
-			adoptable: true,
-		} );
+	test( 'in the dialog, connected: none in the summary; Save and check while changing; Manage this workflow only while no form is open', async () => {
+		await mountWith( 'primary', { ...CONNECTED, adoptable: true } );
 		expect( primaries() ).toHaveLength( 0 );
 
 		await click( '.pqm-n8n-change' );
 		expect( [ ...primaries() ] ).toEqual( [ submitButton() ] );
-		expect( submitVariant() ).toBe( 'primary' );
 		await click( '.pqm-n8n-change-cancel' );
 
 		apiFetch.mockResolvedValueOnce( PROPOSAL );
@@ -577,18 +562,6 @@ describe( "One primary at most; it yields to the update notice's Re-import the w
 		expect( $( '.pqm-n8n-adopt-confirm' ).dataset.variant ).toBe(
 			'secondary'
 		);
-	} );
-
-	test( 'on the page, with the re-import button shown: no primary with the proposal open either', async () => {
-		await mountBeside( REIMPORT_BLOCK, undefined, {
-			...CONNECTED,
-			adoptable: true,
-		} );
-		apiFetch.mockResolvedValueOnce( PROPOSAL );
-		await click( '.pqm-n8n-adopt' );
-		expect( primaries() ).toHaveLength( 0 );
-		await click( '.pqm-n8n-change' );
-		expect( primaries() ).toHaveLength( 0 );
 	} );
 } );
 
@@ -633,7 +606,7 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		);
 		expect( offer().dataset.variant ).toBe( 'secondary' );
 		expect( $( '.pqm-n8n-adoption' ).textContent ).toContain(
-			'Your workflow was set up by hand. Let the plugin manage it, and you can update it and rotate the webhook token from here later. Nothing in n8n changes.'
+			'Your workflow was set up by hand. Let the plugin manage it, and you can update it and rotate the webhook token from this page later. Nothing in n8n changes.'
 		);
 		expect( adoptionUnderConnection() ).toBe( true );
 		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
@@ -736,7 +709,7 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		expect( $( '.pqm-n8n-adoption .pqm-n8n-managed' ).textContent ).toBe(
 			`The plugin has managed this workflow since ${ new Date(
 				1760000000 * 1000
-			).toLocaleDateString() }.`
+			).toLocaleDateString() }: it can update the workflow and rotate the webhook token from this page. Nothing in n8n changed.`
 		);
 		expect( offer() ).toBeNull();
 		expect( $( '.pqm-n8n-proposal' ) ).toBeNull();
@@ -756,7 +729,7 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		expect( $( '.pqm-n8n-adoption .pqm-n8n-managed' ).textContent ).toBe(
 			`The plugin set this workflow up on ${ new Date(
 				1760000000 * 1000
-			).toLocaleDateString() }.`
+			).toLocaleDateString() }. It can update the workflow and rotate the webhook token from this page.`
 		);
 		expect( offer() ).toBeNull();
 		expect( adoptionUnderConnection() ).toBe( true );
@@ -886,174 +859,46 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 	} );
 } );
 
-describe( 'Webhook token rotation (n8n provisioning, entry 10): the managed block', () => {
-	const TOKEN_PATH = '/post-quality/v1/n8n/token';
-	const MANAGED = {
+describe( 'After an adoption (story 67): the page re-reads its body', () => {
+	const HAND_MADE = { ...CONNECTED, adoptable: true };
+	const PROPOSAL = {
+		workflow: { id: 'wf-hand', name: 'My blog reviews', path: 'x' },
+		credentials: {
+			webhook: { id: 'c-h1', name: 'Header Auth account' },
+			anthropic: { id: 'c-k1', name: 'my claude key' },
+		},
+	};
+	const ADOPTED = {
 		...CONNECTED,
-		// eslint-disable-next-line camelcase -- REST field name.
-		setup: { wizard_created: false, at: 1760000000 },
-		rotatable: true,
+		setup: { wizard_created: false, at: 1760000000 }, // eslint-disable-line camelcase -- REST field name.
 	};
-	const OLD_BLOCK =
-		'<div class="pqm-workflow-status"><p>Not checked yet.</p></div>';
-	const NEW_BLOCK =
-		'<div class="pqm-workflow-status"><p>Your workflow answers.</p></div>';
-	const ROTATED = {
-		rotated: true,
-		// eslint-disable-next-line camelcase -- REST field name.
-		ping_ok: true,
-		outdated: false,
-		message:
-			'Token rotated. Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.',
-		// eslint-disable-next-line camelcase -- REST field name.
-		status_html: NEW_BLOCK,
-	};
-	const rotateButton = () => $( '.pqm-n8n-rotate' );
-	const statusBlock = () => $( '.pqm-workflow-status' ).textContent;
 
-	/**
-	 * Mount the section under the page's status block.
-	 *
-	 * @param {Object} state GET reply.
-	 */
-	async function mountOnPage( state ) {
-		document.body.innerHTML = `${ OLD_BLOCK }<div id="pqm-n8n-connection-root"></div>`;
-		apiFetch.mockReset();
-		apiFetch.mockResolvedValueOnce( state );
-		root = createRoot(
-			document.getElementById( 'pqm-n8n-connection-root' )
-		);
-		await act( async () => {
-			root.render( <N8nConnection /> );
-		} );
-	}
-
-	test( 'the button only while rotatable: under the managed line, secondary, no call on mount', async () => {
-		await mount( { ...MANAGED, rotatable: false } );
-		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
-		expect( rotateButton() ).toBeNull();
-
-		await mount( MANAGED );
-		expect( rotateButton().textContent ).toBe( 'Rotate the webhook token' );
-		expect( rotateButton().dataset.variant ).toBe( 'secondary' );
-		expect( primaries() ).toHaveLength( 0 );
-		expect(
-			$( '.pqm-n8n-adoption .pqm-n8n-managed' ).nextElementSibling
-		).toBe( rotateButton().parentElement );
-		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
-	} );
-
-	test( 'not managed: no button, whatever rotatable says', async () => {
-		await mount( { ...CONNECTED, rotatable: true } );
-		expect( rotateButton() ).toBeNull();
-	} );
-
-	test( 'Rotate: one POST, no dialog; the success Notice in the managed block, the status block swapped, focus stays on the button', async () => {
-		await mountOnPage( MANAGED );
-		const swapped = jest.fn();
-		document.addEventListener( 'pqm:workflow-status', swapped );
-		apiFetch.mockResolvedValueOnce( ROTATED );
-		await click( '.pqm-n8n-rotate' );
-		document.removeEventListener( 'pqm:workflow-status', swapped );
-
-		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
-		expect( apiFetch ).toHaveBeenLastCalledWith( {
-			path: TOKEN_PATH,
-			method: 'POST',
-		} );
-		expect(
-			$( '.pqm-n8n-adoption .mock-notice-success' ).textContent
-		).toBe( ROTATED.message );
-		expect( statusBlock() ).toBe( 'Your workflow answers.' );
-		expect( swapped ).toHaveBeenCalledTimes( 1 );
-		expect( rotateButton() ).not.toBeNull();
-		expect( document.activeElement ).toBe( rotateButton() );
-		// The connection block is not touched.
-		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
-	} );
-
-	test( 'the ping fails after: the message in a warning Notice, the status block kept', async () => {
-		await mountOnPage( MANAGED );
-		const message =
-			'The token was rotated in n8n and saved here. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
-		apiFetch.mockResolvedValueOnce( {
-			rotated: true,
-			// eslint-disable-next-line camelcase -- REST field name.
-			ping_ok: false,
-			outdated: false,
-			message,
-		} );
-		await click( '.pqm-n8n-rotate' );
-		expect(
-			$( '.pqm-n8n-adoption .mock-notice-warning' ).textContent
-		).toBe( message );
-		expect( $( '.mock-notice-error' ) ).toBeNull();
-		expect( statusBlock() ).toBe( 'Not checked yet.' );
-	} );
-
-	test( 'an older workflow answers the ping (outdated): a warning Notice, the status block swapped', async () => {
-		await mountOnPage( MANAGED );
-		const message =
-			'Token rotated. Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page.';
-		apiFetch.mockResolvedValueOnce( {
-			...ROTATED,
-			outdated: true,
-			message,
-		} );
-		await click( '.pqm-n8n-rotate' );
-		expect(
-			$( '.pqm-n8n-adoption .mock-notice-warning' ).textContent
-		).toBe( message );
-		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).toBeNull();
-		expect( statusBlock() ).toBe( 'Your workflow answers.' );
-	} );
-
-	test( 'Forget key after a rotation: the button and its Notice are gone', async () => {
-		await mountOnPage( MANAGED );
-		apiFetch.mockResolvedValueOnce( ROTATED );
-		await click( '.pqm-n8n-rotate' );
-		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).not.toBeNull();
-		apiFetch.mockResolvedValueOnce( {
-			...MANAGED,
-			// eslint-disable-next-line camelcase -- REST field names.
-			key_set: false,
-			// eslint-disable-next-line camelcase -- REST field name.
-			key_hint: '',
-			probe: null,
-			rotatable: false,
-		} );
-		await click( '.pqm-n8n-forget' );
-		expect( rotateButton() ).toBeNull();
-		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
-		expect( text() ).not.toContain( 'Token rotated.' );
-	} );
-
-	test( "a refusal: its message in the managed block's error Notice, the earlier outcome gone, nothing swapped, focus on the button", async () => {
-		await mountOnPage( MANAGED );
-		apiFetch.mockResolvedValueOnce( {
-			...ROTATED,
-			// eslint-disable-next-line camelcase -- REST field name.
-			status_html: undefined,
-		} );
-		await click( '.pqm-n8n-rotate' );
-		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).not.toBeNull();
-
-		const message =
-			"n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger's credential in n8n, then try again.";
+	test( 'a confirmed adoption dispatches pqm:workflow-refresh once (its reply carries no body); a refused one does not', async () => {
+		const refreshed = jest.fn();
+		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		await mount( HAND_MADE );
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
 		apiFetch.mockRejectedValueOnce( {
-			code: 'pqm_rotation_failed',
-			message,
+			code: 'pqm_adoption_changed',
+			message: 'n8n changed since you looked.',
 		} );
-		await click( '.pqm-n8n-rotate' );
-		expect( $( '.pqm-n8n-adoption .mock-notice-error' ).textContent ).toBe(
-			message
-		);
-		expect( $( '.mock-notice-success' ).textContent ).toContain(
-			'Connected to n8n.'
-		); // the connection block's, not the rotation's
-		expect( $( '.pqm-n8n-adoption .mock-notice-success' ) ).toBeNull();
-		expect( statusBlock() ).toBe( 'Not checked yet.' );
-		expect( rotateButton() ).not.toBeNull();
-		expect( document.activeElement ).toBe( rotateButton() );
+		await click( '.pqm-n8n-adopt-confirm' );
+		expect( refreshed ).not.toHaveBeenCalled();
+
+		apiFetch.mockResolvedValueOnce( PROPOSAL );
+		await click( '.pqm-n8n-adopt' );
+		apiFetch.mockResolvedValueOnce( ADOPTED );
+		await click( '.pqm-n8n-adopt-confirm' );
+		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		expect( refreshed ).toHaveBeenCalledTimes( 1 );
+		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+	} );
+
+	test( "no Rotate button in the island: the token rotation is the page's", async () => {
+		await mount( { ...ADOPTED, rotatable: true } );
+		expect( $( '.pqm-n8n-rotate' ) ).toBeNull();
+		expect( text() ).not.toContain( 'Rotate' );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

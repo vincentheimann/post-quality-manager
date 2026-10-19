@@ -144,7 +144,9 @@ let root;
  * @param {Object=} settingsError Rejection of POST /setup/settings.
  */
 async function openDialog( state, settingsError ) {
-	document.body.innerHTML = '<div id="pqm-setup-root"></div>';
+	// The page's status block holds the button that opens the dialog (story 67).
+	document.body.innerHTML =
+		'<div id="pqm-setup-root"></div><button type="button" class="pqm-open-setup">Setup guide</button>';
 	apiFetch.mockReset();
 	apiFetch.mockImplementation( ( { path, method, data } ) => {
 		if ( method !== 'POST' ) {
@@ -165,7 +167,7 @@ async function openDialog( state, settingsError ) {
 		root.render( <SetupIsland /> );
 	} );
 	await act( async () => {
-		document.querySelector( '.pqm-setup > button' ).click();
+		document.querySelector( '.pqm-open-setup' ).click();
 	} );
 }
 

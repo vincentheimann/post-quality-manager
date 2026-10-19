@@ -120,11 +120,18 @@ class WP_Application_Passwords {
 }
 /* GET /setup, read once for the acceptance row. */
 function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
-/* A passing ping answers the page's refreshed status block (entry 6). */
+/* A ping answers the page's refreshed body (entry 6; story 67: the whole page under the H1). */
 define('MINUTE_IN_SECONDS', 60);
 function esc_html($s) { return (string) $s; }
 function esc_html__($s, $d = null) { return (string) $s; } // the status block's re-import button label
 function esc_html_e($s, $d = null) { echo $s; } // the status block's notices (entry 7: Test again)
+function esc_attr($s) { return (string) $s; }
+function esc_attr__($s, $d = null) { return (string) $s; }
+function esc_attr_e($s, $d = null) { echo $s; }
+function esc_url($s) { return (string) $s; }
+function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; }
+function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; } // the build notice, unbuilt (CI)
+function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 /* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
 function wp_sprintf($pattern, ...$args) {
     if ($pattern !== '%l') { return vsprintf($pattern, $args); }
@@ -604,11 +611,11 @@ check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) ===
 check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === PQM_WORKFLOW_VERSION);
 check('the ping recorded as the connect route does (autoload off): Set up the workflow reads done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
     && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
-check('reply: {provisioned, ping_ok, workflow_id, message, status_html, rewrite_ready}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'status_html', 'rewrite_ready']
+check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready, status_html}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html']
     && $r['provisioned'] === true && $r['ping_ok'] === true && $r['workflow_id'] === 'wf1' && $r['rewrite_ready'] === true
     && str_starts_with($r['message'], 'Ping OK'));
-check('... status_html = the page\'s refreshed status block (entry 6)', $r['status_html'] === PQM_Admin::render_workflow_status()
-    && str_contains($r['status_html'], '<div class="pqm-workflow-status">'));
+check('... status_html = the page\'s refreshed body with the message first (entry 6; story 67): set up', $r['status_html'] === PQM_Admin::render_workflow_body($r['message'], 'success')
+    && str_contains($r['status_html'], '<div class="pqm-workflow-status" data-state="set-up">') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>'));
 $hits = array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)));
 check('the provider key travels in the models request and the Anthropic credential body only', $hits === [0, 2]
     && !str_contains(json_encode($GLOBALS['tw']['calls'][2][1]['headers']), PROVIDER_KEY) && !str_contains(json_encode($GLOBALS['tw']['pings']), PROVIDER_KEY));
@@ -854,10 +861,11 @@ $GLOBALS['tw']['ping_response'] = resp(404, ['code' => 404, 'message' => 'The re
 $r = provision();
 check('200 {provisioned, ping_ok false, message}: points to pasting the Webhook Trigger URL', $r['provisioned'] === true && $r['ping_ok'] === false
     && str_contains($r['message'], 'n8n responded with 404') && str_contains($r['message'], 'paste it as the n8n Webhook URL'));
-check('... everything kept: map stored, URL saved, no version recorded', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
-    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']));
-check('... the failed ping recorded, so Set up the workflow stays open (setup incomplete); no status_html', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false
-    && !isset($r['status_html']) && !pqm_setup_complete());
+check('... everything kept: map stored, URL saved, no version recorded (the failure is: story 67)', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
+    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && pqm_workflow_report()['version'] === 0
+    && str_starts_with(pqm_workflow_report()['failed']['message'] ?? '', 'n8n responded with 404'));
+check('... the failed ping recorded, so Set up the workflow stays open (setup incomplete); status_html needs attention, the message its outcome line', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false
+    && str_contains($r['status_html'], 'data-state="failing"') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>') && !pqm_setup_complete());
 check('... no rollback: nothing deactivated, deleted or revoked, no leftovers recorded', calls() === CREATE_ALL && $GLOBALS['tw']['app_revoked'] === []
     && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true));
 
@@ -895,10 +903,18 @@ function diagnosed(string $url = HOOK): ?string {
     $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
     return $r;
 }
-/** The status block holds at most one primary, and exactly one whenever it shows a notice. */
+/** The page's body holds exactly one primary action in every state (story 67). */
 function one_primary(string $html): bool {
-    $primaries = substr_count($html, 'button-primary');
-    return str_contains($html, 'class="notice ') ? $primaries === 1 : $primaries === 0;
+    return substr_count($html, 'button-primary') === 1;
+}
+/** The status block's state accent (data-state), '' when no block. */
+function state_of(string $html): string {
+    return preg_match('/<div class="pqm-workflow-status" data-state="([a-z-]+)">/', $html, $m) ? $m[1] : '';
+}
+/** A REST reply's JSON without its status_html (the page's body, which the saving page shows anyway). */
+function without_body(string $json): string {
+    $reply = json_decode($json, true);
+    return is_array($reply) ? json_encode(array_diff_key($reply, ['status_html' => 1])) : $json;
 }
 $stored = static fn() => pqm_workflow_report()['miswired'] ?? null;
 $a_sentence = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]];
@@ -915,10 +931,11 @@ check('... the reply: the sentence names the six Claude nodes, the credential an
 check('... the sentence stored with the report; the reply keeps its shape', $stored() === SHARED_SENTENCE
     && array_keys($r) === ['saved', 'ping_ok', 'outdated', 'message', 'status_html']);
 $block = $r['status_html'];
-check('... the status block: the sentence first, in an error notice, with Test again as the one primary', strpos($block, 'notice-error') < strpos($block, 'Workflow update available.')
-    && str_contains($block, '<p>' . SHARED_SENTENCE . '</p>') && str_contains($block, '<button type="button" class="button button-primary pqm-test-connection">Test again</button>')
-    && one_primary($block) && substr_count($block, '<span class="pqm-test-result" aria-live="polite"></span>') === 1);
-check('... the re-import button of the update notice turns secondary', str_contains($block, '<a class="button pqm-reimport" href="#pqm-workflow-file">'));
+check('... the body: needs attention (failing), the sentence is the status sentence, Test again the one primary; the message its outcome line', state_of($block) === 'failing'
+    && str_contains($block, '<p class="pqm-workflow-sentence">' . SHARED_SENTENCE . '</p>') && str_contains($block, '<button type="button" class="button button-primary pqm-test-connection">Test again</button>')
+    && one_primary($block) && str_contains($block, '<p class="pqm-workflow-outcome is-warning">' . SHARED_SENTENCE . '</p>'));
+check('... the mis-wiring comes first among the fixes; the v5 workflow is also older and hand-made: Re-import the workflow secondary after Test again, its Set up by hand disclosure present, no update',
+    str_contains($block, 'Test again</button> <a class="button pqm-reimport" href="#pqm-by-hand">') && str_contains($block, 'id="pqm-by-hand"') && !str_contains($block, 'pqm-update-workflow'));
 
 // Row: a node that needs a credential has none (no setup map: every rule applies, D1).
 connected([resp(200, ['data' => [stored_workflow('wf-prod', wired(['WordPress - example.com' => null] + WIRED))]])]);
@@ -964,7 +981,7 @@ site(['pqm_settings' => ['webhook_token' => TOKEN]] + $a_sentence);
 $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
 $r = connect_ping(HOOK);
 check('no key stored: diagnose answers \'\', zero calls; the sentence clears, the handshake is ping-only', PQM_N8n::diagnose(HOOK) === '' && calls() === []
-    && $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false && !str_contains($r['status_html'], 'notice'));
+    && $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false && state_of($r['status_html']) === 'set-up');
 
 // Row: the check could not run — the stored sentence (or none) stays, the ping message unchanged.
 foreach ([
@@ -1005,8 +1022,8 @@ check('... a clean test (\'\'): cleared, the stored report back to its shape bef
 connected($miswired_map(wired()), $setup_map + $a_sentence);
 $r = connect_ping(HOOK);
 check('fixed, Test again: \'\' stored (the sentence gone), the up-to-date message', $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false);
-check('... the status block shows the version line, no notice, no primary', !str_contains($r['status_html'], 'notice') && one_primary($r['status_html'])
-    && str_contains($r['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.'));
+check('... the body: set up, the version line, one primary (the first review)', state_of($r['status_html']) === 'set-up' && one_primary($r['status_html'])
+    && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.') && str_contains($r['status_html'], 'Run your first review'));
 
 // The Settings field pings an unsaved URL: not diagnosed.
 connected([LIST_OK]);
@@ -1318,8 +1335,9 @@ check('... then one ping of the saved URL, with the new token', count($GLOBALS['
 check('... reply {rotated, ping_ok, outdated, message, status_html}: "Token rotated." + the ping\'s message', is_array($r)
     && array_keys($r) === ['rotated', 'ping_ok', 'outdated', 'message', 'status_html'] && $r['rotated'] === true && $r['ping_ok'] === true && $r['outdated'] === false
     && $r['message'] === 'Token rotated. ' . PING_OK);
-check('... the version recorded by a test, as provisioning does; the status block says so', pqm_workflow_report()['via'] === 'test'
-    && str_contains($r['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.') && one_primary($r['status_html']));
+check('... the version recorded by a test, as provisioning does; the body says so, the message first', pqm_workflow_report()['via'] === 'test'
+    && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.') && one_primary($r['status_html'])
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">Token rotated. ' . PING_OK . '</p>'));
 check('... no diagnosis read: n8n is not read after the PATCH', calls() === [PATCH_WEBHOOK]);
 check('... the map and the connection untouched', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION]
     && !in_array(PQM_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) && !in_array(PQM_N8n::OPTION, $GLOBALS['tw']['writes'], true));
@@ -1396,9 +1414,11 @@ foreach ([
     managed([PATCHED]);
     $GLOBALS['tw']['ping_response'] = $ping;
     $r = rotate();
-    check("$label: rotated, ping_ok false, the message says so; no status_html, no version recorded", $r === ['rotated' => true, 'ping_ok' => false, 'outdated' => false, 'message' => $message]
-        && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']));
-    check('... the new token stored, pqm_settings the one write', token_now() === ROTATED && $GLOBALS['tw']['writes'] === ['pqm_settings'] && calls() === [PATCH_WEBHOOK]);
+    check("$label: rotated, ping_ok false, the message says so; the body needs attention (the failure recorded, no version)", array_keys($r) === ['rotated', 'ping_ok', 'outdated', 'message', 'status_html']
+        && $r['ping_ok'] === false && $r['outdated'] === false && $r['message'] === $message && state_of($r['status_html']) === 'failing'
+        && pqm_workflow_report()['version'] === 0 && isset(pqm_workflow_report()['failed']));
+    check('... the new token stored: pqm_settings written once, then the failure record', token_now() === ROTATED
+        && $GLOBALS['tw']['writes'] === ['pqm_settings', 'pqm_workflow_version_seen'] && calls() === [PATCH_WEBHOOK]);
 }
 
 echo "Rotation: after\n";
@@ -1416,7 +1436,8 @@ $rotation_calls = array_merge(...array_map(static fn($run) => $run[2], $rotation
 check('every n8n call of the rotations (' . count($rotation_calls) . ') is a PATCH on a map\'s webhook credential id', count($rotation_calls) >= 15
     && !array_filter($rotation_calls, static fn($c) => $c[1]['method'] !== 'PATCH' || !preg_match('#/api/v1/credentials/(c-webhook|c-h1|c%2F\.\.%2Fx%20y)$#', $c[0])));
 check('... and no rotation made more than one', !array_filter($rotation_runs, static fn($run) => count($run[2]) > 1));
-check('the new token is in no reply and no error (' . count($rotation_runs) . ' rotations)', !array_filter($rotation_runs, static fn($run) => str_contains($run[0], ROTATED)));
+// Story 67: the reply's status_html is the page's body, whose Webhook disclosure shows the token row the page shows anyway; no reply field carries it.
+check('the new token is in no reply field and no error (' . count($rotation_runs) . ' rotations)', !array_filter($rotation_runs, static fn($run) => str_contains(without_body($run[0]), ROTATED)));
 check('... in no stored option but pqm_settings[webhook_token]', !array_filter($rotation_runs, static function ($run) {
     $options = $run[1];
     unset($options['pqm_settings']['webhook_token']);
@@ -1425,7 +1446,7 @@ check('... in no stored option but pqm_settings[webhook_token]', !array_filter($
 check('... in no outgoing call\'s address or headers (only the PATCH body), and in the ping only as its X-PQM-Token header', !array_filter($rotation_runs, static fn($run) =>
     array_filter($run[2], static fn($c) => str_contains(json_encode([$c[0], $c[1]['headers']]), ROTATED))
     || array_filter($run[3], static fn($p) => str_contains(json_encode([$p[0], $p[1]['body'] ?? '', array_diff_key($p[1]['headers'], ['X-PQM-Token' => 0])]), ROTATED))));
-check('... and in no REST reply of this harness (' . count($replies) . ')', !array_filter($replies, static fn($r) => str_contains($r, ROTATED)));
+check('... and in no REST reply field of this harness (' . count($replies) . ')', !array_filter($replies, static fn($r) => str_contains(without_body($r), ROTATED)));
 preg_match('/function rotate_token\(.*?\n    }\n.*?function managed_blocked\(.*?\n    }\n/s', $src_n8n, $m);
 check('the rotation code calls n8n once, a PATCH through request(), and never reads /credentials', ($m[0] ?? '') !== ''
     && !preg_match("/'(GET|POST|PUT|DELETE)'/", $m[0]) && substr_count($m[0], 'self::request(') === 1 && substr_count($m[0], "self::request( 'PATCH'") === 1);
@@ -1439,7 +1460,7 @@ check('/n8n/workflow: POST, gated by check_manage_settings, no arguments', ($rou
 
 const PUT_WF         = 'PUT ' . BASE . '/api/v1/workflows/wf1';
 const UPDATE_STOPPED = 'The plugin could not finish updating the workflow (%s). Try again in a moment.';
-const UPDATE_BUTTON  = '<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
+const UPDATE_BUTTON  = '<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
 const IN_PLACE       = 'The plugin can update it in place: your credentials and production URL stay.';
 const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.';
 define('UPDATED', resp(200, ['id' => 'wf1', 'name' => 'Post Quality — example.com', 'active' => true, 'versionId' => 'v-new']));
@@ -1457,31 +1478,37 @@ function trigger_path(array $workflow): string { return array_column($workflow['
 
 echo "Update: offered or not — the status block's fix\n";
 managed([], $setup_map + $older_report);
-$block = PQM_Admin::render_workflow_status();
-check('offer: a passing key, a map, the saved URL on the map\'s path, an older report — the update notice ends with Update workflow (its own result line), the one primary; no re-import; zero calls',
-    str_ends_with(trim(str_replace('</div>', '', explode('<p class="description">', $block)[0])), UPDATE_BUTTON) && !str_contains($block, 'pqm-reimport')
-    && one_primary($block) && str_contains($block, IN_PLACE) && !str_contains($block, 'new production URL') && calls() === []);
+$block = PQM_Admin::render_workflow_body();
+check('offer: a passing key, a map, the saved URL on the map\'s path, an older report — needs attention (outdated), "this plugin needs N", Update workflow the one primary; no re-import; zero calls',
+    state_of($block) === 'outdated' && str_contains($block, 'Your workflow is version ' . (PQM_WORKFLOW_VERSION - 1) . '; this plugin needs ' . PQM_WORKFLOW_VERSION . '.')
+    && str_contains($block, '<p class="pqm-workflow-actions">' . UPDATE_BUTTON . ' <button type="button" class="button pqm-test-connection">Test again</button></p>')
+    && !str_contains($block, 'pqm-reimport') && one_primary($block) && str_contains($block, IN_PLACE) && !str_contains($block, 'new production URL') && calls() === []);
+check('... a managed site: no Set up by hand disclosure; the Webhook disclosure offers Rotate token (a REST action button) beside the token row',
+    !str_contains($block, 'id="pqm-by-hand"') && str_contains($block, 'id="pqm-webhook"')
+    && str_contains($block, '<button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button>')
+    && str_contains($block, 'value="' . TOKEN . '"'));
 managed([], $adopted_map + $older_report, V5_HOOK);
-check('... an adopted map (wizard_created false) on its own v5 path: offered too', str_contains($block = PQM_Admin::render_workflow_status(), UPDATE_BUTTON) && one_primary($block));
+check('... an adopted map (wizard_created false) on its own v5 path: offered too', str_contains($block = PQM_Admin::render_workflow_body(), UPDATE_BUTTON) && one_primary($block));
 managed([], $setup_map + ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1]);
-check('... a pre-v6 report (a legacy int): still no "new production URL" sentence — the update keeps the URL', str_contains($block = PQM_Admin::render_workflow_status(), UPDATE_BUTTON)
+check('... a pre-v6 report (a legacy int): still no "new production URL" sentence — the update keeps the URL', str_contains($block = PQM_Admin::render_workflow_body(), UPDATE_BUTTON)
     && !str_contains($block, 'new production URL') && str_contains($block, IN_PLACE));
 managed([], $setup_map + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'variant' => 'free']]);
-check('... the Free variant on Pro: the same button, in that notice', str_contains($block = PQM_Admin::render_workflow_status(), 'Your workflow is the Free variant')
-    && str_contains($block, UPDATE_BUTTON) && one_primary($block) && !str_contains($block, 'pqm-reimport'));
+check('... the Free variant on Pro: the Free-variant sentence, the same button', str_contains($block = PQM_Admin::render_workflow_body(), 'Your workflow is the Free variant')
+    && state_of($block) === 'outdated' && str_contains($block, UPDATE_BUTTON) && one_primary($block) && !str_contains($block, 'pqm-reimport'));
 managed([], $setup_map + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]]);
-$block = PQM_Admin::render_workflow_status();
-check('mis-wired first: Test again the one primary, Update workflow secondary, each with its own result line', str_contains($block, 'class="button button-primary pqm-test-connection"')
-    && str_contains($block, '<button type="button" class="button pqm-update-workflow">Update workflow</button>') && one_primary($block) && substr_count($block, 'pqm-test-result') === 2);
+$block = PQM_Admin::render_workflow_body();
+check('mis-wired first, and older: the sentence, Test again the one primary, Update workflow secondary after it', state_of($block) === 'failing'
+    && str_contains($block, 'class="button button-primary pqm-test-connection">Test again</button> <button type="button" class="button pqm-update-workflow"') && one_primary($block));
 foreach ($not_offered as $label => $change) {
     managed([], $setup_map + $older_report);
     $change();
-    $block = PQM_Admin::render_workflow_status();
-    check("not offered ($label): Re-import the workflow as before, no Update workflow, zero calls", str_contains($block, 'class="button button-primary pqm-reimport"')
-        && !str_contains($block, 'pqm-update-workflow') && !str_contains($block, IN_PLACE) && one_primary($block) && calls() === []);
+    $block = PQM_Admin::render_workflow_body();
+    check("not offered ($label): Re-import the workflow as before, no Update workflow, zero calls", $label === 'no URL saved'
+        ? !str_contains($block, 'pqm-update-workflow') && one_primary($block) && calls() === [] // no URL: not set up at all
+        : str_contains($block, 'class="button button-primary pqm-reimport"') && !str_contains($block, 'pqm-update-workflow') && !str_contains($block, IN_PLACE) && one_primary($block) && calls() === []);
 }
 managed([], $setup_map + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]]);
-check('up to date, managed: no notice, no button', !str_contains($block = PQM_Admin::render_workflow_status(), 'notice') && !str_contains($block, 'pqm-update-workflow'));
+check('up to date, managed: set up, no update button', state_of($block = PQM_Admin::render_workflow_body()) === 'set-up' && !str_contains($block, 'pqm-update-workflow'));
 
 echo "Update: update\n";
 managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
@@ -1500,12 +1527,13 @@ check('... all 8 credentialed nodes carry the map\'s id with the name the read w
 check('... the trigger on the map\'s path; the workflow\'s name kept (D2)', trigger_path($sent) === 'pqm-execute-example-com' && $sent['name'] === 'Post Quality — example.com');
 check('... then one ping of the saved URL, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
     && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === TOKEN);
-check('... reply {updated, ping_ok, outdated, message, status_html, rewrite_ready}: "Workflow updated." + the ping\'s message', is_array($r)
-    && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'status_html', 'rewrite_ready'] && $r['updated'] === true && $r['ping_ok'] === true
+check('... reply {updated, ping_ok, outdated, message, rewrite_ready, status_html}: "Workflow updated." + the ping\'s message', is_array($r)
+    && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['updated'] === true && $r['ping_ok'] === true
     && $r['outdated'] === false && $r['rewrite_ready'] === true && $r['message'] === 'Workflow updated. ' . PING_OK);
-check('... the version recorded by a test; the status block shows the new version, no notice, no button', pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
-    && pqm_workflow_report()['via'] === 'test' && str_contains($r['status_html'], 'Your n8n workflow: version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.')
-    && !str_contains($r['status_html'], 'notice') && !str_contains($r['status_html'], 'pqm-update-workflow') && one_primary($r['status_html']));
+check('... the version recorded by a test; the body is set up with the new version, the message first, no update button', pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
+    && pqm_workflow_report()['via'] === 'test' && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.')
+    && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>')
+    && !str_contains($r['status_html'], 'pqm-update-workflow') && one_primary($r['status_html']));
 check('... the version record the one write: the map, the connection and the settings untouched', $GLOBALS['tw']['writes'] === ['pqm_workflow_version_seen']
     && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION]);
 managed([resp(200, ['name' => 'Reviews for my blog'] + stored_workflow('wf1', wired())), UPDATED, CLEAN_WF], $setup_map + $older_report);
@@ -1539,7 +1567,8 @@ check('GET then PUT on the adopted id; the trigger keeps pqm-execute (D1: never 
 check('... Rewrite unwired (Pro): Update WP Post (Rewrite) stays name-only; rewrite_ready false and the message says Rewrite stays off', $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['name' => 'WordPress - example.com']]
     && $r['rewrite_ready'] === false && $r['ping_ok'] === true && str_starts_with($r['message'], 'Workflow updated. ' . PING_OK)
     && str_ends_with($r['message'], 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.'));
-check('... the diagnosis after skips that node (6.7\'s D1): the version recorded, the block clean', pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION && !str_contains($r['status_html'], 'notice'));
+check('... the diagnosis after skips that node (6.7\'s D1): the version recorded, the body set up, the message a warning (Rewrite off)', pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
+    && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">'));
 // The map's path is the trigger's raw string: a `"` in it must survive the template fill (JSON-escaped), not break the decode.
 $quoted_read = resp(200, ['name' => 'My blog reviews'] + stored_workflow('wf-hand', with_path(wired(HAND_NAMES), 'pqm-"quoted"')));
 managed([$quoted_read, resp(200, ['id' => 'wf-hand']), $quoted_read], [PQM_N8n::SETUP_OPTION => ['path' => 'pqm-"quoted"'] + $adopted_map[PQM_N8n::SETUP_OPTION]] + $older_report, BASE . '/webhook/pqm-"quoted"');
@@ -1563,7 +1592,7 @@ foreach ([
 }
 managed([CLEAN_WF, UPDATED], [PQM_N8n::SETUP_OPTION => ['workflow_id' => ''] + $setup_map[PQM_N8n::SETUP_OPTION]] + $older_report);
 check('a map without a workflow id: 409 pqm_workflow_not_managed, zero calls; the block offers Re-import, not rotatable either', refused(update(), 'pqm_workflow_not_managed', 409)
-    && calls() === [] && str_contains(PQM_Admin::render_workflow_status(), 'pqm-reimport') && PQM_N8n::public_state()['rotatable'] === false);
+    && calls() === [] && str_contains(PQM_Admin::render_workflow_body(), 'pqm-reimport') && PQM_N8n::public_state()['rotatable'] === false);
 
 echo "Update: the workflow is gone\n";
 managed([NOT_FOUND, UPDATED], $setup_map + $older_report);
@@ -1600,7 +1629,7 @@ foreach ([
         && $r->message === sprintf(UPDATE_STOPPED, $says) && !str_contains($r->message, 'Internal error') && !str_contains($r->message, 'must match')
         && calls() === [READ_WF, PUT_WF] && $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $older_report['pqm_workflow_version_seen']);
 }
-check('... the block still offers the update', str_contains(PQM_Admin::render_workflow_status(), UPDATE_BUTTON));
+check('... the block still offers the update', str_contains(PQM_Admin::render_workflow_body(), UPDATE_BUTTON));
 
 echo "Update: the ping fails after — updated, no version recorded\n";
 foreach ([
@@ -1611,9 +1640,11 @@ foreach ([
     managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
     $GLOBALS['tw']['ping_response'] = $ping;
     $r = update();
-    check("$label: updated, ping_ok false, the message says so; no status_html, nothing written (the block still offers the update)", is_array($r)
-        && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready'] && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
-        && str_starts_with($r['message'], $message) && $GLOBALS['tw']['writes'] === [] && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === 1);
+    check("$label: updated, ping_ok false, the message says so; the body needs attention (the failure the one write, the older version kept)", is_array($r)
+        && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
+        && str_starts_with($r['message'], $message) && $GLOBALS['tw']['writes'] === ['pqm_workflow_version_seen'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION - 1
+        && state_of($r['status_html']) === 'failing' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>')
+        && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === 1);
 }
 
 echo "Update: after\n";
@@ -1622,7 +1653,7 @@ update();
 $GLOBALS['tw']['calls'] = [];
 forget();
 $GLOBALS['tw']['options']['pqm_workflow_version_seen'] = $older_report['pqm_workflow_version_seen'];
-check('forget key after: the notice falls back to Re-import the workflow, the map stays', str_contains($block = PQM_Admin::render_workflow_status(), 'pqm-reimport')
+check('forget key after: the notice falls back to Re-import the workflow, the map stays', str_contains($block = PQM_Admin::render_workflow_body(), 'pqm-reimport')
     && !str_contains($block, 'pqm-update-workflow') && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION] && calls() === []);
 check('... an update then: 400 pqm_n8n_not_connected, zero calls', update()->code === 'pqm_n8n_not_connected' && calls() === []);
 
@@ -1634,8 +1665,8 @@ check('... no update made more than one PUT, and only after a GET of the same wo
     $puts = array_values(array_filter($run[2], static fn($c) => $c[1]['method'] === 'PUT'));
     return count($puts) > 1 || ($puts !== [] && ($run[2][0][1]['method'] !== 'GET' || $run[2][0][0] !== $puts[0][0] || $run[2][1] !== $puts[0]));
 }));
-check('the n8n key, the webhook token and the provider key are in no reply and no PUT body (credential ids and names only) (' . count($update_runs) . ' updates)',
-    !array_filter($update_runs, static fn($run) => str_contains($run[0], KEY) || str_contains($run[0], TOKEN) || str_contains($run[0], PROVIDER_KEY)
+check('the n8n key, the webhook token and the provider key are in no reply field and no PUT body (credential ids and names only) (' . count($update_runs) . ' updates)',
+    !array_filter($update_runs, static fn($run) => str_contains($run[0], KEY) || str_contains(without_body($run[0]), TOKEN) || str_contains($run[0], PROVIDER_KEY)
         || array_filter($run[2], static fn($c) => $c[1]['method'] === 'PUT' && preg_match('/' . preg_quote(KEY, '/') . '|' . preg_quote(TOKEN, '/') . '|' . preg_quote(PROVIDER_KEY, '/') . '/', (string) ($c[1]['body'] ?? '')))));
 preg_match('/function update_workflow\(.*?\n    }\n/s', $src_n8n, $m);
 check('the update code calls n8n twice through request(), a GET then a PUT, and never reads /credentials or the list', ($m[0] ?? '') !== ''

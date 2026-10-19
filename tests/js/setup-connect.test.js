@@ -1,11 +1,11 @@
 /**
  * Workflow version handshake (v5) in the setup dialog: the connect step
  * (the `Connect` body of src/setup/steps.js, which the Set up the
- * workflow and Set up by hand steps reuse) run in jsdom. A ping that
- * gets through swaps the page's status block, which sits outside the
- * island (AC2); an older workflow is connected but warned (D2). The
- * api-fetch and components packages are WordPress-provided externals, not
- * installed here: both are mocked.
+ * workflow and Set up by hand steps reuse) run in jsdom. A reply that
+ * carries `status_html` swaps the page's body (#pqm-workflow-body, story
+ * 67), which sits outside the island (AC2); an older workflow is connected
+ * but warned (D2). The api-fetch and components packages are
+ * WordPress-provided externals, not installed here: both are mocked.
  */
 // eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
@@ -50,7 +50,7 @@ let root;
  * @return {jest.Mock} onConnected.
  */
 async function connectWith( reply ) {
-	document.body.innerHTML = `<div id="pqm-setup-root"></div>${ OLD_BLOCK }`;
+	document.body.innerHTML = `<div id="pqm-setup-root"></div><div id="pqm-workflow-body" aria-live="polite">${ OLD_BLOCK }</div>`;
 	apiFetch.mockReset();
 	apiFetch.mockResolvedValue( reply );
 	const onConnected = jest.fn();
@@ -126,16 +126,31 @@ describe( 'Setup dialog connect step', () => {
 		expect( onConnected ).toHaveBeenCalledWith( URL, true );
 	} );
 
-	test( 'a failed ping shows the error notice and leaves the block', async () => {
+	test( 'a failed ping shows the error notice and swaps the body the reply carries (the page needs attention)', async () => {
+		const FAILING =
+			'<div class="pqm-workflow-status" data-state="failing"><p class="pqm-workflow-sentence">The last test just now did not reach your workflow.</p></div>';
 		const onConnected = await connectWith( {
 			saved: true,
 			ping_ok: false,
 			message: 'URL saved, but the ping did not get through.',
+			status_html: FAILING,
 		} );
 		expect(
 			document.querySelector( '.mock-notice-error' ).textContent
 		).toBe( 'URL saved, but the ping did not get through.' );
-		expect( block()[ 0 ].outerHTML ).toBe( OLD_BLOCK );
+		expect( block()[ 0 ].outerHTML ).toBe( FAILING );
 		expect( onConnected ).toHaveBeenCalledWith( URL, false );
+	} );
+
+	test( 'a reply without status_html leaves the body as it is', async () => {
+		await connectWith( {
+			saved: false,
+			ping_ok: false,
+			message: 'Enter your n8n webhook URL first.',
+		} );
+		expect( block()[ 0 ].outerHTML ).toBe( OLD_BLOCK );
+		expect( document.getElementById( 'pqm-workflow-body' ).innerHTML ).toBe(
+			OLD_BLOCK
+		);
 	} );
 } );

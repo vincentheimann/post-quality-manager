@@ -47,9 +47,17 @@ jest.mock(
 			)
 		),
 		Dashicon: () => null,
-		Modal: ( { title, children } ) => (
+		// Honours onRequestClose (story 67: the dialog's close refreshes the page).
+		Modal: ( { title, children, onRequestClose } ) => (
 			<div className="mock-modal">
 				<h1>{ title }</h1>
+				<button
+					type="button"
+					className="mock-modal-close"
+					onClick={ onRequestClose }
+				>
+					Close dialog
+				</button>
 				{ children }
 			</div>
 		),
@@ -192,7 +200,9 @@ let replies;
  * @param {Object} answers Replies by "METHOD path".
  */
 async function openDialog( state, answers = {} ) {
-	document.body.innerHTML = `<div id="pqm-setup-root"></div>${ OLD_BLOCK }<h2 id="pqm-workflow-file" tabindex="-1">Workflow File</h2>`;
+	// The page (story 67): the island's root, the body with the status block
+	// and the Set up by hand disclosure, and the block's button that opens the dialog.
+	document.body.innerHTML = `<div id="pqm-setup-root"></div><div id="pqm-workflow-body" aria-live="polite">${ OLD_BLOCK }<details class="pqm-disclosure" id="pqm-by-hand"><summary><h2>Set up by hand</h2></summary></details><button type="button" class="pqm-open-setup">Set up n8n</button></div>`;
 	replies = {
 		[ `GET ${ SETUP }` ]: state,
 		[ `GET ${ CONNECTION }` ]: state.n8n,
@@ -214,8 +224,21 @@ async function openDialog( state, answers = {} ) {
 		root.render( <SetupIsland /> );
 	} );
 	await act( async () => {
-		document.querySelector( '.pqm-setup > button' ).click();
+		document.querySelector( '.pqm-open-setup' ).click();
 	} );
+}
+
+/**
+ * Listen for the page refresh the dialog asks for on close (pqm:setup-closed).
+ *
+ * @return {Object[]} The events' `detail`s, as they arrive.
+ */
+function closeRequests() {
+	const details = [];
+	document.addEventListener( 'pqm:setup-closed', ( event ) =>
+		details.push( event.detail )
+	);
+	return details;
 }
 
 const heading = () =>
@@ -485,20 +508,20 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( field( 'Anthropic API key' ) ).not.toBeNull();
 	} );
 
-	test( 'by hand, by choice: the choice stored, then the page reloads on the Workflow File section', async () => {
+	test( "by hand, by choice: the choice stored, the dialog closes and hands over to the page's Set up by hand (a refresh, that disclosure focused), no reload", async () => {
 		await openDialog( siteState(), {
 			[ `POST ${ SETUP }` ]: siteState( { manual: true } ),
 		} );
+		const closed = closeRequests();
 		await act( async () => {
 			button( 'Set up by hand instead' ).click();
 		} );
 		expect( posts() ).toEqual( [
 			{ path: SETUP, method: 'POST', data: { manual: true } },
 		] );
-		expect( window.location.hash ).toBe( '#pqm-workflow-file' );
 		expect( document.querySelector( '.mock-modal' ) ).toBeNull();
-		// jsdom implements no reload: it reports the navigation as an error.
-		expect( console ).toHaveErrored();
+		expect( closed ).toEqual( [ { focus: 'pqm-by-hand' } ] );
+		expect( window.location.hash ).toBe( '' );
 	} );
 
 	test( 'by hand, the write fails: the cause in the dialog, nothing else', async () => {
@@ -529,10 +552,9 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 			document.querySelector( '.mock-notice-info' ).textContent
 		).toBe( 'You chose to set up n8n by hand.' );
 		expect(
-			document.querySelector(
-				'.pqm-setup-step a[href="#pqm-workflow-file"]'
-			).textContent
-		).toBe( 'Workflow File' );
+			document.querySelector( '.pqm-setup-step a[href="#pqm-by-hand"]' )
+				.textContent
+		).toBe( 'Set up by hand' );
 		expect( field( 'Production webhook URL' ) ).not.toBeNull();
 		const details = document.querySelector( 'details.pqm-setup-by-key' );
 		expect( details.open ).toBe( false );
@@ -557,7 +579,7 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect(
 			document.querySelector( '.mock-notice-info' ).textContent
 		).toBe(
-			'On October 14, 2026, the n8n Instance check did not pass: The public API is turned off on this instance.'
+			'On October 14, 2026, the n8n connection check did not pass: The public API is turned off on this instance.'
 		);
 	} );
 
@@ -585,10 +607,7 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( nav() ).not.toContain( 'Set up by hand' );
 	} );
 
-	test( 'the Workflow File link closes the dialog and brings the section into view', async () => {
-		jest.useFakeTimers();
-		const scroll = jest.fn();
-		window.HTMLElement.prototype.scrollIntoView = scroll;
+	test( "the Set up by hand link closes the dialog and hands over to the page's disclosure (a refresh, that disclosure focused)", async () => {
 		await openDialog(
 			siteState( {
 				manual: true,
@@ -596,14 +615,19 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				manual_reason: { kind: 'choice' },
 			} )
 		);
-		await act( async () => {
-			document.querySelector( 'a[href="#pqm-workflow-file"]' ).click();
+		const closed = closeRequests();
+		const click = new window.MouseEvent( 'click', {
+			bubbles: true,
+			cancelable: true,
 		} );
+		await act( async () => {
+			document
+				.querySelector( 'a[href="#pqm-by-hand"]' )
+				.dispatchEvent( click );
+		} );
+		expect( click.defaultPrevented ).toBe( true );
 		expect( document.querySelector( '.mock-modal' ) ).toBeNull();
-		act( () => jest.runAllTimers() );
-		expect( scroll ).toHaveBeenCalledTimes( 1 );
-		expect( document.activeElement.id ).toBe( 'pqm-workflow-file' );
-		jest.useRealTimers();
+		expect( closed ).toEqual( [ { focus: 'pqm-by-hand' } ] );
 	} );
 
 	test( 'provisioned (setup map, URL, key passes): the key path, both n8n steps done, the dialog opens on the first review', async () => {
@@ -619,7 +643,10 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
 		expect( nav() ).not.toContain( 'Done: Connect your n8n' );
 		expect( nav() ).toContain( 'Done: Set up the workflow' );
-		expect( document.body.textContent ).not.toContain( 'by hand' );
+		// The page's own Set up by hand disclosure sits outside the dialog.
+		expect(
+			document.querySelector( '.mock-modal' ).textContent
+		).not.toContain( 'by hand' );
 	} );
 
 	test( 'hand-made (URL, no setup map, no key): the manual path, Set up by hand done, its sentence, no "Connect by key instead"', async () => {
@@ -762,83 +789,80 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 	} );
 } );
 
-describe( "The guide's button yields to the update notice's Re-import the workflow (plan-update-notice-primary-action)", () => {
-	const REIMPORT_BLOCK =
-		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p><p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p></div></div>';
-	const guideVariant = () =>
-		document.querySelector( '.pqm-setup > button' ).dataset.variant;
+describe( 'The dialog and the page (story 67): opened from the status block, every close refreshes the page', () => {
+	test( "the Modal only: no button of its own on the page; the page's button opens it at the state's step", async () => {
+		await openDialog( siteState( { n8n: PASSING } ) );
+		expect( document.querySelector( '.pqm-setup > button' ) ).toBeNull();
+		expect( heading() ).toBe( 'Step 2 of 6: Set up the workflow' );
+	} );
 
-	/**
-	 * Swap the page's status block as pqm-admin.js does (a test, window focus).
-	 *
-	 * @param {string} html The new block.
-	 */
-	async function swap( html ) {
+	test( 'data-step="review" (Run your first review) opens the review step whatever is open before it', async () => {
+		await openDialog( siteState( { n8n: PASSING } ) );
 		await act( async () => {
-			document.querySelector( '.pqm-workflow-status' ).outerHTML = html;
-			document.dispatchEvent(
-				new window.CustomEvent( 'pqm:workflow-status' )
-			);
+			document.querySelector( '.mock-modal-close' ).click();
 		} );
-	}
+		document.querySelector( '.pqm-open-setup' ).dataset.step = 'review';
+		await act( async () => {
+			document.querySelector( '.pqm-open-setup' ).click();
+		} );
+		expect( heading() ).toBe( 'Step 3 of 6: Run your first review' );
+	} );
 
-	/**
-	 * Mount the island beside this status block, the dialog closed.
-	 *
-	 * @param {string}  block The page's status block.
-	 * @param {Object=} state GET /setup state; none = still loading.
-	 */
-	async function mountBeside( block, state ) {
-		document.body.innerHTML = `<div id="pqm-setup-root"></div>${ block }`;
+	test( 'a click before GET /setup answered opens the dialog once it has', async () => {
+		document.body.innerHTML =
+			'<div id="pqm-setup-root"></div><button type="button" class="pqm-open-setup">Set up n8n</button>';
+		let answerSetup;
 		apiFetch.mockReset();
-		apiFetch.mockImplementation( () =>
-			state ? Promise.resolve( state ) : new Promise( () => {} )
+		apiFetch.mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					answerSetup = resolve;
+				} )
 		);
 		root = createRoot( document.getElementById( 'pqm-setup-root' ) );
 		await act( async () => {
 			root.render( <SetupIsland /> );
 		} );
-	}
-
-	test( 'setup not complete, the re-import button shown at mount: secondary', async () => {
-		await mountBeside( REIMPORT_BLOCK, handMadeSite() );
-		expect( guideVariant() ).toBe( 'secondary' );
-		expect(
-			document.querySelector( '.pqm-setup > button' ).textContent
-		).toBe( 'Set up the workflow' );
-	} );
-
-	test( 'while GET /setup loads, the re-import button shown: already secondary', async () => {
-		await mountBeside( REIMPORT_BLOCK );
-		expect( guideVariant() ).toBe( 'secondary' );
-	} );
-
-	test( 'it flips after a swap that removes the button, and back', async () => {
-		await mountBeside( REIMPORT_BLOCK, handMadeSite() );
-		await swap( NEW_BLOCK );
-		expect( guideVariant() ).toBe( 'primary' );
-		await swap( REIMPORT_BLOCK );
-		expect( guideVariant() ).toBe( 'secondary' );
-	} );
-
-	test( 'setup not complete, up to date: primary', async () => {
-		await mountBeside( OLD_BLOCK, handMadeSite() );
-		expect( guideVariant() ).toBe( 'primary' );
-	} );
-
-	test( "provisioning swaps in a block with the button: the guide's button follows", async () => {
-		await openDialog( siteState( { n8n: PASSING } ), {
-			[ `POST ${ PROVISION }` ]: {
-				provisioned: true,
-				// eslint-disable-next-line camelcase -- REST field name.
-				ping_ok: true,
-				message: 'Ping OK — older version.',
-				// eslint-disable-next-line camelcase -- REST field name.
-				status_html: REIMPORT_BLOCK,
-			},
+		await act( async () => {
+			document.querySelector( '.pqm-open-setup' ).click();
 		} );
-		expect( guideVariant() ).toBe( 'primary' );
-		await provision();
-		expect( guideVariant() ).toBe( 'secondary' );
+		expect( document.querySelector( '.mock-modal' ) ).toBeNull();
+		await act( async () => {
+			answerSetup( siteState() );
+		} );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+	} );
+
+	test( "closing the dialog (the Modal's onRequestClose) asks the page for a refresh, nothing to focus", async () => {
+		await openDialog( siteState() );
+		const closed = closeRequests();
+		await act( async () => {
+			document.querySelector( '.mock-modal-close' ).click();
+		} );
+		expect( document.querySelector( '.mock-modal' ) ).toBeNull();
+		expect( closed ).toEqual( [ { focus: undefined } ] );
+	} );
+
+	test( 'the island inside the dialog connects: the state re-read and the page asked for a refresh (pqm:workflow-refresh)', async () => {
+		const refreshed = jest.fn();
+		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		await openDialog( siteState(), {
+			[ `POST ${ CONNECTION }` ]: storeKey(
+				siteState( { n8n: PASSING } )
+			),
+		} );
+		await typeInto( 'n8n address', BASE );
+		await typeInto( 'n8n API key', 'n8n-key' );
+		await act( async () => {
+			document.querySelector( '.pqm-n8n-connection-form' ).dispatchEvent(
+				new window.Event( 'submit', {
+					bubbles: true,
+					cancelable: true,
+				} )
+			);
+		} );
+		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		expect( refreshed ).toHaveBeenCalledTimes( 1 );
+		expect( setupReads() ).toBe( 2 );
 	} );
 } );

@@ -373,10 +373,13 @@ class PQM_N8n {
      * The wiring the diagnosis reports among these published nodes (their
      * trigger included), as one sentence; '' when clean. Nodes are told
      * apart by type and parameters, never by their names, which the owner
-     * may change. Two shapes count, the first found is reported: Claude
+     * may change. Three shapes count, the first found is reported: Claude
      * nodes carrying the trigger's credential (the 2026-10-13 import), then
-     * nodes that need a credential and have none. Node and credential names
-     * are n8n's: the sentence is raw text, escaped where it is shown.
+     * a Claude node or the trigger carrying a credential of another type
+     * than Header Auth (n8n's native Anthropic credential, say: story 67,
+     * E7), then nodes that need a credential and have none. Node and
+     * credential names are n8n's: the sentence is raw text, escaped where
+     * it is shown.
      *
      * @param bool $skip_basic The node saving a rewrite (httpBasicAuth) may go without one.
      * @param bool $adopting   The adoption (entry 8) asks: the sentence ends "then try again", not "then test again".
@@ -385,6 +388,7 @@ class PQM_N8n {
         $trigger = self::trigger( $nodes ) ?? [];
         $hook    = (string) ( $trigger['credentials']['httpHeaderAuth']['id'] ?? '' );
         $shared  = [];
+        $other   = [];
         $missing = [];
         foreach ( $nodes as $node ) {
             $parameters  = is_array( $node['parameters'] ?? null ) ? $node['parameters'] : [];
@@ -393,6 +397,11 @@ class PQM_N8n {
 
             if ( '' !== $hook && self::is_claude( $node ) && $hook === (string) ( $credentials['httpHeaderAuth']['id'] ?? '' ) ) {
                 $shared[] = $name;
+            }
+            // The trigger and the Claude nodes take Header Auth: any other linked type is the wrong one.
+            if ( ( self::is_claude( $node ) || $node === $trigger ) && self::has_credential( $credentials )
+                && ! self::has_credential( array_intersect_key( $credentials, [ 'httpHeaderAuth' => true ] ) ) ) {
+                $other[] = $name;
             }
             $auth = (string) ( $parameters['authentication'] ?? '' );
             if ( '' !== $auth && 'none' !== $auth && ! self::has_credential( $credentials )
@@ -422,6 +431,16 @@ class PQM_N8n {
                     : __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
                 $credential,
                 wp_sprintf( '%l', $shared )
+            );
+        }
+        if ( [] !== $other ) {
+            return sprintf(
+                $adopting
+                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    ? __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then try again.', 'post-quality-manager' )
+                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    : __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then test again.', 'post-quality-manager' ),
+                wp_sprintf( '%l', $other )
             );
         }
         if ( [] !== $missing ) {

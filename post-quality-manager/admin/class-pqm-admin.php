@@ -5,13 +5,16 @@
  * Registers four sub-pages under a "Content Quality" top-level menu:
  * 1. Dashboard — React app: Fix-next queue, stat tiles, score sparkline, nudges
  * 2. Post Reviews — React app: post table with scores, filters, per-post actions
- * 3. n8n Workflow — setup dialog (React island), download/import, request preview, ping
+ * 3. n8n Workflow — one body rendered from the site's state (story 67):
+ *    status block, one primary action, the state's body, the disclosures
+ *    (Set up by hand, n8n connection, Webhook); the setup dialog and the
+ *    n8n connection are React islands
  * 4. Settings — connection, AI model, prompts & context, cron
  *
  * The two React pages (src/, ADR 0005) get only a PHP shell from here; the
  * Settings and n8n Workflow pages render in PHP with pqm-admin.css/.js. The
- * n8n Workflow page also mounts the setup dialog from the same bundle
- * (story 36) — the only React on it.
+ * n8n Workflow page also mounts the setup dialog and the n8n connection
+ * island from the same bundle (stories 36, 67).
  */
 
 if (!defined('ABSPATH')) {
@@ -183,7 +186,7 @@ class PQM_Admin
         wp_localize_script('pqm-admin', 'pqmAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'pageNonce' => wp_create_nonce('pqm_admin_action'),
-            // The status block's Update workflow (n8n provisioning, entry 9) is the page script's one REST call.
+            // The page's REST actions (story 67: Update workflow, Rotate token, Save and test, Set up by hand instead).
             'restUrl' => rest_url(PQM_REST_NAMESPACE . '/'),
             'restNonce' => wp_create_nonce('wp_rest'),
             // Effective global default model (Custom resolved like
@@ -200,10 +203,8 @@ class PQM_Admin
                 pqm_model_registry()
             ),
             'i18n' => [
-                'enterWebhookUrl' => __('Enter your n8n webhook URL first.', 'post-quality-manager'),
-                'testing' => __('Sending test ping…', 'post-quality-manager'),
-                'updating' => __('Updating the workflow…', 'post-quality-manager'),
-                'networkError' => __('Network error. Please try again.', 'post-quality-manager'),
+                'testing' => __('Testing the connection…', 'post-quality-manager'),
+                'networkError' => __('The request did not go through. Check your connection and try again.', 'post-quality-manager'),
                 'copied' => __('Copied! Paste it in n8n under "Import", then "From URL".', 'post-quality-manager'),
                 'copiedValue' => __('Copied.', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The value is selected — press Ctrl+C.', 'post-quality-manager'),
@@ -366,13 +367,13 @@ class PQM_Admin
             // license_key is unused since story 44 (the SDK holds the license):
             // no field posts it, so an admin save clears a stub-era key.
             $clean['license_key'] = trim(sanitize_text_field($input['license_key'] ?? ''));
-            $clean['n8n_webhook_url'] = esc_url_raw($input['n8n_webhook_url'] ?? '');
-            // A test URL still saves (Save never loses input), with a notice.
-            $url_warning = pqm_webhook_url_warning($clean['n8n_webhook_url']);
-            if ($url_warning !== '') {
-                add_settings_error('pqm_settings', 'pqm_webhook_test_url', $url_warning, 'warning');
-            }
-            $clean['webhook_token'] = sanitize_text_field($input['webhook_token'] ?? '');
+            // The webhook URL and token live on the n8n Workflow page (story
+            // 67: save_webhook_url() and the token rotation, single-key
+            // merge-saves). No Settings field posts them, so they carry their
+            // stored values whatever the form sends (the disabled-controls
+            // pitfall): a forged post cannot change them here either.
+            $clean['n8n_webhook_url'] = $existing['n8n_webhook_url'];
+            $clean['webhook_token'] = $existing['webhook_token'];
             $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
             $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
             $voice_keys = array_merge(array_keys(pqm_voice_presets()), ['custom']);
@@ -627,6 +628,12 @@ class PQM_Admin
         <?php
     }
 
+    /** Whether the admin app is built (admin/build/, git-ignored, built by CI). */
+    private static function app_built(): bool
+    {
+        return file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
+    }
+
     /**
      * The root div the bundle mounts on (src/index.js) — or, on a fresh
      * clone without built assets, the next step instead of a blank spot.
@@ -634,7 +641,7 @@ class PQM_Admin
      */
     private static function render_app_root(string $root_id): void
     {
-        if (file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php')) {
+        if (self::app_built()) {
             printf('<div id="%s"></div>', esc_attr($root_id));
             return;
         }
@@ -716,7 +723,7 @@ class PQM_Admin
             <?php if ($can_manage_settings && empty($settings['n8n_webhook_url'])): ?>
             <div class="notice notice-info inline pqm-inline-notice">
                 <p>
-                    <?php esc_html_e('New here? Generate and import the review workflow first, then come back to paste its webhook URL.', 'post-quality-manager'); ?>
+                    <?php esc_html_e('New here? Set up the n8n workflow first; everything about it lives on one page.', 'post-quality-manager'); ?>
                     <a href="<?php echo esc_url($workflow_page_url); ?>"><?php esc_html_e('Open the n8n Workflow page', 'post-quality-manager'); ?></a>
                 </p>
             </div>
@@ -782,30 +789,33 @@ class PQM_Admin
                 <p class="description"><?php
                     printf(
                         /* translators: %s: link to the n8n Workflow page */
-                        esc_html__('The workflow itself — download, import URL, and what each agent sends to Claude — lives on the %s page.', 'post-quality-manager'),
+                        esc_html__('The workflow itself — the setup, the connection test, the webhook URL and token — lives on the %s page.', 'post-quality-manager'),
                         '<a href="' . esc_url($workflow_page_url) . '">' . esc_html__('n8n Workflow', 'post-quality-manager') . '</a>'
                     );
                 ?></p>
                 <table class="form-table">
+                    <?php // Story 67: read-only here; the fields and their saves are on the n8n Workflow page (no name="pqm_settings[…]", so the save keeps the stored values). ?>
                     <tr>
-                        <th><label for="pqm_n8n_webhook_url"><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></label></th>
+                        <th><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></th>
                         <td>
-                            <input type="url" id="pqm_n8n_webhook_url" name="pqm_settings[n8n_webhook_url]"
-                                   value="<?php echo esc_attr($settings['n8n_webhook_url']); ?>"
-                                   class="regular-text" placeholder="<?php echo esc_attr('https://your-n8n.example.com/webhook/' . pqm_webhook_path()); ?>" />
-                            <button type="button" class="button pqm-test-connection">
-                                <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
-                            </button>
-                            <p class="description"><?php esc_html_e('The webhook URL of your n8n workflow.', 'post-quality-manager'); ?></p>
-                            <p class="pqm-test-result" aria-live="polite"></p>
+                            <?php if ($settings['n8n_webhook_url'] !== ''): ?>
+                            <code class="pqm-settings-readonly"><?php echo esc_html($settings['n8n_webhook_url']); ?></code>
+                            <?php else: ?>
+                            <span class="pqm-settings-readonly"><?php esc_html_e('Not set.', 'post-quality-manager'); ?></span>
+                            <?php endif; ?>
+                            <p class="description"><?php
+                                printf(
+                                    /* translators: %s: link to the n8n Workflow page */
+                                    esc_html__('Change it on the %s.', 'post-quality-manager'),
+                                    '<a href="' . esc_url($workflow_page_url) . '">' . esc_html__('n8n Workflow page', 'post-quality-manager') . '</a>'
+                                );
+                            ?></p>
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="pqm_webhook_token"><?php esc_html_e('Webhook Token', 'post-quality-manager'); ?></label></th>
+                        <th><?php esc_html_e('Webhook Token', 'post-quality-manager'); ?></th>
                         <td>
-                            <input type="text" id="pqm_webhook_token" name="pqm_settings[webhook_token]"
-                                   value="<?php echo esc_attr($settings['webhook_token']); ?>"
-                                   class="regular-text" readonly />
+                            <a href="<?php echo esc_url($workflow_page_url); ?>"><?php esc_html_e('Shown on the n8n Workflow page', 'post-quality-manager'); ?></a>
                             <p class="description"><?php esc_html_e('Shared secret for both directions, always in the X-PQM-Token header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
@@ -928,6 +938,7 @@ class PQM_Admin
                         </td>
                     </tr>
                 </table>
+                <?php self::render_agent_table($settings, $registry); // story 67: beside the values it reads ?>
                 <?php endif; // pqm_manage_settings ?>
 
                 <?php
@@ -1353,212 +1364,440 @@ class PQM_Admin
     }
 
     /**
-     * Everything about generating and connecting the n8n workflow: the
-     * setup dialog's mount point (story 36), the n8n instance connection
-     * island (n8n provisioning, entry 1), download / import URL,
-     * per-agent request preview, template version status, and the
-     * connection test.
+     * The n8n Workflow page (story 67): the H1, the setup dialog's mount
+     * point (story 36) and one body, #pqm-workflow-body, rendered by
+     * render_workflow_body() from the site's state. Every reply that
+     * carries `status_html` carries that whole body and pqm-admin.js swaps
+     * the body's content (the aria-live region stays); the n8n connection
+     * island inside it remounts on each swap (src/index.js).
      */
     public static function render_workflow(): void
     {
-        $settings     = pqm_get_settings();
-        $settings_url = admin_url('admin.php?page=pqm-settings#tab-ai'); // the model changes it names
-        $registry     = pqm_model_registry();
 ?>
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('n8n Workflow', 'post-quality-manager'); ?></h1>
 
             <?php
-            // Story 36: the setup dialog (src/setup/) mounts here — its
-            // button, and the Modal it opens. The sections below always show.
+            // Story 36: the setup dialog (src/setup/) mounts here — the Modal
+            // only; the status block's primary action opens it (.pqm-open-setup).
             self::render_app_root('pqm-setup-root');
-            echo self::render_workflow_status(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside.
             ?>
-
-            <!-- n8n instance (n8n provisioning, entry 1): src/n8n-connection/ over GET|POST|DELETE /n8n/connection -->
-            <h2><?php esc_html_e('n8n Instance', 'post-quality-manager'); ?></h2>
-            <?php self::render_app_root('pqm-n8n-connection-root'); ?>
-
-            <!-- Workflow file: the manual path (n8n provisioning, entry 2; CAP-8) -->
-            <h2 id="pqm-workflow-file" tabindex="-1"><?php esc_html_e('Workflow File', 'post-quality-manager'); ?></h2>
-            <?php self::render_workflow_file($settings); ?>
-
-            <!-- Per-agent request preview -->
-            <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
-            <p class="description"><?php
-                printf(
-                    /* translators: %s: link to the Settings page */
-                    esc_html__('These values travel with every command, so model changes in %s apply instantly — no re-import needed. Only plugin updates that change the workflow itself require a re-import.', 'post-quality-manager'),
-                    '<a href="' . esc_url($settings_url) . '">' . esc_html__('Settings', 'post-quality-manager') . '</a>'
-                );
-            ?></p>
-            <table class="widefat striped pqm-llm-preview">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Agent', 'post-quality-manager'); ?></th>
-                        <th><?php esc_html_e('Model', 'post-quality-manager'); ?></th>
-                        <th><?php esc_html_e('Reasoning Effort', 'post-quality-manager'); ?></th>
-                        <th><?php esc_html_e('Temperature', 'post-quality-manager'); ?></th>
-                        <th><?php esc_html_e('Max Output Tokens', 'post-quality-manager'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach (self::agent_labels() as $key => $label):
-                        $params = pqm_llm_params($key, $settings);
-                        $model_label = isset($registry[$params['model']]) ? $registry[$params['model']]['label'] : $params['model'];
-                    ?>
-                    <tr>
-                        <td><?php echo esc_html($label); ?></td>
-                        <td><?php echo esc_html($model_label); ?> <code><?php echo esc_html($params['model']); ?></code></td>
-                        <td><?php echo esc_html($params['output_config']['effort'] ?? '—'); ?></td>
-                        <td><?php echo isset($params['temperature']) ? esc_html(number_format($params['temperature'], 1)) : '—'; ?></td>
-                        <td><?php echo esc_html((string) $params['max_tokens']); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <!-- Connection test -->
-            <h2 class="pqm-section-gap"><?php esc_html_e('Connection Test', 'post-quality-manager'); ?></h2>
-            <p class="description"><?php esc_html_e('Sends a lightweight ping to the saved n8n webhook URL and checks which workflow version answers. This verifies WordPress → n8n only; the return path is confirmed by your first successful review.', 'post-quality-manager'); ?></p>
-            <p>
-                <button type="button" class="button pqm-test-connection">
-                    <?php esc_html_e('Send test ping', 'post-quality-manager'); ?>
-                </button>
-                <span class="pqm-test-result" aria-live="polite"></span>
-            </p>
+            <div id="pqm-workflow-body" aria-live="polite"><?php echo self::render_workflow_body(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside. ?></div>
         </div>
 <?php
     }
 
     /**
-     * The workflow's version status: the mis-wiring notice when the last
-     * test found one (n8n provisioning, entry 7), the "update available"
-     * notice when the last report is older than the bundled template, and the line saying
-     * which version answered, when and how. One renderer for the page load
-     * and the ping replies (AJAX ping, POST /setup/connect), whose
-     * `status_html` the page swaps in for `.pqm-workflow-status`.
+     * Where the site stands (story 67, EXPERIENCE.md → States), resolved
+     * from the top, first match wins:
+     *   needs-attention — a URL is saved and the last test failed, found
+     *                     the workflow mis-wired, older than the template,
+     *                     or the Free variant on Pro (`problem`, `fix`);
+     *   set-up          — a URL is saved and the last test passed
+     *                     (`checked` false: a URL but no report yet);
+     *   manual          — no URL, and the owner chose the manual path or
+     *                     the last connection check failed with a cause
+     *                     that offers it (`reason`);
+     *   connected       — a key with a passing check, no URL;
+     *   not-set-up      — none of the above.
+     * `managed`: PQM_N8n::managed_blocked() null (Update and Rotate are
+     * offered); `has_map`: the plugin set the workflow up or manages it
+     * (no map = made by hand: Set up by hand stays reachable).
+     *
+     * @return array{state: string, problem: string, fix: string, checked: bool, url: string, report: ?array, reason: ?array, managed: bool, has_map: bool, has_result: bool, leftovers: bool, host: string}
      */
-    public static function render_workflow_status(): string
+    private static function workflow_page_state(): array
     {
-        $report = pqm_workflow_report();
+        $url        = (string) pqm_get_settings()['n8n_webhook_url'];
+        $report     = pqm_workflow_report();
+        $connection = PQM_N8n::connection();
+        $managed    = PQM_N8n::managed_blocked() === null;
+        $has_map    = is_array(get_option(PQM_N8n::SETUP_OPTION, false));
+        $base       = [
+            'url'        => $url,
+            'report'     => $report,
+            'reason'     => null,
+            'also'       => '',
+            'managed'    => $managed,
+            'has_map'    => $has_map,
+            'has_result' => false,
+            'leftovers'  => false,
+            'host'       => preg_replace('#^https?://#', '', (string) $connection['base_url']),
+            'problem'    => '',
+            'fix'        => '',
+            'checked'    => $report !== null,
+        ];
 
-        if ($report === null) {
-            $line = sprintf(
-                /* translators: %s: bundled template version */
-                __('Template version: %s · Your n8n workflow: not checked yet — send a test ping once it is imported and active.', 'post-quality-manager'),
-                PQM_WORKFLOW_VERSION
-            );
-        } else {
+        if ($url !== '') {
+            $problem = '';
+            if ($report !== null) {
+                if (isset($report['failed'])) {
+                    $problem = 'failed';
+                } elseif (($report['miswired'] ?? '') !== '') {
+                    $problem = 'miswired';
+                } elseif ($report['version'] < PQM_WORKFLOW_VERSION) {
+                    $problem = 'outdated';
+                }
+                if ( pqm_fs()->is__premium_only() ) {
+                    if ($problem === '' && ($report['variant'] ?? '') === 'free') {
+                        $problem = 'free';
+                    }
+                }
+            }
+            if ($problem !== '') {
+                // The fixes in EXPERIENCE.md's order: the test for a failed or mis-wired
+                // check; Update in place on a managed site, else the re-import steps.
+                // A mis-wired workflow that is also outdated (or the Free variant on
+                // Pro) keeps that fix as a secondary beside Test again (`also`).
+                $fix  = in_array($problem, ['failed', 'miswired'], true) ? 'test' : ($managed ? 'update' : 'reimport');
+                $also = '';
+                if ($problem === 'miswired' && $report['version'] < PQM_WORKFLOW_VERSION) {
+                    $also = $managed ? 'update' : 'reimport';
+                }
+                if ( pqm_fs()->is__premium_only() ) {
+                    if ($problem === 'miswired' && ($report['variant'] ?? '') === 'free') {
+                        $also = $managed ? 'update' : 'reimport';
+                    }
+                }
+
+                return ['state' => 'needs-attention', 'problem' => $problem, 'fix' => $fix, 'also' => $also] + $base;
+            }
+
+            return ['state' => 'set-up', 'has_result' => PQM_DB::has_result()] + $base;
+        }
+
+        // pqm_manual_reason() hides the stored choice behind a passing key (the
+        // wizard's rule); on this page the choice wins: "Set up by hand instead"
+        // on a connected site must land on the open steps, not back on state 2.
+        $reason = pqm_manual_reason() ?? (!empty(get_option(PQM_SETUP_OPTION, [])['manual']) ? ['kind' => 'choice'] : null);
+        if ($reason !== null) {
+            return ['state' => 'manual', 'reason' => $reason] + $base;
+        }
+        if ($connection['api_key'] !== '' && !empty($connection['probe']['ok'])) {
+            return ['state' => 'connected', 'leftovers' => (bool) get_option(PQM_N8n::LEFTOVERS_OPTION, false)] + $base;
+        }
+
+        return ['state' => 'not-set-up'] + $base;
+    }
+
+    /**
+     * The page's whole body under the H1 (story 67), the one renderer
+     * behind the page load and every `status_html` (AJAX ping and status
+     * read, POST /setup/connect, /n8n/provision, /n8n/token, /n8n/workflow):
+     * the status block (an action's outcome line first, the state sentence,
+     * the version and last check, the one primary action and Test again
+     * once a URL exists), a Pro warning under it, the state's body, then
+     * the collapsed disclosures the state allows — Set up by hand (the
+     * manual steps), n8n connection (the island's root), Webhook (URL,
+     * token, rotation). Exactly one .button-primary in every state.
+     *
+     * @param string $outcome An action's outcome sentence, '' on a plain render.
+     * @param string $tone    'success' | 'warning' | 'error' for the outcome line.
+     */
+    public static function render_workflow_body(string $outcome = '', string $tone = 'success'): string
+    {
+        $settings = pqm_get_settings();
+        $state    = self::workflow_page_state();
+        $report   = $state['report'];
+        $kind     = $state['state'];
+
+        // The accent (DESIGN.md): line, info, success, warning or error.
+        $accent = [
+            'not-set-up' => 'not-set-up', 'connected' => 'connected', 'manual' => 'manual',
+            'set-up'     => $state['checked'] ? 'set-up' : 'not-checked',
+        ][$kind] ?? (in_array($state['problem'], ['failed', 'miswired'], true) ? 'failing' : 'outdated');
+
+        // The state sentence, and the version line when a check is on record.
+        $sentence = '';
+        $details  = []; // sentences under the main one, each its own <p>
+        switch ($kind) {
+            case 'not-set-up':
+                $sentence = __('Not connected to n8n yet.', 'post-quality-manager');
+                break;
+            case 'connected':
+                /* translators: %s: the n8n instance's host, e.g. "n8n.example.com" */
+                $sentence = sprintf(__('Connected to n8n at %s. The workflow is not set up yet.', 'post-quality-manager'), $state['host']);
+                break;
+            case 'manual':
+                $sentence  = __('Setting up by hand.', 'post-quality-manager');
+                $details[] = ($state['reason']['kind'] ?? '') === 'probe'
+                    ? sprintf(
+                        /* translators: 1: date of the check, 2: why it did not pass, e.g. "n8n answered 404: the public API is turned off…" */
+                        __('On %1$s, the n8n connection check did not pass: %2$s', 'post-quality-manager'),
+                        $state['reason']['at'],
+                        $state['reason']['message']
+                    )
+                    : __('You chose to set up n8n by hand.', 'post-quality-manager');
+                break;
+            case 'set-up':
+                $sentence = $state['checked']
+                    ? __('Your workflow answers.', 'post-quality-manager')
+                    : __('Saved, not checked yet.', 'post-quality-manager');
+                break;
+            default: // needs-attention
+                switch ($state['problem']) {
+                    case 'failed':
+                        $sentence = sprintf(
+                            /* translators: 1: when, e.g. "just now" or "3 hours ago", 2: why the test failed, e.g. "n8n responded with 404…" */
+                            __('The last test %1$s did not reach your workflow: %2$s', 'post-quality-manager'),
+                            self::when($report['failed']['at']),
+                            $report['failed']['message']
+                        );
+                        break;
+                    case 'miswired':
+                        $sentence = $report['miswired']; // raw (n8n supplies the names): escaped below, once
+                        break;
+                    case 'outdated':
+                        $sentence = $report['version'] > 0
+                            /* translators: 1: the workflow's version, 2: the version this plugin needs */
+                            ? sprintf(__('Your workflow is version %1$d; this plugin needs %2$d.', 'post-quality-manager'), $report['version'], PQM_WORKFLOW_VERSION)
+                            /* translators: %d: the version this plugin needs */
+                            : sprintf(__('Your workflow is an older version that does not report its number; this plugin needs %d.', 'post-quality-manager'), PQM_WORKFLOW_VERSION);
+                        break;
+                    default: // free
+                        $sentence = __('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager');
+                }
+                if (in_array($state['problem'], ['outdated', 'free'], true)) {
+                    // 6 = the first version with a per-site webhook path (pqm_webhook_path()):
+                    // only an older workflow gets a new production URL on re-import; an
+                    // in-place update (entry 9) keeps the URL whatever the version.
+                    if ($state['managed']) {
+                        $details[] = __('The plugin can update it in place: your credentials and production URL stay.', 'post-quality-manager');
+                    } elseif ($state['problem'] === 'outdated' && $report['version'] < 6) {
+                        $details[] = __('A re-import gives it a new production URL.', 'post-quality-manager');
+                    }
+                }
+        }
+        $version_line = '';
+        if ($report !== null && ($report['version'] > 0 || $report['at'] > 0)) {
             $version = $report['version'] > 0
                 /* translators: %d: workflow version number */
-                ? sprintf(__('version %d', 'post-quality-manager'), $report['version'])
-                : __('an older version that does not report its number', 'post-quality-manager');
-
+                ? sprintf(__('Version %d', 'post-quality-manager'), $report['version'])
+                : __('An older version that does not report its number', 'post-quality-manager');
             if ($report['at'] === 0) {
                 // Stored by a pre-v5 plugin: a command reported it, time unknown.
                 $how = __('reported by a command', 'post-quality-manager');
             } else {
-                $when = time() - $report['at'] < MINUTE_IN_SECONDS
-                    ? __('just now', 'post-quality-manager')
-                    /* translators: %s: time span, e.g. "3 hours" */
-                    : sprintf(__('%s ago', 'post-quality-manager'), human_time_diff($report['at']));
                 $how = $report['via'] === 'test'
                     /* translators: %s: when, e.g. "just now" or "3 hours ago" */
-                    ? sprintf(__('checked %s by a test ping', 'post-quality-manager'), $when)
+                    ? sprintf(__('checked %s by a test', 'post-quality-manager'), self::when($report['at']))
                     /* translators: %s: when, e.g. "just now" or "3 hours ago" */
-                    : sprintf(__('checked %s by a command', 'post-quality-manager'), $when);
+                    : sprintf(__('checked %s by a command', 'post-quality-manager'), self::when($report['at']));
             }
-
-            $line = sprintf(
-                /* translators: 1: bundled template version, 2: "version 4" or "an older version…", 3: e.g. "checked just now by a test ping" */
-                __('Template version: %1$s · Your n8n workflow: %2$s, %3$s.', 'post-quality-manager'),
-                PQM_WORKFLOW_VERSION,
-                $version,
-                $how
-            );
+            /* translators: 1: "Version 6" or "An older version…", 2: "checked just now by a test" */
+            $version_line = sprintf(__('%1$s · %2$s.', 'post-quality-manager'), $version, $how);
         }
 
-        // The fix is the notice's one primary action (EXPERIENCE.md, state 5).
-        // On a site whose workflow the plugin set up or manages (n8n provisioning,
-        // entry 9: the gate the token rotation shares), it is Update workflow,
-        // whose click pqm-admin.js sends to POST /n8n/workflow, with its own result
-        // line; elsewhere it leads to the Workflow File steps, where pqm-admin.js
-        // moves focus. Only the first notice carries it. A rendered primary button
-        // is also how the page's React islands learn the block holds the page's one
-        // primary action (src/kit/use-reimport-shown.js).
-        // A mis-wiring (entry 7) comes first among the fixes: its Test again is
-        // then the one primary, and the fix button turns secondary.
-        $miswired = (string) ($report['miswired'] ?? '');
-        $outdated = $report !== null && $report['version'] < PQM_WORKFLOW_VERSION;
-        $managed  = PQM_N8n::managed_blocked() === null;
-        $button   = 'button' . ($miswired === '' ? ' button-primary' : '');
-        $fix      = $managed
-            ? '<p><button type="button" class="' . $button . ' pqm-update-workflow">' . esc_html__('Update workflow', 'post-quality-manager') . '</button> '
-                . '<span class="pqm-test-result" aria-live="polite"></span></p>'
-            : '<p><a class="' . $button . ' pqm-reimport" href="#pqm-workflow-file">' . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a></p>';
+        // The one primary action, and whether Test again joins it as a secondary.
+        // Without the built assets no dialog can open: no button (the build warning says why).
+        $setup_button = static fn(string $label, string $step = ''): string => !self::app_built() ? '' : '<button type="button" class="button button-primary pqm-open-setup"'
+            . ($step !== '' ? ' data-step="' . esc_attr($step) . '"' : '') . '>' . esc_html($label) . '</button>';
+        $test_button  = static fn(bool $primary): string => '<button type="button" class="button' . ($primary ? ' button-primary' : '') . ' pqm-test-connection">'
+            . esc_html($primary && $kind === 'set-up' ? __('Test the connection', 'post-quality-manager') : __('Test again', 'post-quality-manager')) . '</button>';
+        $fix_button   = static fn(string $fix, bool $primary): string => $fix === 'update'
+            ? '<button type="button" class="button' . ($primary ? ' button-primary' : '') . ' pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="'
+                . esc_attr__('Updating the workflow…', 'post-quality-manager') . '">' . esc_html__('Update workflow', 'post-quality-manager') . '</button>'
+            : '<a class="button' . ($primary ? ' button-primary' : '') . ' pqm-reimport" href="#pqm-by-hand">' . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a>';
+        $primary = '';
+        switch ($kind) {
+            case 'not-set-up':
+            case 'connected':
+                $primary = $setup_button(__('Set up n8n', 'post-quality-manager'));
+                break;
+            case 'manual':
+                $primary = ''; // Save and test, under step 4 of the open Set up by hand
+                break;
+            case 'set-up':
+                if (!$state['checked']) {
+                    $primary = $test_button(true);
+                } elseif ($state['has_result']) {
+                    $primary = '<a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=pqm-posts')) . '">' . esc_html__('Open Post Reviews', 'post-quality-manager') . '</a>';
+                } else {
+                    $primary = $setup_button(__('Run your first review', 'post-quality-manager'), 'review');
+                }
+                break;
+            default:
+                $primary = $state['fix'] === 'test' ? $test_button(true) : $fix_button($state['fix'], true);
+        }
+        // The secondaries: Test again once a URL exists, and the outdated fix behind a mis-wiring.
+        $secondary = $state['url'] !== '' && !str_contains($primary, 'pqm-test-connection') ? $test_button(false) : '';
+        if ($state['also'] !== '') {
+            $secondary .= ($secondary !== '' ? ' ' : '') . $fix_button($state['also'], false);
+        }
+
+        // The disclosures this state allows, in the spine's order. The re-import
+        // steps are where the Re-import link leads: shown whenever it renders.
+        $reimports   = in_array('reimport', [$state['fix'], $state['also']], true);
+        $disclosures = [
+            'by-hand'    => in_array($kind, ['manual'], true) || (in_array($kind, ['set-up', 'needs-attention'], true) && (!$state['has_map'] || $reimports)),
+            'connection' => $kind !== 'not-set-up',
+            'webhook'    => in_array($kind, ['set-up', 'needs-attention'], true),
+        ];
+        $by_hand_link = '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="' . esc_attr((string) wp_json_encode(['manual' => true]))
+            . '" data-pqm-focus="pqm-by-hand">' . esc_html__('Set up by hand instead', 'post-quality-manager') . '</a></p>';
 
         ob_start();
 ?>
-        <div class="pqm-workflow-status">
-            <?php if ($miswired !== ''):
-                // Stored raw (n8n supplies the node and credential names): escaped here, once.
-                // The result line shows a failed check; a passing one swaps the block.
-            ?>
-            <div class="notice notice-error inline pqm-inline-notice">
-                <p><?php echo esc_html($miswired); ?></p>
-                <p><button type="button" class="button button-primary pqm-test-connection"><?php esc_html_e('Test again', 'post-quality-manager'); ?></button>
-                <span class="pqm-test-result" aria-live="polite"></span></p>
-            </div>
+        <div class="pqm-workflow-status" data-state="<?php echo esc_attr($accent); ?>">
+            <?php if ($outcome !== ''): ?>
+            <p class="pqm-workflow-outcome is-<?php echo esc_attr(in_array($tone, ['success', 'warning', 'error'], true) ? $tone : 'success'); ?>"><?php echo esc_html($outcome); ?></p>
             <?php endif; ?>
-            <?php if ($outdated): ?>
-            <div class="notice notice-warning inline pqm-inline-notice">
-                <p><strong><?php esc_html_e('Workflow update available.', 'post-quality-manager'); ?></strong>
-                <?php esc_html_e('Your n8n workflow is older than this plugin needs.', 'post-quality-manager'); ?>
-                <?php
-                // 6 = the first version with a per-site webhook path (pqm_webhook_path()):
-                // only an older workflow gets a new production URL on re-import; an
-                // in-place update (entry 9) keeps the URL whatever the version.
-                if ($managed) {
-                    esc_html_e('The plugin can update it in place: your credentials and production URL stay.', 'post-quality-manager');
-                } elseif ($report['version'] < 6) {
-                    esc_html_e('A re-import gives it a new production URL.', 'post-quality-manager');
-                }
-                ?></p>
-                <?php echo $fix; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
-            </div>
+            <p class="pqm-workflow-sentence"><?php echo esc_html($sentence); ?></p>
+            <?php foreach ($details as $detail): ?>
+            <p><?php echo esc_html($detail); ?></p>
+            <?php endforeach; ?>
+            <?php if ($version_line !== ''): ?>
+            <p class="description pqm-workflow-version"><?php echo esc_html($version_line); ?></p>
             <?php endif; ?>
-            <?php
-            // Story 54: the Free template on the Pro build lacks the paid branches.
-            if ( pqm_fs()->is__premium_only() ) {
-                if (($report['variant'] ?? '') === 'free') {
-                    printf(
-                        '<div class="notice notice-warning inline pqm-inline-notice"><p>%s</p>%s</div>',
-                        esc_html__('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager'),
-                        $outdated ? '' : $fix // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
-                    );
-                }
-            }
-            ?>
-            <p class="description"><?php echo esc_html($line); ?></p>
+            <?php if ($primary !== '' || $secondary !== ''): ?>
+            <p class="pqm-workflow-actions"><?php echo $primary . ($primary !== '' && $secondary !== '' ? ' ' : '') . $secondary; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?></p>
+            <?php endif; ?>
         </div>
+        <?php
+        if ( pqm_fs()->is__premium_only() ) {
+            self::render_rewrite_warning__premium_only($kind);
+        }
+        ?>
+        <?php if ($kind === 'not-set-up'): ?>
+        <p><?php esc_html_e('The setup asks for three values: your n8n address, an n8n API key with an expiry date, and an Anthropic API key. The plugin then creates everything in n8n for you: the credentials, the workflow and its publication.', 'post-quality-manager'); ?></p>
+        <?php echo $by_hand_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+        <?php elseif ($kind === 'connected'): ?>
+        <?php if ($state['leftovers']): ?>
+        <div class="notice notice-info inline pqm-inline-notice"><p><?php esc_html_e('An earlier setup left a workflow or credentials in n8n. Setting up removes them first.', 'post-quality-manager'); ?></p></div>
+        <?php endif; ?>
+        <?php echo $by_hand_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+        <?php endif; ?>
+
+        <?php if ($disclosures['by-hand']): ?>
+        <details class="pqm-disclosure" id="pqm-by-hand"<?php echo $kind === 'manual' ? ' open' : ''; ?>>
+            <summary><h2><?php esc_html_e('Set up by hand', 'post-quality-manager'); ?></h2></summary>
+            <?php self::render_workflow_file($settings, $kind === 'manual'); ?>
+        </details>
+        <?php endif; ?>
+        <?php if ($disclosures['connection']): ?>
+        <details class="pqm-disclosure" id="pqm-n8n-connection">
+            <summary><h2><?php esc_html_e('n8n connection', 'post-quality-manager'); ?></h2></summary>
+            <?php // n8n provisioning, entry 1: src/n8n-connection/ over GET|POST|DELETE /n8n/connection; adoption (entry 8) inside it. ?>
+            <?php self::render_app_root('pqm-n8n-connection-root'); ?>
+        </details>
+        <?php endif; ?>
+        <?php if ($disclosures['webhook']): ?>
+        <details class="pqm-disclosure" id="pqm-webhook">
+            <summary><h2><?php esc_html_e('Webhook', 'post-quality-manager'); ?></h2></summary>
+            <?php self::render_webhook_form($settings, false, 'disclosure'); ?>
+            <?php self::render_copy_value(__('Webhook token', 'post-quality-manager'), (string) $settings['webhook_token']); ?>
+            <p class="description"><?php esc_html_e('Shared secret for both directions, always in the X-PQM-Token header: this site sends it to start the workflow (the webhook credential in n8n holds the same value), and n8n sends it back with the results.', 'post-quality-manager'); ?></p>
+            <?php if ($state['managed']): ?>
+            <p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="<?php esc_attr_e('Rotating the token…', 'post-quality-manager'); ?>"><?php esc_html_e('Rotate token', 'post-quality-manager'); ?></button></p>
+            <p class="description"><?php esc_html_e('Writes a new token into the webhook credential in n8n and here, then tests the connection: the old token stops working at once.', 'post-quality-manager'); ?></p>
+            <?php endif; ?>
+        </details>
+        <?php endif; ?>
 <?php
         return (string) ob_get_clean();
+    }
+
+    /** "just now" or "3 hours ago", for a timestamp. */
+    private static function when(int $at): string
+    {
+        return time() - $at < MINUTE_IN_SECONDS
+            ? __('just now', 'post-quality-manager')
+            /* translators: %s: time span, e.g. "3 hours" */
+            : sprintf(__('%s ago', 'post-quality-manager'), human_time_diff($at));
+    }
+
+    /**
+     * Pro, state Set up (story 67, 4b; entry 4's D1): Application Passwords
+     * off for the current user means no WordPress credential, so Rewrite
+     * stays off — one warning line under the status block.
+     */
+    private static function render_rewrite_warning__premium_only(string $kind): void
+    {
+        if ($kind !== 'set-up' || wp_is_application_passwords_available_for_user(wp_get_current_user())) {
+            return;
+        }
+?>
+        <div class="notice notice-warning inline pqm-inline-notice"><p><?php esc_html_e('Application Passwords are turned off on this site, so no WordPress credential can be created for this user. Rewrite stays off until they are available and a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager'); ?></p></div>
+<?php
+    }
+
+    /**
+     * The webhook URL field and Save and test (story 67): step 4 of Set up
+     * by hand (primary, the manual path's one action) and the Webhook
+     * disclosure (secondary). pqm-admin.js posts the form's field to
+     * POST /setup/connect (save_webhook_url(), then the ping) and swaps the
+     * body its reply carries. No name="pqm_settings[…]": never a second
+     * Settings form.
+     */
+    private static function render_webhook_form(array $settings, bool $primary, string $place): void
+    {
+        $id = 'pqm_webhook_url_' . ($place === 'step' ? 'step' : 'disclosure'); // both forms may share a page
+?>
+        <form class="pqm-webhook-form" data-pqm-post="setup/connect">
+            <label class="pqm-copy-label" for="<?php echo esc_attr($id); ?>"><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></label>
+            <span class="pqm-copy-controls">
+                <input type="url" id="<?php echo esc_attr($id); ?>" name="webhook_url" class="regular-text code pqm-webhook-url-field"
+                       value="<?php echo esc_attr((string) $settings['n8n_webhook_url']); ?>"
+                       placeholder="<?php echo esc_attr('https://your-n8n.example.com/webhook/' . pqm_webhook_path()); ?>" />
+                <button type="submit" class="button<?php echo $primary ? ' button-primary' : ''; ?> pqm-save-webhook" data-pqm-busy="<?php esc_attr_e('Saving and testing…', 'post-quality-manager'); ?>"><?php esc_html_e('Save and test', 'post-quality-manager'); ?></button>
+            </span>
+        </form>
+<?php
+    }
+
+    /**
+     * What each agent sends to Claude (story 67: on Settings → AI, beside
+     * the values it reads): the effective model, effort, temperature and
+     * output budget per agent, as pqm_llm_params() resolves them.
+     */
+    private static function render_agent_table(array $settings, array $registry): void
+    {
+?>
+                <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
+                <p class="description"><?php esc_html_e('These values travel with every command, so a model change here applies on the next command — no n8n re-import needed. Only plugin updates that change the workflow itself need an update in n8n.', 'post-quality-manager'); ?></p>
+                <table class="widefat striped pqm-llm-preview">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e('Agent', 'post-quality-manager'); ?></th>
+                            <th><?php esc_html_e('Model', 'post-quality-manager'); ?></th>
+                            <th><?php esc_html_e('Reasoning Effort', 'post-quality-manager'); ?></th>
+                            <th><?php esc_html_e('Temperature', 'post-quality-manager'); ?></th>
+                            <th><?php esc_html_e('Max Output Tokens', 'post-quality-manager'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach (self::agent_labels() as $key => $label):
+                            $params = pqm_llm_params($key, $settings);
+                            $model_label = isset($registry[$params['model']]) ? $registry[$params['model']]['label'] : $params['model'];
+                        ?>
+                        <tr>
+                            <td><?php echo esc_html($label); ?></td>
+                            <td><?php echo esc_html($model_label); ?> <code><?php echo esc_html($params['model']); ?></code></td>
+                            <td><?php echo esc_html($params['output_config']['effort'] ?? '—'); ?></td>
+                            <td><?php echo isset($params['temperature']) ? esc_html(number_format($params['temperature'], 1)) : '—'; ?></td>
+                            <td><?php echo esc_html((string) $params['max_tokens']); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+<?php
     }
 
     /* ─── Workflow Generator (admin-post download) ───────────────────── */
 
     /**
-     * The Workflow File section (n8n provisioning, entry 2; CAP-8, story 40):
+     * The Set up by hand steps (n8n provisioning, entry 2; CAP-8, story 40):
      * the manual setup as four steps in the order the work happens — import,
      * credentials, each flagged node, publish and connect — with a Copy row
      * for every value typed into n8n and links only to addressable places.
-     * Opens with the guided dialog for a site not set up yet, and why the
-     * reader is on the manual path (pqm_manual_reason()). The one place for
-     * these steps: the setup dialog's "Set up by hand" step links here
-     * (`#pqm-workflow-file`, n8n provisioning entry 6).
+     * Rendered inside the page's Set up by hand disclosure (story 67; why
+     * the reader is on the manual path is the status block's sentence).
+     * The one place for these steps: the setup dialog's "Set up by hand"
+     * step links here (`#pqm-by-hand`, n8n provisioning entry 6). Step 4
+     * holds the webhook URL field and Save and test: the manual path's one
+     * action (`$primary`), a secondary save on a set-up site re-importing.
      */
-    private static function render_workflow_file(array $settings): void
+    private static function render_workflow_file(array $settings, bool $primary): void
     {
         $host     = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__)
         $webhook  = 'Post Quality webhook - ' . $host;
@@ -1568,7 +1807,6 @@ class PQM_Admin
         $n8n      = $n8n_url !== ''
             ? '<a href="' . esc_url($n8n_url) . '">' . esc_html__('your n8n', 'post-quality-manager') . '</a>'
             : esc_html__('n8n', 'post-quality-manager');
-        $reason   = pqm_manual_reason();
         $name     = __('Credential name', 'post-quality-manager');
 
         // The Free template has no Rewrite branch: two credentials, two Claude nodes.
@@ -1592,21 +1830,7 @@ class PQM_Admin
             );
         }
 ?>
-        <?php if (!pqm_setup_complete()): ?>
-        <p class="description"><?php esc_html_e('These are the steps to set up n8n by hand, and to re-import the workflow. To have n8n set up for you with an n8n API key, use "Set up the workflow" at the top of this page.', 'post-quality-manager'); ?></p>
-        <?php endif; ?>
-        <?php if (($reason['kind'] ?? '') === 'probe'): ?>
-        <div class="notice notice-info inline pqm-inline-notice"><p><?php
-            printf(
-                /* translators: 1: date of the check, 2: why it did not pass, e.g. "n8n answered 404: the public API is turned off…" */
-                esc_html__('On %1$s, the n8n Instance check did not pass: %2$s Set up the workflow by hand with the steps below.', 'post-quality-manager'),
-                esc_html($reason['at']),
-                esc_html($reason['message'])
-            );
-        ?></p></div>
-        <?php elseif (($reason['kind'] ?? '') === 'choice'): ?>
-        <div class="notice notice-info inline pqm-inline-notice"><p><?php esc_html_e('You chose to set up n8n by hand: follow the steps below.', 'post-quality-manager'); ?></p></div>
-        <?php endif; ?>
+        <p class="description"><?php esc_html_e('The steps to set up n8n by hand, and to re-import the workflow after a plugin update. To have the plugin set n8n up for you instead, connect your n8n with an API key under "n8n connection".', 'post-quality-manager'); ?></p>
 
         <ol class="pqm-workflow-steps">
             <li>
@@ -1672,13 +1896,8 @@ class PQM_Admin
                     );
                 ?></p>
                 <p class="description"><?php esc_html_e('Not the Test URL: an address with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.', 'post-quality-manager'); ?></p>
-                <p><?php
-                    printf(
-                        /* translators: %s: link to the Connection tab of the Settings page */
-                        esc_html__('Paste it as the n8n Webhook URL on %s, save, then come back and use "Send test ping" below.', 'post-quality-manager'),
-                        '<a href="' . esc_url(admin_url('admin.php?page=pqm-settings#tab-connection')) . '">' . esc_html__('the Connection tab of Settings', 'post-quality-manager') . '</a>'
-                    );
-                ?></p>
+                <p><?php esc_html_e('Paste it here: the plugin saves it and tests the connection.', 'post-quality-manager'); ?></p>
+                <?php self::render_webhook_form($settings, $primary, 'step'); ?>
             </li>
         </ol>
 <?php
@@ -1865,6 +2084,20 @@ class PQM_Admin
             return ['ok' => false, 'message' => $warning, 'version' => null, 'outdated' => false];
         }
 
+        $ping = self::sent_ping($url, $diagnose);
+        // Story 67: a failed test of the saved URL is on record (the page's
+        // "needs attention"); a passing one is recorded by the callers, which
+        // clears it.
+        if (!$ping['ok'] && $url === pqm_get_settings()['n8n_webhook_url']) {
+            pqm_record_workflow_failure($ping['message']);
+        }
+
+        return $ping;
+    }
+
+    /** ping_webhook()'s request and its reading of the answer. */
+    private static function sent_ping(string $url, bool $diagnose = true): array
+    {
         $response = wp_remote_post($url, [
             'headers' => pqm_n8n_headers(pqm_get_settings()),
             'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
@@ -1941,12 +2174,15 @@ class PQM_Admin
     /* ─── AJAX: Test Connection ──────────────────────────────────────── */
 
     /**
-     * Ping the n8n webhook and report the outcome. Tests the URL from the
-     * Settings field so it works before saving; the n8n Workflow page sends
-     * none, so the saved URL is pinged. Success answers `{message, outdated}`,
-     * plus `status_html` when the saved URL answered: only then is the
-     * replied version recorded (an unsaved URL may be another workflow).
-     * Errors answer the message string.
+     * Ping the n8n webhook and report the outcome. The n8n Workflow page
+     * sends no URL (story 67: the field lives on the page and saves through
+     * POST /setup/connect), so the saved URL is pinged; a posted URL is
+     * still tested as is. Success answers `{message, outdated}`; a failed
+     * ping answers an error `{message}`. Both carry `status_html`, the
+     * page's whole body with the outcome as its first line, when the saved
+     * URL was pinged: only then is the replied version, or the failure,
+     * recorded (an unsaved URL may be another workflow). No URL at all:
+     * an error string.
      */
     public static function ajax_test_connection(): void
     {
@@ -1962,29 +2198,34 @@ class PQM_Admin
             $url = $saved_url;
         }
         if (empty($url)) {
-            wp_send_json_error(__('Enter your n8n webhook URL first.', 'post-quality-manager'));
+            wp_send_json_error(__('Save your n8n webhook URL first.', 'post-quality-manager'));
         }
 
         $ping = self::ping_webhook($url);
+        if ($url !== $saved_url) {
+            $ping['ok'] ? wp_send_json_success(['message' => $ping['message'], 'outdated' => $ping['outdated']]) : wp_send_json_error($ping['message']);
+        }
         if (!$ping['ok']) {
-            wp_send_json_error($ping['message']);
+            // The failure is on record (ping_webhook()): the body shows it.
+            wp_send_json_error(['message' => $ping['message'], 'status_html' => self::render_workflow_body($ping['message'], 'error')]);
         }
 
-        $data = ['message' => $ping['message'], 'outdated' => $ping['outdated']];
-        if ($url === $saved_url) {
-            pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null);
-            $data['status_html'] = self::render_workflow_status();
-        }
-        wp_send_json_success($data);
+        pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null);
+        wp_send_json_success([
+            'message'     => $ping['message'],
+            'outdated'    => $ping['outdated'],
+            'status_html' => self::render_workflow_body($ping['message'], $ping['outdated'] ? 'warning' : 'success'),
+        ]);
     }
 
-    /* ─── AJAX: Workflow status (re-read on tab focus) ───────────────── */
+    /* ─── AJAX: Workflow status (re-read on tab focus, dialog close) ─── */
 
     /**
-     * Answer the n8n Workflow page's status block, `{status_html}`, as it
-     * renders now. The open page asks whenever its tab regains focus, so a
-     * download, an import from URL or a command's report made meanwhile
-     * shows without a reload (D1). Reads only — never pings n8n.
+     * Answer the n8n Workflow page's body, `{status_html}`, as it renders
+     * now. The open page asks whenever its tab regains focus and whenever
+     * the setup dialog closes (story 67), so a download, an import from
+     * URL, a command's report or what the dialog did shows without a
+     * reload (D1). Reads only — never pings n8n.
      */
     public static function ajax_workflow_status(): void
     {
@@ -1994,6 +2235,6 @@ class PQM_Admin
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
-        wp_send_json_success(['status_html' => self::render_workflow_status()]);
+        wp_send_json_success(['status_html' => self::render_workflow_body()]);
     }
 }

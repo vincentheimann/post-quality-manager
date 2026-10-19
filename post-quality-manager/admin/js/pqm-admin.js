@@ -1,12 +1,15 @@
 /**
  * Post Quality Manager — Admin JS for the Settings and n8n Workflow pages.
  *
- * The Settings tabs, blog-profile / Editorial Standards preset choice,
- * per-agent model controls, the connection ping, the workflow status refresh,
- * the update notice's re-import link or Update workflow button and the
- * Workflow File section's Copy rows. The Dashboard and Post Reviews are React pages (src/, ADR 0005) and
- * never load this file; the setup dialog on the n8n Workflow page is React
- * too (src/setup/, story 36).
+ * The Settings tabs, blog-profile / Editorial Standards preset choice and
+ * per-agent model controls; on the n8n Workflow page (story 67), the one
+ * body swap every reply feeds, the connection test, the REST actions
+ * (Update workflow, Rotate token, Save and test, Set up by hand instead),
+ * the status refresh (window focus, the dialog's close), the re-import
+ * link and the Copy rows. The Dashboard and Post Reviews are React pages
+ * (src/, ADR 0005) and never load this file; the setup dialog and the n8n
+ * connection island on the n8n Workflow page are React too (src/setup/,
+ * src/n8n-connection/).
  */
 (function () {
     'use strict';
@@ -21,10 +24,12 @@
         initModelControls();
         initPatternLinks();
         initTestConnection();
+        initRestActions();
         initWorkflowStatusRefresh();
         initReimportLink();
-        initUpdateWorkflow();
         initCopyRows();
+        // The rows come back fresh with every body swap (story 67).
+        document.addEventListener('pqm:workflow-status', initCopyRows);
     });
 
     /* ================================================================
@@ -278,213 +283,301 @@
     }
 
     /* ================================================================
-     *  TEST CONNECTION (settings + workflow pages)
+     *  WORKFLOW PAGE: ONE BODY, ONE SWAP (story 67)
+     *  Every reply that carries status_html carries the page's whole
+     *  body under the H1 (PQM_Admin::render_workflow_body()). The swap
+     *  replaces #pqm-workflow-body's content (the aria-live region
+     *  stays) and dispatches pqm:workflow-status, on which the React
+     *  bundle remounts the n8n connection island (src/index.js) and the
+     *  Copy rows bind again. Every button below is delegated, so it
+     *  keeps working after a swap.
+     * ================================================================ */
+
+    /**
+     * Swap the body for a fresh server render. `focusId`: an element of
+     * the new body to open (a <details>) and focus; otherwise focus that
+     * was inside the old body (a pressed button, the dialog handing focus
+     * back) lands on the new state's primary action, else on the status
+     * block. The disclosures the owner opened stay open.
+     */
+    function swapWorkflowStatus(html, focusId) {
+        var body = document.getElementById('pqm-workflow-body');
+        if (!body || typeof html !== 'string') return;
+        var hadFocus = body.contains(document.activeElement);
+        var wasOpen = Array.prototype.map.call(body.querySelectorAll('details.pqm-disclosure[open]'), function (d) { return d.id; });
+        body.innerHTML = html;
+        wasOpen.forEach(function (id) {
+            var details = document.getElementById(id);
+            if (details) details.open = true;
+        });
+        var target = focusId && document.getElementById(focusId);
+        if (target) {
+            if (target.tagName === 'DETAILS') {
+                target.open = true;
+                target = target.querySelector('summary') || target;
+            }
+            target.focus();
+        } else if (hadFocus) {
+            var status = body.querySelector('.pqm-workflow-status');
+            var primary = status && status.querySelector('.button-primary');
+            if (primary) {
+                primary.focus();
+            } else if (status) {
+                status.setAttribute('tabindex', '-1');
+                status.focus();
+            }
+        }
+        document.dispatchEvent(new CustomEvent('pqm:workflow-status'));
+    }
+
+    /**
+     * The outcome line, first in the status block (the server renders it
+     * with every reply; a busy state or a request that did not go through
+     * writes it here). tone: 'busy' | 'success' | 'warning' | 'error'.
+     */
+    function showOutcome(message, tone) {
+        var status = document.querySelector('#pqm-workflow-body .pqm-workflow-status');
+        if (!status) return;
+        var line = status.querySelector('.pqm-workflow-outcome');
+        if (!line) {
+            line = document.createElement('p');
+            status.insertBefore(line, status.firstChild);
+        }
+        line.className = 'pqm-workflow-outcome' + (tone === 'busy' ? '' : ' is-' + tone);
+        line.textContent = message;
+    }
+
+    /**
+     * Re-read the body from WordPress (never pings n8n) and swap it in; a
+     * failed read leaves the body as it is. `ifChanged` (the window-focus
+     * refresh): skip the swap when the fresh status block is the current
+     * one, so a typed value or an open proposal in the island survives a
+     * tab switch that changed nothing.
+     */
+    function refreshWorkflowStatus(focusId, ifChanged) {
+        var form = new FormData();
+        form.append('action', 'pqm_workflow_status');
+        form.append('_wpnonce', pqmAdmin.pageNonce);
+
+        return fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (resp) {
+                if (!resp || !resp.success || !resp.data || typeof resp.data.status_html !== 'string') return;
+                if (ifChanged && statusBlockOf(resp.data.status_html) === statusBlockOf(document.getElementById('pqm-workflow-body').innerHTML)) return;
+                swapWorkflowStatus(resp.data.status_html, focusId);
+            })
+            .catch(function () { /* silent: keep the body */ });
+    }
+
+    /** The status block's markup inside a body's HTML ('' when none). */
+    function statusBlockOf(html) {
+        var holder = document.createElement('div');
+        holder.innerHTML = html;
+        var status = holder.querySelector('.pqm-workflow-status');
+        return status ? status.outerHTML : '';
+    }
+
+    /* ================================================================
+     *  TEST THE CONNECTION / TEST AGAIN (workflow page)
+     *  Pings the saved webhook URL through admin-ajax; the reply, passed
+     *  or failed, carries the body with its message first. Busy label on
+     *  the button meanwhile.
      * ================================================================ */
     function initTestConnection() {
         var i18n = pqmAdmin.i18n || {};
-        var webhookField = document.getElementById('pqm_n8n_webhook_url');
 
-        // Delegated, so the status block's Test again (n8n provisioning,
-        // entry 7) keeps working after swapWorkflowStatus() replaces it.
-        // Its result line shows a failure; a passing check swaps the block.
         document.addEventListener('click', function (e) {
             var btn = e.target.closest && e.target.closest('.pqm-test-connection');
             if (!btn || btn.disabled) return;
-            var result = btn.parentElement.querySelector('.pqm-test-result');
-            // No field on the workflow page: send empty, the server
-            // falls back to the saved webhook URL.
-            var url = webhookField ? webhookField.value.trim() : '';
-
-            if (webhookField && !url) {
-                showTestResult(result, false, i18n.enterWebhookUrl);
-                webhookField.focus();
-                return;
-            }
+            var label = btn.textContent;
 
             btn.disabled = true;
-            showTestResult(result, null, i18n.testing);
+            btn.textContent = i18n.testing || label;
+            showOutcome(i18n.testing || '', 'busy');
 
             var form = new FormData();
             form.append('action', 'pqm_test_connection');
-            form.append('webhook_url', url);
+            form.append('webhook_url', ''); // the saved URL
             form.append('_wpnonce', pqmAdmin.pageNonce);
 
             fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (resp) {
-                    // Errors answer a string; success answers {message,
-                    // outdated}, plus status_html when the saved URL was
-                    // pinged. An older workflow is connected but warned.
-                    var data = resp.data || {};
-                    var msg = typeof resp.data === 'string' ? resp.data : data.message;
-                    showTestResult(result, !!resp.success, typeof msg === 'string' ? msg : i18n.networkError, !!data.outdated);
-                    swapWorkflowStatus(data.status_html);
+                    // Success and error replies both carry {message, status_html}
+                    // once the saved URL was pinged; an error string otherwise.
+                    var data = resp && typeof resp.data === 'object' && resp.data ? resp.data : {};
+                    if (typeof data.status_html === 'string') {
+                        swapWorkflowStatus(data.status_html);
+                        return;
+                    }
+                    var msg = resp && typeof resp.data === 'string' ? resp.data : data.message;
+                    showOutcome(typeof msg === 'string' ? msg : i18n.networkError, resp && resp.success ? 'success' : 'error');
                 })
                 .catch(function () {
-                    showTestResult(result, false, i18n.networkError);
+                    showOutcome(i18n.networkError, 'error');
                 })
                 .finally(function () {
-                    // A Test again swapped out with its block stays as it is.
-                    if (btn.isConnected) btn.disabled = false;
+                    // A button swapped out with its body stays as it is.
+                    if (btn.isConnected) {
+                        btn.disabled = false;
+                        btn.textContent = label;
+                    }
                 });
         });
     }
 
-    /**
-     * ok: true / false / null (pending); warning turns a success amber
-     * (a ping answered by an older workflow).
-     */
-    function showTestResult(el, ok, msg, warning) {
-        if (!el) return;
-        el.textContent = msg;
-        el.classList.toggle('is-success', ok === true && !warning);
-        el.classList.toggle('is-warning', ok === true && !!warning);
-        el.classList.toggle('is-error', ok === false);
-    }
-
-    /**
-     * Replace the n8n Workflow page's status block with a fresh server render,
-     * then tell the page's React islands (src/kit/use-reimport-shown.js), which
-     * read the block's primary button to know whether theirs must yield.
-     */
-    function swapWorkflowStatus(html) {
-        var status = document.querySelector('.pqm-workflow-status');
-        if (status && typeof html === 'string') {
-            // Focus inside the old block (Test again) would drop to <body>: keep it on the new block.
-            var hadFocus = status.contains(document.activeElement);
-            status.outerHTML = html;
-            var fresh = hadFocus && document.querySelector('.pqm-workflow-status');
-            if (fresh) {
-                fresh.setAttribute('tabindex', '-1');
-                fresh.focus();
-            }
-            document.dispatchEvent(new CustomEvent('pqm:workflow-status'));
-        }
-    }
-
     /* ================================================================
-     *  WORKFLOW STATUS REFRESH (workflow page, D1)
-     *  A download, an import from URL or a command's report may land
-     *  while the user is away: re-read the block whenever the tab
-     *  regains focus. Reads WordPress only, never pings n8n; a failed
-     *  read leaves the block as it is.
+     *  REST ACTIONS (workflow page): one handler for every control that
+     *  posts to a REST route and wants the fresh body back — Update
+     *  workflow (POST n8n/workflow), Rotate token (POST n8n/token), the
+     *  Save and test form (POST setup/connect with its field) and the
+     *  "Set up by hand instead" link (POST setup {manual: true}, whose
+     *  reply carries no body: the status is re-read instead). The
+     *  element names its route (data-pqm-post), an optional JSON body
+     *  (data-pqm-body), its busy label (data-pqm-busy) and what to
+     *  focus after the swap (data-pqm-focus). A REST error or a
+     *  request that did not go through shows in the outcome line, the
+     *  control enabled again.
      * ================================================================ */
-    function initWorkflowStatusRefresh() {
-        if (!document.querySelector('.pqm-workflow-status')) return;
-
-        window.addEventListener('focus', function () {
-            var form = new FormData();
-            form.append('action', 'pqm_workflow_status');
-            form.append('_wpnonce', pqmAdmin.pageNonce);
-
-            fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
-                .then(function (r) { return r.json(); })
-                .then(function (resp) {
-                    if (resp && resp.success && resp.data) {
-                        swapWorkflowStatus(resp.data.status_html);
-                    }
-                })
-                .catch(function () { /* silent: keep the block */ });
-        });
-    }
-
-    /* ================================================================
-     *  RE-IMPORT THE WORKFLOW (workflow page): the update notice's
-     *  primary action brings the Workflow File section into view and
-     *  moves focus to its heading. Delegated, so the button keeps
-     *  working after swapWorkflowStatus() replaces the block. Without
-     *  script, the link's own #pqm-workflow-file jump still works.
-     * ================================================================ */
-    function initReimportLink() {
-        document.addEventListener('click', function (e) {
-            var link = e.target.closest && e.target.closest('.pqm-reimport');
-            var heading = link && document.getElementById('pqm-workflow-file');
-            if (!heading) return;
-            e.preventDefault();
-            heading.scrollIntoView();
-            heading.focus();
-        });
-    }
-
-    /* ================================================================
-     *  UPDATE WORKFLOW (workflow page, n8n provisioning entry 9): on a
-     *  site whose workflow the plugin manages, the update notice's
-     *  primary action updates it in place through POST /n8n/workflow,
-     *  the page script's one REST call (restUrl + restNonce localized).
-     *  Delegated, like Test again: the result line beside the button
-     *  shows the progress and a failure; a passing ping swaps the block
-     *  and the message moves into the new block (its own result line
-     *  when it shows a notice again, else one appended), so "Workflow
-     *  updated…", an outdated warning or Pro's Rewrite note is seen.
-     * ================================================================ */
-    function initUpdateWorkflow() {
+    function initRestActions() {
         var i18n = pqmAdmin.i18n || {};
 
-        document.addEventListener('click', function (e) {
-            var btn = e.target.closest && e.target.closest('.pqm-update-workflow');
-            if (!btn || btn.disabled) return;
-            var result = btn.parentElement.querySelector('.pqm-test-result');
+        function post(el, body) {
+            if (el.pqmBusy) return;
+            var control = el.tagName === 'FORM' ? el.querySelector('button[type="submit"]') : el;
+            var busy = (control && control.dataset.pqmBusy) || el.dataset.pqmBusy || '';
+            var label = control ? control.textContent : '';
+            el.pqmBusy = true;
+            if (control && control.tagName === 'BUTTON') {
+                control.disabled = true;
+                if (busy) control.textContent = busy;
+            }
+            if (busy) showOutcome(busy, 'busy');
 
-            btn.disabled = true;
-            showTestResult(result, null, i18n.updating);
-
-            fetch(pqmAdmin.restUrl + 'n8n/workflow', {
+            fetch(pqmAdmin.restUrl + el.dataset.pqmPost, {
                 method: 'POST',
-                headers: { 'X-WP-Nonce': pqmAdmin.restNonce },
-                credentials: 'same-origin'
+                headers: { 'X-WP-Nonce': pqmAdmin.restNonce, 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(body || {})
             })
                 .then(function (r) {
                     return r.json().then(function (data) { return { ok: r.ok, data: data || {} }; });
                 })
                 .then(function (resp) {
-                    // A refused update is a REST error {code, message, data}; a
-                    // success answers {updated, ping_ok, outdated, message}, plus
-                    // status_html when the ping passed.
-                    var msg = typeof resp.data.message === 'string' ? resp.data.message : i18n.networkError;
+                    // A refusal is a REST error {code, message, data}.
                     if (!resp.ok) {
-                        showTestResult(result, false, msg);
+                        showOutcome(typeof resp.data.message === 'string' ? resp.data.message : i18n.networkError, 'error');
                         return;
                     }
-                    var ok = !!resp.data.ping_ok;
-                    var warning = !!resp.data.outdated;
-                    showTestResult(result, ok, msg, warning);
-                    swapWorkflowStatus(resp.data.status_html);
-                    if (result && !result.isConnected) {
-                        // The line went with the old block: say it in the new one.
-                        var fresh = document.querySelector('.pqm-workflow-status');
-                        var line = fresh && fresh.querySelector('.pqm-test-result');
-                        if (fresh && !line) {
-                            line = document.createElement('p');
-                            line.className = 'pqm-test-result';
-                            fresh.appendChild(line);
-                        }
-                        showTestResult(line, ok, msg, warning);
+                    if (typeof resp.data.status_html === 'string') {
+                        swapWorkflowStatus(resp.data.status_html, el.dataset.pqmFocus);
+                        return;
                     }
+                    return refreshWorkflowStatus(el.dataset.pqmFocus);
                 })
                 .catch(function () {
-                    showTestResult(result, false, i18n.networkError);
+                    showOutcome(i18n.networkError, 'error');
                 })
                 .finally(function () {
-                    // A button swapped out with its block stays as it is.
-                    if (btn.isConnected) btn.disabled = false;
+                    el.pqmBusy = false;
+                    // A control swapped out with its body stays as it is.
+                    if (control && control.isConnected && control.tagName === 'BUTTON') {
+                        control.disabled = false;
+                        control.textContent = label;
+                    }
                 });
+        }
+
+        document.addEventListener('click', function (e) {
+            var el = e.target.closest && e.target.closest('[data-pqm-post]');
+            if (!el || el.tagName === 'FORM' || el.disabled) return;
+            e.preventDefault();
+            var body = null;
+            if (el.dataset.pqmBody) {
+                try { body = JSON.parse(el.dataset.pqmBody); } catch (err) { body = null; }
+            }
+            post(el, body);
+        });
+
+        document.addEventListener('submit', function (e) {
+            var form = e.target.closest && e.target.closest('form[data-pqm-post]');
+            if (!form) return;
+            e.preventDefault();
+            var body = {};
+            Array.prototype.forEach.call(form.querySelectorAll('input[name]'), function (field) {
+                body[field.name] = field.value.trim();
+            });
+            post(form, body);
         });
     }
 
     /* ================================================================
-     *  COPY ROWS (workflow page): every value the Workflow File section
-     *  asks the reader to enter in n8n, the import URL included
-     *  (PQM_Admin::render_copy_value()). Clipboard refused: the value stays
-     *  selected and the feedback says to press Ctrl+C.
+     *  WORKFLOW STATUS REFRESH (workflow page, D1)
+     *  A download, an import from URL or a command's report may land
+     *  while the user is away: re-read the body whenever the tab
+     *  regains focus — unless the owner is typing in it. The setup
+     *  dialog (src/setup/) asks for the same refresh when it closes
+     *  (pqm:setup-closed, with the element to focus in `detail`), and
+     *  the n8n connection island after an adoption (pqm:workflow-refresh).
+     * ================================================================ */
+    function initWorkflowStatusRefresh() {
+        var body = document.getElementById('pqm-workflow-body');
+        if (!body) return;
+
+        window.addEventListener('focus', function () {
+            var active = document.activeElement;
+            if (active && body.contains(active) && active.matches('input, textarea')) return;
+            refreshWorkflowStatus(undefined, true);
+        });
+        ['pqm:setup-closed', 'pqm:workflow-refresh'].forEach(function (type) {
+            document.addEventListener(type, function (e) {
+                refreshWorkflowStatus(e.detail && e.detail.focus);
+            });
+        });
+    }
+
+    /* ================================================================
+     *  RE-IMPORT THE WORKFLOW (workflow page): the status block's fix on
+     *  a hand-made setup opens the Set up by hand disclosure and moves
+     *  focus to its heading. Delegated, so it keeps working after a
+     *  swap. Without script, the link's own #pqm-by-hand jump still works.
+     * ================================================================ */
+    function initReimportLink() {
+        document.addEventListener('click', function (e) {
+            var link = e.target.closest && e.target.closest('.pqm-reimport');
+            var details = link && document.getElementById('pqm-by-hand');
+            if (!details) return;
+            e.preventDefault();
+            details.open = true;
+            var summary = details.querySelector('summary') || details;
+            summary.scrollIntoView();
+            summary.focus();
+        });
+    }
+
+    /* ================================================================
+     *  COPY ROWS (workflow page): every value Set up by hand asks the
+     *  reader to enter in n8n, the import URL and the webhook token
+     *  included (PQM_Admin::render_copy_value()). Clipboard refused: the
+     *  value stays selected and the feedback says to press Ctrl+C. Runs
+     *  again after each body swap; a row binds once.
      * ================================================================ */
     function initCopyRows() {
         var i18n = pqmAdmin.i18n || {};
+
+        /** ok: true / false / null (cleared). */
+        function setFeedback(el, ok, msg) {
+            el.textContent = msg;
+            el.classList.toggle('is-success', ok === true);
+            el.classList.toggle('is-error', ok === false);
+        }
 
         document.querySelectorAll('.pqm-copy-row').forEach(function (row) {
             var field = row.querySelector('.pqm-copy-field');
             var copyBtn = row.querySelector('.pqm-copy-button');
             var feedback = row.querySelector('.pqm-copy-feedback');
-            if (!field || !copyBtn) return;
+            if (!field || !copyBtn || !feedback || row.pqmBound) return;
+            row.pqmBound = true;
             // The import URL row also says where to paste it.
             var copied = row.closest('.pqm-import-url') ? i18n.copied : i18n.copiedValue;
 
@@ -492,9 +585,9 @@
 
             copyBtn.addEventListener('click', function () {
                 function report(ok) {
-                    showTestResult(feedback, ok, ok ? copied : i18n.copyFailed);
+                    setFeedback(feedback, ok, ok ? copied : i18n.copyFailed);
                     if (feedback.pqmTimer) clearTimeout(feedback.pqmTimer);
-                    feedback.pqmTimer = setTimeout(function () { showTestResult(feedback, null, ''); }, 4000);
+                    feedback.pqmTimer = setTimeout(function () { setFeedback(feedback, null, ''); }, 4000);
                 }
                 function fallbackCopy() {
                     field.select();

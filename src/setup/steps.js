@@ -8,9 +8,9 @@
  * - the manual path, once the owner chose it, a connection check offered
  *   it, or the saved workflow was made by hand (`state.manual`, GET
  *   /setup's rule): one step, Set up by hand. It
- *   links to the Workflow File section of the n8n Workflow page, the one
- *   place for the manual steps, and keeps the paste-URL body so the setup
- *   can still finish.
+ *   links to the Set up by hand disclosure of the n8n Workflow page, the
+ *   one place for the manual steps, and keeps the paste-URL body so the
+ *   setup can still finish.
  * Free and Pro run the same n8n steps; the Free build has no schedule step.
  */
 import apiFetch from '@wordpress/api-fetch';
@@ -25,8 +25,8 @@ import { CONFIG_STEPS } from './config-steps';
 const CONNECT_PATH = '/post-quality/v1/setup/connect';
 const PROVISION_PATH = '/post-quality/v1/n8n/provision';
 
-/** The Workflow File heading on the n8n Workflow page (PQM_Admin::render_workflow()). */
-export const WORKFLOW_FILE_ID = 'pqm-workflow-file';
+/** The Set up by hand disclosure on the n8n Workflow page (PQM_Admin::render_workflow_body()). */
+export const BY_HAND_ID = 'pqm-by-hand';
 
 /**
  * Whether the stored n8n key passed its last check (the island's state).
@@ -154,7 +154,7 @@ function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
 		<>
 			<p>
 				{ __(
-					'The plugin sets the workflow up in your n8n for you: the credentials, the workflow and its publication. It needs three values: your n8n address, an n8n API key with an expiration date, and an Anthropic API key in the next step.',
+					'The plugin sets the workflow up in your n8n for you: the credentials, the workflow and its publication. It needs three values: your n8n address, an n8n API key (the field below says where to create one), and an Anthropic API key in the next step.',
 					'post-quality-manager'
 				) }
 			</p>
@@ -334,9 +334,21 @@ function Provision( { state, onProvisioned, onConnected } ) {
 			<form className="pqm-setup-connect" onSubmit={ submit }>
 				<TextControl
 					label={ __( 'Anthropic API key', 'post-quality-manager' ) }
-					help={ __(
-						'Create one in the Anthropic Console under API Keys.',
-						'post-quality-manager'
+					help={ createInterpolateElement(
+						__(
+							'Create one on the <a>API keys page of the Anthropic Console</a>.',
+							'post-quality-manager'
+						),
+						{
+							a: (
+								// eslint-disable-next-line jsx-a11y/anchor-has-content -- content comes from the translated string.
+								<a
+									href="https://platform.claude.com/settings/keys"
+									target="_blank"
+									rel="noreferrer"
+								/>
+							),
+						}
 					) }
 					type="password"
 					autoComplete="new-password"
@@ -365,8 +377,8 @@ function Provision( { state, onProvisioned, onConnected } ) {
 
 /**
  * Set up by hand: why (a stored choice, a failed check, or a workflow made
- * by hand: a saved URL without the plugin's setup), the way to the Workflow
- * File section (the steps live there, never here), the paste-URL body, and
+ * by hand: a saved URL without the plugin's setup), the way to the page's
+ * Set up by hand disclosure (the steps live there, never here), the paste-URL body, and
  * the key path behind "Connect by key instead" while no webhook URL is
  * saved — a passing check there outranks the choice. A hand-made workflow
  * (a URL saved) keeps this path whatever the key (adoption, 6.8), so it is
@@ -376,7 +388,7 @@ function Provision( { state, onProvisioned, onConnected } ) {
  * @param {Object}   props.state              GET /setup state.
  * @param {Function} props.onConnected        Connect's `onConnected`.
  * @param {Function} props.onN8nChange        The island's `onChange`.
- * @param {Function} props.onShowWorkflowFile Closes the dialog on the Workflow File section.
+ * @param {Function} props.onShowWorkflowFile Closes the dialog on the page's Set up by hand disclosure.
  * @return {Element} The step body.
  */
 function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
@@ -386,7 +398,7 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 		why = sprintf(
 			/* translators: 1: date of the check, 2: why it did not pass, e.g. "The public API is turned off on this instance." */
 			__(
-				'On %1$s, the n8n Instance check did not pass: %2$s',
+				'On %1$s, the n8n connection check did not pass: %2$s',
 				'post-quality-manager'
 			),
 			reason.at,
@@ -411,14 +423,14 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 			<p>
 				{ createInterpolateElement(
 					__(
-						'The steps are in the <a>Workflow File</a> section of this page: import the workflow, create its credentials, pick them in the nodes, then publish it. Once it is published, paste its production URL here.',
+						'The steps are under <a>Set up by hand</a> on this page: import the workflow, create its credentials, pick them in the nodes, then publish it. Once it is published, paste its production URL here.',
 						'post-quality-manager'
 					),
 					{
 						a: (
 							// eslint-disable-next-line jsx-a11y/anchor-has-content -- content comes from the translated string.
 							<a
-								href={ `#${ WORKFLOW_FILE_ID }` }
+								href={ `#${ BY_HAND_ID }` }
 								onClick={ onShowWorkflowFile }
 							/>
 						),

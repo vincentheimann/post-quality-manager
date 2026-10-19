@@ -348,8 +348,13 @@ function pqm_workflow_json(?string $path = null): ?string
  * ['version' => int, 'via' => 'test'|'command', 'at' => timestamp], plus
  * 'variant' => 'free' when the Free template answered (story 54: a report
  * without it is the Pro template, as every template before the Free one),
- * and 'miswired' => the sentence when the last diagnosing test found the
- * workflow mis-wired (n8n provisioning, entry 7; raw text, escape it).
+ * 'miswired' => the sentence when the last diagnosing test found the
+ * workflow mis-wired (n8n provisioning, entry 7; raw text, escape it), and
+ * 'failed' => ['message' => why, 'at' => timestamp] when the last test of
+ * the saved URL did not get through (story 67: the page tells "the last
+ * test failed" from "set up"); a passing test clears it. A failure alone
+ * (no version reported yet) reads as version 0 at time 0: readers check
+ * `failed` before the version.
  * Version 0 = an older workflow that does not report its number (a v1–v4
  * trigger answering a test ping). Null when nothing was reported since the
  * template was last served. A pre-v5 plugin stored a bare int from a
@@ -365,12 +370,16 @@ function pqm_workflow_report(): ?array
         return null;
     }
 
+    $failed = $report['failed'] ?? null;
+
     return [
         'version' => absint($report['version'] ?? 0),
         'via'     => ($report['via'] ?? '') === 'test' ? 'test' : 'command',
         'at'      => absint($report['at'] ?? 0),
     ] + (($report['variant'] ?? '') === 'free' ? ['variant' => 'free'] : [])
-      + (is_string($report['miswired'] ?? null) && $report['miswired'] !== '' ? ['miswired' => $report['miswired']] : []);
+      + (is_string($report['miswired'] ?? null) && $report['miswired'] !== '' ? ['miswired' => $report['miswired']] : [])
+      + (is_array($failed) && is_string($failed['message'] ?? null) && $failed['message'] !== ''
+          ? ['failed' => ['message' => $failed['message'], 'at' => absint($failed['at'] ?? 0)]] : []);
 }
 
 /**
@@ -379,7 +388,8 @@ function pqm_workflow_report(): ?array
  * is the Free template ('pro' is stored as no variant). `$miswired` is a
  * test's diagnosis (PQM_N8n::diagnose()): a sentence is stored, '' clears
  * the stored one, null (the check could not run, or a command's report)
- * keeps it — only a test clears it.
+ * keeps it — only a test clears it. A stored failure goes: the workflow
+ * answered.
  */
 function pqm_record_workflow_version(int $version, string $via, string $variant, ?string $miswired = null): void
 {
@@ -392,6 +402,24 @@ function pqm_record_workflow_version(int $version, string $via, string $variant,
         $report['miswired'] = $miswired;
     }
     update_option('pqm_workflow_version_seen', $report, false);
+}
+
+/**
+ * Record that a test of the saved webhook URL did not get through (story
+ * 67): `failed` = {message, at} on the report option, every other key as
+ * stored, so the last passing report stays readable. A passing test
+ * (pqm_record_workflow_version()) clears it; a URL change or a template
+ * serve deletes the option as before.
+ */
+function pqm_record_workflow_failure(string $message): void
+{
+    $stored = get_option('pqm_workflow_version_seen', null);
+    if (is_numeric($stored) && (int) $stored > 0) {
+        $stored = ['version' => (int) $stored, 'via' => 'command', 'at' => 0];
+    }
+    $stored           = is_array($stored) ? $stored : [];
+    $stored['failed'] = ['message' => $message, 'at' => time()];
+    update_option('pqm_workflow_version_seen', $stored, false);
 }
 
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */

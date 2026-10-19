@@ -84,9 +84,15 @@ function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
-/* The connect step answers the n8n Workflow page's refreshed status block. */
+/* The connect step answers the n8n Workflow page's refreshed body (story 67: the whole page under the H1). */
 function esc_html($s) { return (string) $s; }
 function esc_html_e($s, $d = null) { echo $s; }
+function esc_attr($s) { return (string) $s; }
+function esc_attr__($s, $d = null) { return (string) $s; }
+function esc_attr_e($s, $d = null) { echo $s; }
+function esc_url($s) { return (string) $s; }
+function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; }
+function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; } // the build notice, unbuilt (CI)
 define('MINUTE_IN_SECONDS', 60);
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'editor-anna']; }
@@ -390,16 +396,21 @@ check('complete:false is no reset (refused: no step given)', $r instanceof WP_Er
 
 /* Row: connect — test URL refused, production stored + pinged, ping failure stored */
 echo "POST /setup/connect\n";
+/* Story 67: every reply carries status_html, the page's whole body with the message as its first line. */
+$outcome_of = static fn(string $html): string => preg_match('/<p class="pqm-workflow-outcome (is-[a-z]+)">([^<]*)<\/p>/', $html, $m) ? "$m[1]: $m[2]" : '';
+$state_of   = static fn(string $html): string => preg_match('/<div class="pqm-workflow-status" data-state="([a-z-]+)">/', $html, $m) ? $m[1] : '';
 foreach (['https://acme.app.n8n.cloud/webhook-test/pqm-execute', 'https://n8n.example.com/webhook-test/pqm-execute'] as $url) {
     site($fresh);
     $r = connect($url);
-    check("test URL $url: refused with the story 35 warning, nothing stored, nothing sent",
-        $r === ['saved' => false, 'ping_ok' => false, 'message' => pqm_webhook_url_warning($url)]
-        && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === []);
+    check("test URL $url: refused with the story 35 warning, nothing stored, nothing sent; the body with the refusal as its outcome line",
+        array_keys($r) === ['saved', 'ping_ok', 'message', 'status_html'] && $r['saved'] === false && $r['ping_ok'] === false
+        && $r['message'] === pqm_webhook_url_warning($url) && $outcome_of($r['status_html']) === 'is-error: ' . $r['message']
+        && $state_of($r['status_html']) === 'not-set-up' && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === []);
 }
 site($fresh);
 $r = connect('   ');
-check('empty URL: refused, nothing stored', $r['saved'] === false && $r['message'] === 'Enter your n8n webhook URL first.' && $GLOBALS['tw']['writes'] === []);
+check('empty URL: refused, nothing stored, the refusal in the body\'s outcome line', $r['saved'] === false && $r['message'] === 'Enter your n8n webhook URL first.'
+    && $GLOBALS['tw']['writes'] === [] && $outcome_of($r['status_html']) === 'is-error: Enter your n8n webhook URL first.');
 
 $prod = 'https://acme.app.n8n.cloud/webhook/pqm-execute';
 site($fresh);
@@ -411,10 +422,10 @@ check('production URL, n8n 2xx from a v5 workflow: stored, pinged, says what the
 $report = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
 check('... the replied version is recorded {5, via test, at now} (the URL was just saved)',
     is_array($report) && $report['version'] === PQM_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
-check('... status_html = the page\'s renderer: version 5, checked just now by a test ping, no notice',
-    $r['status_html'] === PQM_Admin::render_workflow_status() && str_contains($r['status_html'], '<div class="pqm-workflow-status">')
-    && str_contains($r['status_html'], 'version ' . PQM_WORKFLOW_VERSION . ', checked just now by a test ping.')
-    && !str_contains($r['status_html'], 'Workflow update available.'));
+check('... status_html = the page\'s renderer with the message first: set up, "Your workflow answers.", version 5, checked just now by a test',
+    $r['status_html'] === PQM_Admin::render_workflow_body($r['message'], 'success') && $state_of($r['status_html']) === 'set-up'
+    && $outcome_of($r['status_html']) === 'is-success: ' . $r['message'] && str_contains($r['status_html'], 'Your workflow answers.')
+    && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.'));
 check('... merge-save: only the URL changed in pqm_settings',
     $GLOBALS['tw']['options']['pqm_settings'] === ['n8n_webhook_url' => $prod, 'webhook_token' => $token, 'license_key' => 'kept']);
 check('... one ping to that URL with the X-PQM-Token header',
@@ -428,16 +439,21 @@ check('... the ping recorded (autoload off): Set up by hand reads done, on the m
 site($fresh);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"message":"Workflow was started"}'];
 $r = connect($prod);
-check('production URL, n8n 2xx without a version (v1–v4 import): connected, outdated (the dialog warns), older-version message, {0, via test}, notice in status_html',
+check('production URL, n8n 2xx without a version (v1–v4 import): connected, outdated (the dialog warns), older-version message, {0, via test}, the body needs attention',
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version')
     && ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === 0
-    && str_contains($r['status_html'], 'Workflow update available.') && setup_state()['steps']['manual'] === true);
+    && $state_of($r['status_html']) === 'outdated' && $outcome_of($r['status_html']) === 'is-warning: ' . $r['message']
+    && str_contains($r['status_html'], 'an older version that does not report its number; this plugin needs ' . PQM_WORKFLOW_VERSION . '.')
+    && setup_state()['steps']['manual'] === true);
 
 $before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
 site($fresh + ['pqm_workflow_version_seen' => $before, PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 404]];
 $r = connect($prod);
-check('ping fails: nothing recorded, no status_html', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $before && !isset($r['status_html']));
+check('ping fails: the failure recorded on the report (story 67), the version kept; the body needs attention, the message its outcome line',
+    pqm_workflow_report() === $before + ['failed' => ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => pqm_workflow_report()['failed']['at'] ?? 0]]
+    && abs(pqm_workflow_report()['failed']['at'] - time()) <= 5 && $state_of($r['status_html']) === 'failing'
+    && $outcome_of($r['status_html']) === 'is-error: ' . $r['message'] && str_contains($r['status_html'], 'The last test just now did not reach your workflow: n8n responded with 404.'));
 check('production URL, n8n 404: stored, message names the cause and the next step',
     $r['saved'] === true && $r['ping_ok'] === false
     && $r['message'] === 'URL saved, but the ping did not get through. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'

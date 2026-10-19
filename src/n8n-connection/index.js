@@ -17,28 +17,31 @@
  * /n8n/adoption shows what the plugin found by name, in place of the offer,
  * and the owner's confirm (POST) stores the setup map; n8n is only read.
  * With a setup map (`setup`), the section says since when the plugin
- * manages the workflow.
- * Entry 10: under that line, while `rotatable`, Rotate the webhook token
- * (POST /n8n/token, no dialog) writes a new token to n8n and here, pings,
- * and swaps the page's status block in; its outcome shows in that block.
+ * manages the workflow and what that means; the token rotation (entry 10)
+ * and the workflow update are PHP buttons on the page (story 67). A
+ * confirmed adoption asks the page to re-read its body, as the reply
+ * carries none.
  * Two blocks that never swap (plan-n8n-connection-states): the connection
  * block shows connected (a summary, Check again, Change, Forget key),
  * changing (the fields, Save and check, Cancel) or connecting (the fields,
  * Connect); the adoption block below it shows the managed line, the
- * proposal or the offer, each in place.
+ * proposal or the offer, each in place. `variant` is the submit's and the
+ * confirm's: 'secondary' on the page (the status block holds the one
+ * primary action), 'primary' inside the setup dialog.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, TextControl } from '@wordpress/components';
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
-import swapStatusBlock from '../kit/swap-status-block';
-import useReimportShown from '../kit/use-reimport-shown';
+import {
+	WORKFLOW_REFRESH_EVENT,
+	requestWorkflowRefresh,
+} from '../kit/swap-status-block';
 import './style.css';
 
 const PATH = '/post-quality/v1/n8n/connection';
 const ADOPTION_PATH = '/post-quality/v1/n8n/adoption';
-const TOKEN_PATH = '/post-quality/v1/n8n/token';
 
 /**
  * A credential as the proposal shows it: n8n's name, else its id.
@@ -85,9 +88,10 @@ function errorMessage( err ) {
 /**
  * @param {Object}    props
  * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, setup, adoptable, rotatable } )` after a call that read or stored the state.
+ * @param {string=}   props.variant  The submit's and the confirm's Button variant: 'primary' (default) or 'secondary'.
  * @return {Element|null} The section.
  */
-export default function N8nConnection( { onChange } ) {
+export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe, setup, adoptable, rotatable }
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ url, setUrl ] = useState( '' );
@@ -97,22 +101,16 @@ export default function N8nConnection( { onChange } ) {
 	const [ failure, setFailure ] = useState( {} ); // { connection?, adoption? }
 	const [ changing, setChanging ] = useState( false ); // Change pressed on a connected site
 	const [ proposal, setProposal ] = useState( null ); // GET /n8n/adoption, while open
-	const [ rotated, setRotated ] = useState( null ); // POST /n8n/token's outcome: { status, message }
 	// Where keyboard focus goes after a state change: the pressed button unmounts.
-	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed' | 'rotate'
+	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed'
 	const formRef = useRef( null );
 	const changeRef = useRef( null );
 	const proposalRef = useRef( null );
 	const offerRef = useRef( null );
 	const managedRef = useRef( null );
-	const rotateRef = useRef( null );
-	// On the page, the update notice's Re-import the workflow is then the one
-	// primary action; inside the setup guide (onChange), the Modal is its own surface.
-	const reimportShown = useReimportShown();
 
 	// change: the address field. summary: the Change button. proposal: the
 	// proposal. closed: the offer button when it shows again, else the managed line.
-	// rotate: the rotate button, which busy disabled meanwhile.
 	useEffect( () => {
 		if ( ! focusTo ) {
 			return;
@@ -123,7 +121,6 @@ export default function N8nConnection( { onChange } ) {
 			summary: () => changeRef.current,
 			proposal: () => proposalRef.current,
 			closed: () => offerRef.current || managedRef.current,
-			rotate: () => rotateRef.current,
 		};
 		const target = targets[ focusTo ]();
 		if ( target ) {
@@ -208,7 +205,6 @@ export default function N8nConnection( { onChange } ) {
 	 */
 	const stored = ( data ) => {
 		setState( data );
-		setRotated( null ); // a rotation's outcome belongs to the state it was made in
 		if ( ! data.adoptable ) {
 			setProposal( null );
 		}
@@ -290,6 +286,9 @@ export default function N8nConnection( { onChange } ) {
 				setProposal( null );
 				stored( data );
 				setFocusTo( 'closed' );
+				// The reply is the island's state, not the page's body: the
+				// page re-reads it (Update and Rotate are offered from now on).
+				requestWorkflowRefresh( WORKFLOW_REFRESH_EVENT );
 			},
 			// Refused (n8n changed since, or the read failed): the offer again, to look again.
 			() => {
@@ -297,26 +296,6 @@ export default function N8nConnection( { onChange } ) {
 				setFocusTo( 'closed' );
 			}
 		);
-	// Entry 10: one action, no dialog (rotating again is the undo). A passing
-	// ping's reply refreshes the page's status block; a refusal changed nothing.
-	const rotate = () => {
-		setRotated( null );
-		call(
-			'adoption',
-			{ path: TOKEN_PATH, method: 'POST' },
-			( data ) => {
-				setRotated( {
-					// An older workflow answered: rotated, but never shown as a success.
-					status:
-						! data.ping_ok || data.outdated ? 'warning' : 'success',
-					message: data.message,
-				} );
-				swapStatusBlock( data.status_html );
-				setFocusTo( 'rotate' );
-			},
-			() => setFocusTo( 'rotate' )
-		);
-	};
 
 	const cancelProposal = () => {
 		setProposal( null );
@@ -349,9 +328,10 @@ export default function N8nConnection( { onChange } ) {
 	const canSubmit =
 		!! url.trim() &&
 		( !! key.trim() || ( state.key_set && url.trim() === state.base_url ) );
-	// One primary at most: the open form's submit, else the proposal's confirm.
-	// On the page, the status block's primary action wins (useReimportShown).
-	const primary = ! onChange && reimportShown ? 'secondary' : 'primary';
+	// One primary at most: the open form's submit, else the proposal's confirm
+	// (`variant`: secondary on the page, where the status block holds the one
+	// primary action).
+	const primary = variant;
 	const confirmVariant = formOpen ? 'secondary' : primary;
 
 	let managed = '';
@@ -360,7 +340,7 @@ export default function N8nConnection( { onChange } ) {
 			? sprintf(
 					/* translators: %s: date */
 					__(
-						'The plugin set this workflow up on %s.',
+						'The plugin set this workflow up on %s. It can update the workflow and rotate the webhook token from this page.',
 						'post-quality-manager'
 					),
 					dateOf( state.setup.at )
@@ -368,7 +348,7 @@ export default function N8nConnection( { onChange } ) {
 			: sprintf(
 					/* translators: %s: date */
 					__(
-						'The plugin has managed this workflow since %s.',
+						'The plugin has managed this workflow since %s: it can update the workflow and rotate the webhook token from this page. Nothing in n8n changed.',
 						'post-quality-manager'
 					),
 					dateOf( state.setup.at )
@@ -493,34 +473,9 @@ export default function N8nConnection( { onChange } ) {
 	let adoption = null;
 	if ( managed ) {
 		adoption = (
-			<>
-				<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
-					{ managed }
-				</p>
-				{ state.rotatable && (
-					<p>
-						<Button
-							variant="secondary"
-							type="button"
-							className="pqm-n8n-rotate"
-							ref={ rotateRef }
-							isBusy={ busy }
-							disabled={ busy }
-							onClick={ rotate }
-						>
-							{ __(
-								'Rotate the webhook token',
-								'post-quality-manager'
-							) }
-						</Button>
-					</p>
-				) }
-				{ rotated && (
-					<Notice status={ rotated.status } isDismissible={ false }>
-						{ rotated.message }
-					</Notice>
-				) }
-			</>
+			<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
+				{ managed }
+			</p>
 		);
 	} else if ( proposal ) {
 		adoption = (
@@ -603,7 +558,7 @@ export default function N8nConnection( { onChange } ) {
 			<div className="pqm-n8n-adoption-offer">
 				<p>
 					{ __(
-						'Your workflow was set up by hand. Let the plugin manage it, and you can update it and rotate the webhook token from here later. Nothing in n8n changes.',
+						'Your workflow was set up by hand. Let the plugin manage it, and you can update it and rotate the webhook token from this page later. Nothing in n8n changes.',
 						'post-quality-manager'
 					) }
 				</p>

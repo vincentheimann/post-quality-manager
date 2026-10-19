@@ -110,3 +110,8 @@
 		width: 100%;
 	}
 }
+
+/* Story 67: the island renders the Modal only — no gap under the H1 while it is closed. */
+.pqm-setup:empty {
+	margin: 0;
+}

@@ -1,22 +1,41 @@
 /**
- * swapStatusBlock — swap the n8n Workflow page's status block
- * (PQM_Admin::render_workflow_status()), which sits outside the islands,
- * for the one a reply refreshed (`status_html`), then tell the islands
- * (useReimportShown()). Used by the setup wizard's steps (a ping or a
- * provisioning) and the n8n Instance section's token rotation (n8n
- * provisioning, entry 10).
+ * swapStatusBlock — the one swap of the n8n Workflow page's body for React
+ * callers (story 67): every reply that carries `status_html` carries the
+ * whole body under the H1 (PQM_Admin::render_workflow_body()), which sits
+ * outside the setup island. The swap replaces #pqm-workflow-body's content
+ * and dispatches WORKFLOW_STATUS_EVENT, on which src/index.js remounts the
+ * n8n connection island and pqm-admin.js binds its rows again. Used by the
+ * setup wizard's steps (a ping or a provisioning).
+ *
+ * requestWorkflowRefresh() is for a change whose reply carries no body (an
+ * adoption, the wizard's close): pqm-admin.js re-reads the body from
+ * WordPress, never pinging n8n, and focuses `focus` (an element id) after
+ * the swap.
  */
-import { WORKFLOW_STATUS_EVENT } from './use-reimport-shown';
+
+export const WORKFLOW_STATUS_EVENT = 'pqm:workflow-status';
+export const SETUP_CLOSED_EVENT = 'pqm:setup-closed';
+export const WORKFLOW_REFRESH_EVENT = 'pqm:workflow-refresh';
 
 /**
  * @param {string=} html The reply's `status_html`; nothing happens without one.
  */
 export default function swapStatusBlock( html ) {
-	const block = document.querySelector( '.pqm-workflow-status' );
-	if ( block && html ) {
-		block.outerHTML = html;
+	const body = document.getElementById( 'pqm-workflow-body' );
+	if ( body && html ) {
+		body.innerHTML = html;
 		document.dispatchEvent(
 			new window.CustomEvent( WORKFLOW_STATUS_EVENT )
 		);
 	}
+}
+
+/**
+ * @param {string}  event The event to dispatch: SETUP_CLOSED_EVENT or WORKFLOW_REFRESH_EVENT.
+ * @param {string=} focus An element id of the fresh body to open and focus.
+ */
+export function requestWorkflowRefresh( event, focus ) {
+	document.dispatchEvent(
+		new window.CustomEvent( event, { detail: { focus } } )
+	);
 }

@@ -188,7 +188,8 @@ $input = [
 ];
 $out = PQM_Admin::sanitize_settings($input);
 $expected_stored = pqm_get_settings();
-check('global change applied (webhook url)', $out['n8n_webhook_url'] === 'https://new-n8n.example.com/webhook/pqm');
+// Story 67: the URL and the token live on the n8n Workflow page; a posted value never reaches them.
+check('posted webhook url ignored: the stored one kept', $out['n8n_webhook_url'] === 'https://n8n.example.com/webhook/pqm');
 check('global change applied (model + quota)', $out['default_model'] === 'claude-sonnet-5' && $out['author_quota'] === 30);
 foreach ($CRON_KEYS as $key) {
     check("locked '$key' carried from stored", $out[$key] === $expected_stored[$key]);
@@ -358,6 +359,14 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
 }
 check('carried values are the stored ones, not the defaults', $out['cron_enabled'] === true
     && $out['agent_prompts']['review']['model'] === 'claude-haiku-4-5');
+/* Story 67: the Settings form posts neither the webhook URL nor the token (both live on the n8n Workflow
+ * page); whatever the admin save posts, the stored values carry. */
+foreach (['absent' => [], 'posted anyway' => ['n8n_webhook_url' => 'https://forged.example/webhook/x', 'webhook_token' => 'forged']] as $what => $post) {
+    setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
+    $out = PQM_Admin::sanitize_settings($post + ['blog_profile' => 'marketing']);
+    check("Admin, URL and token $what: both kept as stored", $out['n8n_webhook_url'] === 'https://n8n.example.com/webhook/pqm'
+        && $out['webhook_token'] === 'stored-token' && $out['blog_profile'] === 'marketing');
+}
 setup(['pqm_manage_agents'], true, $stored_option);
 $out = PQM_Admin::sanitize_settings([
     'cron_frequency' => 'daily', 'cron_batch_size' => '3', 'cron_min_score' => '80', 'cron_max_age_days' => '10',
@@ -388,9 +397,9 @@ $out = PQM_Admin::sanitize_settings([
     ],
 ]);
 $expected_stored = pqm_get_settings();
-check('admin-only keys applied', $out['n8n_webhook_url'] === 'https://other-n8n.example.com/webhook/pqm'
-    && $out['webhook_token'] === 'new-token' && $out['blog_profile'] === 'marketing'
-    && $out['author_quota'] === 40 && $out['default_model'] === 'claude-sonnet-5');
+check('admin-only keys applied; the posted URL and token ignored (story 67: page-local, never from the form)',
+    $out['n8n_webhook_url'] === 'https://n8n.example.com/webhook/pqm' && $out['webhook_token'] === 'stored-token'
+    && $out['blog_profile'] === 'marketing' && $out['author_quota'] === 40 && $out['default_model'] === 'claude-sonnet-5');
 foreach ($CRON_KEYS as $key) {
     check("'$key' carried byte-identically from stored", $out[$key] === $expected_stored[$key]);
 }
@@ -518,9 +527,10 @@ $test_url = 'https://acme.app.n8n.cloud/webhook-test/pqm-execute';
 setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
 $GLOBALS['pqm_test_settings_errors'] = [];
 $out = PQM_Admin::sanitize_settings(['n8n_webhook_url' => $test_url]);
-check('test URL still saved (Save never loses input)', $out['n8n_webhook_url'] === $test_url);
-check('plus one warning notice with the helper copy',
-    $GLOBALS['pqm_test_settings_errors'] === [['pqm_settings', 'pqm_webhook_test_url', pqm_webhook_url_warning($test_url), 'warning']]);
+// Story 67: the form no longer posts the URL; a posted test URL is ignored and raises no notice
+// (save_webhook_url() on the n8n Workflow page refuses it instead).
+check('a posted test URL: the stored URL kept', $out['n8n_webhook_url'] === 'https://n8n.example.com/webhook/pqm');
+check('... and no notice', $GLOBALS['pqm_test_settings_errors'] === []);
 $GLOBALS['pqm_test_settings_errors'] = [];
 PQM_Admin::sanitize_settings(['n8n_webhook_url' => 'https://acme.app.n8n.cloud/webhook/pqm-execute']);
 check('production URL: no notice', $GLOBALS['pqm_test_settings_errors'] === []);
@@ -539,7 +549,8 @@ echo "\nCase 14: save from one tab — every key outside it === stored\n";
 function form_post(array $s, bool $agents_only = false): array {
     $post = [];
     if (!$agents_only) {
-        foreach (['license_key', 'n8n_webhook_url', 'webhook_token', 'notification_url', 'default_model', 'custom_model',
+        // Story 67: no field posts the webhook URL or the token (page-local, n8n Workflow page).
+        foreach (['license_key', 'notification_url', 'default_model', 'custom_model',
                   'blog_profile', 'brand_voice_preset', 'website_context', 'brand_voice', 'author_quota'] as $key) {
             $post[$key] = (string) $s[$key];
         }
@@ -559,16 +570,18 @@ function form_post(array $s, bool $agents_only = false): array {
     return $post;
 }
 $TABS = [
-    'connection' => ['license_key', 'n8n_webhook_url', 'webhook_token', 'notification_url'],
+    'connection' => ['license_key', 'notification_url'],
     'ai'         => ['default_model', 'custom_model', 'blog_profile', 'brand_voice_preset', 'brand_voice', 'website_context', 'agent_prompts'],
     'automation' => $CRON_KEYS,
     'usage'      => ['author_quota'],
 ];
-$tab_keys = array_merge(...array_values($TABS));
+// Story 67: the two page-local keys are saved on the n8n Workflow page, never by the form.
+$PAGE_LOCAL = ['n8n_webhook_url', 'webhook_token'];
+$tab_keys = array_merge($PAGE_LOCAL, ...array_values($TABS));
 sort($tab_keys);
 $all_keys = array_keys(pqm_default_settings());
 sort($all_keys);
-check('every settings key sits in exactly one tab', $tab_keys === $all_keys);
+check('every settings key sits in exactly one tab, or is page-local', $tab_keys === $all_keys);
 foreach ([
     'Admin'  => [['pqm_manage_agents', 'pqm_manage_settings'], false, [
         'connection' => [['notification_url' => ''], static fn($o) => $o['notification_url'] === ''],

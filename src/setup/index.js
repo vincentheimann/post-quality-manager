@@ -1,18 +1,22 @@
 /**
  * Setup island (story 36) — a React island on the PHP n8n Workflow page
- * (ADR 0005 keeps that page on PHP). A button opens a Modal that walks the
- * site to its first review (n8n provisioning, entry 6): Connect your n8n
- * (the n8n Instance island, reused) and Set up the workflow (POST
- * /n8n/provision), or, on the manual path, Set up by hand (steps.js).
+ * (ADR 0005 keeps that page on PHP). It renders the Modal only (story 67):
+ * the page's status block opens it through `.pqm-open-setup` (a delegated
+ * click; `data-step="review"` forces the first-review step). The Modal
+ * walks the site to its first review (n8n provisioning, entry 6): Connect
+ * your n8n (the n8n connection island, reused) and Set up the workflow
+ * (POST /n8n/provision), or, on the manual path, Set up by hand (steps.js).
  *
  * State comes from GET /setup, stored once per site, so the dialog reopens
  * at the first unfinished step, after a reload or another day. Nothing is
  * ticked by hand on the n8n side: a passing check, a saved webhook URL and
  * the first review (POST /setup { complete: true }) are what the plugin
  * can verify. "Set up by hand instead" stores the choice (POST /setup
- * { manual: true }) and reloads the page on its Workflow File section. The
- * welcome notice links here with `pqm_setup=1`, which opens the dialog on
- * load.
+ * { manual: true }) and closes the dialog on the page's Set up by hand
+ * disclosure. Every close asks the page to re-read its body
+ * (pqm:setup-closed), so what the dialog did shows behind it without a
+ * reload. The welcome notice links here with `pqm_setup=1`, which opens
+ * the dialog on load.
  *
  * After the first review, three configuration steps (story 55) save the
  * Blog Profile, the Editorial Standards and scheduled reviews through
@@ -32,15 +36,13 @@ import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
-import useReimportShown from '../kit/use-reimport-shown';
-import FirstReview from './first-review';
 import {
-	NextSteps,
-	STEPS,
-	WORKFLOW_FILE_ID,
-	keyPasses,
-	stepsFor,
-} from './steps';
+	SETUP_CLOSED_EVENT,
+	WORKFLOW_REFRESH_EVENT,
+	requestWorkflowRefresh,
+} from '../kit/swap-status-block';
+import FirstReview from './first-review';
+import { NextSteps, STEPS, BY_HAND_ID, keyPasses, stepsFor } from './steps';
 import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
@@ -110,8 +112,8 @@ export default function SetupIsland() {
 	const [ current, setCurrent ] = useState( null ); // null = dialog closed
 	const [ saving, setSaving ] = useState( false );
 	const [ saveError, setSaveError ] = useState( '' );
-	// The update notice's Re-import the workflow is then the page's primary action.
-	const reimportShown = useReimportShown();
+	// A click on the page's button before GET /setup answered: opened once it has.
+	const [ pending, setPending ] = useState( null ); // 'resume' | 'review'
 
 	useEffect( () => {
 		apiFetch( { path: SETUP_PATH } ).then(
@@ -119,7 +121,7 @@ export default function SetupIsland() {
 				setState( data );
 				const href = window.location.href;
 				if ( getQueryArg( href, OPEN_ARG ) ) {
-					setCurrent( resumeAt( data ) );
+					setPending( 'resume' );
 					// Drop the arg so a reload does not reopen the dialog.
 					window.history.replaceState(
 						null,
@@ -138,6 +140,33 @@ export default function SetupIsland() {
 				)
 		);
 	}, [] );
+
+	// The page's primary action (story 67): the status block renders a
+	// `.pqm-open-setup` button in every body swap; one delegated listener
+	// opens the dialog at the state's step, or at the first review when the
+	// button says so (`data-step="review"`).
+	useEffect( () => {
+		const onClick = ( event ) => {
+			const button =
+				event.target.closest &&
+				event.target.closest( '.pqm-open-setup' );
+			if ( button ) {
+				setPending(
+					button.dataset.step === 'review' ? 'review' : 'resume'
+				);
+			}
+		};
+		document.addEventListener( 'click', onClick );
+		return () => document.removeEventListener( 'click', onClick );
+	}, [] );
+
+	useEffect( () => {
+		if ( pending && state ) {
+			setSaveError( '' );
+			setCurrent( pending === 'review' ? 'review' : resumeAt( state ) );
+			setPending( null );
+		}
+	}, [ pending, state ] );
 
 	if ( loadError ) {
 		return (
@@ -250,38 +279,39 @@ export default function SetupIsland() {
 		setCurrent( key );
 	};
 
+	// Close the dialog and ask the page to re-read its body (story 67): what
+	// the dialog did — a connection, a provisioning, the manual choice —
+	// shows behind it without a reload. `focus`: an element of the fresh
+	// body to open and focus, else the Modal hands focus back by itself.
+	const close = ( focus ) => {
+		setCurrent( null );
+		requestWorkflowRefresh( SETUP_CLOSED_EVENT, focus );
+	};
+
 	// The island read or stored the connection: re-read the state once it
-	// changed (a key connected or forgotten), not on the island's own read.
+	// changed (a key connected or forgotten), not on the island's own read;
+	// the page behind the dialog moves with it.
 	const onN8nChange = ( n8n ) => {
 		if ( ! sameConnection( n8n, state.n8n ) ) {
 			reread();
+			requestWorkflowRefresh( WORKFLOW_REFRESH_EVENT );
 		}
 	};
 
-	// "Set up by hand instead": store the choice, then reload the page on
-	// its Workflow File section, whose choice line then shows. A failed
-	// write stays in the dialog.
+	// "Set up by hand instead": store the choice, then hand over to the
+	// page's Set up by hand disclosure, open and focused. A failed write
+	// stays in the dialog.
 	const onByHand = () =>
 		save( { manual: true } ).then( ( ok ) => {
 			if ( ok ) {
-				setCurrent( null );
-				window.location.hash = WORKFLOW_FILE_ID;
-				window.location.reload();
+				close( BY_HAND_ID );
 			}
 		} );
 
-	// The manual step's link: close the dialog, then bring the section into
-	// view and move focus to its heading once the Modal has handed focus back.
+	// The manual step's link: the steps live on the page, in Set up by hand.
 	const onShowWorkflowFile = ( event ) => {
 		event.preventDefault();
-		setCurrent( null );
-		window.setTimeout( () => {
-			const heading = document.getElementById( WORKFLOW_FILE_ID );
-			if ( heading ) {
-				heading.scrollIntoView();
-				heading.focus();
-			}
-		} );
+		close( BY_HAND_ID );
 	};
 
 	const next = () => {
@@ -303,29 +333,10 @@ export default function SetupIsland() {
 
 	return (
 		<div className="pqm-setup">
-			{ ! complete && (
-				<p>
-					{ __(
-						'New to n8n? The setup guide walks you through every step, from getting n8n to your first review, then the settings that make reviews yours.',
-						'post-quality-manager'
-					) }
-				</p>
-			) }
-			<Button
-				variant={ complete || reimportShown ? 'secondary' : 'primary' }
-				onClick={ () => goTo( resumeAt( state ) ) }
-				disabled={ ! state }
-				isBusy={ ! state }
-			>
-				{ complete
-					? __( 'Setup guide', 'post-quality-manager' )
-					: __( 'Set up the workflow', 'post-quality-manager' ) }
-			</Button>
-
 			{ state && current && (
 				<Modal
 					title={ __( 'Setup guide', 'post-quality-manager' ) }
-					onRequestClose={ () => setCurrent( null ) }
+					onRequestClose={ () => close() }
 					size="large"
 					className="pqm-setup-modal"
 				>
@@ -487,7 +498,7 @@ export default function SetupIsland() {
 								{ ! step && (
 									<Button
 										variant="secondary"
-										onClick={ () => setCurrent( null ) }
+										onClick={ () => close() }
 									>
 										{ __(
 											'Close',

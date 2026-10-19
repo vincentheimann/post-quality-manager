@@ -59,18 +59,49 @@
 .pqm-roles-table input:not(:checked) + .pqm-role-hint { display: inline; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
 
-/* ─── n8n Workflow page: per-agent request preview ─────────── */
+/* Settings → AI: what each agent sends to Claude (story 67: moved from the Workflow page) */
 .pqm-llm-preview { max-width: 900px; margin-top: 8px; }
 .pqm-llm-preview code { font-size: 11px; color: #50575e; }
+.pqm-settings-readonly { display: inline-block; margin-top: 6px; }
 
-/* Test connection feedback */
-.pqm-test-result, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }
-.pqm-test-result.is-success, .pqm-copy-feedback.is-success { color: #166534; font-weight: 500; }
-.pqm-test-result.is-warning { color: #92400e; font-weight: 500; }
-.pqm-test-result.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
-td .pqm-test-connection { margin-left: 6px; vertical-align: middle; }
+/* ─── n8n Workflow page (story 67): the status block ─────────
+   The .notice anatomy without the dismiss button: a white box with a
+   4 px left accent per state (DESIGN.md), the sentence, the version line
+   and the actions row. The colour never carries the state alone. */
+.pqm-workflow-status {
+    background: #fff; border: 1px solid #c3c4c7; border-left-width: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04); margin: 16px 0; padding: 12px 16px; max-width: 760px;
+}
+.pqm-workflow-status[data-state="not-set-up"] { border-left-color: #c3c4c7; }
+.pqm-workflow-status[data-state="connected"],
+.pqm-workflow-status[data-state="manual"],
+.pqm-workflow-status[data-state="not-checked"] { border-left-color: #72aee6; }
+.pqm-workflow-status[data-state="set-up"] { border-left-color: #00a32a; }
+.pqm-workflow-status[data-state="outdated"] { border-left-color: #dba617; }
+.pqm-workflow-status[data-state="failing"] { border-left-color: #d63638; }
+.pqm-workflow-status:focus { outline: 2px solid #2271b1; outline-offset: 2px; }
+.pqm-workflow-status p { margin: 0 0 8px; }
+.pqm-workflow-status p:last-child { margin-bottom: 0; }
+.pqm-workflow-sentence { font-size: 14px; font-weight: 600; }
+.pqm-workflow-actions { margin-top: 12px; }
+.pqm-workflow-actions .button { margin-right: 6px; }
 
-/* ─── Workflow File: the four steps and their Copy rows ───── */
+/* The outcome line (an action's reply, first in the block) and the Copy feedback */
+.pqm-workflow-outcome, .pqm-copy-feedback { font-size: 13px; margin: 8px 0 0; }
+.pqm-workflow-outcome.is-success, .pqm-copy-feedback.is-success { color: #166534; font-weight: 500; }
+.pqm-workflow-outcome.is-warning { color: #92400e; font-weight: 500; }
+.pqm-workflow-outcome.is-error, .pqm-copy-feedback.is-error { color: #991b1b; font-weight: 500; }
+
+/* Disclosures: native <details>, the summary with the H2 look */
+.pqm-disclosure { margin: 20px 0 0; max-width: 760px; border-top: 1px solid #dcdcde; padding-top: 4px; }
+.pqm-disclosure > summary { cursor: pointer; list-style: revert; padding: 8px 0; }
+.pqm-disclosure > summary h2 { display: inline; margin: 0; font-size: 1.3em; font-weight: 600; }
+.pqm-disclosure > summary:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+.pqm-disclosure[open] > summary { margin-bottom: 8px; }
+.pqm-webhook-form { margin: 8px 0 12px; }
+.pqm-webhook-form .pqm-webhook-url-field { flex: 1; min-width: 16em; }
+
+/* ─── Set up by hand: the four steps and their Copy rows ───── */
 .pqm-workflow-steps { margin: 12px 0 0 20px; max-width: 760px; }
 .pqm-workflow-steps > li { margin-bottom: 20px; }
 .pqm-workflow-steps h3 { margin: 0 0 8px; font-size: 14px; }

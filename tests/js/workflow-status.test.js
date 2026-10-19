@@ -1,44 +1,109 @@
 /**
- * Workflow version handshake (v5): the n8n Workflow page's status block in
- * pqm-admin.js, run in jsdom. The ping swaps the block in place and warns
- * when an older workflow answered (D2); a regained tab focus re-reads the
- * block from WordPress (D1); the update notice's Re-import the workflow
- * button moves focus to the Workflow File heading, also after a swap; on a
- * site the plugin manages, its Update workflow button posts to the REST
- * route and swaps the block (n8n provisioning, entry 9). The fixture
- * mirrors render_workflow()'s markup; render-matrix-harness.php locks the
- * PHP side (status_html, outdated, the button).
+ * The n8n Workflow page in pqm-admin.js, run in jsdom (story 67): one
+ * body under the H1 (#pqm-workflow-body) that every reply swaps whole —
+ * the test's (admin-ajax), the REST actions' (Update workflow, Rotate
+ * token, Save and test, "Set up by hand instead") and the refresh on
+ * window focus or when the setup dialog closes (pqm:setup-closed). Each
+ * swap dispatches pqm:workflow-status once, moves focus sensibly and
+ * leaves no detached node written. The fixture mirrors
+ * render_workflow_body()'s markup; render-matrix-harness.php locks the
+ * PHP side (the states, status_html, the one primary).
  */
 
 const SCRIPT = '../../post-quality-manager/admin/js/pqm-admin.js';
 
-const REIMPORT =
-	'<p><a class="button button-primary pqm-reimport" href="#pqm-workflow-file">Re-import the workflow</a></p>';
-const OLD_BLOCK =
-	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p>' +
-	REIMPORT +
-	'</div><p class="description">Template version: 5 · Your n8n workflow: version 4, reported by a command.</p></div>';
-const NEW_BLOCK =
-	'<div class="pqm-workflow-status"><p class="description">Template version: 5 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
-const OLDER_BLOCK =
-	'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong></p>' +
-	REIMPORT +
-	'</div><p class="description">Template version: 5 · Your n8n workflow: an older version that does not report its number, checked just now by a test ping.</p></div>';
-const SERVED_BLOCK =
-	'<div class="pqm-workflow-status"><p class="description">Template version: 5 · Your n8n workflow: not checked yet — send a test ping once it is imported and active.</p></div>';
+/**
+ * A body as render_workflow_body() renders it: the status block (an
+ * optional outcome line, the sentence, the actions) then the disclosures.
+ *
+ * @param {Object} parts
+ * @param {string} parts.state    data-state.
+ * @param {string} parts.sentence The state sentence.
+ * @param {string} parts.actions  The actions row's inner HTML.
+ * @param {string} parts.rest     What follows the block.
+ * @param {string} parts.outcome  An outcome line, '' for none.
+ * @return {string} The body's inner HTML.
+ */
+function body( { state, sentence, actions, rest = '', outcome = '' } ) {
+	return (
+		`<div class="pqm-workflow-status" data-state="${ state }">${ outcome }` +
+		`<p class="pqm-workflow-sentence">${ sentence }</p>` +
+		`<p class="pqm-workflow-actions">${ actions }</p></div>${ rest }`
+	);
+}
 
-/** The n8n Workflow page: status block, then the Connection Test. */
-function renderPage() {
+const TEST_AGAIN =
+	'<button type="button" class="button pqm-test-connection">Test again</button>';
+const TEST_PRIMARY =
+	'<button type="button" class="button button-primary pqm-test-connection">Test again</button>';
+const UPDATE =
+	'<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
+const REIMPORT =
+	'<a class="button button-primary pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a>';
+const BY_HAND =
+	'<details class="pqm-disclosure" id="pqm-by-hand"><summary><h2>Set up by hand</h2></summary><p>Steps.</p></details>';
+const WEBHOOK =
+	'<details class="pqm-disclosure" id="pqm-webhook"><summary><h2>Webhook</h2></summary>' +
+	'<form class="pqm-webhook-form" data-pqm-post="setup/connect"><input type="url" name="webhook_url" value="https://n8n.example/webhook/x">' +
+	'<button type="submit" class="button pqm-save-webhook" data-pqm-busy="Saving and testing…">Save and test</button></form>' +
+	'<button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button></details>';
+const CONNECTION =
+	'<details class="pqm-disclosure" id="pqm-n8n-connection"><summary><h2>n8n connection</h2></summary><div id="pqm-n8n-connection-root"></div></details>';
+
+const SET_UP = body( {
+	state: 'set-up',
+	sentence: 'Your workflow answers.',
+	actions: `<button type="button" class="button button-primary pqm-open-setup" data-step="review">Run your first review</button> ${ TEST_AGAIN }`,
+	rest: BY_HAND + CONNECTION + WEBHOOK,
+} );
+const OUTDATED = body( {
+	state: 'outdated',
+	sentence: 'Your workflow is version 5; this plugin needs 6.',
+	actions: `${ REIMPORT } ${ TEST_AGAIN }`,
+	rest: BY_HAND + CONNECTION + WEBHOOK,
+} );
+const MANAGED_OUTDATED = body( {
+	state: 'outdated',
+	sentence: 'Your workflow is version 5; this plugin needs 6.',
+	actions: `${ UPDATE } ${ TEST_AGAIN }`,
+	rest: CONNECTION + WEBHOOK,
+} );
+const FAILING = body( {
+	state: 'failing',
+	sentence:
+		'The last test just now did not reach your workflow: n8n responded with 404.',
+	actions: TEST_PRIMARY,
+	rest: BY_HAND + CONNECTION + WEBHOOK,
+	outcome:
+		'<p class="pqm-workflow-outcome is-error">n8n responded with 404.</p>',
+} );
+const NOT_SET_UP = body( {
+	state: 'not-set-up',
+	sentence: 'Not connected to n8n yet.',
+	actions:
+		'<button type="button" class="button button-primary pqm-open-setup">Set up n8n</button>',
+	rest: '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="{&quot;manual&quot;:true}" data-pqm-focus="pqm-by-hand">Set up by hand instead</a></p>',
+} );
+const MANUAL = body( {
+	state: 'manual',
+	sentence: 'Setting up by hand.',
+	actions: '',
+	rest:
+		BY_HAND.replace( 'id="pqm-by-hand"', 'id="pqm-by-hand" open=""' ) +
+		CONNECTION,
+} );
+
+/**
+ * The n8n Workflow page around this body.
+ *
+ * @param {string} inner The body's inner HTML.
+ */
+function renderPage( inner = SET_UP ) {
 	document.body.innerHTML = `
 		<div class="wrap pqm-wrap">
+			<h1>n8n Workflow</h1>
 			<div id="pqm-setup-root"></div>
-			${ OLD_BLOCK }
-			<h2 id="pqm-workflow-file" tabindex="-1">Workflow File</h2>
-			<h2>Connection Test</h2>
-			<p>
-				<button type="button" class="button pqm-test-connection">Send test ping</button>
-				<span class="pqm-test-result" aria-live="polite"></span>
-			</p>
+			<div id="pqm-workflow-body" aria-live="polite">${ inner }</div>
 		</div>`;
 }
 
@@ -53,9 +118,8 @@ function boot() {
 		restUrl: '/wp-json/post-quality/v1/',
 		restNonce: 'rest-nonce-456',
 		i18n: {
-			testing: 'Testing…',
-			updating: 'Updating the workflow…',
-			networkError: 'Network error.',
+			testing: 'Testing the connection…',
+			networkError: 'The request did not go through.',
 		},
 	};
 	const listen = jest.spyOn( document, 'addEventListener' );
@@ -66,7 +130,7 @@ function boot() {
 	);
 	listen.mockClear();
 	init();
-	// The boot's own document listeners (the re-import click), removed after each test.
+	// The boot's own document listeners, removed after each test.
 	documentListeners.push( ...listen.mock.calls );
 	listen.mockRestore();
 	windowListeners.push( ...listenWindow.mock.calls );
@@ -76,24 +140,53 @@ function boot() {
 /**
  * Answer every fetch with this admin-ajax JSON body (or reject).
  *
- * @param {*}       body   Parsed JSON the server answers.
+ * @param {*}       json   Parsed JSON the server answers.
  * @param {boolean} reject The request fails (network).
  */
-function answer( body, reject = false ) {
+function answer( json, reject = false ) {
 	global.fetch = jest.fn( () =>
 		reject
 			? Promise.reject( new Error( 'offline' ) )
-			: Promise.resolve( { json: () => Promise.resolve( body ) } )
+			: Promise.resolve( { json: () => Promise.resolve( json ) } )
+	);
+}
+
+/**
+ * Answer the REST call with this HTTP status and JSON body (or reject).
+ *
+ * @param {number}  httpStatus The HTTP status (a REST error is 4xx/5xx).
+ * @param {*}       json       Parsed JSON the route answers.
+ * @param {boolean} reject     The request fails (network).
+ */
+function answerRest( httpStatus, json, reject = false ) {
+	global.fetch = jest.fn( () =>
+		reject
+			? Promise.reject( new Error( 'offline' ) )
+			: Promise.resolve( {
+					ok: httpStatus < 400,
+					status: httpStatus,
+					json: () => Promise.resolve( json ),
+			  } )
 	);
 }
 
 const flush = () => new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+const bodyEl = () => document.getElementById( 'pqm-workflow-body' );
 const status = () => document.querySelectorAll( '.pqm-workflow-status' );
-const result = () => document.querySelector( '.pqm-test-result' );
-const sent = ( call = 0 ) =>
+const outcome = () => document.querySelector( '.pqm-workflow-outcome' );
+const $ = ( selector ) => document.querySelector( selector );
+const sentAjax = ( call = 0 ) =>
 	Object.fromEntries( global.fetch.mock.calls[ call ][ 1 ].body.entries() );
+let heard;
+const listener = () => heard++;
+
+beforeEach( () => {
+	heard = 0;
+	document.addEventListener( 'pqm:workflow-status', listener );
+} );
 
 afterEach( () => {
+	document.removeEventListener( 'pqm:workflow-status', listener );
 	windowListeners
 		.splice( 0 )
 		.forEach( ( [ type, fn ] ) => window.removeEventListener( type, fn ) );
@@ -105,104 +198,375 @@ afterEach( () => {
 	delete global.fetch;
 } );
 
-describe( 'Test ping on the n8n Workflow page', () => {
-	test( 'a v5 reply swaps the status block in place and shows a success', async () => {
-		renderPage();
+describe( 'Test the connection / Test again', () => {
+	test( 'a passing ping: the saved URL pinged, the busy label meanwhile, the body swapped whole, the region kept, the islands told once', async () => {
+		renderPage( OUTDATED );
 		boot();
+		const region = bodyEl();
 		answer( {
 			success: true,
 			data: {
 				message: 'Ping OK — up to date.',
 				outdated: false,
-				status_html: NEW_BLOCK,
+				status_html: SET_UP,
 			},
 		} );
-		document.querySelector( '.pqm-test-connection' ).click();
+		const button = $( '.pqm-test-connection' );
+		button.click();
+		expect( button.disabled ).toBe( true );
+		expect( button.textContent ).toBe( 'Testing the connection…' );
+		expect( outcome().textContent ).toBe( 'Testing the connection…' );
 		await flush();
-		expect( sent() ).toMatchObject( {
+		expect( sentAjax() ).toEqual( {
 			action: 'pqm_test_connection',
+			webhook_url: '',
 			_wpnonce: 'nonce-123',
 		} );
+		expect( bodyEl() ).toBe( region );
+		expect( region.getAttribute( 'aria-live' ) ).toBe( 'polite' );
+		expect( region.innerHTML ).toBe( SET_UP );
 		expect( status() ).toHaveLength( 1 );
-		expect( status()[ 0 ].outerHTML ).toBe( NEW_BLOCK );
-		expect( document.body.innerHTML ).not.toContain(
-			'Workflow update available.'
-		);
-		expect( result().textContent ).toBe( 'Ping OK — up to date.' );
-		expect( result().className ).toBe( 'pqm-test-result is-success' );
+		expect( heard ).toBe( 1 );
+		// Swapped out with its body: left as it was once the ping went out.
+		expect( button.isConnected ).toBe( false );
 	} );
 
-	test( 'an older workflow: the block shows the notice, the result is a warning, never a success', async () => {
+	test( 'a failed ping: the error reply carries the body too, swapped in with its outcome line', async () => {
 		renderPage();
 		boot();
 		answer( {
-			success: true,
+			success: false,
 			data: {
-				message: 'Ping OK — older version.',
-				outdated: true,
-				status_html: OLDER_BLOCK,
+				message: 'n8n responded with 404.',
+				status_html: FAILING,
 			},
 		} );
-		document.querySelector( '.pqm-test-connection' ).click();
+		$( '.pqm-test-connection' ).click();
 		await flush();
-		expect( status()[ 0 ].outerHTML ).toBe( OLDER_BLOCK );
-		expect( result().classList ).toContain( 'is-warning' );
-		expect( result().classList ).not.toContain( 'is-success' );
-		expect( result().classList ).not.toContain( 'is-error' );
+		expect( bodyEl().innerHTML ).toBe( FAILING );
+		expect( outcome().className ).toBe( 'pqm-workflow-outcome is-error' );
+		expect( heard ).toBe( 1 );
 	} );
 
-	test( 'an error string leaves the block as it is', async () => {
-		renderPage();
+	test( 'focus on the button that went with the old body lands on the new primary action, else on the status block', async () => {
+		renderPage( FAILING );
 		boot();
-		answer( { success: false, data: 'n8n responded with 404.' } );
-		document.querySelector( '.pqm-test-connection' ).click();
-		await flush();
-		expect( status()[ 0 ].outerHTML ).toBe( OLD_BLOCK );
-		expect( result().textContent ).toBe( 'n8n responded with 404.' );
-		expect( result().className ).toBe( 'pqm-test-result is-error' );
-	} );
-
-	test( 'a success without status_html (unsaved URL) leaves the block as it is', async () => {
-		renderPage();
-		boot();
+		const button = $( '.pqm-test-connection' );
+		button.focus();
 		answer( {
 			success: true,
-			data: { message: 'Ping OK — up to date.', outdated: false },
+			data: { message: 'Ping OK.', outdated: false, status_html: SET_UP },
 		} );
-		document.querySelector( '.pqm-test-connection' ).click();
+		button.click();
 		await flush();
-		expect( status()[ 0 ].outerHTML ).toBe( OLD_BLOCK );
-		expect( result().classList ).toContain( 'is-success' );
+		expect( document.activeElement ).toBe( $( '.pqm-open-setup' ) );
+
+		$( '.pqm-test-connection' ).focus();
+		answer( { success: true, data: { status_html: MANUAL } } );
+		$( '.pqm-test-connection' ).click();
+		await flush();
+		expect( document.activeElement ).toBe( status()[ 0 ] );
+		expect( status()[ 0 ].getAttribute( 'tabindex' ) ).toBe( '-1' );
+	} );
+
+	test.each( [
+		[
+			'an error string (no URL saved)',
+			[ { success: false, data: 'Save your n8n webhook URL first.' } ],
+			'Save your n8n webhook URL first.',
+		],
+		[
+			'a network failure',
+			[ null, true ],
+			'The request did not go through.',
+		],
+	] )(
+		'%s: the body stays, the outcome line says so, the button enabled again, no event',
+		async ( _, args, message ) => {
+			renderPage();
+			boot();
+			answer( ...args );
+			$( '.pqm-test-connection' ).click();
+			await flush();
+			expect( bodyEl().innerHTML ).not.toBe( SET_UP ); // the outcome line was added
+			expect( status()[ 0 ].firstChild ).toBe( outcome() );
+			expect( outcome().textContent ).toBe( message );
+			expect( outcome().className ).toBe(
+				'pqm-workflow-outcome is-error'
+			);
+			expect( $( '.pqm-test-connection' ).disabled ).toBe( false );
+			expect( $( '.pqm-test-connection' ).textContent ).toBe(
+				'Test again'
+			);
+			expect( heard ).toBe( 0 );
+		}
+	);
+} );
+
+describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by hand instead', () => {
+	test( 'Update workflow posts to n8n/workflow with the nonce and an empty JSON body, shows its busy label, then swaps the body', async () => {
+		renderPage( MANAGED_OUTDATED );
+		boot();
+		answerRest( 200, {
+			updated: true,
+			ping_ok: true,
+			outdated: false,
+			message: 'Workflow updated.',
+			status_html: SET_UP,
+		} );
+		const button = $( '.pqm-update-workflow' );
+		button.click();
+		expect( button.disabled ).toBe( true );
+		expect( button.textContent ).toBe( 'Updating the workflow…' );
+		expect( outcome().textContent ).toBe( 'Updating the workflow…' );
+		await flush();
+		const [ url, init ] = global.fetch.mock.calls[ 0 ];
+		expect( url ).toBe( '/wp-json/post-quality/v1/n8n/workflow' );
+		expect( init ).toEqual( {
+			method: 'POST',
+			headers: {
+				'X-WP-Nonce': 'rest-nonce-456',
+				'Content-Type': 'application/json',
+			},
+			credentials: 'same-origin',
+			body: '{}',
+		} );
+		expect( bodyEl().innerHTML ).toBe( SET_UP );
+		expect( heard ).toBe( 1 );
+	} );
+
+	test( 'Rotate token, in the Webhook disclosure, posts to n8n/token and swaps the body', async () => {
+		renderPage();
+		boot();
+		answerRest( 200, {
+			rotated: true,
+			ping_ok: true,
+			outdated: false,
+			message: 'Token rotated.',
+			status_html: SET_UP.replace( 'answers.', 'answers!' ),
+		} );
+		$( '.pqm-rotate-token' ).click();
+		expect( $( '.pqm-rotate-token' ).textContent ).toBe(
+			'Rotating the token…'
+		);
+		await flush();
+		expect( global.fetch.mock.calls[ 0 ][ 0 ] ).toBe(
+			'/wp-json/post-quality/v1/n8n/token'
+		);
+		expect( $( '.pqm-workflow-sentence' ).textContent ).toBe(
+			'Your workflow answers!'
+		);
+	} );
+
+	test( 'Save and test (the form) posts its field to setup/connect, on submit, and swaps the body', async () => {
+		renderPage();
+		boot();
+		answerRest( 200, {
+			saved: true,
+			ping_ok: true,
+			outdated: false,
+			message: 'Ping OK.',
+			status_html: SET_UP,
+		} );
+		const form = $( '.pqm-webhook-form' );
+		form.querySelector( 'input' ).value = ' https://n8n.example/webhook/y ';
+		const submit = new window.Event( 'submit', {
+			bubbles: true,
+			cancelable: true,
+		} );
+		form.dispatchEvent( submit );
+		expect( submit.defaultPrevented ).toBe( true );
+		expect( $( '.pqm-save-webhook' ).textContent ).toBe(
+			'Saving and testing…'
+		);
+		await flush();
+		const [ url, init ] = global.fetch.mock.calls[ 0 ];
+		expect( url ).toBe( '/wp-json/post-quality/v1/setup/connect' );
+		expect( init.body ).toBe(
+			'{"webhook_url":"https://n8n.example/webhook/y"}'
+		);
+		expect( heard ).toBe( 1 );
+	} );
+
+	test( '"Set up by hand instead" posts {manual: true} to setup, then re-reads the body (no status_html in that reply) and opens and focuses Set up by hand', async () => {
+		renderPage( NOT_SET_UP );
+		boot();
+		const calls = [];
+		global.fetch = jest.fn( ( url, init ) => {
+			calls.push( [ url, init ] );
+			return Promise.resolve( {
+				ok: true,
+				status: 200,
+				json: () =>
+					Promise.resolve(
+						calls.length === 1
+							? { manual: true }
+							: { success: true, data: { status_html: MANUAL } }
+					),
+			} );
+		} );
+		const click = new window.MouseEvent( 'click', {
+			bubbles: true,
+			cancelable: true,
+		} );
+		$( '.pqm-by-hand-link' ).dispatchEvent( click );
+		expect( click.defaultPrevented ).toBe( true );
+		// No busy label on the link: no (empty) outcome line either.
+		expect( outcome() ).toBeNull();
+		await flush();
+		await flush();
+		expect( calls[ 0 ][ 0 ] ).toBe( '/wp-json/post-quality/v1/setup' );
+		expect( calls[ 0 ][ 1 ].body ).toBe( '{"manual":true}' );
+		expect( calls[ 1 ][ 0 ] ).toBe( '/wp-admin/admin-ajax.php' );
+		expect(
+			Object.fromEntries( calls[ 1 ][ 1 ].body.entries() ).action
+		).toBe( 'pqm_workflow_status' );
+		expect( bodyEl().innerHTML ).toBe( MANUAL );
+		const details = document.getElementById( 'pqm-by-hand' );
+		expect( details.open ).toBe( true );
+		expect( document.activeElement ).toBe(
+			details.querySelector( 'summary' )
+		);
+		expect( heard ).toBe( 1 );
+	} );
+
+	test.each( [
+		[
+			'a refused action (a REST error)',
+			[
+				502,
+				{
+					code: 'pqm_update_failed',
+					message:
+						'The plugin could not finish updating the workflow.',
+					data: { status: 502 },
+				},
+			],
+			'The plugin could not finish updating the workflow.',
+		],
+		[
+			'a network failure',
+			[ 0, null, true ],
+			'The request did not go through.',
+		],
+	] )(
+		'%s: the body stays, the message in the outcome line, the button enabled again, no event',
+		async ( _, args, message ) => {
+			renderPage( MANAGED_OUTDATED );
+			boot();
+			answerRest( ...args );
+			$( '.pqm-update-workflow' ).click();
+			await flush();
+			expect( status()[ 0 ].textContent ).toContain(
+				'this plugin needs 6.'
+			);
+			expect( outcome().textContent ).toBe( message );
+			expect( outcome().className ).toBe(
+				'pqm-workflow-outcome is-error'
+			);
+			expect( $( '.pqm-update-workflow' ).disabled ).toBe( false );
+			expect( $( '.pqm-update-workflow' ).textContent ).toBe(
+				'Update workflow'
+			);
+			expect( heard ).toBe( 0 );
+		}
+	);
+
+	test( 'a second click while the first is in flight sends nothing', async () => {
+		renderPage( MANAGED_OUTDATED );
+		boot();
+		answerRest( 200, { updated: true, status_html: SET_UP } );
+		$( '.pqm-update-workflow' ).click();
+		$( '.pqm-update-workflow' ).click();
+		await flush();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
 
-describe( 'Status refresh when the tab regains focus', () => {
-	test( 'focus re-reads the block from WordPress and swaps it', async () => {
+describe( 'Status refresh: window focus and the setup dialog', () => {
+	test( 'focus re-reads the body from WordPress and swaps it', async () => {
 		renderPage();
 		boot();
-		answer( { success: true, data: { status_html: SERVED_BLOCK } } );
+		answer( { success: true, data: { status_html: OUTDATED } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		await flush();
 		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
-		expect( sent() ).toEqual( {
+		expect( sentAjax() ).toEqual( {
 			action: 'pqm_workflow_status',
 			_wpnonce: 'nonce-123',
 		} );
-		expect( status() ).toHaveLength( 1 );
-		expect( status()[ 0 ].outerHTML ).toBe( SERVED_BLOCK );
+		expect( bodyEl().innerHTML ).toBe( OUTDATED );
+		expect( heard ).toBe( 1 );
 	} );
 
-	test( 'a second focus swaps the block the first one put in', async () => {
+	test( 'focus when nothing changed (the fresh status block equals the current one): read, but no swap, no event — the island and typed values stay', async () => {
 		renderPage();
 		boot();
-		answer( { success: true, data: { status_html: SERVED_BLOCK } } );
+		const island = $( '#pqm-n8n-connection-root' );
+		island.innerHTML = '<input value="typed-key" />';
+		answer( { success: true, data: { status_html: SET_UP } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		await flush();
-		answer( { success: true, data: { status_html: NEW_BLOCK } } );
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+		expect( $( '#pqm-n8n-connection-root' ) ).toBe( island );
+		expect( $( '#pqm-n8n-connection-root input' ).value ).toBe(
+			'typed-key'
+		);
+		expect( heard ).toBe( 0 );
+		// An event-driven refresh swaps even when nothing changed.
+		document.dispatchEvent(
+			new window.CustomEvent( 'pqm:workflow-refresh' )
+		);
+		await flush();
+		expect( $( '#pqm-n8n-connection-root' ) ).not.toBe( island );
+		expect( heard ).toBe( 1 );
+	} );
+
+	test( 'a swap keeps the disclosures the owner opened open', async () => {
+		renderPage();
+		boot();
+		document.getElementById( 'pqm-webhook' ).open = true;
+		answer( { success: true, data: { status_html: OUTDATED } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		await flush();
-		expect( status() ).toHaveLength( 1 );
-		expect( status()[ 0 ].outerHTML ).toBe( NEW_BLOCK );
+		expect( bodyEl().innerHTML ).not.toBe( SET_UP );
+		expect( document.getElementById( 'pqm-webhook' ).open ).toBe( true );
+		expect( document.getElementById( 'pqm-by-hand' ).open ).toBe( false );
+	} );
+
+	test( 'focus while the owner types in the body (the URL field focused) reads nothing: what they typed stays', () => {
+		renderPage();
+		boot();
+		answer( { success: true, data: { status_html: OUTDATED } } );
+		$( '.pqm-webhook-form input' ).focus();
+		window.dispatchEvent( new window.Event( 'focus' ) );
+		expect( global.fetch ).not.toHaveBeenCalled();
+	} );
+
+	test( 'the dialog closes (pqm:setup-closed): the body re-read, the named element opened and focused', async () => {
+		renderPage( NOT_SET_UP );
+		boot();
+		answer( { success: true, data: { status_html: MANUAL } } );
+		document.dispatchEvent(
+			new window.CustomEvent( 'pqm:setup-closed', {
+				detail: { focus: 'pqm-by-hand' },
+			} )
+		);
+		await flush();
+		expect( sentAjax().action ).toBe( 'pqm_workflow_status' );
+		expect( bodyEl().innerHTML ).toBe( MANUAL );
+		expect( document.activeElement ).toBe( $( '#pqm-by-hand summary' ) );
+	} );
+
+	test( 'the island asks for a refresh (pqm:workflow-refresh): the body re-read', async () => {
+		renderPage();
+		boot();
+		answer( { success: true, data: { status_html: MANAGED_OUTDATED } } );
+		document.dispatchEvent(
+			new window.CustomEvent( 'pqm:workflow-refresh' )
+		);
+		await flush();
+		expect( bodyEl().innerHTML ).toBe( MANAGED_OUTDATED );
 	} );
 
 	test.each( [
@@ -210,31 +574,29 @@ describe( 'Status refresh when the tab regains focus', () => {
 		[ 'expired nonce (admin-ajax answers -1)', [ -1 ] ],
 		[ 'no capability (403 error)', [ { success: false, data: 'Nope.' } ] ],
 	] )(
-		'a failed read (%s) leaves the block, shows nothing',
+		'a failed read (%s) leaves the body, shows nothing',
 		async ( _, args ) => {
 			renderPage();
 			boot();
 			answer( ...args );
 			window.dispatchEvent( new window.Event( 'focus' ) );
 			await flush();
-			expect( status()[ 0 ].outerHTML ).toBe( OLD_BLOCK );
-			expect( result().textContent ).toBe( '' );
+			expect( bodyEl().innerHTML ).toBe( SET_UP );
+			expect( outcome() ).toBeNull();
+			expect( heard ).toBe( 0 );
 		}
 	);
 
-	test( 'a page without the block (Settings) does not listen for focus', () => {
+	test( 'a page without the body (Settings) does not listen for focus', () => {
 		document.body.innerHTML = '<div class="wrap pqm-wrap"></div>';
 		boot();
-		answer( { success: true, data: { status_html: NEW_BLOCK } } );
+		answer( { success: true, data: { status_html: SET_UP } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		expect( global.fetch ).not.toHaveBeenCalled();
 	} );
 } );
 
-describe( 'Re-import the workflow, in the update notice', () => {
-	const heading = () => document.getElementById( 'pqm-workflow-file' );
-	const reimport = () => document.querySelector( '.pqm-reimport' );
-
+describe( 'Re-import the workflow (a hand-made setup needing attention)', () => {
 	beforeEach( () => {
 		window.HTMLElement.prototype.scrollIntoView = jest.fn();
 	} );
@@ -243,379 +605,42 @@ describe( 'Re-import the workflow, in the update notice', () => {
 		delete window.HTMLElement.prototype.scrollIntoView;
 	} );
 
-	test( 'a click brings the Workflow File section into view and focuses its heading, without the jump', () => {
-		renderPage();
+	test( 'a click opens Set up by hand and focuses its summary, without the jump', () => {
+		renderPage( OUTDATED );
 		boot();
 		const click = new window.MouseEvent( 'click', {
 			bubbles: true,
 			cancelable: true,
 		} );
-		reimport().dispatchEvent( click );
+		$( '.pqm-reimport' ).dispatchEvent( click );
 		expect( click.defaultPrevented ).toBe( true );
+		const details = document.getElementById( 'pqm-by-hand' );
+		expect( details.open ).toBe( true );
 		expect(
 			window.HTMLElement.prototype.scrollIntoView
 		).toHaveBeenCalledTimes( 1 );
-		expect( document.activeElement ).toBe( heading() );
+		expect( document.activeElement ).toBe(
+			details.querySelector( 'summary' )
+		);
 	} );
 
-	test( 'the button of a swapped-in block works the same (a test found an older workflow)', async () => {
+	test( 'the link of a swapped-in body works the same', async () => {
 		renderPage();
 		boot();
-		answer( {
-			success: true,
-			data: {
-				message: 'Ping OK — older version.',
-				outdated: true,
-				status_html: OLDER_BLOCK,
-			},
-		} );
-		document.querySelector( '.pqm-test-connection' ).click();
-		await flush();
-		expect( status()[ 0 ].outerHTML ).toBe( OLDER_BLOCK );
-		reimport().click();
-		expect( document.activeElement ).toBe( heading() );
-	} );
-
-	test( 'the button of a block swapped in on window focus works the same', async () => {
-		renderPage();
-		boot();
-		answer( { success: true, data: { status_html: OLDER_BLOCK } } );
+		answer( { success: true, data: { status_html: OUTDATED } } );
 		window.dispatchEvent( new window.Event( 'focus' ) );
 		await flush();
-		reimport().click();
-		expect( document.activeElement ).toBe( heading() );
+		$( '.pqm-reimport' ).click();
+		expect( document.getElementById( 'pqm-by-hand' ).open ).toBe( true );
 	} );
 
 	test( 'other clicks on the page move no focus', () => {
-		renderPage();
+		renderPage( OUTDATED );
 		boot();
-		document.querySelector( '.pqm-workflow-status p' ).click();
-		expect( document.activeElement ).not.toBe( heading() );
+		$( '.pqm-workflow-sentence' ).click();
+		expect( document.getElementById( 'pqm-by-hand' ).open ).toBe( false );
 		expect(
 			window.HTMLElement.prototype.scrollIntoView
 		).not.toHaveBeenCalled();
-	} );
-} );
-
-describe( 'Test again, in the mis-wiring notice (n8n provisioning, entry 7)', () => {
-	const MISWIRED_BLOCK =
-		'<div class="pqm-workflow-status"><div class="notice notice-error inline pqm-inline-notice"><p>In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.</p><p><button type="button" class="button button-primary pqm-test-connection">Test again</button><span class="pqm-test-result" aria-live="polite"></span></p></div><p class="description">Template version: 5 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
-	const checkAgain = () =>
-		document.querySelector( '.pqm-workflow-status .pqm-test-connection' );
-	// Two result lines now: Test again's, in the block, and the Connection Test's.
-	const againResult = () =>
-		document.querySelector( '.pqm-workflow-status .pqm-test-result' );
-	const testResult = () =>
-		document.querySelector( '.pqm-wrap > p > .pqm-test-result' );
-
-	/** The page after a test found the mis-wiring: the block swapped in. */
-	async function miswiredPage() {
-		renderPage();
-		boot();
-		answer( {
-			success: true,
-			data: {
-				message: 'In n8n, the webhook credential …',
-				outdated: true,
-				status_html: MISWIRED_BLOCK,
-			},
-		} );
-		document.querySelector( '.pqm-test-connection' ).click();
-		await flush();
-	}
-
-	test( 'a test that finds it: the block shows the sentence and Test again, the result line a warning', async () => {
-		await miswiredPage();
-		expect( status()[ 0 ].outerHTML ).toBe( MISWIRED_BLOCK );
-		expect( testResult().classList ).toContain( 'is-warning' );
-	} );
-
-	test( 'the Test again button inside the swapped block pings, swaps again, keeps the focus on the new block and writes nothing to a detached node', async () => {
-		await miswiredPage();
-		const resultBefore = testResult().outerHTML;
-		const button = checkAgain();
-		button.focus();
-		answer( {
-			success: true,
-			data: {
-				message: 'Ping OK — up to date.',
-				outdated: false,
-				status_html: NEW_BLOCK,
-			},
-		} );
-		button.click();
-		expect( button.disabled ).toBe( true );
-		await flush();
-		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
-		expect( sent() ).toMatchObject( {
-			action: 'pqm_test_connection',
-			webhook_url: '',
-			_wpnonce: 'nonce-123',
-		} );
-		expect( status() ).toHaveLength( 1 );
-		expect( status()[ 0 ].outerHTML ).toBe(
-			NEW_BLOCK.replace(
-				'class="pqm-workflow-status"',
-				'class="pqm-workflow-status" tabindex="-1"'
-			)
-		);
-		// The focused button went with the old block: focus lands on the new one.
-		expect( document.activeElement ).toBe( status()[ 0 ] );
-		// Swapped out with its block: left as it was once the ping went out.
-		expect( button.isConnected ).toBe( false );
-		expect( button.disabled ).toBe( true );
-		// The Connection Test's result line is not Test again's.
-		expect( testResult().outerHTML ).toBe( resultBefore );
-	} );
-
-	test.each( [
-		[
-			'an error reply',
-			[ { success: false, data: 'n8n responded with 404.' } ],
-			'n8n responded with 404.',
-		],
-		[ 'a network failure', [ null, true ], 'Network error.' ],
-	] )(
-		'a Test again that fails (%s): the block stays, the message shows beside the button, the button enabled again',
-		async ( _, args, message ) => {
-			await miswiredPage();
-			const resultBefore = testResult().outerHTML;
-			answer( ...args );
-			checkAgain().click();
-			await flush();
-			expect( status() ).toHaveLength( 1 );
-			expect( againResult().textContent ).toBe( message );
-			expect( againResult().className ).toBe(
-				'pqm-test-result is-error'
-			);
-			expect( checkAgain().disabled ).toBe( false );
-			expect( testResult().outerHTML ).toBe( resultBefore );
-		}
-	);
-} );
-
-describe( 'Update workflow, in the update notice of a managed site (n8n provisioning, entry 9)', () => {
-	const UPDATE =
-		'<p><button type="button" class="button button-primary pqm-update-workflow">Update workflow</button> <span class="pqm-test-result" aria-live="polite"></span></p>';
-	const MANAGED_BLOCK =
-		'<div class="pqm-workflow-status"><div class="notice notice-warning inline pqm-inline-notice"><p><strong>Workflow update available.</strong> Your n8n workflow is older than this plugin needs. The plugin can update it in place: your credentials and production URL stay.</p>' +
-		UPDATE +
-		'</div><p class="description">Template version: 6 · Your n8n workflow: version 5, checked just now by a test ping.</p></div>';
-	const button = () => document.querySelector( '.pqm-update-workflow' );
-	const line = () =>
-		document.querySelector( '.pqm-workflow-status .pqm-test-result' );
-	let heard;
-	const listener = () => heard++;
-
-	/**
-	 * Answer the REST call with this HTTP status and JSON body (or reject).
-	 *
-	 * @param {number}  httpStatus The HTTP status (a REST error is 4xx/5xx).
-	 * @param {*}       body       Parsed JSON the route answers.
-	 * @param {boolean} reject     The request fails (network).
-	 */
-	function answerRest( httpStatus, body, reject = false ) {
-		global.fetch = jest.fn( () =>
-			reject
-				? Promise.reject( new Error( 'offline' ) )
-				: Promise.resolve( {
-						ok: httpStatus < 400,
-						status: httpStatus,
-						json: () => Promise.resolve( body ),
-				  } )
-		);
-	}
-
-	/** The page of a managed site: the update notice offers Update workflow. */
-	function managedPage() {
-		renderPage();
-		document.querySelector( '.pqm-workflow-status' ).outerHTML =
-			MANAGED_BLOCK;
-		boot();
-	}
-
-	beforeEach( () => {
-		heard = 0;
-		document.addEventListener( 'pqm:workflow-status', listener );
-	} );
-
-	afterEach( () => {
-		document.removeEventListener( 'pqm:workflow-status', listener );
-	} );
-
-	test( 'a click posts to the REST route with the nonce (no body), shows the progress, then swaps the block and tells the islands once', async () => {
-		managedPage();
-		answerRest( 200, {
-			updated: true,
-			ping_ok: true,
-			outdated: false,
-			message: 'Workflow updated. Ping OK — up to date.',
-			status_html: NEW_BLOCK,
-		} );
-		button().click();
-		expect( button().disabled ).toBe( true );
-		expect( line().textContent ).toBe( 'Updating the workflow…' );
-		await flush();
-		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
-		const [ url, init ] = global.fetch.mock.calls[ 0 ];
-		expect( url ).toBe( '/wp-json/post-quality/v1/n8n/workflow' );
-		expect( init ).toEqual( {
-			method: 'POST',
-			headers: { 'X-WP-Nonce': 'rest-nonce-456' },
-			credentials: 'same-origin',
-		} );
-		expect( status() ).toHaveLength( 1 );
-		expect( document.body.innerHTML ).not.toContain( 'Update workflow' );
-		// The message moves into the new block: a result line appended to it.
-		expect( status()[ 0 ].outerHTML ).toBe(
-			NEW_BLOCK.replace(
-				'</p></div>',
-				'</p><p class="pqm-test-result is-success">Workflow updated. Ping OK — up to date.</p></div>'
-			)
-		);
-		expect( heard ).toBe( 1 );
-	} );
-
-	test( 'updated, the ping passed but the workflow still answers older: the new block keeps the notice, the message lands in its result line as a warning', async () => {
-		managedPage();
-		answerRest( 200, {
-			updated: true,
-			ping_ok: true,
-			outdated: true,
-			message: 'Workflow updated. Ping OK — older version.',
-			status_html: MANAGED_BLOCK,
-		} );
-		button().click();
-		await flush();
-		expect( status() ).toHaveLength( 1 );
-		expect( heard ).toBe( 1 );
-		expect(
-			status()[ 0 ].querySelectorAll( '.pqm-test-result' )
-		).toHaveLength( 1 );
-		expect( line().textContent ).toBe(
-			'Workflow updated. Ping OK — older version.'
-		);
-		expect( line().className ).toBe( 'pqm-test-result is-warning' );
-		expect( button().disabled ).toBe( false );
-	} );
-
-	test( 'updated, but the ping failed: the block stays, the message beside the button as an error, no event', async () => {
-		managedPage();
-		answerRest( 200, {
-			updated: true,
-			ping_ok: false,
-			outdated: false,
-			message: 'The workflow was updated in n8n. n8n responded with 404.',
-		} );
-		button().click();
-		await flush();
-		// No swap: the same block, its notice and button still there.
-		expect( status() ).toHaveLength( 1 );
-		expect( status()[ 0 ].textContent ).toContain(
-			'Workflow update available.'
-		);
-		expect( line().textContent ).toBe(
-			'The workflow was updated in n8n. n8n responded with 404.'
-		);
-		expect( line().className ).toBe( 'pqm-test-result is-error' );
-		expect( button().disabled ).toBe( false );
-		expect( heard ).toBe( 0 );
-	} );
-
-	test.each( [
-		[
-			'a refused update (a REST error)',
-			[
-				502,
-				{
-					code: 'pqm_update_failed',
-					message:
-						'The plugin could not finish updating the workflow (n8n answered HTTP 500). Try again in a moment.',
-					data: { status: 502 },
-				},
-			],
-			'The plugin could not finish updating the workflow (n8n answered HTTP 500). Try again in a moment.',
-		],
-		[ 'a network failure', [ 0, null, true ], 'Network error.' ],
-	] )(
-		'%s: the block stays, the message as an error, the button enabled again',
-		async ( _, args, message ) => {
-			managedPage();
-			answerRest( ...args );
-			button().click();
-			await flush();
-			expect( status() ).toHaveLength( 1 );
-			expect( status()[ 0 ].textContent ).toContain(
-				'Workflow update available.'
-			);
-			expect( line().textContent ).toBe( message );
-			expect( line().className ).toBe( 'pqm-test-result is-error' );
-			expect( button().disabled ).toBe( false );
-			expect( heard ).toBe( 0 );
-		}
-	);
-} );
-
-describe( 'Each swap of the block tells the islands (pqm:workflow-status)', () => {
-	let heard;
-	const listener = () => heard++;
-
-	beforeEach( () => {
-		heard = 0;
-		document.addEventListener( 'pqm:workflow-status', listener );
-	} );
-
-	afterEach( () => {
-		document.removeEventListener( 'pqm:workflow-status', listener );
-	} );
-
-	test( 'a test ping that swaps the block dispatches it once, after the swap', async () => {
-		renderPage();
-		boot();
-		let seen = null;
-		document.addEventListener(
-			'pqm:workflow-status',
-			() => ( seen = document.querySelector( '.pqm-reimport' ) ),
-			{ once: true }
-		);
-		answer( {
-			success: true,
-			data: {
-				message: 'Ping OK — up to date.',
-				outdated: false,
-				status_html: NEW_BLOCK,
-			},
-		} );
-		document.querySelector( '.pqm-test-connection' ).click();
-		await flush();
-		expect( heard ).toBe( 1 );
-		expect( seen ).toBeNull(); // the new block, without the button
-	} );
-
-	test( 'a window-focus refresh that swaps the block dispatches it once', async () => {
-		renderPage();
-		boot();
-		answer( { success: true, data: { status_html: SERVED_BLOCK } } );
-		window.dispatchEvent( new window.Event( 'focus' ) );
-		await flush();
-		expect( heard ).toBe( 1 );
-	} );
-
-	test.each( [
-		[
-			'an error string',
-			{ success: false, data: 'n8n responded with 404.' },
-		],
-		[
-			'a success without status_html',
-			{ success: true, data: { message: 'Ping OK.', outdated: false } },
-		],
-	] )( 'no swap (%s), no event', async ( _, body ) => {
-		renderPage();
-		boot();
-		answer( body );
-		document.querySelector( '.pqm-test-connection' ).click();
-		await flush();
-		expect( heard ).toBe( 0 );
 	} );
 } );
