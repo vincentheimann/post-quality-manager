@@ -276,7 +276,8 @@ $wpdb = new class {
     public $posts = 'wp_posts';
     public function prepare($sql, ...$args) { return $sql; }
     public function get_results($sql, $output = null) { return []; }
-    public function get_var($sql) { return null; }
+    public $has_result = null; // story 67: PQM_DB::has_result() on the Free build
+    public function get_var($sql) { return $this->has_result; }
 };
 
 require __DIR__ . '/fs-stub.php'; // pqm_fs() without the SDK; no premium check is left to read it
@@ -358,6 +359,16 @@ check('an older Free template, hand-made: needs attention, "this plugin needs N"
 preg_match_all('/<details class="pqm-disclosure" id="([a-z0-9-]+)"/', $body, $m);
 check('... no locked or empty section: the Set up by hand, n8n connection and Webhook disclosures (' . implode(', ', $m[1]) . '), no paid word',
     $m[1] === ['pqm-by-hand', 'pqm-n8n-connection', 'pqm-webhook'] && !preg_match('/\b(Pro|Rewrite|Sources|SEO|Audit)\b/', strip_tags($body)));
+/* Story 67: set up with results, the configuration steps still open — the Free dialog has no scheduled-reviews step, so two names, then none. */
+pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'free');
+$wpdb->has_result = '1';
+$built_free = is_file(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
+$GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => [], 'complete' => true];
+check('set up, results, nothing ticked: "Finish setting up: Blog Profile, Editorial Standards" — no scheduled reviews on Free' . ($built_free ? '' : ' (unbuilt: no link at all)'),
+    $built_free ? str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up: Blog Profile, Editorial Standards</button>') : !str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up'));
+$GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => ['profile' => true, 'standards' => true], 'complete' => true];
+check('... profile and standards ticked: the link is gone (schedule is no Free step)', !str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up'));
+$wpdb->has_result = null;
 $GLOBALS['tw']['options'] = $options_before;
 pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'pro');
 check('pqm_workflow_json() serves the Free template, filled with the host',

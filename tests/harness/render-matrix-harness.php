@@ -679,8 +679,21 @@ check('... Webhook: the URL field with Save and test (secondary), the token as a
 $wpdb->has_result = '1';
 $page = $render_workflow([], $current);
 $wpdb->has_result = null;
-check('4 set up, results stored: primary Open Post Reviews', str_contains($block_of($page), '<a class="button button-primary" href="/wp-admin/admin.php?page=pqm-posts">Open Post Reviews</a>') && $primaries($page) === 1
-    && !str_contains($page, 'pqm-open-setup'));
+check('4 set up, results stored: primary Open Post Reviews', str_contains($block_of($page), '<a class="button button-primary" href="/wp-admin/admin.php?page=pqm-posts">Open Post Reviews</a>') && $primaries($page) === 1);
+// The configuration steps still open (story 55) as one secondary link; the wizard resumes at the first.
+$built_here = file_exists(dirname(__DIR__, 2) . '/post-quality-manager/admin/build/index.asset.php');
+$finish = static fn(string $steps): string => '<button type="button" class="button-link pqm-open-setup">Finish setting up: ' . $steps . '</button>';
+check('... ' . ($built_here ? 'built: "Finish setting up: Blog Profile, Editorial Standards, scheduled reviews" (Pro, none ticked) as a secondary, one primary' : 'unbuilt: no Finish setting up (no dialog to open)'),
+    $built_here ? (str_contains($block_of($page), $finish('Blog Profile, Editorial Standards, scheduled reviews')) && $primaries($page) === 1) : !str_contains($page, 'Finish setting up'));
+$wpdb->has_result = '1';
+$page = $render_workflow([], $current + [PQM_SETUP_OPTION => ['steps' => ['profile' => true, 'schedule' => true], 'complete' => true]]);
+check('... profile and schedule ticked: only Editorial Standards named', !$built_here || str_contains($block_of($page), $finish('Editorial Standards')));
+$page = $render_workflow([], $current + [PQM_SETUP_OPTION => ['steps' => ['profile' => true, 'standards' => true, 'schedule' => true], 'complete' => true]]);
+check('... every step saved or skipped: the link is gone, Open Post Reviews and Test again only', !str_contains($page, 'Finish setting up') && !str_contains($page, 'pqm-open-setup') && $primaries($page) === 1);
+// The Free build (no scheduled-reviews step) is free-build-harness.php's row.
+$page = $render_workflow([], $current + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
+check('... 4a (saved, not checked) and 4 without results carry no Finish link: the wizard is already the primary there', !str_contains($render_workflow([]), 'Finish setting up') && (($wpdb->has_result = null) === null) && !str_contains($render_workflow([], $current), 'Finish setting up'));
+$wpdb->has_result = null;
 $page = $render_workflow([]);
 check('4a saved, not checked: "Saved, not checked yet.", info accent, primary Test the connection, no version line, the same disclosures',
     $state_of($page) === 'not-checked' && $sentence_of($page) === 'Saved, not checked yet.' && !str_contains($page, 'pqm-workflow-version')
@@ -780,7 +793,8 @@ check('up to date, managed: set up, no update button, no Set up by hand, Rotate 
 /* Without the built assets, nothing can open the dialog: the setup button is left out, the build warning says why. */
 check('the setup button renders only with the built assets (source: app_built() gates $setup_button; render_app_root() uses the same check)',
     (bool) preg_match('/\$setup_button = static fn\(string \$label, string \$step = \'\'\): string => !self::app_built\(\) \? \'\' :/', $src)
-    && substr_count($src, 'self::app_built()') === 2 && str_contains($src, "private static function app_built(): bool\n    {\n        return file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');"));
+    && substr_count($src, 'self::app_built()') === 3 && // the setup button, render_app_root(), the Finish setting up link
+     str_contains($src, "private static function app_built(): bool\n    {\n        return file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');"));
 $page = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']);
 check('... state 1 ' . ($built ? 'built: Set up n8n is the one primary' : 'unbuilt: no Set up n8n, no primary, the build warning'), $built
     ? str_contains($page, 'button-primary pqm-open-setup">Set up n8n</button>') && $primaries($page) === 1

@@ -1621,6 +1621,17 @@ class PQM_Admin
         }
         // The secondaries: Test again once a URL exists, and the outdated fix behind a mis-wiring.
         $secondary = $state['url'] !== '' && !str_contains($primary, 'pqm-test-connection') ? $test_button(false) : '';
+        // Set up (story 67): the configuration steps still open (story 55: saved
+        // or skipped ticks them) as one secondary that opens the dialog there; gone
+        // once every one is ticked. The wizard resumes at the first open step itself.
+        if ($kind === 'set-up' && $state['checked'] && !str_contains($primary, 'pqm-open-setup') && self::app_built()) {
+            $open = self::open_setup_steps();
+            if ($open !== []) {
+                $secondary .= ($secondary !== '' ? ' ' : '') . '<button type="button" class="button-link pqm-open-setup">'
+                    /* translators: %s: the open steps, e.g. "Blog Profile, scheduled reviews" */
+                    . esc_html(sprintf(__('Finish setting up: %s', 'post-quality-manager'), implode(__(', ', 'post-quality-manager'), $open))) . '</button>';
+            }
+        }
         if ($state['also'] !== '') {
             $secondary .= ($secondary !== '' ? ' ' : '') . $fix_button($state['also'], false);
         }
@@ -1695,6 +1706,27 @@ class PQM_Admin
         <?php endif; ?>
 <?php
         return (string) ob_get_clean();
+    }
+
+    /**
+     * The setup dialog's configuration steps not yet saved or skipped (story
+     * 55 ticks them in the setup progress), by name, in the dialog's order;
+     * scheduled reviews only on the Pro build (the Free dialog has no such step).
+     *
+     * @return string[]
+     */
+    private static function open_setup_steps(): array
+    {
+        $steps = (array) (get_option(PQM_SETUP_OPTION, [])['steps'] ?? []);
+        $names = [
+            'profile'   => __('Blog Profile', 'post-quality-manager'),
+            'standards' => __('Editorial Standards', 'post-quality-manager'),
+        ];
+        if ( pqm_fs()->is__premium_only() ) {
+            $names['schedule'] = __('scheduled reviews', 'post-quality-manager');
+        }
+
+        return array_values(array_diff_key($names, array_filter($steps)));
     }
 
     /** "just now" or "3 hours ago", for a timestamp. */
