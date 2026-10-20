@@ -65,6 +65,19 @@ class PQM_N8n {
     const LEFTOVERS_OPTION = 'pqm_n8n_leftovers';
 
     /**
+     * Own option (autoload off, deleted on uninstall): {at} while a
+     * provisioning run is on its way (bug 72, D1): claimed before the first
+     * outgoing call, released on every exit, so a second run started during
+     * the first is refused as a site already set up. Not a placeholder setup
+     * map, which would turn the page "set up" during the run. See
+     * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
+     */
+    const LOCK_OPTION = 'pqm_n8n_provisioning';
+
+    /** A lock older than this (seconds) is a run PHP killed mid-way: the next run takes it over. */
+    const LOCK_TTL = 300;
+
+    /**
      * The stored connection. `probe` is the last passing probe
      * ({ok, cause, message, at}), null when no key is stored. `failed` is
      * the last failed probe that offers the manual path ({cause, message
@@ -698,7 +711,9 @@ class PQM_N8n {
      * this run created is removed again (entry 5). What an earlier rollback
      * could not remove (LEFTOVERS_OPTION) is removed before anything is
      * created. An existing setup map refuses the run: nothing is adopted or
-     * updated.
+     * updated. One run at a time (bug 72): the run holds LOCK_OPTION from
+     * before its first outgoing call until the map is stored or it failed,
+     * and a run that finds the lock held is refused as already provisioned.
      *
      * @return array|WP_Error The stored setup map (SETUP_OPTION).
      */
@@ -708,6 +723,44 @@ class PQM_N8n {
         }
         if ( '' === self::connection()['api_key'] ) {
             return self::not_connected();
+        }
+        if ( ! self::claim() ) {
+            return self::already_provisioned();
+        }
+        $setup = self::run( $provider_key );
+        delete_option( self::LOCK_OPTION );
+
+        return $setup;
+    }
+
+    /**
+     * Claim the provisioning lock. add_option() writes only a key that does
+     * not exist yet, but it is not atomic (a read, then the write): the lock
+     * narrows bug 72's window from the whole run to one database round trip,
+     * it does not close it. run() re-reads the setup map under the lock for
+     * the same reason. A lock whose `at` is older than LOCK_TTL was left by a
+     * run PHP killed mid-way (no exit of run() leaves it): taken over.
+     * Ceiling: a run killed by PHP keeps the lock 5 minutes; story 71's Start over is the way out before that.
+     */
+    private static function claim(): bool {
+        $lock = [ 'at' => time() ];
+        if ( add_option( self::LOCK_OPTION, $lock, '', false ) ) {
+            return true;
+        }
+        $held = get_option( self::LOCK_OPTION, false );
+        if ( is_array( $held ) && (int) ( $held['at'] ?? 0 ) > time() - self::LOCK_TTL ) {
+            return false;
+        }
+        update_option( self::LOCK_OPTION, $lock, false );
+
+        return true;
+    }
+
+    /** provision()'s body, under the lock: every return releases it there. */
+    private static function run( string $provider_key ): array|WP_Error {
+        // Read again under the lock: a run that finished between the gate and the claim stored a map (bug 72).
+        if ( false !== get_option( self::SETUP_OPTION, false ) ) {
+            return self::already_provisioned();
         }
         // Objects, not arrays: an empty `{}` in the template must stay one.
         $workflow = json_decode( (string) pqm_workflow_json() );
@@ -767,6 +820,19 @@ class PQM_N8n {
 
         $response = self::request( 'POST', '/workflows/' . rawurlencode( $workflow_id ) . '/activate', (object) [] );
         if ( is_wp_error( $response ) || $response['code'] < 200 || $response['code'] >= 300 ) {
+            // n8n refuses with 409 when another active workflow already listens on this
+            // site's webhook path (bug 75): a retry repeats it, so the way out is named instead.
+            if ( ! is_wp_error( $response ) && 409 === $response['code'] ) {
+                return self::fail(
+                    'activate',
+                    __( 'The n8n setup stopped while activating the workflow: another active workflow on this n8n instance already listens on this site\'s webhook path.', 'post-quality-manager' ),
+                    $credentials,
+                    $created,
+                    $workflow_id,
+                    __( 'If that workflow is this site\'s, paste its production URL as the n8n Webhook URL and choose Let the plugin manage this workflow on the n8n Workflow page; otherwise remove it in n8n, then try again.', 'post-quality-manager' )
+                );
+            }
+
             return self::fail( 'activate', self::stopped( 'activate', $response ), $credentials, $created, $workflow_id );
         }
 
@@ -777,6 +843,13 @@ class PQM_N8n {
             'wizard_created' => true,
             'at'             => time(),
         ];
+        if ( pqm_fs()->is__premium_only() ) {
+            // Bug 73: the map names the Application Password the run created, so a later
+            // removal of the setup (uninstall now, Start over later) revokes it. Never sent anywhere.
+            if ( isset( $credentials['wordpress']['uuid'] ) ) {
+                $setup['application_password'] = [ 'uuid' => $credentials['wordpress']['uuid'], 'user_id' => $credentials['wordpress']['user_id'] ];
+            }
+        }
         update_option( self::SETUP_OPTION, $setup, false );
 
         return $setup;
@@ -871,9 +944,9 @@ class PQM_N8n {
      * The Pro build's WordPress credential, for the node that saves a
      * rewrite: a new Application Password of the current user. `data` is
      * null when the site offers no Application Passwords (D1): the credential
-     * is not created and its node stays name-only. `uuid` names the created
-     * Application Password for the revoke of a failed run; it never goes to
-     * n8n.
+     * is not created and its node stays name-only. `uuid` and `user_id` name
+     * the created Application Password for its revoke (a failed run, the
+     * setup map's removal); they never go to n8n.
      */
     private static function wordpress_credential__premium_only( string $host ): array|WP_Error {
         $credential = [ 'name' => self::credential_names( $host )['wordpress'], 'type' => 'httpBasicAuth', 'data' => null ];
@@ -890,16 +963,34 @@ class PQM_N8n {
                 $created->get_error_message()
             ), [ 'status' => 500, 'step' => 'application_password' ] );
         }
-        $credential['data'] = [ 'user' => $user->user_login, 'password' => $created[0] ];
-        $credential['uuid'] = $created[1]['uuid'];
+        $credential['data']    = [ 'user' => $user->user_login, 'password' => $created[0] ];
+        $credential['uuid']    = $created[1]['uuid'];
+        $credential['user_id'] = (int) $user->ID;
 
         return $credential;
     }
 
-    /** Revoke the Application Password this run created, if it created one: the run failed, n8n will not use it. */
-    private static function revoke_application_password__premium_only( array $credentials ): void {
-        if ( isset( $credentials['wordpress']['uuid'] ) ) {
-            WP_Application_Passwords::delete_application_password( wp_get_current_user()->ID, $credentials['wordpress']['uuid'] );
+    /**
+     * The one deleter of an Application Password the plugin created (bug 73,
+     * D2): a failed run's (fail()) or the setup map's
+     * (revoke_setup_password__premium_only()). WordPress stores only its
+     * hash, so a later provisioning can never reuse it: revoked, never kept.
+     */
+    private static function revoke_application_password__premium_only( int $user_id, string $uuid ): void {
+        WP_Application_Passwords::delete_application_password( $user_id, $uuid );
+    }
+
+    /**
+     * Revoke the Application Password the setup map names, if it names one:
+     * what removes the map calls it first (PQM_Activator::uninstall() now;
+     * story 71's Start over later). A map without one (set up by an earlier
+     * version, adopted, or without Application Passwords) or no map: no call.
+     */
+    public static function revoke_setup_password__premium_only(): void {
+        $setup    = get_option( self::SETUP_OPTION, false );
+        $password = is_array( $setup ) ? ( $setup['application_password'] ?? null ) : null;
+        if ( is_array( $password ) && isset( $password['uuid'], $password['user_id'] ) ) {
+            self::revoke_application_password__premium_only( (int) $password['user_id'], (string) $password['uuid'] );
         }
     }
 
@@ -924,13 +1015,16 @@ class PQM_N8n {
      * that says whether anything was left. 502, or 500 for `link` (the
      * template, not n8n).
      *
-     * @param string $cause   The sentence naming what went wrong.
-     * @param array  $created role => id of the credentials this run created.
+     * @param string  $cause   The sentence naming what went wrong.
+     * @param array   $created role => id of the credentials this run created.
+     * @param ?string $then    The way out, replacing "Try again in a moment." when a retry would repeat the refusal (bug 75).
      */
-    private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null ): WP_Error {
+    private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null, ?string $then = null ): WP_Error {
         // Before n8n's rollback, and whatever it gives: the WordPress credential is useless once the run failed.
         if ( pqm_fs()->is__premium_only() ) {
-            self::revoke_application_password__premium_only( $credentials );
+            if ( isset( $credentials['wordpress']['uuid'] ) ) {
+                self::revoke_application_password__premium_only( (int) $credentials['wordpress']['user_id'], (string) $credentials['wordpress']['uuid'] );
+            }
         }
         $left = self::roll_back( $workflow_id, array_values( $created ) );
         if ( null !== $left ) {
@@ -944,7 +1038,7 @@ class PQM_N8n {
                 : __( 'Some of what it created is still in n8n: the next try removes it first.', 'post-quality-manager' ),
             'link' === $step
                 ? __( 'Update the plugin, then try again.', 'post-quality-manager' )
-                : __( 'Try again in a moment.', 'post-quality-manager' ),
+                : ( $then ?? __( 'Try again in a moment.', 'post-quality-manager' ) ),
         ] ), [ 'status' => 'link' === $step ? 500 : 502, 'step' => $step ] );
     }
 

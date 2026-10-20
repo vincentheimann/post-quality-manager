@@ -2097,7 +2097,7 @@ class PQM_Admin
      * @param bool $diagnose False: no diagnosis read on n8n, `miswired` null
      *                       (the token rotation's ping, n8n provisioning
      *                       entry 10: its PATCH is the one n8n API call).
-     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool}
+     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool, code?: int}
      *         `version` is the replied workflow version (0 = an older
      *         workflow that does not report it), null when the ping failed.
      *         `outdated`: a 2xx from a workflow older than the bundled
@@ -2169,18 +2169,18 @@ class PQM_Admin
                 /* translators: %d: HTTP status code (401 or 403) */
                 __('n8n refused the webhook credential (HTTP %d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be X-PQM-Token and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
                 $code
-            ), 'version' => null, 'outdated' => false, 'refused' => true];
+            ), 'version' => null, 'outdated' => false, 'refused' => true, 'code' => $code];
         }
 
         if ($code === 404) {
-            return ['ok' => false, 'message' => __('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager'), 'version' => null, 'outdated' => false];
+            return ['ok' => false, 'message' => __('n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'post-quality-manager'), 'version' => null, 'outdated' => false, 'code' => $code];
         }
 
         return ['ok' => false, 'message' => sprintf(
             /* translators: %d: HTTP status code */
             __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
             $code
-        ), 'version' => null, 'outdated' => false];
+        ), 'version' => null, 'outdated' => false, 'code' => $code];
     }
 
     /**

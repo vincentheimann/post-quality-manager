@@ -321,6 +321,7 @@ check("setup state names the build: 'free'", ($state['build'] ?? null) === 'free
 check('the same n8n steps as Pro (provisioning is free, entry 6): n8n, provision, manual, then review and the configuration steps',
     array_keys($state['steps'] ?? []) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule']
     && array_key_exists('n8n', $state) && array_key_exists('manual', $state) && array_key_exists('provisioned', $state) && array_key_exists('leftovers', $state));
+check('no application_password_user (bug 73, Pro only: the Free build creates no Application Password)', !array_key_exists('application_password_user', $state));
 $by_hand = PQM_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
 check('... and "Set up by hand instead" stores the choice there too', $by_hand instanceof WP_REST_Response && $by_hand->get_data()['manual'] === true);
 unset($GLOBALS['tw']['options']['pqm_setup_progress']); // the rows below start from a site without the choice
@@ -532,6 +533,9 @@ $GLOBALS['tw']['options'] = $before_adoption;
 echo "Row — Free provisioning, activation refused: rolled back, no Application Password\n";
 $client = (string) file_get_contents($free . '/includes/class-pqm-n8n.php');
 check('the Free n8n client names no Application Password symbol (create and revoke are Pro only)', !preg_match('/WP_Application_Passwords|application_password/i', $client));
+check('... nor the Free activator (bug 73: the revoke on uninstall is Pro only); it still deletes the provisioning lock option',
+    !preg_match('/WP_Application_Passwords|application_password|revoke_setup_password/i', (string) file_get_contents($free . '/includes/class-pqm-activator.php'))
+    && str_contains((string) file_get_contents($free . '/includes/class-pqm-activator.php'), "delete_option( 'pqm_n8n_provisioning' )"));
 unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']),

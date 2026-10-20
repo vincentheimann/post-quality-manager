@@ -657,6 +657,8 @@ PQM_Activator::uninstall();
 check('uninstall deletes the setup progress option (PQM_SETUP_OPTION)', in_array(PQM_SETUP_OPTION, $GLOBALS['tw_deleted'], true));
 check('uninstall deletes the n8n connection option (PQM_N8n::OPTION: base URL and API key)', PQM_N8n::OPTION === 'pqm_n8n_api'
     && in_array(PQM_N8n::OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the provisioning lock option (PQM_N8n::LOCK_OPTION, bug 72)', PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning'
+    && in_array(PQM_N8n::LOCK_OPTION, $GLOBALS['tw_deleted'], true));
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

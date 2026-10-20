@@ -357,6 +357,19 @@ function Provision( { state, onProvisioned, onConnected } ) {
 					disabled={ busy }
 					__nextHasNoMarginBottom
 				/>
+				{ state.application_password_user && (
+					// Pro (bug 73): whose Application Password the setup creates, and that it is revoked with the setup.
+					<p className="pqm-muted">
+						{ sprintf(
+							/* translators: %s: the current user's display name */
+							__(
+								'n8n saves rewrites as %s through an Application Password created for it on that profile; the plugin revokes it when the setup is removed.',
+								'post-quality-manager'
+							),
+							state.application_password_user
+						) }
+					</p>
+				) }
 				<Button
 					variant="primary"
 					type="submit"

@@ -1032,6 +1032,9 @@ class PQM_REST_API {
      */
     public const SETUP_STEPS = [ 'n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule' ];
 
+    /** Pings of the webhook right after activation, at most (bug 80, D3): ping_after_activation(). */
+    private const PROVISION_PINGS = 3;
+
     /** Steps the user may tick or untick (POST /setup): the configuration steps. */
     private const SETUP_TICKABLE = [ 'profile', 'standards', 'schedule' ];
 
@@ -1149,6 +1152,13 @@ class PQM_REST_API {
                 'cron_max_age_days'  => (int) $settings['cron_max_age_days'],
                 'cron_command'       => (string) $settings['cron_command'],
             ];
+        }
+
+        if ( pqm_fs()->is__premium_only() ) {
+            // Bug 73: whose Application Password Set up the workflow would create — the
+            // current user's, by display name; '' where the site offers none (D1).
+            $user                               = wp_get_current_user();
+            $state['application_password_user'] = wp_is_application_passwords_available_for_user( $user ) ? (string) ( $user->display_name ?? '' ) : '';
         }
 
         $state += [
@@ -1397,9 +1407,12 @@ class PQM_REST_API {
      * connect step's flow: save the production webhook URL — the connected
      * origin + /webhook/ + pqm_webhook_path(), as the n8n public API exposes
      * no webhook base — ping it, record the replied version. The Anthropic
-     * key is passed on and never echoed. A failed ping keeps everything:
-     * n8n may serve webhooks on another address than its editor (WEBHOOK_URL),
-     * so the reply points to pasting the Webhook Trigger's production URL.
+     * key is passed on and never echoed. The ping goes through
+     * ping_after_activation(): a 404 right after activation is usually n8n
+     * still publishing (bug 80), so it is retried before it counts. A failed
+     * ping keeps everything: n8n may serve webhooks on another address than
+     * its editor (WEBHOOK_URL), so the reply points to pasting the Webhook
+     * Trigger's production URL.
      * Answers `{ provisioned, ping_ok, workflow_id, message }`, plus the
      * page's refreshed `status_html` when the ping passed (entry 6), and on the
      * Pro build `rewrite_ready` (false when no WordPress credential was
@@ -1415,7 +1428,7 @@ class PQM_REST_API {
         $saved = PQM_Admin::save_webhook_url( $url );
         $ping  = is_wp_error( $saved )
             ? [ 'ok' => false, 'message' => $saved->get_error_message() ]
-            : PQM_Admin::ping_webhook( esc_url_raw( $url ) );
+            : self::ping_after_activation( esc_url_raw( $url ) );
         $progress = self::setup_progress();
         $progress['steps']['connect'] = $ping['ok'];
         update_option( PQM_SETUP_OPTION, $progress, false );
@@ -1424,14 +1437,13 @@ class PQM_REST_API {
             'provisioned' => true,
             'ping_ok'     => $ping['ok'],
             'workflow_id' => $setup['workflow_id'],
-            'message'     => $ping['ok'] ? $ping['message'] : sprintf(
-                /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-                __( 'Your workflow is set up and active in n8n, but the ping did not get through. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
-                $ping['message']
-            ),
+            'message'     => $ping['ok'] ? $ping['message'] : self::ping_failed_sentence( $ping ),
         ];
         if ( $ping['ok'] ) {
             pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
+        } elseif ( 404 === ( $ping['code'] ?? 0 ) ) {
+            // The page's "needs attention" says the same as the dialog, not the Test button's 404 line.
+            pqm_record_workflow_failure( $reply['message'] );
         }
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
@@ -1443,6 +1455,45 @@ class PQM_REST_API {
         $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
+    }
+
+    /**
+     * The ping that follows an activation (bug 80, D3): n8n may still be
+     * publishing the workflow when the activate reply returns, so a ping sent
+     * at once can meet a 404 that is nobody's fault — see
+     * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
+     * Only a 404 is retried, up to PROVISION_PINGS pings 2 s apart (filter
+     * `pqm_provision_ping_retry_wait`; the harness sets 0); every other
+     * answer, pass or fail, counts the first time. Provisioning is the one
+     * caller that just activated something: the Test button, POST
+     * /setup/connect, the rotation and the update ping once.
+     */
+    private static function ping_after_activation( string $url ): array {
+        for ( $attempt = 1; ; $attempt++ ) {
+            $ping = PQM_Admin::ping_webhook( $url );
+            if ( $ping['ok'] || 404 !== ( $ping['code'] ?? 0 ) || $attempt >= self::PROVISION_PINGS ) {
+                return $ping;
+            }
+            sleep( max( 0, (int) apply_filters( 'pqm_provision_ping_retry_wait', 2 ) ) );
+        }
+    }
+
+    /**
+     * What the dialog says when the ping after provisioning did not get
+     * through. A 404 that outlasted the retries: the workflow is active, its
+     * webhook did not answer yet, so Test again first and the editor-address
+     * hint second (bug 80). Anything else: the ping's own sentence, then the hint.
+     */
+    private static function ping_failed_sentence( array $ping ): string {
+        if ( 404 === ( $ping['code'] ?? 0 ) ) {
+            return __( 'Your workflow is set up and active in n8n, but its webhook did not answer yet (n8n responded with 404). Give n8n a moment, then press Test again on the n8n Workflow page. If it keeps answering 404, your n8n may serve webhooks on another address than its editor: copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' );
+        }
+
+        return sprintf(
+            /* translators: %s: why the ping failed and what to check, e.g. "n8n refused the webhook credential (HTTP 401)…" */
+            __( 'Your workflow is set up and active in n8n, but the ping did not get through. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
+            $ping['message']
+        );
     }
 
     /**

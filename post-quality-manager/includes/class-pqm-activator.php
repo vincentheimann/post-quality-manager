@@ -47,8 +47,12 @@ class PQM_Activator {
         delete_option( 'pqm_caps_version' );
         delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36), named literally: the harnesses load this class without the main plugin file.
         delete_option( 'pqm_n8n_api' ); // PQM_N8n::OPTION, named literally for the same reason: the n8n base URL and API key.
+        if ( pqm_fs()->is__premium_only() ) {
+            PQM_N8n::revoke_setup_password__premium_only(); // The Application Password provisioning made for n8n (bug 73): revoked before its map goes.
+        }
         delete_option( 'pqm_n8n_setup' ); // PQM_N8n::SETUP_OPTION, named literally for the same reason: what provisioning created in n8n.
         delete_option( 'pqm_n8n_leftovers' ); // PQM_N8n::LEFTOVERS_OPTION, named literally for the same reason: what a failed provisioning left in n8n.
+        delete_option( 'pqm_n8n_provisioning' ); // PQM_N8n::LOCK_OPTION, named literally for the same reason: the lock of a provisioning run.
 
         // Per-user monthly usage counters (author quota, CAP-4) — all users.
         delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );

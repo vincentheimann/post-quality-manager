@@ -79,6 +79,7 @@ require __DIR__ . '/fs-stub.php';
 require $base . '/includes/class-pqm-license.php';
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-activator.php';
+require $base . '/includes/class-pqm-n8n.php'; // bug 73: uninstall() revokes the setup map's Application Password through it
 
 /* ─── Tiny assert runner ─────────────────────────────────────────────── */
 $pass = 0; $fail = 0;
@@ -454,16 +455,36 @@ function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $d
     return true;
 }
 function wp_clear_scheduled_hook($hook, $args = [], $wp_error = false) { $GLOBALS['tw_cleared_hooks'][] = $hook; return 0; }
+/* Bug 73: the Application Password the setup map names is revoked before the map's option goes. */
+$GLOBALS['tw_app_revoked'] = [];
+class WP_Application_Passwords {
+    public static function delete_application_password($user_id, $uuid) {
+        $GLOBALS['tw_app_revoked'][] = [$user_id, $uuid, 'deleted so far' => $GLOBALS['tw_option_deletes']];
+        return true;
+    }
+}
 reset_world();
+$GLOBALS['tw']['options']['pqm_n8n_setup'] = ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1', 'anthropic' => 'c2', 'wordpress' => 'c3'],
+    'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
 PQM_Features::register_capabilities();
 PQM_Activator::uninstall(); // story 44: the SDK's after_uninstall hook calls it
+check('uninstall revokes the Application Password the setup map names (user id and uuid from the map), before pqm_n8n_setup is deleted (bug 73)',
+    count($GLOBALS['tw_app_revoked']) === 1 && $GLOBALS['tw_app_revoked'][0][0] === 7 && $GLOBALS['tw_app_revoked'][0][1] === 'app-uuid'
+    && !in_array('pqm_n8n_setup', $GLOBALS['tw_app_revoked'][0]['deleted so far'], true));
 check('uninstall deletes the leftover pqm_view_as meta for all users',
     in_array(['user', 0, 'pqm_view_as', '', true], $GLOBALS['tw_metadata_deletes'], true));
 /* Story 44: the cleanup moved from uninstall.php into PQM_Activator::uninstall(), unchanged. */
 check('uninstall drops the pqm_reviews table', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_pqm_reviews`']);
 check('uninstall deletes every pqm_ option',
     $GLOBALS['tw_option_deletes'] === ['pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen',
-        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers']);
+        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers', 'pqm_n8n_provisioning']);
+$GLOBALS['tw_option_deletes'] = [];
+$GLOBALS['tw_app_revoked'] = [];
+$GLOBALS['tw_cleared_hooks'] = []; // the cron check below counts this second run's clear
+unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
+PQM_Activator::uninstall();
+check('uninstall without a setup map: no Application Password revoked, every option still deleted', $GLOBALS['tw_app_revoked'] === []
+    && in_array('pqm_n8n_setup', $GLOBALS['tw_option_deletes'], true) && in_array('pqm_n8n_provisioning', $GLOBALS['tw_option_deletes'], true));
 check('uninstall deletes the pqm_monthly_usage meta for all users',
     in_array(['user', 0, 'pqm_monthly_usage', '', true], $GLOBALS['tw_metadata_deletes'], true));
 check('uninstall strips every pqm_ cap from every role', array_filter(array_map(

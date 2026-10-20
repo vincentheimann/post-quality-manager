@@ -29,6 +29,11 @@
  * map's workflow, the PUT body asserted (four keys, the map's ids on every
  * credentialed node, the map's path on the trigger, the read name), and the
  * status block's fix per gate.
+ * Bugs 72, 73, 75, 80 (one build): the provisioning lock (a second run
+ * started during the first is refused before any call; a stale lock is
+ * taken over), the Application Password the setup map keeps and what
+ * revokes it, the 409-on-activate sentence, and the ping after activation
+ * retried over n8n's publication window (404 only; the wait filter set to 0).
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -51,6 +56,8 @@ $GLOBALS['tw'] = [
     'calls'    => [], // wp_remote_request() / wp_remote_get() calls: [url, args, answer]
     'pings'    => [], // wp_remote_post() calls (the webhook ping): [url, args]
     'ping_response' => null,
+    'ping_queue'    => [],   // scripted ping answers, in call order; ping_response once empty (bug 80)
+    'filters'       => ['pqm_provision_ping_retry_wait' => 0], // apply_filters() answers: no wait between the retried pings
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
     'app_created'   => [],   // Application Passwords created: [user_id, args]
     'app_revoked'   => [],   // Application Passwords deleted: [user_id, uuid]
@@ -96,16 +103,19 @@ function wp_remote_request($url, $args) {
     return $answer;
 }
 function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
-function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
+function wp_remote_post($url, $args) {
+    $GLOBALS['tw']['pings'][] = [$url, $args];
+    return $GLOBALS['tw']['ping_queue'] !== [] ? array_shift($GLOBALS['tw']['ping_queue']) : $GLOBALS['tw']['ping_response'];
+}
 function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
 function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
 function wp_generate_uuid4() { return $GLOBALS['tw']['uuid'] ?? 'stub-uuid'; } // entry 10 rotates to a distinct token
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
-function apply_filters($tag, $value) { return $value; }
+function apply_filters($tag, $value) { return $GLOBALS['tw']['filters'][$tag] ?? $value; }
 function esc_url_raw($s) { return trim((string) $s); }
 function absint($n) { return abs((int) $n); }
 function home_url($p = '') { return $GLOBALS['tw']['home'] . $p; }
-function wp_get_current_user() { return (object) ['ID' => 7, 'user_login' => 'admin-anna']; }
+function wp_get_current_user() { return (object) ['ID' => 7, 'user_login' => 'admin-anna', 'display_name' => 'Anna Admin']; }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
 const APP_PASSWORD = 'abcd EFGH ijkl MNOP qrst UVWX';
 class WP_Application_Passwords {
@@ -537,6 +547,7 @@ function connected(array $queue, array $extra = []): void {
     site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000]],
         'pqm_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
     $GLOBALS['tw']['pings']         = [];
+    $GLOBALS['tw']['ping_queue']    = [];
     $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
     $GLOBALS['tw']['app_passwords'] = true;
     $GLOBALS['tw']['app_created']   = [];
@@ -559,9 +570,21 @@ function linked(array $workflow): array {
     return array_column(array_filter($workflow['nodes'], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
 }
 
-/** Nothing written, nothing pinged, no Application Password created or revoked. */
+/** Nothing written but the lock's claim and release (bug 72), the lock gone, nothing pinged, no Application Password created or revoked. */
 function untouched(): bool {
-    return $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['app_revoked'] === [];
+    return array_values(array_diff($GLOBALS['tw']['writes'], [PQM_N8n::LOCK_OPTION, '-' . PQM_N8n::LOCK_OPTION])) === [] && lock_free()
+        && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['app_revoked'] === [];
+}
+
+/** The provisioning lock is not held (bug 72): absent, or never written. */
+function lock_free(): bool {
+    return !isset($GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION]);
+}
+
+/** The setup map a passing Pro run stores (bug 73: with the Application Password it created), `at` as stored. */
+function pro_map(?int $at): array {
+    return ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'],
+        'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => $at, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
 }
 
 $template = json_decode((string) pqm_workflow_json(), true);
@@ -602,18 +625,22 @@ check('acceptance: all 8 credentialed nodes carry the created id, none left name
 check('the trigger path is pqm_webhook_path()', array_column($sent['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] === pqm_webhook_path());
 check('activate is sent {}', $GLOBALS['tw']['calls'][5][1]['body'] === '{}');
 $setup = $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] ?? null;
-check('setup map stored, autoload off', $setup === ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'],
-    'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => $setup['at'] ?? null] && abs($setup['at'] - time()) <= 5
+check('setup map stored, autoload off; bug 73: it names the Application Password {uuid, user_id}', $setup === pro_map($setup['at'] ?? null) && abs($setup['at'] - time()) <= 5
     && $GLOBALS['tw']['autoload'][PQM_N8n::SETUP_OPTION] === false);
+check('bug 72: the lock claimed before the first call (add_option, autoload off) and gone after the map is stored',
+    $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION
+    && $GLOBALS['tw']['writes'][array_search(PQM_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) + 1] === '-' . PQM_N8n::LOCK_OPTION
+    && $GLOBALS['tw']['autoload'][PQM_N8n::LOCK_OPTION] === false && lock_free()
+    && PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning');
 check('webhook URL saved: connected origin + /webhook/ + the path; the token kept', $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => TOKEN, 'n8n_webhook_url' => HOOK]);
 check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
     && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === TOKEN);
 check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === PQM_WORKFLOW_VERSION);
 check('the ping recorded as the connect route does (autoload off): Set up the workflow reads done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
     && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
-check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready, status_html}', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html']
+check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready, status_html}; neither the uuid nor the password in it', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html']
     && $r['provisioned'] === true && $r['ping_ok'] === true && $r['workflow_id'] === 'wf1' && $r['rewrite_ready'] === true
-    && str_starts_with($r['message'], 'Ping OK'));
+    && str_starts_with($r['message'], 'Ping OK') && !str_contains(json_encode($r), 'app-uuid') && !str_contains(json_encode($r), APP_PASSWORD));
 check('... status_html = the page\'s refreshed body with the message first (entry 6; story 67): set up', $r['status_html'] === PQM_Admin::render_workflow_body($r['message'], 'success')
     && str_contains($r['status_html'], '<div class="pqm-workflow-status" data-state="set-up">') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>'));
 $hits = array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)));
@@ -625,8 +652,14 @@ $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
 $conn        = json_encode(get_state());
 $setup_reply = json_encode(PQM_REST_API::get_setup_callback()->get_data());
 $replies[]   = $setup_reply;
-check('GET /n8n/connection and GET /setup after provisioning: no provider key, no Application Password',
-    !str_contains($conn . $setup_reply, PROVIDER_KEY) && !str_contains($conn . $setup_reply, APP_PASSWORD) && str_contains($setup_reply, '"webhook_url"'));
+check('GET /n8n/connection and GET /setup after provisioning: no provider key, no Application Password, no uuid (bug 73)',
+    !str_contains($conn . $setup_reply, PROVIDER_KEY) && !str_contains($conn . $setup_reply, APP_PASSWORD) && !str_contains($conn . $setup_reply, 'app-uuid')
+    && str_contains($setup_reply, '"webhook_url"'));
+check('bug 73, the wizard: GET /setup on the Pro build names whose Application Password the setup makes (the current user\'s display name)',
+    json_decode($setup_reply, true)['application_password_user'] === 'Anna Admin');
+$GLOBALS['tw']['app_passwords'] = false;
+check('... \'\' where the site offers no Application Passwords (D1): the sentence is not shown', PQM_REST_API::get_setup_callback()->get_data()['application_password_user'] === '');
+$GLOBALS['tw']['app_passwords'] = true;
 
 echo "Provisioning: Pro, no Application Passwords (D1)\n";
 // What n8n stores of it: Update WP Post (Rewrite) without a credential id.
@@ -645,7 +678,8 @@ check('reply: provisioned, rewrite_ready false, the message says Rewrite stays o
     $r['provisioned'] === true && $r['ping_ok'] === true && $r['rewrite_ready'] === false
     && str_contains($r['message'], 'Rewrite stays off') && str_contains($r['message'], 'does not run on HTTPS')
     && str_contains($r['message'], 'a WordPress credential is added in n8n on the Update WP Post (Rewrite) node'));
-check('map without a wordpress credential', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']);
+check('map without a wordpress credential, and without an application_password (bug 73)', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
+    && !array_key_exists('application_password', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]));
 
 echo "Provisioning: the provider key refused\n";
 foreach ([401, 403] as $code) {
@@ -676,6 +710,7 @@ connected(PRO_OK, [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'old', 'credential
 $r = provision();
 check('a setup map exists: 409 pqm_already_provisioned, zero calls', $r instanceof WP_Error && $r->code === 'pqm_already_provisioned'
     && $r->data['status'] === 409 && calls() === [] && untouched());
+
 
 /* ─── Entry 5: a failed run leaves nothing behind ────────────────────── */
 echo "Rollback: the option and the instance model\n";
@@ -746,6 +781,42 @@ function plain(WP_Error $r, string $says): bool {
         && !preg_match('/request\/body|Internal error|Not Found|still being unpublished|has no node|HTTP 200/', $r->message);
 }
 
+/* ─── Bug 72: one run at a time ──────────────────────────────────────── */
+echo "Provisioning: two runs started together (bug 72)\n";
+// Run B starts while run A is on its first POST /credentials: the scripted answer of that call runs B.
+$b = null;
+connected(array_merge([MODELS_OK, static function () use (&$b) {
+    $calls  = count($GLOBALS['tw']['calls']);
+    $writes = count($GLOBALS['tw']['writes']);
+    $reply  = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => PROVIDER_KEY]));
+    $GLOBALS['replies'][] = $reply instanceof WP_Error ? json_encode([$reply->code, $reply->message, $reply->data]) : json_encode($reply->get_data());
+    $b = ['reply' => $reply, 'calls' => count($GLOBALS['tw']['calls']) - $calls, 'writes' => array_slice($GLOBALS['tw']['writes'], $writes),
+        'lock' => $GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION] ?? null, 'pings' => count($GLOBALS['tw']['pings']), 'created' => count($GLOBALS['tw']['app_created'])];
+    return created('c-webhook');
+}], array_slice(PRO_OK, 2)));
+$r = provision();
+check('run B: 409 pqm_already_provisioned, zero n8n calls, nothing written, no ping, no Application Password; A\'s lock {at} held meanwhile',
+    $b['reply'] instanceof WP_Error && $b['reply']->code === 'pqm_already_provisioned' && $b['reply']->data['status'] === 409
+    && $b['calls'] === 0 && $b['writes'] === [] && $b['pings'] === 0 && $b['created'] === 1
+    && is_array($b['lock']) && array_keys($b['lock']) === ['at'] && abs($b['lock']['at'] - time()) <= 5);
+check('run A finishes: one workflow and three credentials on the instance, the map A\'s, the lock gone', $r['provisioned'] === true && $r['ping_ok'] === true
+    && calls() === [...CREATE_ALL, READ_WF] && on_instance() === ['credentials/c-anthropic', 'credentials/c-webhook', 'credentials/c-wp', 'workflows/wf1']
+    && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['workflow_id'] === 'wf1' && lock_free() && count($GLOBALS['tw']['app_created']) === 1);
+
+echo "Provisioning: the lock held, the lock stale\n";
+$held_at = time() - 60;
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => ['at' => $held_at]]);
+$r = provision();
+check('a lock 1 minute old: 409 pqm_already_provisioned, zero calls, nothing written, the lock as it was', $r instanceof WP_Error && $r->code === 'pqm_already_provisioned'
+    && $r->data['status'] === 409 && calls() === [] && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === []
+    && $GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION] === ['at' => $held_at]);
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => ['at' => time() - 6 * 60]]);
+$r = provision();
+check('a lock 6 minutes old (a run PHP killed; ceiling 5 minutes): taken over, the normal run, the lock gone after', $r['provisioned'] === true
+    && calls() === [...CREATE_ALL, READ_WF] && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && lock_free()
+    && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['workflow_id'] === 'wf1');
+check('the ceiling is 5 minutes (LOCK_TTL)', PQM_N8n::LOCK_TTL === 300);
+
 echo "Rollback: n8n refuses a step, everything removed\n";
 foreach ([
     'credential_webhook'   => [1, resp(400, ['message' => 'request/body/data must have required property']), [], 'while creating the webhook credential (n8n answered HTTP 400)'],
@@ -769,9 +840,26 @@ foreach ([
         && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true));
     check('... the Application Password revoked with the created uuid', revoked());
     check("... the message says \"$says\", that nothing was left, never n8n's reply body", plain($r, $says) && str_ends_with($r->message, CLEAN));
-    check('... nothing saved, no ping', nothing_saved());
+    check('... nothing saved, no ping; the lock released (bug 72)', nothing_saved() && lock_free());
 }
 check('a deactivate is sent {}, like activate', ($GLOBALS['tw']['calls'][6][1]['body'] ?? null) === '{}');
+
+echo "Rollback: activate refused with 409, the webhook path held (bug 75)\n";
+const HELD_PATH = 'The n8n setup stopped while activating the workflow: another active workflow on this n8n instance already listens on this site\'s webhook path.';
+const WAYS_OUT  = 'If that workflow is this site\'s, paste its production URL as the n8n Webhook URL and choose Let the plugin manage this workflow on the n8n Workflow page; otherwise remove it in n8n, then try again.';
+connected(array_merge(array_slice(PRO_OK, 0, 5), [resp(409, ['message' => 'Workflow has a webhook path conflict']), INACTIVE, DELETED, DELETED, DELETED, DELETED]));
+$r = provision();
+check('502 pqm_provision_failed, data.step = activate; the rollback as today, the instance clean, the Application Password revoked, nothing saved, the lock released',
+    $r instanceof WP_Error && $r->code === 'pqm_provision_failed' && $r->data === ['status' => 502, 'step' => 'activate']
+    && calls() === array_merge(CREATE_ALL, UNDO_ALL) && rollback_ordered() && on_instance() === [] && revoked() && nothing_saved() && lock_free()
+    && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true));
+check('... the message names the held path, that nothing was left, and the two ways out; never "Try again in a moment", never n8n\'s reply body',
+    $r->message === HELD_PATH . ' Nothing was left in n8n. ' . WAYS_OUT && !str_contains($r->message, 'Try again in a moment') && plain($r, 'while activating the workflow:'));
+connected(array_merge(array_slice(PRO_OK, 0, 5), [resp(409, ['message' => 'x']), INACTIVE, UNPUBLISHING]));
+$r = provision();
+check('... with leftovers: the same cause, the leftovers sentence, the two ways out', $r instanceof WP_Error && $r->data['step'] === 'activate'
+    && $r->message === HELD_PATH . ' Some of what it created is still in n8n: the next try removes it first. ' . WAYS_OUT
+    && isset($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION]) && lock_free());
 
 echo "Rollback: the template names an unknown credential (link)\n";
 // The template is filled before the models check, the credential names after it: another host in between.
@@ -855,19 +943,48 @@ connected([resp(401, ['type' => 'error'])], $old);
 $r = provision();
 check('a refused provider key: the leftovers are not touched (no n8n call)', $r->code === 'pqm_provider_key_invalid' && calls() === [MODELS] && untouched());
 
+echo "Provisioning: the ping meets n8n's publication window (bug 80)\n";
+define('HOOK_404', resp(404, ['code' => 404, 'message' => 'The requested webhook is not registered.']));
+const EARLY_404 = 'Your workflow is set up and active in n8n, but its webhook did not answer yet (n8n responded with 404). Give n8n a moment, then press Test again on the n8n Workflow page. If it keeps answering 404, your n8n may serve webhooks on another address than its editor: copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.';
+connected(PRO_OK);
+$GLOBALS['tw']['ping_queue'] = [HOOK_404];
+$r = provision();
+check('404 then 200: 2 pings of the saved URL, with the token; the reply ping_ok, "Ping OK"', count($GLOBALS['tw']['pings']) === 2 && $r['provisioned'] === true && $r['ping_ok'] === true
+    && array_unique(array_column($GLOBALS['tw']['pings'], 0)) === [HOOK] && $GLOBALS['tw']['pings'][1][1]['headers']['X-PQM-Token'] === TOKEN && str_starts_with($r['message'], 'Ping OK'));
+check('... the version recorded, no failure on record; Set up the workflow done; status_html set up; the diagnosis read once, after the passing ping',
+    pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION && !isset(pqm_workflow_report()['failed']) && ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
+    && str_contains($r['status_html'], 'data-state="set-up"') && calls() === [...CREATE_ALL, READ_WF] && $GLOBALS['tw']['queue'] === []);
+connected(PRO_OK);
+$GLOBALS['tw']['ping_queue'] = [HOOK_404, HOOK_404];
+$r = provision();
+check('404, 404, 200: 3 pings, then as passed', count($GLOBALS['tw']['pings']) === 3 && $r['ping_ok'] === true && !isset(pqm_workflow_report()['failed']));
+
 echo "Provisioning: the ping fails\n";
 connected(PRO_OK);
-$GLOBALS['tw']['ping_response'] = resp(404, ['code' => 404, 'message' => 'The requested webhook is not registered.']);
+$GLOBALS['tw']['ping_response'] = HOOK_404;
 $r = provision();
-check('200 {provisioned, ping_ok false, message}: points to pasting the Webhook Trigger URL', $r['provisioned'] === true && $r['ping_ok'] === false
-    && str_contains($r['message'], 'n8n responded with 404') && str_contains($r['message'], 'paste it as the n8n Webhook URL'));
-check('... everything kept: map stored, URL saved, no version recorded (the failure is: story 67)', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
+check('404 three times: 3 pings, no more; 200 {provisioned, ping_ok false, message}: set up and active, the webhook did not answer yet, Test again first, the editor-address hint second',
+    count($GLOBALS['tw']['pings']) === 3 && $r['provisioned'] === true && $r['ping_ok'] === false && $r['message'] === EARLY_404);
+check('... everything kept: map stored, URL saved, no version recorded; the failure on record is that sentence (story 67)', isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && pqm_workflow_report()['version'] === 0
-    && str_starts_with(pqm_workflow_report()['failed']['message'] ?? '', 'n8n responded with 404'));
+    && (pqm_workflow_report()['failed']['message'] ?? '') === EARLY_404);
 check('... the failed ping recorded, so Set up the workflow stays open (setup incomplete); status_html needs attention, the message its outcome line', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false
     && str_contains($r['status_html'], 'data-state="failing"') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>') && !pqm_setup_complete());
-check('... no rollback: nothing deactivated, deleted or revoked, no leftovers recorded', calls() === CREATE_ALL && $GLOBALS['tw']['app_revoked'] === []
-    && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true));
+check('... no rollback: nothing deactivated, deleted or revoked, no leftovers recorded; the lock released', calls() === CREATE_ALL && $GLOBALS['tw']['app_revoked'] === []
+    && !in_array(PQM_N8n::LEFTOVERS_OPTION, $GLOBALS['tw']['writes'], true) && lock_free());
+foreach (['a 401' => [resp(401, ['message' => 'Authorization data is wrong!']), 'n8n refused the webhook credential (HTTP 401)'],
+    'a 500' => [resp(500, ['message' => 'Workflow error']), 'n8n responded with HTTP 500'],
+    'a WP_Error' => [timed_out(), 'Could not connect to n8n: cURL error 28: timed out']] as $label => [$answer, $cause]) {
+    connected(PRO_OK);
+    $GLOBALS['tw']['ping_response'] = $answer;
+    $r = provision();
+    check("$label: one ping, today's sentence (the ping did not get through, its own cause, the editor-address hint); that cause on record", count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false
+        && str_starts_with($r['message'], 'Your workflow is set up and active in n8n, but the ping did not get through. ' . $cause) && !str_contains($r['message'], 'did not answer yet')
+        && str_ends_with($r['message'], 'paste it as the n8n Webhook URL.') && str_starts_with(pqm_workflow_report()['failed']['message'] ?? '', $cause));
+}
+check('the retry wait is the filter pqm_provision_ping_retry_wait, 2 s by default, in the provisioning callback only (the Test button, rotation and update ping once)',
+    (bool) preg_match('/sleep\\( max\\( 0, \\(int\\) apply_filters\\( \'pqm_provision_ping_retry_wait\', 2 \\) \\) \\);/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php'))
+    && !preg_match('/pqm_provision_ping_retry_wait|sleep\\(/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php')));
 
 echo "Provisioning: the provider key leak scan\n";
 check('after every run (' . count($provision_runs) . '): the provider key and the Application Password are in no option and no ping',
@@ -875,6 +992,21 @@ check('after every run (' . count($provision_runs) . '): the provider key and th
 check('... and in no outgoing call but the models request and the Anthropic credential body',
     !array_filter($provision_runs, static fn($run) => array_filter($run[1], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)
         && $c[0] !== 'https://api.anthropic.com/v1/models?limit=1' && !str_starts_with($c[1]['body'] ?? '', '{"name":"Anthropic - Claude"'))));
+check('... the Application Password\'s uuid (bug 73) is in no ping and no outgoing call (it lives in the setup map only)',
+    !array_filter($provision_runs, static fn($run) => str_contains(json_encode([$run[1], $run[2]]), 'app-uuid')));
+
+/* ─── Bug 73: the setup map's Application Password is revoked with the map ─ */
+echo "Revoke: the setup map's Application Password\n";
+site([PQM_N8n::SETUP_OPTION => pro_map(1)]);
+$GLOBALS['tw']['app_revoked'] = [];
+PQM_N8n::revoke_setup_password__premium_only();
+check('a map with application_password: delete_application_password(user_id, uuid), once; the map untouched', $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']] && $GLOBALS['tw']['writes'] === []);
+foreach (['a map without the key (an earlier version, or adopted)' => [PQM_N8n::SETUP_OPTION => array_diff_key(pro_map(1), ['application_password' => 0])], 'no map' => []] as $label => $options) {
+    site($options);
+    $GLOBALS['tw']['app_revoked'] = [];
+    PQM_N8n::revoke_setup_password__premium_only();
+    check("$label: no call", $GLOBALS['tw']['app_revoked'] === [] && $GLOBALS['tw']['writes'] === []);
+}
 
 /* ─── Entry 7: the handshake reports a mis-wired workflow ───────────── */
 echo "Diagnosis: one row per line of the plan's matrix\n";
@@ -1679,8 +1811,8 @@ check('every status block the update rows answered: at most one primary, one whe
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";
-check('no REST reply above carries either n8n key, the provider key or the Application Password (' . count($replies) . ' replies)', $replies !== []
-    && !array_filter($replies, static fn($r) => str_contains($r, KEY) || str_contains($r, OLD_KEY) || str_contains($r, PROVIDER_KEY) || str_contains($r, APP_PASSWORD)));
+check('no REST reply above carries either n8n key, the provider key, the Application Password or its uuid (' . count($replies) . ' replies)', $replies !== []
+    && !array_filter($replies, static fn($r) => str_contains($r, KEY) || str_contains($r, OLD_KEY) || str_contains($r, PROVIDER_KEY) || str_contains($r, APP_PASSWORD) || str_contains($r, 'app-uuid')));
 $src  = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php');
 $rest = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php');
 check('the client and the REST class log nothing (no error_log, print_r, var_dump)', !preg_match('/\b(error_log|print_r|var_dump|var_export)\s*\(/', $src . $rest));

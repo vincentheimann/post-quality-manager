@@ -432,6 +432,27 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( document.body.innerHTML ).not.toContain( PROVIDER_KEY );
 	} );
 
+	test( 'Pro: the step says whose Application Password n8n gets and that it is revoked with the setup; nothing without the key (bug 73)', async () => {
+		await openDialog(
+			// eslint-disable-next-line camelcase -- REST field name.
+			siteState( {
+				n8n: PASSING,
+				application_password_user: 'Anna Admin',
+			} )
+		);
+		expect(
+			document.querySelector( '.pqm-setup-step' ).textContent
+		).toContain(
+			'n8n saves rewrites as Anna Admin through an Application Password created for it on that profile; the plugin revokes it when the setup is removed.'
+		);
+		act( () => root.unmount() );
+		await openDialog( siteState( { n8n: PASSING } ) );
+		expect( heading() ).toBe( 'Step 2 of 6: Set up the workflow' );
+		expect(
+			document.querySelector( '.pqm-setup-step' ).textContent
+		).not.toContain( 'Application Password' );
+	} );
+
 	test( 'Pro without Application Passwords: proceeds, the Rewrite message shown as a warning', async () => {
 		await openDialog( siteState( { n8n: PASSING } ), {
 			[ `POST ${ PROVISION }` ]: {
