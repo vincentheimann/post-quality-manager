@@ -3,7 +3,7 @@ title: "The n8n connection state tells the truth after the fact (story 74)"
 type: 'feature'
 ticket: '74'
 created: '2026-10-20'
-status: built
+status: done
 baseline_revision: '5ace98115622ad9dcdb6c56069f6bfd7358f819d'
 route: 'full'
 route_source: 'pinned'
