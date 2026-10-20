@@ -263,6 +263,8 @@ export default function SetupIsland() {
 			connected: true,
 			provisioned: true,
 			leftovers: false,
+			// eslint-disable-next-line camelcase -- REST field name.
+			leftovers_elsewhere: '',
 			steps: { ...prev.steps, provision: pingOk, manual: pingOk },
 			// eslint-disable-next-line camelcase -- REST field name.
 			webhook_url: `${ prev.n8n.base_url }/webhook/${ prev.webhook_path }`,

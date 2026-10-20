@@ -497,8 +497,8 @@ $adopted = PQM_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' =
 $adopted = $adopted instanceof WP_REST_Response ? $adopted->get_data() : null;
 $map     = $GLOBALS['tw']['options']['pqm_n8n_setup'] ?? [];
 check('... confirmed: the map without wordpress, wizard_created false; the reply has no rewrite_ready; GET calls only', $adopted !== null
-    && !array_key_exists('rewrite_ready', $adopted) && $adopted['setup'] === ['wizard_created' => false, 'at' => $map['at'] ?? null]
-    && array_diff_key($map, ['at' => 0]) === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute-example-com', 'wizard_created' => false]
+    && !array_key_exists('rewrite_ready', $adopted) && $adopted['setup'] === ['wizard_created' => false, 'at' => $map['at'] ?? null, 'host' => 'n8n.example', 'same_instance' => true]
+    && array_diff_key($map, ['at' => 0]) === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute-example-com', 'base_url' => 'https://n8n.example', 'wizard_created' => false]
     && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === array_fill(0, 2, 'GET https://n8n.example/api/v1/workflows?active=true&limit=250&excludePinnedData=true'));
 $GLOBALS['tw']['options'] = $before_adoption;
 

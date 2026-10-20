@@ -1474,7 +1474,10 @@ class PQM_Admin
             return ['state' => 'manual', 'reason' => $reason] + $base;
         }
         if ($connection['api_key'] !== '' && !empty($connection['probe']['ok'])) {
-            return ['state' => 'connected', 'leftovers' => (bool) get_option(PQM_N8n::LEFTOVERS_OPTION, false)] + $base;
+            // Story 71: only a record of the connected instance is removed by the next setup (as GET /setup reads it).
+            $leftovers = get_option(PQM_N8n::LEFTOVERS_OPTION, false);
+
+            return ['state' => 'connected', 'leftovers' => is_array($leftovers) && ($leftovers['base_url'] ?? '') === $connection['base_url']] + $base;
         }
 
         return ['state' => 'not-set-up'] + $base;
@@ -2094,9 +2097,13 @@ class PQM_Admin
      * Shared by the AJAX handler and the setup dialog's connect route
      * (story 36); the callers decide whether to record the version.
      *
-     * @param bool $diagnose False: no diagnosis read on n8n, `miswired` null
-     *                       (the token rotation's ping, n8n provisioning
-     *                       entry 10: its PATCH is the one n8n API call).
+     * @param bool $diagnose   False: no diagnosis read on n8n, `miswired` null
+     *                         (the token rotation's ping, n8n provisioning
+     *                         entry 10: its PATCH is the one n8n API call).
+     * @param bool $check_gone False: a 404 of the saved URL is never read as a
+     *                         gone workflow (story 71, D4) — the pings right
+     *                         after provisioning and after an update, which
+     *                         just wrote the workflow; a test ping asks.
      * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool, code?: int}
      *         `version` is the replied workflow version (0 = an older
      *         workflow that does not report it), null when the ping failed.
@@ -2107,7 +2114,7 @@ class PQM_Admin
      *         (diagnosed()) come with every 2xx; `refused` (true) with a
      *         401/403, n8n refusing the token.
      */
-    public static function ping_webhook(string $url, bool $diagnose = true): array
+    public static function ping_webhook(string $url, bool $diagnose = true, bool $check_gone = true): array
     {
         // A test URL would answer while the n8n editor listens and then miss
         // every real run — refuse before sending.
@@ -2121,6 +2128,11 @@ class PQM_Admin
         // "needs attention"); a passing one is recorded by the callers, which
         // clears it.
         if (!$ping['ok'] && $url === pqm_get_settings()['n8n_webhook_url']) {
+            // Story 71: a 404 of the URL the plugin's own workflow listened on may
+            // mean that workflow was deleted in n8n — one read by its id says so.
+            if ($check_gone && $diagnose && ($ping['code'] ?? 0) === 404 && PQM_N8n::workflow_gone($url)) {
+                $ping['message'] = __('The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.', 'post-quality-manager');
+            }
             pqm_record_workflow_failure($ping['message']);
         }
 

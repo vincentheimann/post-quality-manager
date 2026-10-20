@@ -32,6 +32,28 @@ jest.mock(
 		Notice: ( { status, children } ) => (
 			<div className={ 'mock-notice-' + status }>{ children }</div>
 		),
+		// Story 71: the Start over Modal and its removal checkbox.
+		Modal: ( { title, className, children, onRequestClose } ) => (
+			<div className={ 'mock-modal ' + ( className || '' ) }>
+				<h1>{ title }</h1>
+				<button
+					type="button"
+					className="mock-modal-close"
+					onClick={ onRequestClose }
+				>
+					Close dialog
+				</button>
+				{ children }
+			</div>
+		),
+		CheckboxControl: ( { label, checked, onChange } ) => (
+			<input
+				type="checkbox"
+				aria-label={ label }
+				checked={ checked }
+				onChange={ ( e ) => onChange( e.target.checked ) }
+			/>
+		),
 		TextControl: ( {
 			label,
 			help,
@@ -900,5 +922,200 @@ describe( 'After an adoption (story 67): the page re-reads its body', () => {
 		expect( $( '.pqm-n8n-rotate' ) ).toBeNull();
 		expect( text() ).not.toContain( 'Rotate' );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+} );
+
+describe( 'Start over (story 71)', () => {
+	const SETUP_PATH = '/post-quality/v1/n8n/setup';
+	const MAP = {
+		at: 1760000000,
+		host: 'n8n.example.com',
+		same_instance: true,
+	}; // eslint-disable-line camelcase -- REST field names.
+	const WIZARD = {
+		...CONNECTED,
+		rotatable: true,
+		setup: { ...MAP, wizard_created: true }, // eslint-disable-line camelcase -- REST field name.
+	};
+	const ADOPTED = {
+		...CONNECTED,
+		rotatable: true,
+		setup: { ...MAP, wizard_created: false }, // eslint-disable-line camelcase -- REST field name.
+	};
+	const ELSEWHERE = {
+		...CONNECTED,
+		setup: {
+			...MAP,
+			host: 'old.example.com',
+			same_instance: false,
+			wizard_created: true,
+		}, // eslint-disable-line camelcase -- REST field names.
+	};
+	const STARTED_OVER = {
+		...CONNECTED,
+		message:
+			'The setup was removed here and in n8n. Set n8n up again when you are ready.',
+		status_html:
+			'<div class="pqm-workflow-status" data-state="connected"><p>Connected to n8n at n8n.example.com. The workflow is not set up yet.</p></div>', // eslint-disable-line camelcase -- REST field name.
+	};
+	const modal = () => $( '.mock-modal' );
+	const checkbox = () =>
+		$(
+			'input[aria-label="Also remove the workflow and its credentials in n8n"]'
+		);
+
+	/**
+	 * Mount on the page (variant secondary, as src/index.js mounts it), with
+	 * the page's body beside the island root: a confirmed Start over asks
+	 * pqm-admin.js to re-read it, never swaps it from inside the island.
+	 *
+	 * @param {Object} state GET reply.
+	 */
+	async function mountOnPage( state ) {
+		document.body.innerHTML =
+			'<div id="pqm-n8n-connection-root"></div><div id="pqm-workflow-body"><p class="old-body">old</p></div>';
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValueOnce( state );
+		root = createRoot(
+			document.getElementById( 'pqm-n8n-connection-root' )
+		);
+		await act( async () => {
+			root.render( <N8nConnection variant="secondary" /> );
+		} );
+	}
+
+	test( 'inside the setup wizard (variant primary): no Start over button, the managed line as before', async () => {
+		await mount( WIZARD );
+		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+		expect( $( '.pqm-n8n-start-over' ) ).toBeNull();
+		expect( modal() ).toBeNull();
+	} );
+
+	test( 'the button under the managed line; no Modal until pressed; no call', async () => {
+		await mountOnPage( WIZARD );
+		const button = $( '.pqm-n8n-start-over' );
+		expect( button ).not.toBeNull();
+		expect( button.getAttribute( 'data-variant' ) ).toBe( 'secondary' );
+		expect( $( '.pqm-n8n-managed' ).nextElementSibling ).toBe( button );
+		expect( modal() ).toBeNull();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'wizard-created: the Modal with the checkbox ticked, no hand-made warning; Cancel closes it without a call', async () => {
+		await mountOnPage( WIZARD );
+		await click( '.pqm-n8n-start-over' );
+		expect( modal() ).not.toBeNull();
+		expect( modal().querySelector( 'h1' ).textContent ).toBe(
+			'Start over?'
+		);
+		expect( modal().textContent ).toContain( 'Your n8n API key stays.' );
+		expect( checkbox().checked ).toBe( true );
+		expect( modal().querySelector( '.mock-notice-warning' ) ).toBeNull();
+		await click( '.pqm-n8n-start-over-cancel' );
+		expect( modal() ).toBeNull();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'adopted: the checkbox unticked, the hand-made warning', async () => {
+		await mountOnPage( ADOPTED );
+		await click( '.pqm-n8n-start-over' );
+		expect( checkbox().checked ).toBe( false );
+		expect(
+			modal().querySelector( '.mock-notice-warning' ).textContent
+		).toBe(
+			'This workflow and its credentials were made by hand in n8n. Leave the box unticked to keep them.'
+		);
+	} );
+
+	test( 'another instance: the managed line names both hosts; the Modal offers no checkbox, says the objects stay there', async () => {
+		await mountOnPage( ELSEWHERE );
+		expect( $( '.pqm-n8n-managed' ).textContent ).toBe(
+			'The plugin set this workflow up on old.example.com; you are connected to n8n.example.com now. Update workflow and Rotate token stay off until you connect old.example.com again or start over.'
+		);
+		await click( '.pqm-n8n-start-over' );
+		expect( checkbox() ).toBeNull();
+		expect( $( '.pqm-n8n-start-over-stays' ).textContent ).toBe(
+			'Your workflow and credentials stay on old.example.com: the plugin does not touch an instance it is not connected to.'
+		);
+		apiFetch.mockResolvedValueOnce( STARTED_OVER );
+		await click( '.pqm-n8n-start-over-confirm' );
+		expect( apiFetch ).toHaveBeenLastCalledWith( {
+			path: SETUP_PATH,
+			method: 'DELETE',
+			data: { remove_from_n8n: false }, // eslint-disable-line camelcase -- REST field name.
+		} );
+	} );
+
+	test( 'no passing key: no checkbox either, the plain "stay on" line', async () => {
+		await mountOnPage( {
+			...WIZARD,
+			probe: {
+				...WIZARD.probe,
+				ok: false,
+				message: 'n8n refused this API key.',
+			},
+		} );
+		await click( '.pqm-n8n-start-over' );
+		expect( checkbox() ).toBeNull();
+		expect( $( '.pqm-n8n-start-over-stays' ).textContent ).toBe(
+			'Your workflow and credentials stay on n8n.example.com.'
+		);
+	} );
+
+	test( 'confirm: DELETE /n8n/setup with the checkbox value; one pqm:workflow-refresh focusing the n8n connection disclosure, no swap from the island; the managed line is gone', async () => {
+		const swapped = jest.fn();
+		const refreshed = jest.fn();
+		document.addEventListener( 'pqm:workflow-status', swapped );
+		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		await mountOnPage( WIZARD );
+		await click( '.pqm-n8n-start-over' );
+		await act( async () => {
+			checkbox().click();
+		} );
+		expect( checkbox().checked ).toBe( false );
+		await act( async () => {
+			checkbox().click();
+		} );
+		apiFetch.mockResolvedValueOnce( STARTED_OVER );
+		await click( '.pqm-n8n-start-over-confirm' );
+		document.removeEventListener( 'pqm:workflow-status', swapped );
+		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
+		expect( apiFetch ).toHaveBeenLastCalledWith( {
+			path: SETUP_PATH,
+			method: 'DELETE',
+			data: { remove_from_n8n: true }, // eslint-disable-line camelcase -- REST field name.
+		} );
+		expect( refreshed ).toHaveBeenCalledTimes( 1 );
+		expect( refreshed.mock.calls[ 0 ][ 0 ].detail.focus ).toBe(
+			'pqm-n8n-connection'
+		);
+		expect( swapped ).not.toHaveBeenCalled();
+		expect( document.querySelector( '.old-body' ) ).not.toBeNull();
+		expect( modal() ).toBeNull();
+		expect( $( '.pqm-n8n-managed' ) ).toBeNull();
+		expect( $( '.pqm-n8n-start-over' ) ).toBeNull();
+		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
+	} );
+
+	test( "a refused call: the Modal closes, the cause in the adoption block's Notice, the managed line stays, no refresh", async () => {
+		const swapped = jest.fn();
+		document.addEventListener( 'pqm:workflow-refresh', swapped );
+		await mountOnPage( ELSEWHERE );
+		await click( '.pqm-n8n-start-over' );
+		apiFetch.mockRejectedValueOnce( {
+			code: 'pqm_other_instance',
+			message:
+				'The plugin set this workflow up on old.example.com, not on the n8n you are connected to now.',
+		} );
+		await click( '.pqm-n8n-start-over-confirm' );
+		document.removeEventListener( 'pqm:workflow-refresh', swapped );
+		expect( modal() ).toBeNull();
+		expect( $( '.pqm-n8n-adoption .mock-notice-error' ).textContent ).toBe(
+			'The plugin set this workflow up on old.example.com, not on the n8n you are connected to now.'
+		);
+		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+		expect( swapped ).not.toHaveBeenCalled();
+		expect( document.querySelector( '.old-body' ) ).not.toBeNull();
 	} );
 } );

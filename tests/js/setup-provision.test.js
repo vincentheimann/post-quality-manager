@@ -529,6 +529,22 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( field( 'Anthropic API key' ) ).not.toBeNull();
 	} );
 
+	test( 'leftovers on another instance (story 71): the by-hand notice naming that host instead, the key field still there', async () => {
+		await openDialog(
+			siteState( {
+				n8n: PASSING,
+				leftovers: false,
+				leftovers_elsewhere: 'old.example.com', // eslint-disable-line camelcase -- REST field name.
+			} )
+		);
+		expect(
+			document.querySelector( '.mock-notice-info' ).textContent
+		).toBe(
+			'An earlier setup left a workflow or credentials on old.example.com. The plugin does not touch another instance: remove them there by hand.'
+		);
+		expect( field( 'Anthropic API key' ) ).not.toBeNull();
+	} );
+
 	test( "by hand, by choice: the choice stored, the dialog closes and hands over to the page's Set up by hand (a refresh, that disclosure focused), no reload", async () => {
 		await openDialog( siteState(), {
 			[ `POST ${ SETUP }` ]: siteState( { manual: true } ),

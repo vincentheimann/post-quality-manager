@@ -323,13 +323,27 @@ function Provision( { state, onProvisioned, onConnected } ) {
 					'post-quality-manager'
 				) }
 			</p>
-			{ state.leftovers && (
+			{ state.leftovers_elsewhere ? (
+				// Story 71: a record of another instance is dropped, not removed.
 				<Notice status="info" isDismissible={ false }>
-					{ __(
-						'An earlier setup left a workflow or credentials in n8n. Setting up removes them first.',
-						'post-quality-manager'
+					{ sprintf(
+						/* translators: %s: the n8n host an earlier setup ran on */
+						__(
+							'An earlier setup left a workflow or credentials on %s. The plugin does not touch another instance: remove them there by hand.',
+							'post-quality-manager'
+						),
+						state.leftovers_elsewhere
 					) }
 				</Notice>
+			) : (
+				state.leftovers && (
+					<Notice status="info" isDismissible={ false }>
+						{ __(
+							'An earlier setup left a workflow or credentials in n8n. Setting up removes them first.',
+							'post-quality-manager'
+						) }
+					</Notice>
+				)
 			) }
 			<form className="pqm-setup-connect" onSubmit={ submit }>
 				<TextControl

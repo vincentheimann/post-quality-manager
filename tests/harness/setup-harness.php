@@ -354,7 +354,7 @@ site($connected + $key + $adopted);
 $s = setup_state();
 check('adopted (entry 8): a map with wizard_created false reads as provisioned — the key path, both n8n steps done; the island\'s setup line, not adoptable',
     $s['manual'] === false && $s['provisioned'] === true && $n8n_steps($s) === ['n8n' => true, 'provision' => true, 'manual' => true]
-    && $s['n8n']['setup'] === ['wizard_created' => false, 'at' => 1] && $s['n8n']['adoptable'] === false);
+    && $s['n8n']['setup'] === ['wizard_created' => false, 'at' => 1, 'host' => '', 'same_instance' => true] && $s['n8n']['adoptable'] === false);
 site($connected + $key);
 check('hand-made with a passing key, before adoption: the island offers it (adoptable)', setup_state()['n8n']['adoptable'] === true && setup_state()['n8n']['setup'] === null);
 site($connected + $map + [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com']]);

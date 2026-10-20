@@ -21,6 +21,15 @@
  * and the workflow update are PHP buttons on the page (story 67). A
  * confirmed adoption asks the page to re-read its body, as the reply
  * carries none.
+ * Story 71: under the managed line, Start over opens a Modal that says what
+ * is cleared here (the map, the webhook URL, the last test; the key stays)
+ * and, when the map is the connected instance's and the key passes, offers
+ * to remove the workflow and its credentials in n8n too — ticked for a
+ * wizard-created setup, unticked with a warning for an adopted one. A map
+ * made on another instance (`setup.same_instance` false) names both hosts
+ * instead and offers no removal. The confirm is DELETE /n8n/setup; its
+ * reply carries the island's state and the page's body (`status_html`),
+ * which the island swaps itself, so the page lands in state 2 at once.
  * Two blocks that never swap (plan-n8n-connection-states): the connection
  * block shows connected (a summary, Check again, Change, Forget key),
  * changing (the fields, Save and check, Cancel) or connecting (the fields,
@@ -30,7 +39,13 @@
  * primary action), 'primary' inside the setup dialog.
  */
 import apiFetch from '@wordpress/api-fetch';
-import { Button, Notice, TextControl } from '@wordpress/components';
+import {
+	Button,
+	CheckboxControl,
+	Modal,
+	Notice,
+	TextControl,
+} from '@wordpress/components';
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -42,6 +57,7 @@ import './style.css';
 
 const PATH = '/post-quality/v1/n8n/connection';
 const ADOPTION_PATH = '/post-quality/v1/n8n/adoption';
+const SETUP_PATH = '/post-quality/v1/n8n/setup';
 
 /**
  * A credential as the proposal shows it: n8n's name, else its id.
@@ -101,6 +117,9 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	const [ failure, setFailure ] = useState( {} ); // { connection?, adoption? }
 	const [ changing, setChanging ] = useState( false ); // Change pressed on a connected site
 	const [ proposal, setProposal ] = useState( null ); // GET /n8n/adoption, while open
+	// Story 71: the Start over Modal, and its removal checkbox.
+	const [ startingOver, setStartingOver ] = useState( false );
+	const [ removeToo, setRemoveToo ] = useState( false );
 	// Where keyboard focus goes after a state change: the pressed button unmounts.
 	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed'
 	const formRef = useRef( null );
@@ -334,8 +353,57 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	const primary = variant;
 	const confirmVariant = formOpen ? 'secondary' : primary;
 
+	// Story 71: the instance the map was made on, as the page names it; the connected one when the map has none.
+	const mapHost =
+		( state.setup && state.setup.host ) ||
+		state.base_url.replace( /^https?:\/\//, '' );
+	const otherInstance = !! state.setup && state.setup.same_instance === false;
+	// The removal is offered only where the map's ids mean something: the connected instance, a key that passes.
+	const canRemove = !! state.setup && ! otherInstance && connected;
+	const openStartOver = () => {
+		setRemoveToo( canRemove && !! state.setup.wizard_created );
+		setStartingOver( true );
+	};
+	const cancelStartOver = () => setStartingOver( false );
+	// DELETE /n8n/setup: the reply is the island's state; the page re-reads
+	// its body (state 2) and opens and focuses this disclosure — a swap from
+	// inside the island would unmount it under a destructive confirmation.
+	const startOver = () =>
+		call(
+			'adoption',
+			{
+				path: SETUP_PATH,
+				method: 'DELETE',
+				// eslint-disable-next-line camelcase -- REST field name.
+				data: { remove_from_n8n: canRemove && removeToo },
+			},
+			( data ) => {
+				setStartingOver( false );
+				stored( data );
+				requestWorkflowRefresh(
+					WORKFLOW_REFRESH_EVENT,
+					'pqm-n8n-connection'
+				);
+			},
+			// Refused: the Modal closes, the cause shows in the adoption block's Notice.
+			() => {
+				setStartingOver( false );
+				setFocusTo( 'closed' );
+			}
+		);
+
 	let managed = '';
-	if ( state.setup ) {
+	if ( otherInstance ) {
+		managed = sprintf(
+			/* translators: 1: the n8n host the setup was made on; 2: the connected n8n host */
+			__(
+				'The plugin set this workflow up on %1$s; you are connected to %2$s now. Update workflow and Rotate token stay off until you connect %1$s again or start over.',
+				'post-quality-manager'
+			),
+			mapHost,
+			state.base_url.replace( /^https?:\/\//, '' )
+		);
+	} else if ( state.setup ) {
 		managed = state.setup.wizard_created
 			? sprintf(
 					/* translators: %s: date */
@@ -473,9 +541,104 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	let adoption = null;
 	if ( managed ) {
 		adoption = (
-			<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
-				{ managed }
-			</p>
+			<>
+				<p className="pqm-n8n-managed" tabIndex="-1" ref={ managedRef }>
+					{ managed }
+				</p>
+				{ /* The page only: inside the setup wizard (variant primary) a second Modal would open over it. */ }
+				{ variant === 'secondary' && (
+					<Button
+						variant="secondary"
+						isDestructive
+						type="button"
+						className="pqm-n8n-start-over"
+						disabled={ busy }
+						onClick={ openStartOver }
+					>
+						{ __( 'Start over', 'post-quality-manager' ) }
+					</Button>
+				) }
+				{ variant === 'secondary' && startingOver && (
+					<Modal
+						title={ __( 'Start over?', 'post-quality-manager' ) }
+						className="pqm-n8n-start-over-modal"
+						onRequestClose={ cancelStartOver }
+					>
+						<p>
+							{ __(
+								'Start over removes the setup from this site: the plugin forgets the workflow and credentials it manages, the n8n Webhook URL and the last test. Your n8n API key stays. You can set n8n up again right after.',
+								'post-quality-manager'
+							) }
+						</p>
+						{ canRemove ? (
+							<>
+								<CheckboxControl
+									label={ __(
+										'Also remove the workflow and its credentials in n8n',
+										'post-quality-manager'
+									) }
+									checked={ removeToo }
+									onChange={ setRemoveToo }
+									__nextHasNoMarginBottom
+								/>
+								{ ! state.setup.wizard_created && (
+									<Notice
+										status="warning"
+										isDismissible={ false }
+									>
+										{ __(
+											'This workflow and its credentials were made by hand in n8n. Leave the box unticked to keep them.',
+											'post-quality-manager'
+										) }
+									</Notice>
+								) }
+							</>
+						) : (
+							<p className="pqm-n8n-start-over-stays">
+								{ otherInstance
+									? sprintf(
+											/* translators: %s: the n8n host the setup was made on */
+											__(
+												'Your workflow and credentials stay on %s: the plugin does not touch an instance it is not connected to.',
+												'post-quality-manager'
+											),
+											mapHost
+									  )
+									: sprintf(
+											/* translators: %s: the n8n host the setup was made on */
+											__(
+												'Your workflow and credentials stay on %s.',
+												'post-quality-manager'
+											),
+											mapHost
+									  ) }
+							</p>
+						) }
+						<div className="pqm-n8n-connection-actions">
+							<Button
+								variant="primary"
+								isDestructive
+								type="button"
+								className="pqm-n8n-start-over-confirm"
+								isBusy={ busy }
+								disabled={ busy }
+								onClick={ startOver }
+							>
+								{ __( 'Start over', 'post-quality-manager' ) }
+							</Button>
+							<Button
+								variant="secondary"
+								type="button"
+								className="pqm-n8n-start-over-cancel"
+								disabled={ busy }
+								onClick={ cancelStartOver }
+							>
+								{ __( 'Cancel', 'post-quality-manager' ) }
+							</Button>
+						</div>
+					</Modal>
+				) }
+			</>
 		);
 	} else if ( proposal ) {
 		adoption = (

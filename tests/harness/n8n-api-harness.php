@@ -640,7 +640,7 @@ function lock_free(): bool {
 /** The setup map a passing Pro run stores (bug 73: with the Application Password it created), `at` as stored. */
 function pro_map(?int $at): array {
     return ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'],
-        'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => $at, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
+        'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => $at, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
 }
 
 $template = json_decode((string) pqm_workflow_json(), true);
@@ -1144,7 +1144,7 @@ const MISSING_SENTENCE = 'In n8n, no credential is set on Update WP Post (Rewrit
 const PING_OK  = 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.';
 $diagnosis_calls = []; // every call the rows below made, for the GET-only check
 $status_blocks   = []; // every status block a connect ping below answered
-$setup_map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]];
+$setup_map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => 1]];
 $miswired_map = static fn(array $published, ?array $draft = null): array => [resp(200, stored_workflow('wf1', $published, $draft))];
 
 /** POST /setup/connect: save the URL, ping it, record (the dialog's connect step, D2). */
@@ -1367,8 +1367,8 @@ foreach ([
 foreach ([true, false] as $wizard_created) {
     hand_made([], V5_HOOK, [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute', 'wizard_created' => $wizard_created, 'at' => HAND_MAP_AT]]);
     $s = get_state();
-    check('not offered (a map, wizard_created ' . var_export($wizard_created, true) . '): adoptable false, setup = {wizard_created, at}',
-        $s['adoptable'] === false && $s['setup'] === ['wizard_created' => $wizard_created, 'at' => HAND_MAP_AT]);
+    check('not offered (a map, wizard_created ' . var_export($wizard_created, true) . '): adoptable false, setup = {wizard_created, at, host empty (a map without base_url, D3), same_instance true}',
+        $s['adoptable'] === false && $s['setup'] === ['wizard_created' => $wizard_created, 'at' => HAND_MAP_AT, 'host' => '', 'same_instance' => true]);
 }
 
 echo "Adoption: the proposal\n";
@@ -1394,7 +1394,7 @@ foreach (['proposal' => static fn() => proposal(), 'confirm' => static fn() => a
     hand_made([], V5_HOOK, $map);
     $r = $run();
     check("$which, a map exists: 409 pqm_already_provisioned, provision's message; the map untouched", refused($r, 'pqm_already_provisioned', 409)
-        && $r->message === 'n8n is already set up for this site.' && calls() === [] && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $map[PQM_N8n::SETUP_OPTION]);
+        && $r->message === 'n8n is already set up for this site. Choose Start over in the n8n connection section to set it up again.' && calls() === [] && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $map[PQM_N8n::SETUP_OPTION]);
 }
 
 echo "Adoption: no workflow at the URL\n";
@@ -1462,14 +1462,14 @@ hand_made([hand_list($hand_nodes)]);
 $r   = adopt_post('wf-hand');
 $map = $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] ?? null;
 check('the map stored in provision()\'s shape: {workflow_id, credentials: {webhook, anthropic, wordpress}, path: the trigger\'s, wizard_created false, at}, autoload off',
-    $map === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1', 'wordpress' => 'c-b1'], 'path' => 'pqm-execute', 'wizard_created' => false, 'at' => $map['at'] ?? null]
+    $map === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1', 'wordpress' => 'c-b1'], 'path' => 'pqm-execute', 'base_url' => BASE, 'wizard_created' => false, 'at' => $map['at'] ?? null]
     && abs($map['at'] - time()) <= 5 && $GLOBALS['tw']['autoload'][PQM_N8n::SETUP_OPTION] === false);
 check('... the same keys as a provisioned map, in the same order', array_keys($map) === array_keys($setup_map[PQM_N8n::SETUP_OPTION])
     && array_keys($map['credentials']) === array_keys($setup_map[PQM_N8n::SETUP_OPTION]['credentials']));
 check('... the proposal read again, one GET; nothing else written (report, progress, settings untouched), no ping', calls() === [LIST_READ]
     && $GLOBALS['tw']['writes'] === [PQM_N8n::SETUP_OPTION] && $GLOBALS['tw']['pings'] === []);
 check('... reply = public_state() + rewrite_ready: managed since now, no longer adoptable', $r === PQM_N8n::public_state() + ['rewrite_ready' => true]
-    && $r['setup'] === ['wizard_created' => false, 'at' => $map['at']] && $r['adoptable'] === false && $r['key_set'] === true);
+    && $r['setup'] === ['wizard_created' => false, 'at' => $map['at'], 'host' => 'n8n.example.com', 'same_instance' => true] && $r['adoptable'] === false && $r['key_set'] === true);
 $adopted = $GLOBALS['tw']['options'];
 $GLOBALS['tw']['calls']  = [];
 $GLOBALS['tw']['writes'] = [];
@@ -1515,7 +1515,7 @@ $GLOBALS['tw']['options'] = $adopted;
 $GLOBALS['tw']['calls']   = [];
 $r = forget();
 check('forget key after: the map stays, not adoptable, the managed line stays (setup)', $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $map
-    && $r['adoptable'] === false && $r['setup'] === ['wizard_created' => false, 'at' => $map['at']] && calls() === []);
+    && $r['adoptable'] === false && $r['setup'] === ['wizard_created' => false, 'at' => $map['at'], 'host' => 'n8n.example.com', 'same_instance' => true] && calls() === []);
 
 echo "Adoption: n8n is only read\n";
 check('every call the adoption rows made is a GET (' . count($adoption_calls) . ' calls)', count($adoption_calls) >= 20
@@ -1539,7 +1539,7 @@ const OTHER_CREDENTIAL = ROTATED_PREFIX . ' n8n still refused the test ping: you
 define('PATCHED', resp(200, ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com', 'type' => 'httpHeaderAuth', 'updatedAt' => '2026-10-16T10:00:00.000Z']));
 $GLOBALS['tw']['uuid'] = ROTATED; // wp_generate_uuid4(): the new token, distinct from TOKEN
 $rotation_runs = []; // [reply, options, calls, pings] after every rotation, for the leak scan
-$adopted_map   = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'wizard_created' => false, 'at' => HAND_MAP_AT]];
+$adopted_map   = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'base_url' => BASE, 'wizard_created' => false, 'at' => HAND_MAP_AT]];
 
 /** A managed site: a passing key, a setup map (the provisioned one by default), the saved URL on its path (D3). */
 function managed(array $queue, ?array $map = null, string $url = HOOK): void {
@@ -1659,7 +1659,7 @@ foreach ([
 managed([NOT_FOUND]);
 $r = rotate();
 check('the credential is gone (a JSON 404): 502 pqm_rotation_failed, the sentence names it and the check in n8n', refused($r, 'pqm_rotation_failed', 502)
-    && $r->message === 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.'
+    && $r->message === 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again. Choose Start over in the n8n connection section to set it up again.'
     && calls() === [PATCH_WEBHOOK] && token_now() === TOKEN);
 
 echo "Rotation: the ping fails after — the token kept on both sides\n";
@@ -1720,7 +1720,7 @@ const PUT_WF         = 'PUT ' . BASE . '/api/v1/workflows/wf1';
 const UPDATE_STOPPED = 'The plugin could not finish updating the workflow (%s). Try again in a moment.';
 const UPDATE_BUTTON  = '<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
 const IN_PLACE       = 'The plugin can update it in place: your credentials and production URL stay.';
-const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.';
+const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again. Choose Start over in the n8n connection section to set it up again.';
 define('UPDATED', resp(200, ['id' => 'wf1', 'name' => 'Post Quality — example.com', 'active' => true, 'versionId' => 'v-new']));
 $older_report = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
 $update_runs  = []; // [reply, options, calls, pings] after every update, for the leak scan
@@ -1934,6 +1934,203 @@ check('every status block the update rows answered: at most one primary, one whe
     $html = json_decode($run[0], true)['status_html'] ?? null;
     return is_string($html) && !one_primary($html);
 }));
+
+/* ─── Story 71: start over, and a map that remembers its instance ────── */
+echo "Start over: route\n";
+$route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/n8n/setup'] ?? [];
+check('/n8n/setup: DELETE, gated by check_manage_settings, remove_from_n8n a boolean, false by default', ($route['methods'] ?? null) === 'DELETE'
+    && ($route['permission_callback'] ?? null) === $gate && ($route['args']['remove_from_n8n'] ?? null) === ['required' => false, 'type' => 'boolean', 'default' => false]);
+
+const REMOVED_BOTH      = 'The setup was removed here and in n8n. Set n8n up again when you are ready.';
+const REMOVED_HERE      = 'The setup was removed here. Your workflow and credentials stay in n8n.';
+const REMOVED_LEFT      = 'The setup was removed here. Some of it is still in n8n: the next setup removes it first.';
+const OTHER_INSTANCE    = 'https://other.example.com';
+const OTHER_BLOCKED     = 'The plugin set this workflow up on other.example.com, not on the n8n you are connected to now. Connect other.example.com again, or choose Start over in the n8n connection section.';
+const START_OVER_CLAUSE = 'Choose Start over in the n8n connection section to set it up again.';
+const GONE_PING         = 'The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.';
+const PLAIN_404         = 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
+$state_keys = ['base_url', 'key_set', 'key_hint', 'probe', 'setup', 'adoptable', 'rotatable'];
+$report     = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
+$elsewhere  = [PQM_N8n::SETUP_OPTION => array_replace(pro_map(1), ['base_url' => OTHER_INSTANCE])];
+function start_over(bool $remove) {
+    $r = PQM_REST_API::start_over_n8n_callback(new WP_REST_Request(['remove_from_n8n' => $remove]));
+    $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
+    return $r instanceof WP_Error ? $r : $r->get_data();
+}
+/** The site after a start over: no map, no report, the URL '' and the token kept, the key stored. */
+function started_over(): bool {
+    $o = $GLOBALS['tw']['options'];
+    return !isset($o[PQM_N8n::SETUP_OPTION]) && !isset($o['pqm_workflow_version_seen']) && ($o['pqm_settings']['n8n_webhook_url'] ?? null) === ''
+        && ($o['pqm_settings']['webhook_token'] ?? null) === TOKEN && ($o[PQM_N8n::OPTION]['api_key'] ?? null) === KEY;
+}
+
+echo "Start over: one row per line of the plan's matrix\n";
+managed([INACTIVE, DELETED, DELETED, DELETED, DELETED], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(true);
+check('remove, a wizard-created map: deactivate, DELETE the workflow, DELETE each credential — the map\'s ids, the rollback order; signed', calls() === UNDO_ALL && calls_signed(KEY) && $GLOBALS['tw']['queue'] === []);
+check('... the Application Password revoked (bug 73\'s helper), once', $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]);
+check('... the map, the version report and the URL gone (one write of pqm_settings, the token kept); the key stays; no leftovers, no ping', started_over()
+    && count(array_keys($GLOBALS['tw']['writes'], 'pqm_settings', true)) === 1 && !isset($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION]) && $GLOBALS['tw']['pings'] === []);
+check('... reply = public_state() (setup null, not adoptable, not rotatable) + message + status_html: "removed here and in n8n"', is_array($r)
+    && array_keys($r) === [...$state_keys, 'message', 'status_html'] && $r['setup'] === null && $r['adoptable'] === false && $r['rotatable'] === false && $r['key_set'] === true
+    && $r['message'] === REMOVED_BOTH);
+check('... status_html: state 2 (connected, not set up), the message its success line, one primary', state_of($r['status_html']) === 'connected'
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . REMOVED_BOTH . '</p>') && one_primary($r['status_html']));
+managed([], $adopted_map + $report, V5_HOOK);
+$r = start_over(false);
+check('keep, an adopted map: zero calls, the same clears, no revoke (the map names no password), "stay in n8n", state 2', calls() === [] && started_over()
+    && $GLOBALS['tw']['app_revoked'] === [] && $r['message'] === REMOVED_HERE && state_of($r['status_html']) === 'connected' && $r['setup'] === null);
+managed([], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(false);
+check('keep, a wizard-created map: zero calls, the password revoked all the same (useless without the map), "stay in n8n"', calls() === [] && started_over()
+    && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']] && $r['message'] === REMOVED_HERE);
+managed([INACTIVE, UNPUBLISHING], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(true);
+$record = $GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION] ?? null;
+check('partial refusal (the DELETE answers 409, still unpublishing): the credentials untouched, no call for them', calls() === array_slice(UNDO_ALL, 0, 2));
+check('... pqm_n8n_leftovers = {base_url, workflow_id, credentials, at}, autoload off', is_array($record) && array_diff_key($record, ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']]
+    && abs($record['at'] - time()) <= 5 && $GLOBALS['tw']['autoload'][PQM_N8n::LEFTOVERS_OPTION] === false);
+check('... the clears done anyway, the password revoked; the message says some of it is still in n8n, a warning line, state 2', started_over() && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]
+    && $r['message'] === REMOVED_LEFT && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">' . REMOVED_LEFT . '</p>') && state_of($r['status_html']) === 'connected');
+managed([timed_out()], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(true);
+check('unreachable on the deactivate: one call, the whole map on record, the clears done, the warning', calls() === [UNDO_ALL[0]]
+    && array_diff_key($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']]
+    && started_over() && $r['message'] === REMOVED_LEFT);
+managed([], $elsewhere + $report);
+$r = start_over(true);
+check('other instance, remove: 409 pqm_other_instance, zero calls, nothing cleared, no revoke', refused($r, 'pqm_other_instance', 409) && $r->message === OTHER_BLOCKED && calls() === []
+    && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $elsewhere[PQM_N8n::SETUP_OPTION] && $GLOBALS['tw']['app_revoked'] === [] && token_now() === TOKEN);
+managed([], $elsewhere + $report);
+$r = start_over(false);
+check('other instance, keep: the clears done, zero calls (the map\'s ids never reach the connected instance), the password revoked', calls() === [] && started_over()
+    && $r['message'] === REMOVED_HERE && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]);
+connected([]);
+$GLOBALS['tw']['writes'] = [];
+check('no map: 409 pqm_workflow_not_managed, nothing written, either way', refused(start_over(true), 'pqm_workflow_not_managed', 409)
+    && refused(start_over(false), 'pqm_workflow_not_managed', 409) && calls() === []);
+managed([], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+unset($GLOBALS['tw']['options'][PQM_N8n::OPTION]['api_key']);
+$r = start_over(false);
+check('no key, keep: the clears done, zero calls, "removed here"', calls() === [] && $r['message'] === REMOVED_HERE && !isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION])
+    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === '' && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen']) && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]);
+managed([], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+unset($GLOBALS['tw']['options'][PQM_N8n::OPTION]['api_key']);
+check('no key, remove: 400 pqm_n8n_not_connected, zero calls, nothing cleared (the island never offers it)', refused(start_over(true), 'pqm_n8n_not_connected', 400) && calls() === []
+    && isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]) && $GLOBALS['tw']['app_revoked'] === []);
+// Review fix: a refused removal must not silently replace a record of another instance (a failed run on A, then B adopted and started over).
+managed([INACTIVE, UNPUBLISHING], [PQM_N8n::SETUP_OPTION => pro_map(1), PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://old.example.com', 'workflow_id' => 'wf-old', 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
+$r = start_over(true);
+check('partial refusal over a record of another instance: the connected instance\'s remainder is the record now (the actionable one); the reply names the old host first, then the warning', is_array($r)
+    && array_diff_key($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']]
+    && $r['message'] === 'An earlier setup left a workflow or credentials on old.example.com. The plugin does not touch another instance: remove them there by hand. ' . REMOVED_LEFT
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">' . $r['message'] . '</p>') && started_over() && !isset($r['dropped_leftovers']));
+managed([INACTIVE, UNPUBLISHING], [PQM_N8n::SETUP_OPTION => pro_map(1), PQM_N8n::LEFTOVERS_OPTION => ['base_url' => BASE, 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
+$r = start_over(true);
+check('... over a record of the connected instance: replaced by the remainder, no prefix (the earlier remainder was for the same place; the record names what is there now)',
+    array_diff_key($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']] && $r['message'] === REMOVED_LEFT);
+$src_n8n = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php');
+check('the removal goes through roll_back() (one caller more than fail() and remove_leftovers()); the key is not forgotten (D1)', substr_count($src_n8n, 'self::roll_back(') === 3
+    && preg_match('/function start_over\(.*?\n    }\n/s', $src_n8n, $m) && !str_contains($m[0], 'forget(') && !str_contains($m[0], 'self::OPTION'));
+
+echo "Start over: the map remembers its instance\n";
+connected(PRO_OK);
+provision();
+check('provision(): the map carries base_url = the connected origin; public_state().setup carries host and same_instance', ($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['base_url'] ?? null) === BASE
+    && array_diff_key(PQM_N8n::public_state()['setup'], ['at' => 0]) === ['wizard_created' => true, 'host' => 'n8n.example.com', 'same_instance' => true]);
+hand_made([hand_list($hand_nodes)]);
+adopt_post('wf-hand');
+check('adopt(): the same', ($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['base_url'] ?? null) === BASE
+    && array_diff_key(PQM_N8n::public_state()['setup'], ['at' => 0]) === ['wizard_created' => false, 'host' => 'n8n.example.com', 'same_instance' => true]);
+
+echo "Start over: a map made on another instance\n";
+managed([], $elsewhere + $older_report);
+$blocked = PQM_N8n::managed_blocked();
+check('managed_blocked(): 409 pqm_other_instance, the sentence names the instance and Start over; zero calls', $blocked instanceof WP_Error && $blocked->code === 'pqm_other_instance'
+    && $blocked->data === ['status' => 409] && $blocked->message === OTHER_BLOCKED && calls() === []);
+$s = get_state();
+check('... the state: rotatable false, setup.same_instance false, setup.host the map\'s', $s['rotatable'] === false && $s['setup']['same_instance'] === false && $s['setup']['host'] === 'other.example.com');
+check('... rotate and update refused the same, zero calls, nothing written', refused(rotate(), 'pqm_other_instance', 409) && refused(update(), 'pqm_other_instance', 409) && calls() === []);
+managed([], $elsewhere + $older_report, BASE . '/webhook/elsewhere');
+check('... the URL off the map\'s path too: still pqm_other_instance (the instance gate before the path one — saving the map\'s URL could not pass on this instance)',
+    refused(rotate(), 'pqm_other_instance', 409) && PQM_N8n::managed_blocked()->code === 'pqm_other_instance' && calls() === []);
+$block = PQM_Admin::render_workflow_body();
+check('... the page: Re-import the workflow, no Update workflow, no Rotate token', str_contains($block, 'pqm-reimport') && !str_contains($block, 'pqm-update-workflow') && !str_contains($block, 'pqm-rotate-token'));
+managed([LIST_OK], $elsewhere);
+check('diagnose(): the map ignored — the list read, no GET by the old id', diagnosed(HOOK) === null && calls() === [LIST_READ]);
+managed([], $elsewhere);
+$r = provision();
+check('provisioning with a map: 409 pqm_already_provisioned, the sentence ends with the Start over clause; zero calls', refused($r, 'pqm_already_provisioned', 409) && calls() === []
+    && str_ends_with($r->message, ' ' . START_OVER_CLAUSE));
+check('... adoption too', refused(proposal(), 'pqm_already_provisioned', 409) && calls() === []);
+check('the gone sentence of the update ends with the clause too (the rotation\'s is asserted in its row)', str_ends_with(WORKFLOW_GONE, ' ' . START_OVER_CLAUSE));
+
+echo "Start over: the workflow is gone (a 404 test ping)\n";
+managed([NOT_FOUND], $setup_map);
+$GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'The requested webhook is not registered.']);
+$ping = PQM_Admin::ping_webhook(HOOK);
+check('a 404 of the saved URL, the map\'s workflow a JSON 404 by id: one GET, the gone sentence, recorded as the failed test', calls() === [READ_WF] && $ping['ok'] === false
+    && $ping['message'] === GONE_PING && (pqm_workflow_report()['failed']['message'] ?? null) === GONE_PING && !array_key_exists('miswired', $ping));
+$block = PQM_Admin::render_workflow_body();
+check('... the page needs attention with that sentence, one primary', state_of($block) === 'failing' && str_contains($block, GONE_PING) && one_primary($block));
+foreach (['n8n answers 200 (the workflow is there)' => CLEAN_WF, 'n8n unreachable' => timed_out(), 'a proxy\'s non-JSON 404' => resp(404, '<html>Not Found</html>')] as $label => $answer) {
+    managed([$answer], $setup_map);
+    $GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'not registered']);
+    $ping = PQM_Admin::ping_webhook(HOOK);
+    check("not gone ($label): one GET, the ordinary 404 sentence", calls() === [READ_WF] && $ping['message'] === PLAIN_404 && (pqm_workflow_report()['failed']['message'] ?? null) === PLAIN_404);
+}
+foreach ([
+    'the URL on another path'   => static function () { $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = BASE . '/webhook/elsewhere'; },
+    'a map of another instance' => static function () { $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['base_url'] = OTHER_INSTANCE; },
+    'no key'                    => static function () { unset($GLOBALS['tw']['options'][PQM_N8n::OPTION]['api_key']); },
+    'no map'                    => static function () { unset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]); },
+    'the ping a 401, not a 404' => static function () { $GLOBALS['tw']['ping_response'] = resp(401, ''); },
+] as $label => $change) {
+    managed([NOT_FOUND], $setup_map);
+    $GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'not registered']);
+    $change();
+    $ping = PQM_Admin::ping_webhook($GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url']);
+    check("no read ($label): zero calls, the ping's own sentence", calls() === [] && $ping['message'] !== GONE_PING && $GLOBALS['tw']['queue'] === [NOT_FOUND]);
+}
+managed([PATCHED, NOT_FOUND], $setup_map);
+$GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'not registered']);
+$r = rotate();
+check('the rotation\'s ping (no diagnosis): no read, the ordinary 404 sentence after the rotated prefix', calls() === [PATCH_WEBHOOK] && $GLOBALS['tw']['queue'] === [NOT_FOUND]
+    && $r['message'] === ROTATED_PREFIX . ' ' . PLAIN_404);
+managed([CLEAN_WF, UPDATED, NOT_FOUND], $setup_map + $older_report);
+$GLOBALS['tw']['ping_response'] = resp(404, ['message' => 'not registered']);
+$r = update();
+check('the update\'s ping: no read either (the PUT just passed)', calls() === [READ_WF, PUT_WF] && $GLOBALS['tw']['queue'] === [NOT_FOUND] && str_ends_with($r['message'], PLAIN_404));
+connected(PRO_OK);
+$GLOBALS['tw']['ping_response'] = HOOK_404;
+$r = provision();
+check('the pings after provisioning: no read either (n8n\'s publication window), the bug 80 sentence', calls() === CREATE_ALL && $r['message'] === EARLY_404);
+
+echo "Start over: leftovers of another instance\n";
+$old_record = [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://old.example.com', 'workflow_id' => 'wf-old', 'credentials' => ['c-old1'], 'at' => 1700000000]];
+connected([], $old_record);
+$s = PQM_REST_API::get_setup_callback()->get_data();
+$replies[] = json_encode($s);
+check('GET /setup before the run: leftovers false, leftovers_elsewhere = the old host', $s['leftovers'] === false && $s['leftovers_elsewhere'] === 'old.example.com');
+connected([], [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => BASE, 'credentials' => ['c1'], 'at' => 1]]);
+$s = PQM_REST_API::get_setup_callback()->get_data();
+check('... a record of the connected instance: leftovers true, leftovers_elsewhere \'\'', $s['leftovers'] === true && $s['leftovers_elsewhere'] === '');
+connected([]);
+$s = PQM_REST_API::get_setup_callback()->get_data();
+check('... no record: both off', $s['leftovers'] === false && $s['leftovers_elsewhere'] === '');
+connected(PRO_OK, $old_record);
+$r = provision();
+check('provisioning: the normal run, nothing sent to the old instance, the record dropped', calls() === [...CREATE_ALL, READ_WF] && $r['provisioned'] === true
+    && !isset($GLOBALS['tw']['options'][PQM_N8n::LEFTOVERS_OPTION]));
+check('... the reply\'s message prefixed with the old host and the by-hand removal, then the ping\'s; the body shows it; the map stores no trace of it; the reply\'s keys as before',
+    $r['message'] === 'An earlier setup left a workflow or credentials on old.example.com. The plugin does not touch another instance: remove them there by hand. ' . PING_OK
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>') && !isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['dropped_leftovers'])
+    && array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION);
+connected(PRO_OK, $old_record);
+$GLOBALS['tw']['ping_response'] = HOOK_404;
+$r = provision();
+check('... a failed ping after: the prefix on the reply, the failure on record without it', str_starts_with($r['message'], 'An earlier setup left a workflow or credentials on old.example.com.')
+    && str_ends_with($r['message'], EARLY_404) && (pqm_workflow_report()['failed']['message'] ?? null) === EARLY_404);
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";

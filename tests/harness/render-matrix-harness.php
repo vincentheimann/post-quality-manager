@@ -629,6 +629,9 @@ check('2 connected, not set up: "Connected to n8n at {host}. The workflow is not
     && $disclosures_of($page) === ['pqm-n8n-connection' => false] && (!$built || str_contains($page, 'id="pqm-n8n-connection-root"')) && str_contains($page, $by_hand_link) && !str_contains($page, 'An earlier setup left'));
 check('... leftovers waiting: the info notice', str_contains($render_workflow($no_url, $key_passing + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example', 'credentials' => ['c1'], 'at' => 1]]),
     '<div class="notice notice-info inline pqm-inline-notice"><p>An earlier setup left a workflow or credentials in n8n. Setting up removes them first.</p></div>'));
+check('... a record of another instance (story 71): state 2 without the leftovers notice (the wizard names that instance instead)',
+    $state_of($page = $render_workflow($no_url, $key_passing + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://other.example', 'credentials' => ['c1'], 'at' => 1]])) === 'connected'
+    && !str_contains($page, 'An earlier setup left'));
 check('... a passing key with a setup map but no URL saved (the URL save refused): connected too, the wizard offers the paste-URL body', $state_of($render_workflow($no_url, $key_passing + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) === 'connected');
 // Row 3: manual path
 $probe_line = 'On ' . gmdate('Y-m-d', $at) . ', the n8n connection check did not pass: ' . $failed['message'];
@@ -777,6 +780,7 @@ foreach ([
     'a key without a passing probe' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = null; },
     'no map'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::SETUP_OPTION]); },
     'the URL on another path'      => static function () { $GLOBALS['tw_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook/elsewhere']; },
+    'the map made on another instance (story 71)' => static function () { $GLOBALS['tw_options'][PQM_N8n::SETUP_OPTION]['base_url'] = 'https://other.example'; },
 ] as $label => $change) {
     $GLOBALS['tw_settings'] = $managed_url;
     $GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];

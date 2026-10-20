@@ -21,6 +21,11 @@
  * rotate_token() (entry 10) PATCHes the map's webhook credential with a new
  * token, its one call; update_workflow() (entry 9) reads the map's workflow
  * once and PUTs the build's template onto it, credentials and path kept.
+ * start_over() (story 71) clears the setup map and what hangs on it, and
+ * on request removes the map's objects from n8n by id, in the rollback
+ * order; the map remembers the instance it was made on (`base_url`), so the
+ * managed actions refuse another instance and workflow_gone() names a
+ * workflow deleted in n8n.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -47,9 +52,11 @@ class PQM_N8n {
     /**
      * Own option (autoload off, deleted on uninstall): the workflow the
      * plugin manages, {workflow_id, credentials: {webhook, anthropic,
-     * wordpress?}, path, wizard_created, at} — what provision() created
-     * (wizard_created true) or what adopt() took over (false). Not in
-     * OPTION: save() and forget() rewrite that one whole.
+     * wordpress?}, path, base_url, wizard_created, at} — what provision()
+     * created (wizard_created true) or what adopt() took over (false), on
+     * the instance `base_url` names (story 71; a map stored before it has
+     * none and counts as the connected instance's, D3). Not in OPTION:
+     * save() and forget() rewrite that one whole.
      */
     const SETUP_OPTION = 'pqm_n8n_setup';
 
@@ -99,7 +106,9 @@ class PQM_N8n {
      * What a REST reply may carry: never the key itself. `key_hint` is the
      * stored key's last four characters, computed here and never stored,
      * empty when no key is stored or it is shorter than KEY_HINT_MIN_LENGTH.
-     * `setup` is what the setup map says of itself ({wizard_created, at}),
+     * `setup` is what the setup map says of itself ({wizard_created, at,
+     * host, same_instance}: the host of the instance it was made on, '' for
+     * a map stored before story 71, and whether that is the connected one),
      * null without one; `adoptable` whether the plugin may take over the
      * site's workflow (entry 8: a passing key, a saved webhook URL, no map);
      * `rotatable` whether it may rotate the webhook token (entry 10: a
@@ -118,7 +127,12 @@ class PQM_N8n {
             'key_set'   => '' !== $key,
             'key_hint'  => strlen( $key ) >= self::KEY_HINT_MIN_LENGTH ? substr( $key, -4 ) : '',
             'probe'     => $connection['probe'],
-            'setup'     => is_array( $setup ) ? [ 'wizard_created' => ! empty( $setup['wizard_created'] ), 'at' => (int) ( $setup['at'] ?? 0 ) ] : null,
+            'setup'     => is_array( $setup ) ? [
+                'wizard_created' => ! empty( $setup['wizard_created'] ),
+                'at'             => (int) ( $setup['at'] ?? 0 ),
+                'host'           => self::host( (string) ( $setup['base_url'] ?? '' ) ),
+                'same_instance'  => self::same_instance( $setup ),
+            ] : null,
             'adoptable' => null === self::adoption_blocked(),
             'rotatable' => null === self::managed_blocked(),
         ];
@@ -349,7 +363,8 @@ class PQM_N8n {
      * Is the workflow behind the saved webhook URL wired to the right
      * credentials? GET only. The workflow is found by the setup map's id
      * while the URL's path is the map's (entry 8, D3: the status block
-     * describes what the site calls), else as the active workflow whose
+     * describes what the site calls) and the map is the connected
+     * instance's (story 71: its ids mean nothing elsewhere), else as the active workflow whose
      * Webhook trigger path is the URL's last segment; never by name. Its
      * published nodes are read (n8n 2.x runs `activeVersion`; a save changes
      * only the draft), disabled ones skipped; miswiring() names the shape.
@@ -364,7 +379,7 @@ class PQM_N8n {
             return '';
         }
         $setup = get_option( self::SETUP_OPTION, false );
-        $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' )
+        $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' ) && self::same_instance( $setup )
             && self::webhook_segment( $webhook_url ) === (string) ( $setup['path'] ?? '' ) ? $setup : null;
 
         if ( null !== $setup ) {
@@ -650,6 +665,7 @@ class PQM_N8n {
             'workflow_id'    => $workflow_id,
             'credentials'    => array_map( static fn( $credential ) => $credential['id'], $proposal['credentials'] ),
             'path'           => $proposal['workflow']['path'],
+            'base_url'       => self::connection()['base_url'],
             'wizard_created' => false,
             'at'             => time(),
         ];
@@ -693,7 +709,7 @@ class PQM_N8n {
     }
 
     private static function already_provisioned(): WP_Error {
-        return new WP_Error( 'pqm_already_provisioned', __( 'n8n is already set up for this site.', 'post-quality-manager' ), [ 'status' => 409 ] );
+        return new WP_Error( 'pqm_already_provisioned', __( 'n8n is already set up for this site.', 'post-quality-manager' ) . ' ' . self::start_over_clause(), [ 'status' => 409 ] );
     }
 
     /* ─── Provisioning (entry 4) ─────────────────────────────────────── */
@@ -817,9 +833,9 @@ class PQM_N8n {
         if ( is_wp_error( $checked ) ) {
             return $checked;
         }
-        $blocked = self::remove_leftovers();
-        if ( is_wp_error( $blocked ) ) {
-            return $blocked;
+        $dropped = self::remove_leftovers();
+        if ( is_wp_error( $dropped ) ) {
+            return $dropped;
         }
 
         $host        = pqm_site_host();
@@ -885,17 +901,22 @@ class PQM_N8n {
             'workflow_id'    => $workflow_id,
             'credentials'    => $created,
             'path'           => pqm_webhook_path(),
+            'base_url'       => self::connection()['base_url'],
             'wizard_created' => true,
             'at'             => time(),
         ];
         if ( pqm_fs()->is__premium_only() ) {
             // Bug 73: the map names the Application Password the run created, so a later
-            // removal of the setup (uninstall now, Start over later) revokes it. Never sent anywhere.
+            // removal of the setup (uninstall, Start over) revokes it. Never sent anywhere.
             if ( isset( $credentials['wordpress']['uuid'] ) ) {
                 $setup['application_password'] = [ 'uuid' => $credentials['wordpress']['uuid'], 'user_id' => $credentials['wordpress']['user_id'] ];
             }
         }
         update_option( self::SETUP_OPTION, $setup, false );
+        if ( null !== $dropped ) {
+            // Story 71: on the returned map only, never stored — the reply names the host whose leftovers were dropped.
+            $setup['dropped_leftovers'] = $dropped;
+        }
 
         return $setup;
     }
@@ -1138,22 +1159,25 @@ class PQM_N8n {
     /**
      * Before a run creates anything: remove what an earlier run's rollback
      * left on the connected instance (D1). A record of another instance is
-     * dropped; still refused, the record keeps what remains and the run
+     * dropped without a call, and its host answered so the reply names it
+     * (story 71); still refused, the record keeps what remains and the run
      * stops with 502 step `cleanup`.
+     *
+     * @return string|WP_Error|null Null when nothing was dropped or all of it
+     *                              removed; the host of a dropped record.
      */
-    private static function remove_leftovers(): ?WP_Error {
+    private static function remove_leftovers(): string|WP_Error|null {
         $leftovers = get_option( self::LEFTOVERS_OPTION, false );
         if ( ! is_array( $leftovers ) ) {
             return null;
         }
-        $base_url = self::connection()['base_url'];
-        $left     = ( $leftovers['base_url'] ?? '' ) === $base_url
-            ? self::roll_back( $leftovers['workflow_id'] ?? null, (array) ( $leftovers['credentials'] ?? [] ) )
-            : null;
+        $base_url  = self::connection()['base_url'];
+        $elsewhere = (string) ( $leftovers['base_url'] ?? '' ) !== $base_url;
+        $left      = $elsewhere ? null : self::roll_back( $leftovers['workflow_id'] ?? null, (array) ( $leftovers['credentials'] ?? [] ) );
         if ( null === $left ) {
             delete_option( self::LEFTOVERS_OPTION );
 
-            return null;
+            return $elsewhere ? self::host( (string) ( $leftovers['base_url'] ?? '' ) ) : null;
         }
         update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
 
@@ -1200,7 +1224,7 @@ class PQM_N8n {
             return $token;
         }
         $sentence = self::gone( $response )
-            ? __( 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.', 'post-quality-manager' )
+            ? __( 'n8n no longer has the webhook credential the plugin manages. Check the Webhook Trigger\'s credential in n8n, then try again.', 'post-quality-manager' ) . ' ' . self::start_over_clause()
             : self::could_not( 'credential', $response );
 
         return new WP_Error( 'pqm_rotation_failed', $sentence, [ 'status' => 502 ] );
@@ -1210,9 +1234,11 @@ class PQM_N8n {
      * Why the plugin may not act on the workflow it manages — rotate the
      * webhook token (entry 10) or update the workflow (entry 9) — null when
      * it may: no key with a passing check, no setup map naming a webhook
-     * credential, or a saved webhook URL off the map's path (entry 8, D3:
-     * the site must call the workflow the action changes). Calls nothing;
-     * the status block asks it to choose the update notice's fix.
+     * credential, a saved webhook URL off the map's path (entry 8, D3:
+     * the site must call the workflow the action changes), or a map made on
+     * another instance than the connected one (story 71: its ids are never
+     * sent elsewhere). Calls nothing; the status block asks it to choose the
+     * update notice's fix.
      */
     public static function managed_blocked(): ?WP_Error {
         if ( ! self::connected_key() ) {
@@ -1221,7 +1247,11 @@ class PQM_N8n {
         $setup   = get_option( self::SETUP_OPTION, false );
         $webhook = is_array( $setup ) ? ( $setup['credentials']['webhook'] ?? null ) : null;
         if ( ! is_scalar( $webhook ) || '' === (string) $webhook || '' === (string) ( $setup['workflow_id'] ?? '' ) ) {
-            return new WP_Error( 'pqm_workflow_not_managed', __( 'The plugin does not manage your n8n workflow yet. Let it set the workflow up, or manage the one you set up by hand, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
+            return self::not_managed();
+        }
+        // Before the path: on another instance, saving the map's production URL could not pass either.
+        if ( ! self::same_instance( $setup ) ) {
+            return self::other_instance( $setup );
         }
         $path = self::webhook_segment( (string) pqm_get_settings()['n8n_webhook_url'] );
         if ( '' === $path || (string) ( $setup['path'] ?? '' ) !== $path ) {
@@ -1265,7 +1295,7 @@ class PQM_N8n {
         $response = self::request( 'GET', $path );
         if ( ! self::answered( $response ) ) {
             $sentence = self::gone( $response )
-                ? __( 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.', 'post-quality-manager' )
+                ? __( 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again.', 'post-quality-manager' ) . ' ' . self::start_over_clause()
                 : self::could_not( 'read', $response );
 
             return new WP_Error( 'pqm_update_failed', $sentence, [ 'status' => 502 ] );
@@ -1298,7 +1328,120 @@ class PQM_N8n {
         return $setup;
     }
 
+    /* ─── Start over (story 71) ──────────────────────────────────────── */
+
+    /**
+     * Forget the setup on this site and, when asked, remove it from n8n:
+     * the map's workflow and credentials by id, in roll_back()'s order,
+     * what n8n refuses kept in LEFTOVERS_OPTION for the next provisioning
+     * (never retried from here); the Pro build's Application Password
+     * revoked; then the setup map, the saved n8n Webhook URL (a one-key
+     * merge, as PQM_Admin::save_webhook_token() writes) and the version
+     * report gone, whatever the removal gave — the site has started over
+     * (D1: the n8n key stays). The removal needs a key that passes and a
+     * map made on the connected instance: nothing is ever sent to another
+     * instance with this map's ids (D2).
+     *
+     * @return array{removed: bool, left: bool, dropped_leftovers?: string}|WP_Error
+     *         `removed`: the map's objects are all gone from n8n; `left`: some
+     *         stayed, on record; `dropped_leftovers`: the host of a record of
+     *         another instance that record replaced (the connected instance's
+     *         remainder is the actionable one; the reply names the other host).
+     */
+    public static function start_over( bool $remove ): array|WP_Error {
+        $setup = get_option( self::SETUP_OPTION, false );
+        if ( ! is_array( $setup ) ) {
+            return self::not_managed();
+        }
+        if ( $remove && ! self::connected_key() ) {
+            return self::not_connected();
+        }
+        if ( $remove && ! self::same_instance( $setup ) ) {
+            return self::other_instance( $setup );
+        }
+
+        $left    = null;
+        $dropped = '';
+        if ( $remove ) {
+            $workflow_id = (string) ( $setup['workflow_id'] ?? '' );
+            $left        = self::roll_back( '' === $workflow_id ? null : $workflow_id, array_values( array_filter( (array) ( $setup['credentials'] ?? [] ), 'is_scalar' ) ) );
+            if ( null !== $left ) {
+                $base_url = self::connection()['base_url'];
+                $record   = get_option( self::LEFTOVERS_OPTION, false );
+                if ( is_array( $record ) && (string) ( $record['base_url'] ?? '' ) !== $base_url ) {
+                    $dropped = self::host( (string) ( $record['base_url'] ?? '' ) );
+                }
+                update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
+            }
+        }
+        if ( pqm_fs()->is__premium_only() ) {
+            self::revoke_setup_password__premium_only();
+        }
+        delete_option( self::SETUP_OPTION );
+        delete_option( 'pqm_workflow_version_seen' );
+        $settings = get_option( 'pqm_settings', [] );
+        $settings = is_array( $settings ) ? $settings : [];
+
+        $settings['n8n_webhook_url'] = '';
+        update_option( 'pqm_settings', $settings );
+
+        return [ 'removed' => $remove && null === $left, 'left' => null !== $left ] + ( '' === $dropped ? [] : [ 'dropped_leftovers' => $dropped ] );
+    }
+
+    /**
+     * Does n8n say the workflow the setup map names is gone? One GET by the
+     * map's id, only when a 404 of the saved URL can mean that (D4): a map
+     * with a workflow id, made on the connected instance, the URL on the
+     * map's path, a key that passes. True only on n8n's own JSON 404
+     * (gone()); a 200, a proxy's 404 or no answer is not a gone workflow.
+     */
+    public static function workflow_gone( string $webhook_url ): bool {
+        $setup = get_option( self::SETUP_OPTION, false );
+        $path  = self::webhook_segment( $webhook_url );
+        if ( ! is_array( $setup ) || '' === (string) ( $setup['workflow_id'] ?? '' ) || ! self::same_instance( $setup )
+            || '' === $path || (string) ( $setup['path'] ?? '' ) !== $path || ! self::connected_key() ) {
+            return false;
+        }
+
+        return self::gone( self::request( 'GET', '/workflows/' . rawurlencode( (string) $setup['workflow_id'] ) ) );
+    }
+
     /* ─── Shared helpers (entry 11) ──────────────────────────────────── */
+
+    /**
+     * Whether the setup map was made on the connected instance: its
+     * `base_url` against connection()'s, both origin() output. A map without
+     * one (stored before story 71) is the connected instance's (D3).
+     */
+    private static function same_instance( array $setup ): bool {
+        return ! isset( $setup['base_url'] ) || (string) $setup['base_url'] === (string) self::connection()['base_url'];
+    }
+
+    /** An origin without its scheme, as the n8n Workflow page names an instance: "n8n.example.com:5678"; '' for ''. */
+    public static function host( string $origin ): string {
+        return (string) preg_replace( '#^https?://#', '', $origin );
+    }
+
+    /** The way out the refusals of story 71 end with. */
+    private static function start_over_clause(): string {
+        return __( 'Choose Start over in the n8n connection section to set it up again.', 'post-quality-manager' );
+    }
+
+    private static function not_managed(): WP_Error {
+        return new WP_Error( 'pqm_workflow_not_managed', __( 'The plugin does not manage your n8n workflow yet. Let it set the workflow up, or manage the one you set up by hand, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
+    }
+
+    /** The map was made on another instance than the connected one: the managed actions stop, nothing is sent (story 71). */
+    private static function other_instance( array $setup ): WP_Error {
+        $host = self::host( (string) ( $setup['base_url'] ?? '' ) );
+
+        return new WP_Error( 'pqm_other_instance', sprintf(
+            /* translators: 1 and 2: the n8n instance's host the setup was made on, e.g. "n8n.example.com" */
+            __( 'The plugin set this workflow up on %1$s, not on the n8n you are connected to now. Connect %2$s again, or choose Start over in the n8n connection section.', 'post-quality-manager' ),
+            $host,
+            $host
+        ), [ 'status' => 409 ] );
+    }
 
     /**
      * Why a single call on a site already set up — a read, a token

@@ -17,6 +17,8 @@
  *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
  *  POST /post-quality/v1/n8n/provision    — set the workflow up on that instance, then ping it (n8n provisioning, entry 4)
  *  POST /post-quality/v1/n8n/token        — rotate the webhook token in n8n and here, then ping (n8n provisioning, entry 10)
+ *  POST /post-quality/v1/n8n/workflow     — update the managed workflow to the bundled template in place, then ping (n8n provisioning, entry 9)
+ *  DELETE /post-quality/v1/n8n/setup      — start over: forget the setup here and, on request, remove it from n8n (story 71)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -206,6 +208,16 @@ class PQM_REST_API {
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'update_n8n_workflow_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+        ] );
+
+        // Story 71: start over — forget the setup here and, when asked, remove the map's objects from n8n.
+        register_rest_route( PQM_REST_NAMESPACE, '/n8n/setup', [
+            'methods'             => 'DELETE', // WP_REST_Server::DELETABLE
+            'callback'            => [ __CLASS__, 'start_over_n8n_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
+            'args'                => [
+                'remove_from_n8n' => [ 'required' => false, 'type' => 'boolean', 'default' => false ],
+            ],
         ] );
     }
 
@@ -1081,6 +1093,8 @@ class PQM_REST_API {
         $key_ok    = $n8n['key_set'] && ! empty( $n8n['probe'] );
         // What the plugin set up in n8n (entry 6.4); a URL without it was made by hand.
         $provisioned = (bool) get_option( PQM_N8n::SETUP_OPTION );
+        $leftovers   = get_option( PQM_N8n::LEFTOVERS_OPTION, false );
+        $left_on     = is_array( $leftovers ) ? (string) ( $leftovers['base_url'] ?? '' ) : '';
         // A failed ping keeps the step open, so the dialog offers the paste-URL body again.
         $url_done  = $connected && false !== ( $progress['steps']['connect'] ?? null );
 
@@ -1133,7 +1147,10 @@ class PQM_REST_API {
             'manual'        => $connected ? ! $provisioned : null !== $reason,
             'manual_reason' => $reason,
             'provisioned'   => $provisioned,
-            'leftovers'     => (bool) get_option( PQM_N8n::LEFTOVERS_OPTION ),
+            // Story 71: only a record of the connected instance is removed by the
+            // next setup; one of another instance is dropped and its host named.
+            'leftovers'     => is_array( $leftovers ) && $left_on === $n8n['base_url'],
+            'leftovers_elsewhere' => is_array( $leftovers ) && $left_on !== $n8n['base_url'] ? PQM_N8n::host( $left_on ) : '',
             // Story 55: the configuration steps' stored choices and presets.
             'blog_profile'       => (string) $settings['blog_profile'],
             'website_context'    => (string) $settings['website_context'],
@@ -1403,6 +1420,54 @@ class PQM_REST_API {
     }
 
     /**
+     * Start over (story 71): PQM_N8n::start_over() clears the setup map,
+     * the saved webhook URL and the version report, revokes the Pro build's
+     * Application Password and, with `remove_from_n8n`, removes the map's
+     * objects from n8n by id. Answers the n8n Instance section's state plus
+     * `message` (what was removed, and whether n8n kept some of it) and
+     * `status_html`, the page's body in state 2 with the message first — the
+     * island swaps it, so no re-read follows. A refusal answers its error.
+     */
+    public static function start_over_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $result = PQM_N8n::start_over( (bool) $request->get_param( 'remove_from_n8n' ) );
+        if ( is_wp_error( $result ) ) {
+            return $result;
+        }
+        $tone = 'success';
+        if ( $result['left'] ) {
+            $tone    = 'warning';
+            $message = __( 'The setup was removed here. Some of it is still in n8n: the next setup removes it first.', 'post-quality-manager' );
+        } elseif ( $result['removed'] ) {
+            $message = __( 'The setup was removed here and in n8n. Set n8n up again when you are ready.', 'post-quality-manager' );
+        } else {
+            $message = __( 'The setup was removed here. Your workflow and credentials stay in n8n.', 'post-quality-manager' );
+        }
+        $message              = self::dropped_leftovers_prefix( (string) ( $result['dropped_leftovers'] ?? '' ) ) . $message;
+        $reply                = PQM_N8n::public_state() + [ 'message' => $message ];
+        $reply['status_html'] = PQM_Admin::render_workflow_body( $message, $tone );
+
+        return new WP_REST_Response( $reply, 200 );
+    }
+
+    /**
+     * Story 71: a leftovers record of another instance was dropped, not
+     * removed (provisioning) or replaced by this instance's remainder (Start
+     * over) — the owner removes those objects there. The sentence plus a
+     * space, to go before a reply's message; '' when no host was dropped.
+     */
+    private static function dropped_leftovers_prefix( string $host ): string {
+        if ( '' === $host ) {
+            return '';
+        }
+
+        return sprintf(
+            /* translators: %s: the n8n instance's host, e.g. "old.example.com" */
+            __( 'An earlier setup left a workflow or credentials on %s. The plugin does not touch another instance: remove them there by hand.', 'post-quality-manager' ),
+            $host
+        ) . ' ';
+    }
+
+    /**
      * Provision the connected instance (PQM_N8n::provision()), then the
      * connect step's flow: save the production webhook URL — the connected
      * origin + /webhook/ + pqm_webhook_path(), as the n8n public API exposes
@@ -1423,6 +1488,9 @@ class PQM_REST_API {
         if ( is_wp_error( $setup ) ) {
             return $setup;
         }
+        // Story 71: the host whose leftovers the run dropped without a call, on the returned map only.
+        $dropped = (string) ( $setup['dropped_leftovers'] ?? '' );
+        unset( $setup['dropped_leftovers'] );
 
         $url   = PQM_N8n::connection()['base_url'] . '/webhook/' . $setup['path'];
         $saved = PQM_Admin::save_webhook_url( $url );
@@ -1451,6 +1519,7 @@ class PQM_REST_API {
                 $reply['message'] .= ' ' . __( 'Application Passwords are turned off on this site, so no WordPress credential was created. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Rewrite stays off until Application Passwords are available and a WordPress credential is added in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
         }
+        $reply['message'] = self::dropped_leftovers_prefix( $dropped ) . $reply['message'];
         // The page's body, as POST /setup/connect answers it (entry 6; story 67: in every reply, the message first).
         $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
@@ -1470,7 +1539,8 @@ class PQM_REST_API {
      */
     private static function ping_after_activation( string $url ): array {
         for ( $attempt = 1; ; $attempt++ ) {
-            $ping = PQM_Admin::ping_webhook( $url );
+            // The workflow was just created: a 404 here is the window, never a gone workflow (story 71, no read).
+            $ping = PQM_Admin::ping_webhook( $url, true, false );
             if ( $ping['ok'] || 404 !== ( $ping['code'] ?? 0 ) || $attempt >= self::PROVISION_PINGS ) {
                 return $ping;
             }
@@ -1610,7 +1680,8 @@ class PQM_REST_API {
             return $setup;
         }
 
-        $ping    = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'] );
+        // The PUT just passed: the workflow is there, so a 404 is never read as a gone workflow (story 71, no read).
+        $ping    = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'], true, false );
         $message = $ping['ok']
             /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
             ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
