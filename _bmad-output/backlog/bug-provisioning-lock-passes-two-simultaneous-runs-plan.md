@@ -3,7 +3,7 @@ title: "The provisioning lock is claimed atomically at the database (bug 82)"
 type: 'bugfix'
 ticket: '82'
 created: '2026-10-20'
-status: 'built'
+status: done
 baseline_revision: '57766d60d67429ad58bd94b1b498f77d9dc5e51d'
 route: 'full'
 route_source: 'pinned'
