@@ -1742,7 +1742,7 @@ check('/n8n/workflow: POST, gated by check_manage_settings, no arguments', ($rou
 const PUT_WF         = 'PUT ' . BASE . '/api/v1/workflows/wf1';
 const UPDATE_STOPPED = 'The plugin could not finish updating the workflow (%s). Try again in a moment.';
 const UPDATE_BUTTON  = '<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
-const IN_PLACE       = 'The plugin can update it in place: your credentials and production URL stay.';
+const IN_PLACE       = 'The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.'; // story 76 (D3)
 const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again. Choose Start over in the n8n connection section to set it up again.';
 define('UPDATED', resp(200, ['id' => 'wf1', 'name' => 'Post Quality — example.com', 'active' => true, 'versionId' => 'v-new']));
 $older_report = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
@@ -1769,7 +1769,7 @@ check('... a managed site: no Set up by hand disclosure; the Webhook disclosure 
     && str_contains($block, '<button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button>')
     && str_contains($block, 'value="' . TOKEN . '"'));
 managed([], $adopted_map + $older_report, V5_HOOK);
-check('... an adopted map (wizard_created false) on its own v5 path: offered too', str_contains($block = PQM_Admin::render_workflow_body(), UPDATE_BUTTON) && one_primary($block));
+check('... an adopted map (wizard_created false) on its own v5 path: offered too, asking first (story 76: data-pqm-confirm)', str_contains($block = PQM_Admin::render_workflow_body(), str_replace('data-pqm-post="n8n/workflow"', 'data-pqm-post="n8n/workflow" data-pqm-confirm="update"', UPDATE_BUTTON)) && one_primary($block));
 managed([], $setup_map + ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1]);
 check('... a pre-v6 report (a legacy int): still no "new production URL" sentence — the update keeps the URL', str_contains($block = PQM_Admin::render_workflow_body(), UPDATE_BUTTON)
     && !str_contains($block, 'new production URL') && str_contains($block, IN_PLACE));

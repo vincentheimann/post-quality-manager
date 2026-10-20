@@ -762,7 +762,7 @@ $managed_site = [
 $managed_url = ['n8n_webhook_url' => 'https://n8n.example/webhook/pqm-execute-example-com'];
 $update      = '<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
 $rotate      = '<p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button></p>';
-$in_place    = 'The plugin can update it in place: your credentials and production URL stay.';
+$in_place    = 'The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.'; // story 76 (D3)
 $older       = ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time()];
 $page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older]);
 check('older, managed: the primary Update workflow (POST n8n/workflow), the in-place sentence; no re-import, no "new production URL", no Set up by hand',
@@ -782,6 +782,18 @@ check('sentence stored and older, managed: Test again the one primary, Update wo
     && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === null);
 $page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
 check('sentence stored, current, managed: Test again the one primary, no Update workflow (nothing to update)', $primaries($page) === 1 && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-reimport'));
+// Story 76: an adopted map's Update asks first (the island's Modal); a provisioned one keeps its one click.
+$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older]);
+check('story 76, provisioned: the Update button carries no data-pqm-confirm, the same in-place sentence', str_contains($page, $update) && !str_contains($page, 'data-pqm-confirm') && str_contains($page, $in_place));
+$adopted_site = [PQM_N8n::SETUP_OPTION => ['wizard_created' => false] + $managed_site[PQM_N8n::SETUP_OPTION]] + $managed_site;
+$update_asks  = str_replace('data-pqm-post="n8n/workflow"', 'data-pqm-post="n8n/workflow" data-pqm-confirm="update"', $update);
+$page = $render_workflow($managed_url, $adopted_site + ['pqm_workflow_version_seen' => $older]);
+check('story 76, adopted and older: the primary Update workflow carries data-pqm-confirm="update", still one primary, the same in-place sentence',
+    str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $update_asks . ' <button type="button" class="button pqm-test-connection">Test again</button></p>')
+    && $primaries($page) === 1 && str_contains($block_of($page), '<p>' . $in_place . '</p>'));
+$page = $render_workflow($managed_url, $adopted_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]]);
+check('... adopted, mis-wired and older: the secondary Update workflow asks too, Test again the one primary', $primaries($page) === 1
+    && str_contains($block_of($page), '<button type="button" class="button pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-confirm="update" data-pqm-busy="'));
 foreach ([
     'no key'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::OPTION]); },
     'a key without a passing probe' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = null; },

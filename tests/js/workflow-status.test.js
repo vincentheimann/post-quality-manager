@@ -38,6 +38,11 @@ const TEST_PRIMARY =
 	'<button type="button" class="button button-primary pqm-test-connection">Test again</button>';
 const UPDATE =
 	'<button type="button" class="button button-primary pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="Updating the workflow…">Update workflow</button>';
+// Story 76: an adopted map's Update asks first (the n8n connection island listens).
+const UPDATE_ADOPTED = UPDATE.replace(
+	'data-pqm-post="n8n/workflow"',
+	'data-pqm-post="n8n/workflow" data-pqm-confirm="update"'
+);
 const REIMPORT =
 	'<a class="button button-primary pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a>';
 const BY_HAND =
@@ -68,6 +73,12 @@ const MANAGED_OUTDATED = body( {
 	actions: `${ UPDATE } ${ TEST_AGAIN }`,
 	rest: CONNECTION + WEBHOOK,
 } );
+// The built app's island root sits in CONNECTION; without it (no built app, D2) the click posts.
+const ADOPTED_OUTDATED = MANAGED_OUTDATED.replace( UPDATE, UPDATE_ADOPTED );
+const ADOPTED_NO_APP = ADOPTED_OUTDATED.replace(
+	'<div id="pqm-n8n-connection-root"></div>',
+	''
+);
 const FAILING = body( {
 	state: 'failing',
 	sentence:
@@ -314,8 +325,13 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 			message: 'Workflow updated.',
 			status_html: SET_UP,
 		} );
+		// Story 76: a provisioned map's button never asks.
+		const asked = jest.fn();
+		document.addEventListener( 'pqm:confirm-action', asked );
 		const button = $( '.pqm-update-workflow' );
 		button.click();
+		document.removeEventListener( 'pqm:confirm-action', asked );
+		expect( asked ).not.toHaveBeenCalled();
 		expect( button.disabled ).toBe( true );
 		expect( button.textContent ).toBe( 'Updating the workflow…' );
 		expect( outcome().textContent ).toBe( 'Updating the workflow…' );
@@ -490,6 +506,62 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 		expect( outcome().textContent ).toBe(
 			'The plugin could not finish updating the workflow: n8n refused the API key.'
 		);
+		expect( heard ).toBe( 1 );
+	} );
+
+	test( "story 76: an adopted map's Update dispatches the cancelable pqm:confirm-action; prevented, nothing is sent and no busy label shows", async () => {
+		renderPage( ADOPTED_OUTDATED );
+		boot();
+		answerRest( 200, { updated: true, status_html: SET_UP } );
+		const asked = jest.fn( ( event ) => event.preventDefault() );
+		document.addEventListener( 'pqm:confirm-action', asked );
+		const button = $( '.pqm-update-workflow' );
+		button.click();
+		document.removeEventListener( 'pqm:confirm-action', asked );
+		await flush();
+		expect( asked ).toHaveBeenCalledTimes( 1 );
+		const [ event ] = asked.mock.calls[ 0 ];
+		expect( event.cancelable ).toBe( true );
+		expect( event.detail.action ).toBe( 'update' );
+		expect( event.detail.element ).toBe( button );
+		expect( global.fetch ).not.toHaveBeenCalled();
+		expect( button.disabled ).toBe( false );
+		expect( button.textContent ).toBe( 'Update workflow' );
+		expect( outcome() ).toBeNull();
+		expect( bodyEl().innerHTML ).toBe( ADOPTED_OUTDATED );
+	} );
+
+	test( "story 76: an adopted map's Update unheard while the built app is on the page (its island not mounted yet) sends nothing, the outcome line says so", async () => {
+		renderPage( ADOPTED_OUTDATED );
+		boot();
+		answerRest( 200, { updated: true, status_html: SET_UP } );
+		$( '.pqm-update-workflow' ).click();
+		await flush();
+		expect( global.fetch ).not.toHaveBeenCalled();
+		expect( $( '.pqm-update-workflow' ).disabled ).toBe( false );
+		expect( $( '.pqm-update-workflow' ).textContent ).toBe(
+			'Update workflow'
+		);
+		expect( outcome().textContent ).toBe(
+			'The page is still loading its state. Try again in a moment.'
+		);
+		expect( heard ).toBe( 0 );
+	} );
+
+	test( "story 76 (D2): an adopted map's Update with no listener (no built app) posts as before", async () => {
+		renderPage( ADOPTED_NO_APP );
+		boot();
+		answerRest( 200, { updated: true, status_html: SET_UP } );
+		$( '.pqm-update-workflow' ).click();
+		expect( $( '.pqm-update-workflow' ).textContent ).toBe(
+			'Updating the workflow…'
+		);
+		await flush();
+		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
+		expect( global.fetch.mock.calls[ 0 ][ 0 ] ).toBe(
+			'/wp-json/post-quality/v1/n8n/workflow'
+		);
+		expect( bodyEl().innerHTML ).toBe( SET_UP );
 		expect( heard ).toBe( 1 );
 	} );
 

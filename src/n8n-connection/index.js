@@ -34,6 +34,9 @@
  * instead and offers no removal. The confirm is DELETE /n8n/setup; its
  * reply carries the island's state and the page's body (`status_html`),
  * which the island swaps itself, so the page lands in state 2 at once.
+ * Story 76: on the page, Update workflow on an adopted map asks here first
+ * (pqm-admin.js dispatches CONFIRM_ACTION_EVENT, the island prevents it and
+ * opens a Modal; the confirm posts POST /n8n/workflow and swaps the body).
  * Two blocks that never swap (plan-n8n-connection-states): the connection
  * block shows connected (a summary, Check again, Change, Forget key),
  * changing (the fields, Save and check, Cancel) or connecting (the fields,
@@ -53,7 +56,8 @@ import {
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
-import {
+import swapStatusBlock, {
+	CONFIRM_ACTION_EVENT,
 	WORKFLOW_REFRESH_EVENT,
 	requestWorkflowRefresh,
 } from '../kit/swap-status-block';
@@ -123,6 +127,9 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	// Story 71: the Start over Modal, and its removal checkbox.
 	const [ startingOver, setStartingOver ] = useState( false );
 	const [ removeToo, setRemoveToo ] = useState( false );
+	// Story 76: the Update workflow Modal, and the page button that asked (focus returns there).
+	const [ confirmingUpdate, setConfirmingUpdate ] = useState( false );
+	const updateButtonRef = useRef( null );
 	// Where keyboard focus goes after a state change: the pressed button unmounts.
 	const [ focusTo, setFocusTo ] = useState( null ); // 'change' | 'summary' | 'proposal' | 'closed'
 	const formRef = useRef( null );
@@ -166,6 +173,24 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [] );
 
+	// Story 76: the page's Update workflow on an adopted map asks here first,
+	// from mount: an event before the state arrives opens the Modal once the
+	// managed block (its home) renders. The wizard never listens.
+	useEffect( () => {
+		if ( variant !== 'secondary' ) {
+			return;
+		}
+		const ask = ( event ) => {
+			if ( event.detail && event.detail.action === 'update' ) {
+				event.preventDefault();
+				updateButtonRef.current = event.detail.element;
+				setConfirmingUpdate( true );
+			}
+		};
+		document.addEventListener( CONFIRM_ACTION_EVENT, ask );
+		return () => document.removeEventListener( CONFIRM_ACTION_EVENT, ask );
+	}, [ variant ] );
+
 	if ( loadError ) {
 		return (
 			<Notice status="error" isDismissible={ false }>
@@ -201,7 +226,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	 * @param {string}    block   'connection' | 'adoption'.
 	 * @param {Object}    options apiFetch options.
 	 * @param {Function}  done    `( data )` on success.
-	 * @param {Function=} refused After a refusal.
+	 * @param {Function=} refused `( err )` after a refusal.
 	 */
 	const call = ( block, options, done, refused ) => {
 		setBusy( true );
@@ -215,7 +240,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 				setBusy( false );
 				failIn( block, errorMessage( err ) );
 				if ( refused ) {
-					refused();
+					refused( err );
 				}
 			}
 		);
@@ -414,6 +439,51 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 			() => {
 				setStartingOver( false );
 				setFocusTo( 'closed' );
+			}
+		);
+
+	// Story 76: Cancel or the dialog's close sends nothing; focus back on the page's button.
+	const cancelUpdate = () => {
+		setConfirmingUpdate( false );
+		const button = updateButtonRef.current;
+		if ( button && button.isConnected ) {
+			button.focus();
+		}
+	};
+	// The swapped body's primary, else its status block (swapWorkflowStatus()'s rule in pqm-admin.js).
+	const swapAndFocus = ( html ) => {
+		swapStatusBlock( html );
+		const status = document.querySelector(
+			'#pqm-workflow-body .pqm-workflow-status'
+		);
+		const primaryButton =
+			status && status.querySelector( '.button-primary' );
+		if ( primaryButton ) {
+			primaryButton.focus();
+		} else if ( status ) {
+			status.setAttribute( 'tabindex', '-1' );
+			status.focus();
+		}
+	};
+	// The same POST the button makes. A reply's body (passing, or a refusal
+	// carrying it, story 74) is swapped in, which remounts the island; a
+	// refusal without one closes the Modal, its cause in the adoption block.
+	const confirmUpdate = () =>
+		call(
+			'adoption',
+			{
+				path: '/post-quality/v1/n8n/workflow',
+				method: 'POST',
+				data: {},
+			},
+			( data ) => swapAndFocus( data.status_html ),
+			( err ) => {
+				if ( err && err.data && err.data.status_html ) {
+					swapAndFocus( err.data.status_html );
+				} else {
+					setConfirmingUpdate( false );
+					setFocusTo( 'closed' );
+				}
 			}
 		);
 
@@ -657,6 +727,53 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 								className="pqm-n8n-start-over-cancel"
 								disabled={ busy }
 								onClick={ cancelStartOver }
+							>
+								{ __( 'Cancel', 'post-quality-manager' ) }
+							</Button>
+						</div>
+					</Modal>
+				) }
+				{ variant === 'secondary' && confirmingUpdate && (
+					<Modal
+						title={ __(
+							'Replace the workflow?',
+							'post-quality-manager'
+						) }
+						className="pqm-n8n-update-modal"
+						onRequestClose={ cancelUpdate }
+					>
+						<p>
+							{ __(
+								"This replaces every node, connection and setting of the workflow with this plugin's template. Its credentials, webhook path and name stay.",
+								'post-quality-manager'
+							) }
+						</p>
+						<p>
+							{ __(
+								'n8n keeps its own version history.',
+								'post-quality-manager'
+							) }
+						</p>
+						<div className="pqm-n8n-connection-actions">
+							<Button
+								variant="primary"
+								type="button"
+								className="pqm-n8n-update-confirm"
+								isBusy={ busy }
+								disabled={ busy }
+								onClick={ confirmUpdate }
+							>
+								{ __(
+									'Update workflow',
+									'post-quality-manager'
+								) }
+							</Button>
+							<Button
+								variant="secondary"
+								type="button"
+								className="pqm-n8n-update-cancel"
+								disabled={ busy }
+								onClick={ cancelUpdate }
 							>
 								{ __( 'Cancel', 'post-quality-manager' ) }
 							</Button>

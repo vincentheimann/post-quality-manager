@@ -205,6 +205,7 @@ class PQM_Admin
             'i18n' => [
                 'testing' => __('Testing the connection…', 'post-quality-manager'),
                 'networkError' => __('The request did not go through. Check your connection and try again.', 'post-quality-manager'),
+                'stateLoading' => __('The page is still loading its state. Try again in a moment.', 'post-quality-manager'), // story 76
                 'copied' => __('Copied! Paste it in n8n under "Import", then "From URL".', 'post-quality-manager'),
                 'copiedValue' => __('Copied.', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The value is selected — press Ctrl+C.', 'post-quality-manager'),
@@ -1402,9 +1403,10 @@ class PQM_Admin
      *   not-set-up      — none of the above.
      * `managed`: PQM_N8n::managed_blocked() null (Update and Rotate are
      * offered); `has_map`: the plugin set the workflow up or manages it
-     * (no map = made by hand: Set up by hand stays reachable).
+     * (no map = made by hand: Set up by hand stays reachable); `adopted`:
+     * a map adopt() took over (story 76: Update asks before replacing it).
      *
-     * @return array{state: string, problem: string, fix: string, checked: bool, url: string, report: ?array, reason: ?array, managed: bool, has_map: bool, has_result: bool, leftovers: bool, host: string}
+     * @return array{state: string, problem: string, fix: string, checked: bool, url: string, report: ?array, reason: ?array, managed: bool, has_map: bool, adopted: bool, has_result: bool, leftovers: bool, host: string}
      */
     private static function workflow_page_state(): array
     {
@@ -1412,7 +1414,8 @@ class PQM_Admin
         $report     = pqm_workflow_report();
         $connection = PQM_N8n::connection();
         $managed    = PQM_N8n::managed_blocked() === null;
-        $has_map    = is_array(get_option(PQM_N8n::SETUP_OPTION, false));
+        $map        = get_option(PQM_N8n::SETUP_OPTION, false);
+        $has_map    = is_array($map);
         $base       = [
             'url'        => $url,
             'report'     => $report,
@@ -1420,6 +1423,7 @@ class PQM_Admin
             'also'       => '',
             'managed'    => $managed,
             'has_map'    => $has_map,
+            'adopted'    => $has_map && empty($map['wizard_created']),
             'has_result' => false,
             'leftovers'  => false,
             'host'       => preg_replace('#^https?://#', '', (string) $connection['base_url']),
@@ -1566,7 +1570,7 @@ class PQM_Admin
                     // only an older workflow gets a new production URL on re-import; an
                     // in-place update (entry 9) keeps the URL whatever the version.
                     if ($state['managed']) {
-                        $details[] = __('The plugin can update it in place: your credentials and production URL stay.', 'post-quality-manager');
+                        $details[] = __('The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.', 'post-quality-manager');
                     } elseif ($state['problem'] === 'outdated' && $report['version'] < 6) {
                         $details[] = __('A re-import gives it a new production URL.', 'post-quality-manager');
                     }
@@ -1599,7 +1603,8 @@ class PQM_Admin
         $test_button  = static fn(bool $primary): string => '<button type="button" class="button' . ($primary ? ' button-primary' : '') . ' pqm-test-connection">'
             . esc_html($primary && $kind === 'set-up' ? __('Test the connection', 'post-quality-manager') : __('Test again', 'post-quality-manager')) . '</button>';
         $fix_button   = static fn(string $fix, bool $primary): string => $fix === 'update'
-            ? '<button type="button" class="button' . ($primary ? ' button-primary' : '') . ' pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-busy="'
+            ? '<button type="button" class="button' . ($primary ? ' button-primary' : '') . ' pqm-update-workflow" data-pqm-post="n8n/workflow"'
+                . ($state['adopted'] ? ' data-pqm-confirm="update"' : '') . ' data-pqm-busy="' // story 76: the island asks first
                 . esc_attr__('Updating the workflow…', 'post-quality-manager') . '">' . esc_html__('Update workflow', 'post-quality-manager') . '</button>'
             : '<a class="button' . ($primary ? ' button-primary' : '') . ' pqm-reimport" href="#pqm-by-hand">' . esc_html__('Re-import the workflow', 'post-quality-manager') . '</a>';
         $primary = '';

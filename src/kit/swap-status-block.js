@@ -16,6 +16,8 @@
 export const WORKFLOW_STATUS_EVENT = 'pqm:workflow-status';
 export const SETUP_CLOSED_EVENT = 'pqm:setup-closed';
 export const WORKFLOW_REFRESH_EVENT = 'pqm:workflow-refresh';
+// Dispatched (cancelable) by pqm-admin.js before a [data-pqm-confirm] control posts (story 76).
+export const CONFIRM_ACTION_EVENT = 'pqm:confirm-action';
 
 /**
  * @param {string=} html The reply's `status_html`; nothing happens without one.

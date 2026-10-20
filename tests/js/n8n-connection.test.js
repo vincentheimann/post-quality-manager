@@ -684,6 +684,7 @@ describe( 'The variant prop (story 67): secondary on the page, primary in the se
 		expect( submitVariant() ).toBe( 'secondary' );
 		expect( primaries() ).toHaveLength( 0 );
 
+		act( () => root.unmount() ); // story 76: a page-variant island listens on document until unmounted
 		await mountWith( 'secondary', { ...CONNECTED, adoptable: true } );
 		await click( '.pqm-n8n-change' );
 		expect( submitVariant() ).toBe( 'secondary' );
@@ -1250,5 +1251,176 @@ describe( 'Start over (story 71)', () => {
 		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
 		expect( swapped ).not.toHaveBeenCalled();
 		expect( document.querySelector( '.old-body' ) ).not.toBeNull();
+	} );
+
+	describe( 'Update workflow asks (story 76)', () => {
+		const WORKFLOW_PATH = '/post-quality/v1/n8n/workflow';
+		const UPDATED_BODY =
+			'<div class="pqm-workflow-status" data-state="set-up"><p class="pqm-workflow-outcome is-success">Workflow updated.</p><p><button type="button" class="button button-primary fresh-primary">Run your first review</button></p></div>';
+		const updateModal = () => $( '.pqm-n8n-update-modal' );
+
+		/**
+		 * The page's Update workflow button (pqm-admin.js) dispatching
+		 * pqm:confirm-action, as a [data-pqm-confirm] click does.
+		 *
+		 * @return {Promise<boolean>} dispatchEvent()'s answer: false = prevented.
+		 */
+		async function pressUpdate() {
+			if ( ! $( '.page-update' ) ) {
+				document.body.insertAdjacentHTML(
+					'beforeend',
+					'<button type="button" class="page-update">Update workflow</button>'
+				);
+			}
+			let heard;
+			await act( async () => {
+				heard = document.dispatchEvent(
+					new window.CustomEvent( 'pqm:confirm-action', {
+						cancelable: true,
+						detail: {
+							action: 'update',
+							element: $( '.page-update' ),
+						},
+					} )
+				);
+			} );
+			return heard;
+		}
+
+		test( 'on the page, adopted: the event is prevented and the Modal names what goes and what stays; no request', async () => {
+			await mountOnPage( ADOPTED );
+			expect( updateModal() ).toBeNull();
+			expect( await pressUpdate() ).toBe( false );
+			expect( updateModal().querySelector( 'h1' ).textContent ).toBe(
+				'Replace the workflow?'
+			);
+			const sentences = [ ...updateModal().querySelectorAll( 'p' ) ].map(
+				( p ) => p.textContent
+			);
+			expect( sentences ).toEqual( [
+				"This replaces every node, connection and setting of the workflow with this plugin's template. Its credentials, webhook path and name stay.",
+				'n8n keeps its own version history.',
+			] );
+			expect(
+				$( '.pqm-n8n-update-confirm' ).getAttribute( 'data-variant' )
+			).toBe( 'primary' );
+			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		test( "Cancel, or the dialog's close: the Modal closes, no request, focus back on the page's button", async () => {
+			await mountOnPage( ADOPTED );
+			await pressUpdate();
+			await click( '.pqm-n8n-update-cancel' );
+			expect( updateModal() ).toBeNull();
+			expect( document.activeElement ).toBe( $( '.page-update' ) );
+			await pressUpdate();
+			await click( '.pqm-n8n-update-modal .mock-modal-close' );
+			expect( updateModal() ).toBeNull();
+			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		test( "confirm: one POST /n8n/workflow with an empty body; the reply's status_html swapped in, pqm:workflow-status once", async () => {
+			const swapped = jest.fn();
+			document.addEventListener( 'pqm:workflow-status', swapped );
+			await mountOnPage( ADOPTED );
+			await pressUpdate();
+			apiFetch.mockResolvedValueOnce( {
+				updated: true,
+				// eslint-disable-next-line camelcase -- REST field name.
+				ping_ok: true,
+				outdated: false,
+				message: 'Workflow updated.',
+				// eslint-disable-next-line camelcase -- REST field name.
+				status_html: UPDATED_BODY,
+			} );
+			await click( '.pqm-n8n-update-confirm' );
+			document.removeEventListener( 'pqm:workflow-status', swapped );
+			expect( apiFetch ).toHaveBeenCalledTimes( 2 );
+			expect( apiFetch ).toHaveBeenLastCalledWith( {
+				path: WORKFLOW_PATH,
+				method: 'POST',
+				data: {},
+			} );
+			expect( $( '#pqm-workflow-body' ).innerHTML ).toBe( UPDATED_BODY );
+			expect( swapped ).toHaveBeenCalledTimes( 1 );
+			expect( document.activeElement ).toBe( $( '.fresh-primary' ) );
+		} );
+
+		test( 'pressed before the island read its state: prevented at once, the Modal shows once the state arrives', async () => {
+			document.body.innerHTML =
+				'<div id="pqm-n8n-connection-root"></div><div id="pqm-workflow-body"></div>';
+			apiFetch.mockReset();
+			let answerGet;
+			apiFetch.mockReturnValueOnce(
+				new Promise( ( resolve ) => ( answerGet = resolve ) )
+			);
+			root = createRoot(
+				document.getElementById( 'pqm-n8n-connection-root' )
+			);
+			await act( async () => {
+				root.render( <N8nConnection variant="secondary" /> );
+			} );
+			expect( await pressUpdate() ).toBe( false );
+			expect( updateModal() ).toBeNull();
+			await act( async () => answerGet( ADOPTED ) );
+			expect( updateModal() ).not.toBeNull();
+			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		test( 'a refusal whose data carries the body (story 74): swapped in the same way', async () => {
+			const swapped = jest.fn();
+			document.addEventListener( 'pqm:workflow-status', swapped );
+			await mountOnPage( ADOPTED );
+			await pressUpdate();
+			const refused =
+				'<div class="pqm-workflow-status" data-state="outdated"><p class="pqm-workflow-outcome is-error">The plugin could not finish updating the workflow (n8n answered 500). Try again in a moment.</p></div>';
+			apiFetch.mockRejectedValueOnce( {
+				code: 'pqm_update_failed',
+				message:
+					'The plugin could not finish updating the workflow (n8n answered 500). Try again in a moment.',
+				// eslint-disable-next-line camelcase -- REST field name.
+				data: { status: 502, status_html: refused },
+			} );
+			await click( '.pqm-n8n-update-confirm' );
+			document.removeEventListener( 'pqm:workflow-status', swapped );
+			// No primary in that body: focus on the status block, made focusable.
+			expect( $( '#pqm-workflow-body' ).innerHTML ).toBe(
+				refused.replace(
+					'data-state="outdated"',
+					'data-state="outdated" tabindex="-1"'
+				)
+			);
+			expect( document.activeElement ).toBe(
+				$( '.pqm-workflow-status' )
+			);
+			expect( swapped ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		test( "a refusal without a body (network): the Modal closes, the cause in the adoption block's Notice, the managed line stays", async () => {
+			const swapped = jest.fn();
+			document.addEventListener( 'pqm:workflow-status', swapped );
+			await mountOnPage( ADOPTED );
+			await pressUpdate();
+			apiFetch.mockRejectedValueOnce( {
+				code: 'fetch_error',
+				message: 'You are probably offline.',
+			} );
+			await click( '.pqm-n8n-update-confirm' );
+			document.removeEventListener( 'pqm:workflow-status', swapped );
+			expect( updateModal() ).toBeNull();
+			expect(
+				$( '.pqm-n8n-adoption .mock-notice-error' ).textContent
+			).toBe( 'You are probably offline.' );
+			expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
+			expect( document.querySelector( '.old-body' ) ).not.toBeNull();
+			expect( swapped ).not.toHaveBeenCalled();
+		} );
+
+		test( 'inside the setup wizard (variant primary): the event is not prevented, no Modal', async () => {
+			await mount( ADOPTED );
+			expect( await pressUpdate() ).toBe( true );
+			expect( updateModal() ).toBeNull();
+			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		} );
 	} );
 } );

@@ -439,7 +439,10 @@
      *  carries the page's body (status_html: Rotate and Update, story
      *  74) is swapped in like a reply; any other REST error or a
      *  request that did not go through shows in the outcome line, the
-     *  control enabled again.
+     *  control enabled again. A control with data-pqm-confirm first
+     *  dispatches the cancelable pqm:confirm-action {action, element}:
+     *  a listener that prevents it (the n8n connection island, story 76)
+     *  asks and posts itself; unheard, the click posts as before.
      * ================================================================ */
     function initRestActions() {
         var i18n = pqmAdmin.i18n || {};
@@ -499,6 +502,15 @@
             var el = e.target.closest && e.target.closest('[data-pqm-post]');
             if (!el || el.tagName === 'FORM' || el.disabled) return;
             e.preventDefault();
+            if (el.dataset.pqmConfirm) {
+                var ask = new CustomEvent('pqm:confirm-action', { cancelable: true, detail: { action: el.dataset.pqmConfirm, element: el } });
+                if (!document.dispatchEvent(ask)) return; // prevented: the listener asks first
+                // Unheard while the built app is on the page: its island has not mounted yet. Never post unasked.
+                if (document.getElementById('pqm-n8n-connection-root')) {
+                    showOutcome(i18n.stateLoading || 'The page is still loading its state. Try again in a moment.', 'error');
+                    return;
+                }
+            }
             var body = null;
             if (el.dataset.pqmBody) {
                 try { body = JSON.parse(el.dataset.pqmBody); } catch (err) { body = null; }
