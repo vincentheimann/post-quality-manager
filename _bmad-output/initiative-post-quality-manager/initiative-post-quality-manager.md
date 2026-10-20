@@ -2,7 +2,7 @@
 type: initiative
 title: "Post Quality Manager — continuous content quality for any WordPress blog"
 parent: none
-covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5, O6, O7, O8, O9]
+covers: [UV1, UV2, UV3, UV4, UV5, UV6, UV7, O1, O2, O3, O4, O5, O6, O7, O8, O9, O10]
 after: []
 assignee: ""
 risk: medium
@@ -41,6 +41,7 @@ Owner requests:
 - O7: Two voice layers — site-wide Editorial Standards every post follows, plus each author's own voice written on their WordPress profile and applied to their posts; Pro (ADR 0011, 2026-10-07; backlog stories 26 and 37)
 - O8: Quality by author on multi-author sites — an Administrator sees scores by author and spots who needs help; Pro (owner, 2026-10-08; backlog story 39)
 - O9: The paid plan can be bought and the plugin has a public home — seller, provider, plans, price, trial/refund and support promise decided (spike 43 → ADR 0013, 2026-10-09: Freemius, yearly per-site Pro, real licensing before the first public release), a real license unlocking Pro (story 44), a website with pricing and docs (story 45), the privacy/terms/refund/support/security policies (story 46) and one data sheet of every field the platforms ask for (story 47) (owner, 2026-10-09)
+- O10: An Image Prompt agent — a paid command that reads a post and writes one image-generation prompt in the blog's visual style (a site-wide Visual Style setting, presets + Custom); a prompt generator, never an image generator (owner, 2026-10-20; backlog story 83)
 
 ## Done when
 
