@@ -34,6 +34,11 @@
  * taken over), the Application Password the setup map keeps and what
  * revokes it, the 409-on-activate sentence, and the ping after activation
  * retried over n8n's publication window (404 only; the wait filter set to 0).
+ * Bug 82: the lock is claimed at the database (INSERT IGNORE, a
+ * compare-and-set UPDATE for a stale one); the stubs below model core's
+ * add_option() as a read then an upsert, with a hook in the gap, and the
+ * $wpdb stub serializes the lock's two statements, so the same-instant row
+ * fails on bug 72's claim() and passes on bug 82's.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -80,14 +85,30 @@ function update_option($k, $v, $autoload = null) {
     $GLOBALS['tw']['writes'][] = $k;
     return true;
 }
-/* WP core: add_option() writes only a key that does not exist yet (entry 8, adopt()). */
+/* WP core: add_option() writes only a key that does not exist yet (entry 8, adopt()), the way core does it: a read, then an
+   INSERT … ON DUPLICATE KEY UPDATE, with a gap between them a racing claim can land in (bug 82: `on_claim` fires there). The
+   upsert answers true unless the stored value is byte-identical, as core reads its affected rows. */
 function add_option($k, $v, $deprecated = '', $autoload = null) {
     if (array_key_exists($k, $GLOBALS['tw']['options'])) { return false; }
+    race('on_claim');
+    if (array_key_exists($k, $GLOBALS['tw']['options']) && maybe_serialize($GLOBALS['tw']['options'][$k]) === maybe_serialize($v)) { return false; }
     $GLOBALS['tw']['options'][$k] = $v;
     $GLOBALS['tw']['autoload'][$k] = $autoload;
     $GLOBALS['tw']['writes'][] = $k;
     return true;
 }
+/* Bug 82: a racing request's statement reaching the database first. Runs once (unset before it runs), so a claim it makes does not recurse. */
+function race(string $hook): void {
+    $fn = $GLOBALS['tw'][$hook] ?? null;
+    if ($fn === null) { return; }
+    $GLOBALS['tw'][$hook] = null;
+    $fn();
+}
+function maybe_serialize($d) { return is_array($d) || is_object($d) ? serialize($d) : $d; }
+function maybe_unserialize($d) { $u = is_string($d) ? @unserialize($d) : false; return $u === false ? $d : $u; }
+/* The Options API cache a raw write brings in line (bug 82); delete_option() leaves it, so a row can read what the claim cached. */
+function wp_cache_get($k, $group = '') { return $GLOBALS['tw']['cache'][$group][$k] ?? false; }
+function wp_cache_set($k, $v, $group = '') { $GLOBALS['tw']['cache'][$group][$k] = $v; return true; }
 function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); $GLOBALS['tw']['writes'][] = "-$k"; return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function __($s, $d = null) { return $s; }
@@ -160,9 +181,40 @@ function add_query_arg($args, $url = '', $unused = null) {
     if (!is_array($args)) { [$args, $url] = [[$args => $url], $unused]; }
     return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args);
 }
+/* $wpdb: PQM_DB's read answers nothing. The provisioning lock's two statements (bug 82) are serialized against the options
+   store as the database serializes them: INSERT IGNORE affects 1 row only while the key is free, the compare-and-set UPDATE
+   only while the stored value is byte-identical to the one read; `db_refuses` answers false. Writes are recorded as
+   update_option() records them, so untouched()/lock_free() and the writes[0] assertions hold. `on_claim` fires before the
+   insert lands and `on_takeover` before the update (each once, see race()). prepare() returns the statement with its arguments. */
 $wpdb = new class {
     public $prefix = 'wp_';
+    public $options = 'wp_options';
+    public $rows_affected = 0;
     public function get_var($sql) { return null; }
+    public function prepare($sql, ...$args) { return [$sql, $args]; }
+    public function query($prepared) {
+        [$sql, $args] = $prepared;
+        if ($GLOBALS['tw']['db_refuses'] ?? false) { return false; }
+        $store = &$GLOBALS['tw']['options'];
+        if (preg_match("/^INSERT IGNORE INTO wp_options \\(option_name, option_value, autoload\\) VALUES \\(%s, %s, '(\\w+)'\\)$/", $sql, $m)) {
+            [$name, $value] = $args;
+            race('on_claim');
+            if (array_key_exists($name, $store)) { return $this->rows_affected = 0; }
+            $store[$name] = maybe_unserialize($value);
+            $GLOBALS['tw']['autoload'][$name] = $m[1];
+            $GLOBALS['tw']['writes'][] = $name;
+            return $this->rows_affected = 1;
+        }
+        if ($sql === 'UPDATE wp_options SET option_value = %s WHERE option_name = %s AND option_value = %s') {
+            [$value, $name, $expected] = $args;
+            race('on_takeover');
+            if (!array_key_exists($name, $store) || maybe_serialize($store[$name]) !== $expected) { return $this->rows_affected = 0; }
+            $store[$name] = maybe_unserialize($value);
+            $GLOBALS['tw']['writes'][] = $name;
+            return $this->rows_affected = 1;
+        }
+        throw new RuntimeException("unstubbed query: $sql");
+    }
 };
 
 class WP_REST_Server {
@@ -552,6 +604,10 @@ function connected(array $queue, array $extra = []): void {
     $GLOBALS['tw']['app_passwords'] = true;
     $GLOBALS['tw']['app_created']   = [];
     $GLOBALS['tw']['app_revoked']   = [];
+    $GLOBALS['tw']['on_claim']      = null;  // bug 82: no racing statement at the claim ...
+    $GLOBALS['tw']['on_takeover']   = null;  // ... nor at the takeover
+    $GLOBALS['tw']['db_refuses']    = false; // the database answers
+    $GLOBALS['tw']['cache']         = [];
 }
 
 $provision_runs = []; // [options, calls, pings] after every run, for the leak scan
@@ -627,10 +683,10 @@ check('activate is sent {}', $GLOBALS['tw']['calls'][5][1]['body'] === '{}');
 $setup = $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] ?? null;
 check('setup map stored, autoload off; bug 73: it names the Application Password {uuid, user_id}', $setup === pro_map($setup['at'] ?? null) && abs($setup['at'] - time()) <= 5
     && $GLOBALS['tw']['autoload'][PQM_N8n::SETUP_OPTION] === false);
-check('bug 72: the lock claimed before the first call (add_option, autoload off) and gone after the map is stored',
+check('bug 72: the lock claimed before the first call (bug 82: INSERT IGNORE, autoload off) and gone after the map is stored',
     $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION
     && $GLOBALS['tw']['writes'][array_search(PQM_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) + 1] === '-' . PQM_N8n::LOCK_OPTION
-    && $GLOBALS['tw']['autoload'][PQM_N8n::LOCK_OPTION] === false && lock_free()
+    && $GLOBALS['tw']['autoload'][PQM_N8n::LOCK_OPTION] === 'off' && lock_free()
     && PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning');
 check('webhook URL saved: connected origin + /webhook/ + the path; the token kept', $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => TOKEN, 'n8n_webhook_url' => HOOK]);
 check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
@@ -816,6 +872,76 @@ check('a lock 6 minutes old (a run PHP killed; ceiling 5 minutes): taken over, t
     && calls() === [...CREATE_ALL, READ_WF] && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && lock_free()
     && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['workflow_id'] === 'wf1');
 check('the ceiling is 5 minutes (LOCK_TTL)', PQM_N8n::LOCK_TTL === 300);
+
+/* ─── Bug 82: the lock is claimed atomically at the database ─────────── */
+echo "Provisioning: two claims in the same instant (bug 82)\n";
+// B's INSERT reaches the database inside A's claim, before A's lands; B's run is on its way (its lock row; PHP runs one
+// request at a time, so its remainder is the two-runs row above). A's insert affects 0 rows, A reads a fresh lock and
+// answers 409 before any call. Bug 72's claim() (add_option: a read, then an upsert) overwrote B's lock here and ran: AC2.
+$db   = $GLOBALS['wpdb'];
+$b_at = time() - 1; // B's clock a second ahead of A's: an identical {at} would make core's upsert affect 0 rows and refuse A by coincidence
+$claim_lands = static function () use ($db, $b_at) {
+    $db->query($db->prepare("INSERT IGNORE INTO wp_options (option_name, option_value, autoload) VALUES (%s, %s, 'off')", PQM_N8n::LOCK_OPTION, maybe_serialize(['at' => $b_at])));
+};
+connected(PRO_OK);
+$GLOBALS['tw']['on_claim'] = $claim_lands;
+$r = provision();
+check('A: 409 pqm_already_provisioned, zero n8n calls, nothing written by A, no ping, no Application Password; B\'s lock {at} held as B wrote it',
+    $r instanceof WP_Error && $r->code === 'pqm_already_provisioned' && $r->data['status'] === 409 && calls() === []
+    && $GLOBALS['tw']['writes'] === [PQM_N8n::LOCK_OPTION] && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === []
+    && $GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION] === ['at' => $b_at] && $GLOBALS['tw']['on_claim'] === null);
+
+echo "Provisioning: the claim and the takeover bring the option cache in line\n";
+connected(PRO_OK);
+$GLOBALS['tw']['cache'] = ['options' => ['notoptions' => [PQM_N8n::LOCK_OPTION => true, 'pqm_other' => true]]]; // the lock read as absent before: core caches the miss
+$r = provision();
+$cached = maybe_unserialize($GLOBALS['tw']['cache']['options'][PQM_N8n::LOCK_OPTION] ?? null);
+check('claim, free: the insert affects 1 row (autoload off), the run proceeds; the option cache holds the serialized {at} and notoptions no longer names the lock',
+    is_array($r) && $r['provisioned'] === true && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && $GLOBALS['tw']['autoload'][PQM_N8n::LOCK_OPTION] === 'off'
+    && is_array($cached) && array_keys($cached) === ['at'] && abs($cached['at'] - time()) <= 5
+    && $GLOBALS['tw']['cache']['options']['notoptions'] === ['pqm_other' => true] && lock_free());
+$stale = ['at' => time() - 6 * 60];
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => $stale]);
+$GLOBALS['tw']['cache'] = ['options' => [PQM_N8n::LOCK_OPTION => maybe_serialize($stale)]];
+$r = provision();
+$cached = maybe_unserialize($GLOBALS['tw']['cache']['options'][PQM_N8n::LOCK_OPTION] ?? null);
+check('claim, held stale: the compare-and-set update affects 1 row, the run proceeds; the cache holds the new {at}', is_array($r) && $r['provisioned'] === true
+    && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && is_array($cached) && abs($cached['at'] - time()) <= 5 && lock_free());
+
+echo "Provisioning: two takeovers of a stale lock\n";
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => $stale]);
+$GLOBALS['tw']['on_takeover'] = static function () use ($db, $b_at, $stale) { // B read the same stale value; its UPDATE lands first
+    $db->query($db->prepare('UPDATE wp_options SET option_value = %s WHERE option_name = %s AND option_value = %s', maybe_serialize(['at' => $b_at]), PQM_N8n::LOCK_OPTION, maybe_serialize($stale)));
+};
+$r = provision();
+check('A\'s update affects 0 rows: 409 pqm_already_provisioned, zero calls, nothing written by A; the lock B\'s', $r instanceof WP_Error
+    && $r->code === 'pqm_already_provisioned' && $r->data['status'] === 409 && calls() === [] && $GLOBALS['tw']['writes'] === [PQM_N8n::LOCK_OPTION]
+    && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION] === ['at' => $b_at]);
+
+echo "Provisioning: a takeover lost to a release\n";
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => $stale]);
+$GLOBALS['tw']['on_takeover'] = static function () { unset($GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION]); }; // the row deleted meanwhile (another connection's DELETE)
+$r = provision();
+check('the stale value read, the row gone: the update affects 0 -> 409, zero calls, nothing written, the lock free', $r instanceof WP_Error
+    && $r->code === 'pqm_already_provisioned' && $r->data['status'] === 409 && calls() === [] && $GLOBALS['tw']['writes'] === [] && lock_free());
+$r = provision();
+check('the next request claims the free row: the normal run, the lock gone after', is_array($r) && $r['provisioned'] === true && calls() === [...CREATE_ALL, READ_WF]
+    && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && lock_free() && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['workflow_id'] === 'wf1');
+
+echo "Provisioning: the database refuses the claim\n";
+connected(PRO_OK);
+$GLOBALS['tw']['db_refuses'] = true;
+$r = provision();
+check('query() false on the insert: not claimed -> 409 pqm_already_provisioned, zero calls, nothing written, no lock (no run without one)', $r instanceof WP_Error
+    && $r->code === 'pqm_already_provisioned' && $r->data['status'] === 409 && calls() === [] && untouched() && $GLOBALS['tw']['writes'] === []);
+$GLOBALS['tw']['db_refuses'] = false;
+
+echo "Provisioning: a scalar lock value (hand-edited or corrupted)
+";
+connected(PRO_OK, [PQM_N8n::LOCK_OPTION => 'stuck']);
+$r = provision();
+check('a stored scalar has no fresh at: stale, taken over by the compare-and-set update (its exact bytes matched), the normal run, the lock gone after',
+    is_array($r) && $r['provisioned'] === true && calls() === [...CREATE_ALL, READ_WF] && $GLOBALS['tw']['writes'][0] === PQM_N8n::LOCK_OPTION && lock_free());
 
 echo "Rollback: n8n refuses a step, everything removed\n";
 foreach ([

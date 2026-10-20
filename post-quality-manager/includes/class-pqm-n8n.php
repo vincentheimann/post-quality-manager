@@ -734,26 +734,71 @@ class PQM_N8n {
     }
 
     /**
-     * Claim the provisioning lock. add_option() writes only a key that does
-     * not exist yet, but it is not atomic (a read, then the write): the lock
-     * narrows bug 72's window from the whole run to one database round trip,
-     * it does not close it. run() re-reads the setup map under the lock for
-     * the same reason. A lock whose `at` is older than LOCK_TTL was left by a
-     * run PHP killed mid-way (no exit of run() leaves it): taken over.
+     * Claim the provisioning lock at the database (bug 82). add_option()
+     * reads, then writes, and two requests inside that gap both got the lock
+     * (the 2026-10-20 walk); here the claim is one `INSERT IGNORE`, which the
+     * database serializes: the duplicate key fails the second silently and it
+     * affects 0 rows. A lock whose `at` is older than LOCK_TTL was left by a
+     * run PHP killed mid-way (no exit of run() leaves it): taken over with a
+     * compare-and-set UPDATE that replaces only the exact stale value read, so
+     * two takeovers, or a takeover and a release, cannot both win; a value
+     * without a fresh `at` (hand-edited, corrupted) is stale too, so the
+     * ceiling holds for it. After each
+     * raw write the Options API cache is brought in line as core does after
+     * its own insert. A `false` from the database is not a claim: no run
+     * without a lock. run() still re-reads the setup map under the lock
+     * (bug 72: a run that finished between the gate and the claim).
      * Ceiling: a run killed by PHP keeps the lock 5 minutes; story 71's Start over is the way out before that.
      */
     private static function claim(): bool {
-        $lock = [ 'at' => time() ];
-        if ( add_option( self::LOCK_OPTION, $lock, '', false ) ) {
+        global $wpdb;
+
+        $lock = maybe_serialize( [ 'at' => time() ] );
+        $rows = $wpdb->query( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
+            self::LOCK_OPTION,
+            $lock
+        ) );
+        if ( false === $rows ) {
+            return false;
+        }
+        if ( 1 === (int) $rows ) {
+            self::cache_lock( $lock );
             return true;
         }
         $held = get_option( self::LOCK_OPTION, false );
-        if ( is_array( $held ) && (int) ( $held['at'] ?? 0 ) > time() - self::LOCK_TTL ) {
+        if ( false === $held ) {
+            return false; // Released between the insert and the read: the next request claims the free row.
+        }
+        if ( (int) ( $held['at'] ?? 0 ) > time() - self::LOCK_TTL ) {
+            return false; // Held fresh. Any other value (a hand-edited or corrupted one included) is stale: taken over below.
+        }
+        $rows = $wpdb->query( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
+            $lock,
+            self::LOCK_OPTION,
+            maybe_serialize( $held )
+        ) );
+        if ( 1 !== (int) $rows ) {
             return false;
         }
-        update_option( self::LOCK_OPTION, $lock, false );
+        self::cache_lock( $lock );
 
         return true;
+    }
+
+    /**
+     * The Options API cache after a raw write of the lock, as core's
+     * add_option() does after its INSERT: the serialized value cached, the
+     * key no longer in `notoptions`. Autoload is off, so `alloptions` is not touched.
+     */
+    private static function cache_lock( string $serialized ): void {
+        wp_cache_set( self::LOCK_OPTION, $serialized, 'options' );
+        $notoptions = wp_cache_get( 'notoptions', 'options' );
+        if ( is_array( $notoptions ) && isset( $notoptions[ self::LOCK_OPTION ] ) ) {
+            unset( $notoptions[ self::LOCK_OPTION ] );
+            wp_cache_set( 'notoptions', $notoptions, 'options' );
+        }
     }
 
     /** provision()'s body, under the lock: every return releases it there. */

@@ -196,6 +196,11 @@ function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d
 function update_option($k, $v, $a = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
 function add_option($k, $v, $deprecated = '', $a = null) { if (array_key_exists($k, $GLOBALS['tw']['options'])) { return false; } $GLOBALS['tw']['options'][$k] = $v; return true; }
 function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); return true; }
+/* Bug 82: the provisioning lock's raw writes serialize their value and bring the option cache in line; the cache is not read here. */
+function maybe_serialize($d) { return is_array($d) || is_object($d) ? serialize($d) : $d; }
+function maybe_unserialize($d) { $u = is_string($d) ? @unserialize($d) : false; return $u === false ? $d : $u; }
+function wp_cache_get($k, $group = '') { return false; }
+function wp_cache_set($k, $v, $group = '') { return true; }
 function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
@@ -274,10 +279,28 @@ class WP_REST_Response {
 $wpdb = new class {
     public $prefix = 'wp_';
     public $posts = 'wp_posts';
-    public function prepare($sql, ...$args) { return $sql; }
+    public $options = 'wp_options';
+    public $rows_affected = 0;
+    public function prepare($sql, ...$args) { return [$sql, $args]; } // the statement with its arguments; the reads below ignore it
     public function get_results($sql, $output = null) { return []; }
     public $has_result = null; // story 67: PQM_DB::has_result() on the Free build
     public function get_var($sql) { return $this->has_result; }
+    /* Bug 82: the provisioning lock's two statements against the options store (the race rows are n8n-api-harness.php's). */
+    public function query($prepared) {
+        [$sql, $args] = $prepared;
+        $store = &$GLOBALS['tw']['options'];
+        if (str_starts_with($sql, 'INSERT IGNORE INTO wp_options (option_name, option_value, autoload)')) {
+            if (array_key_exists($args[0], $store)) { return $this->rows_affected = 0; }
+            $store[$args[0]] = maybe_unserialize($args[1]);
+            return $this->rows_affected = 1;
+        }
+        if (str_starts_with($sql, 'UPDATE wp_options SET option_value = %s WHERE option_name = %s AND option_value = %s')) {
+            if (!array_key_exists($args[1], $store) || maybe_serialize($store[$args[1]]) !== $args[2]) { return $this->rows_affected = 0; }
+            $store[$args[1]] = maybe_unserialize($args[0]);
+            return $this->rows_affected = 1;
+        }
+        throw new RuntimeException("unstubbed query: $sql");
+    }
 };
 
 require __DIR__ . '/fs-stub.php'; // pqm_fs() without the SDK; no premium check is left to read it
