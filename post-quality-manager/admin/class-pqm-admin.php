@@ -1423,6 +1423,7 @@ class PQM_Admin
             'has_result' => false,
             'leftovers'  => false,
             'host'       => preg_replace('#^https?://#', '', (string) $connection['base_url']),
+            'key_set'    => $connection['api_key'] !== '', // story 74: the island (its refusal Notice, Forget key) stays reachable
             'problem'    => '',
             'fix'        => '',
             'checked'    => $report !== null,
@@ -1473,7 +1474,7 @@ class PQM_Admin
         if ($reason !== null) {
             return ['state' => 'manual', 'reason' => $reason] + $base;
         }
-        if ($connection['api_key'] !== '' && !empty($connection['probe']['ok'])) {
+        if (PQM_N8n::connected()) {
             // Story 71: only a record of the connected instance is removed by the next setup (as GET /setup reads it).
             $leftovers = get_option(PQM_N8n::LEFTOVERS_OPTION, false);
 
@@ -1644,7 +1645,7 @@ class PQM_Admin
         $reimports   = in_array('reimport', [$state['fix'], $state['also']], true);
         $disclosures = [
             'by-hand'    => in_array($kind, ['manual'], true) || (in_array($kind, ['set-up', 'needs-attention'], true) && (!$state['has_map'] || $reimports)),
-            'connection' => $kind !== 'not-set-up',
+            'connection' => $kind !== 'not-set-up' || $state['key_set'],
             'webhook'    => in_array($kind, ['set-up', 'needs-attention'], true),
         ];
         $by_hand_link = '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="' . esc_attr((string) wp_json_encode(['manual' => true]))

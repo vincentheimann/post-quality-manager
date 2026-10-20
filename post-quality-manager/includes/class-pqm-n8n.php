@@ -85,8 +85,10 @@ class PQM_N8n {
     const LOCK_TTL = 300;
 
     /**
-     * The stored connection. `probe` is the last passing probe
-     * ({ok, cause, message, at}), null when no key is stored. `failed` is
+     * The stored connection. `probe` is the last probe of the stored key
+     * ({ok, cause, message, at}), passing or refused (story 74: a refusal of
+     * the stored key replaces it, record_refusal()), null when no key is
+     * stored; connected() reads it. `failed` is
      * the last failed probe that offers the manual path ({cause, message
      * without the manual-path sentence, at}), null when none (entry 2): the
      * Workflow File section says why its reader is on the manual path.
@@ -114,8 +116,10 @@ class PQM_N8n {
      * `rotatable` whether it may rotate the webhook token (entry 10: a
      * passing key, a map, the saved URL on the map's path) — the same gate
      * that offers the workflow update (entry 9), managed_blocked().
+     * `connected` is connected(), the one predicate every reader of
+     * "connected" asks (story 74); `probe` stays for its message and date.
      *
-     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, setup: ?array, adoptable: bool, rotatable: bool}
+     * @return array{base_url: string, key_set: bool, key_hint: string, probe: ?array, connected: bool, setup: ?array, adoptable: bool, rotatable: bool}
      */
     public static function public_state(): array {
         $connection = self::connection();
@@ -127,6 +131,7 @@ class PQM_N8n {
             'key_set'   => '' !== $key,
             'key_hint'  => strlen( $key ) >= self::KEY_HINT_MIN_LENGTH ? substr( $key, -4 ) : '',
             'probe'     => $connection['probe'],
+            'connected' => self::connected(),
             'setup'     => is_array( $setup ) ? [
                 'wizard_created' => ! empty( $setup['wizard_created'] ),
                 'at'             => (int) ( $setup['at'] ?? 0 ),
@@ -152,8 +157,8 @@ class PQM_N8n {
      * Keep a failed probe's cause for the Workflow File section (entry 2,
      * D1): only the causes that offer the manual path — the results
      * failure() builds through manual(), the one place that sets `reason` —
-     * and only `failed` changes, so the stored URL, key and last passing
-     * probe stay as they were. The message is the cause sentence without
+     * and only `failed` changes, so the stored URL, key and probe stay as
+     * they were. The message is the cause sentence without
      * the manual-path one.
      */
     public static function record_failure( array $probe ): void {
@@ -165,6 +170,34 @@ class PQM_N8n {
 
         $stored['failed'] = [ 'cause' => $probe['cause'], 'message' => $probe['reason'], 'at' => (int) $probe['at'] ];
         update_option( self::OPTION, $stored, false );
+    }
+
+    /**
+     * The stored key was refused (story 74): its probe becomes this refusal
+     * ({ok: false, cause, message, at}), so connected() and every reader of
+     * it say so until a probe passes. Only `probe` changes: the URL, the key
+     * and `failed` stay (Forget is the owner's). The callers know the key
+     * refused was the stored one: request(), and Check again on the stored
+     * address (PQM_REST_API::connect_n8n_callback()).
+     */
+    public static function record_refusal( array $probe ): void {
+        $stored = get_option( self::OPTION, [] );
+        $stored = is_array( $stored ) ? $stored : [];
+
+        $stored['probe'] = array_intersect_key( $probe, [ 'ok' => 0, 'cause' => 0, 'message' => 0, 'at' => 0 ] );
+        update_option( self::OPTION, $stored, false );
+    }
+
+    /**
+     * Whether an n8n API key is stored and its last probe passed: the one
+     * predicate behind every "connected" (story 74) — public_state(), the
+     * wizard's Connect your n8n, the page state, the manual reason and the
+     * gates of adoption, the managed actions, provisioning and Start over.
+     */
+    public static function connected(): bool {
+        $connection = self::connection();
+
+        return '' !== $connection['api_key'] && ! empty( $connection['probe']['ok'] );
     }
 
     public static function user_agent(): string {
@@ -207,11 +240,32 @@ class PQM_N8n {
             return self::not_connected();
         }
 
-        return self::call( $connection['base_url'], $connection['api_key'], $method, self::API_PATH . $path, $body );
+        $response = self::call( $connection['base_url'], $connection['api_key'], $method, self::API_PATH . $path, $body );
+        // Story 74: every call with the stored key leaves here, so a 401 is the stored key refused.
+        if ( ! is_wp_error( $response ) && 401 === $response['code'] ) {
+            self::record_refusal( self::result( 'key', self::key_refused_sentence() ) );
+        }
+
+        return $response;
     }
 
+    /**
+     * Why a call needing a connected key is refused before any call: the
+     * stored key's refusal when one is on record (story 74), else no key.
+     */
     private static function not_connected(): WP_Error {
-        return new WP_Error( 'pqm_n8n_not_connected', __( 'No n8n API key is set. Connect your n8n instance on the n8n Workflow page.', 'post-quality-manager' ), [ 'status' => 400 ] );
+        $connection = self::connection();
+        $probe      = $connection['probe'];
+        $message    = '' !== $connection['api_key'] && is_array( $probe ) && empty( $probe['ok'] ) && '' !== (string) ( $probe['message'] ?? '' )
+            ? (string) $probe['message']
+            : __( 'No n8n API key is set. Connect your n8n instance on the n8n Workflow page.', 'post-quality-manager' );
+
+        return new WP_Error( 'pqm_n8n_not_connected', $message, [ 'status' => 400 ] );
+    }
+
+    /** What a refused API key is told, on the probe and on the stored key's refusal (story 74). */
+    private static function key_refused_sentence(): string {
+        return __( 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'post-quality-manager' );
     }
 
     /**
@@ -259,8 +313,8 @@ class PQM_N8n {
      * login), so the endpoint probe is the version check.
      *
      * @return array{ok: bool, cause: string, message: string, at: int, reason?: string}
-     *         `cause`: '' when ok, else insecure, invalid_url, key, api_disabled,
-     *         proxy, unreachable, missing_endpoint or unexpected. A failure that
+     *         `cause`: '' when ok, else insecure, invalid_url, key, scoped,
+     *         api_disabled, proxy, unreachable, missing_endpoint or unexpected. A failure that
      *         offers the manual path also carries `reason`, the message
      *         without the manual-path sentence (record_failure() keeps it).
      */
@@ -305,7 +359,10 @@ class PQM_N8n {
      * the manual path. `$on_route`: the answer came from the route probe,
      * where a 405, or a 404 that is the router's generic "not found" (or a
      * JSON 404 without a message), means the endpoint is missing; a non-JSON
-     * answer is never read as a missing endpoint. Each cause sentence is
+     * answer is never read as a missing endpoint. A 401 anywhere is the key
+     * refused; a JSON 403 on the route probe is n8n's own refusal of a key
+     * whose scopes exclude the setup's routes (story 74: the list call just
+     * passed, and a WAF page is not JSON). Each cause sentence is
      * built once: `message` appends the manual-path sentence, `reason`
      * carries it bare for record_failure().
      *
@@ -329,11 +386,14 @@ class PQM_N8n {
                 self::TESTED_VERSION
             ) );
         }
-        if ( ! $on_route && 401 === $code ) {
-            return self::result( 'key', __( 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'post-quality-manager' ) );
+        if ( 401 === $code ) {
+            return self::result( 'key', self::key_refused_sentence() );
         }
         if ( ! $on_route && 404 === $code ) {
             return self::manual( 'api_disabled', __( 'n8n answered 404: the public API is turned off on this instance (N8N_PUBLIC_API_DISABLED), or this is not your n8n address. Check the address.', 'post-quality-manager' ) );
+        }
+        if ( $on_route && 403 === $code && null !== $response['json'] ) {
+            return self::manual( 'scoped', __( 'This API key cannot create credentials or publish workflows: n8n limits what it may do. In n8n under Settings → n8n API, create a key without scope limits, then try again.', 'post-quality-manager' ) );
         }
         if ( 403 === $code || null === $response['json'] ) {
             return self::manual( 'proxy', __( 'n8n did not answer as expected: a proxy or firewall in front of it is the likely cause. Allow calls from this site to the /api/v1/ path of n8n.', 'post-quality-manager' ) );
@@ -377,6 +437,9 @@ class PQM_N8n {
     public static function diagnose( string $webhook_url ): ?string {
         if ( '' === self::connection()['api_key'] ) {
             return '';
+        }
+        if ( ! self::connected() ) {
+            return null; // Story 74: a refused key is not sent again; the refusal on record stays as it was.
         }
         $setup = get_option( self::SETUP_OPTION, false );
         $setup = is_array( $setup ) && '' !== (string) ( $setup['workflow_id'] ?? '' ) && self::same_instance( $setup )
@@ -686,7 +749,7 @@ class PQM_N8n {
         if ( false !== get_option( self::SETUP_OPTION, false ) ) {
             return self::already_provisioned();
         }
-        if ( ! self::connected_key() ) {
+        if ( ! self::connected() ) {
             return self::not_connected();
         }
         if ( '' === (string) pqm_get_settings()['n8n_webhook_url'] ) {
@@ -737,7 +800,7 @@ class PQM_N8n {
         if ( false !== get_option( self::SETUP_OPTION, false ) ) {
             return self::already_provisioned();
         }
-        if ( '' === self::connection()['api_key'] ) {
+        if ( ! self::connected() ) {
             return self::not_connected();
         }
         if ( ! self::claim() ) {
@@ -1208,7 +1271,10 @@ class PQM_N8n {
      * wp_generate_uuid4(), as activation makes it. Answered after a passing
      * PATCH and never stored here: the caller saves it (PATCH first, save
      * second, so a refused PATCH leaves both sides as they were). It is in
-     * no error, and n8n's reply body is never repeated.
+     * no error, and n8n's reply body is never repeated. While the last test
+     * stored a mis-wiring sentence, nothing is sent (story 74, D3): with the
+     * Claude nodes on the webhook credential, a new token would stop them;
+     * the workflow update stays the repair.
      *
      * @return string|WP_Error The new token; why nothing changed otherwise.
      */
@@ -1216,6 +1282,14 @@ class PQM_N8n {
         $blocked = self::managed_blocked();
         if ( null !== $blocked ) {
             return $blocked;
+        }
+        $miswired = ( pqm_workflow_report() ?? [] )['miswired'] ?? '';
+        if ( '' !== $miswired ) {
+            return new WP_Error( 'pqm_workflow_miswired', sprintf(
+                /* translators: %s: the diagnosis sentence naming the nodes and the fix, e.g. "In n8n, the webhook credential … then test again." */
+                __( 'The token was not rotated: the last test found the workflow\'s credentials mis-wired, so fix that first. %s', 'post-quality-manager' ),
+                $miswired
+            ), [ 'status' => 409 ] );
         }
         $token    = wp_generate_uuid4();
         $id       = (string) get_option( self::SETUP_OPTION )['credentials']['webhook'];
@@ -1241,7 +1315,7 @@ class PQM_N8n {
      * update notice's fix.
      */
     public static function managed_blocked(): ?WP_Error {
-        if ( ! self::connected_key() ) {
+        if ( ! self::connected() ) {
             return self::not_connected();
         }
         $setup   = get_option( self::SETUP_OPTION, false );
@@ -1353,7 +1427,7 @@ class PQM_N8n {
         if ( ! is_array( $setup ) ) {
             return self::not_managed();
         }
-        if ( $remove && ! self::connected_key() ) {
+        if ( $remove && ! self::connected() ) {
             return self::not_connected();
         }
         if ( $remove && ! self::same_instance( $setup ) ) {
@@ -1399,7 +1473,7 @@ class PQM_N8n {
         $setup = get_option( self::SETUP_OPTION, false );
         $path  = self::webhook_segment( $webhook_url );
         if ( ! is_array( $setup ) || '' === (string) ( $setup['workflow_id'] ?? '' ) || ! self::same_instance( $setup )
-            || '' === $path || (string) ( $setup['path'] ?? '' ) !== $path || ! self::connected_key() ) {
+            || '' === $path || (string) ( $setup['path'] ?? '' ) !== $path || ! self::connected() ) {
             return false;
         }
 
@@ -1447,11 +1521,21 @@ class PQM_N8n {
      * Why a single call on a site already set up — a read, a token
      * rotation, a workflow update — did not go through, with the fix:
      * "The plugin could not finish updating the workflow (n8n answered
-     * HTTP 500). Try again in a moment." Provisioning says stopped().
+     * HTTP 500). Try again in a moment." A 401 is the stored key refused
+     * (story 74; request() recorded it): the fix is a new key, not a retry.
+     * Provisioning says stopped().
      *
      * @param array|WP_Error $response
      */
     private static function could_not( string $step, $response ): string {
+        if ( ! is_wp_error( $response ) && 401 === $response['code'] ) {
+            return sprintf(
+                /* translators: %s: the action, e.g. "updating the workflow" */
+                __( 'The plugin could not finish %s: n8n refused the API key. Create a new one in n8n under Settings → n8n API, connect again, then try again.', 'post-quality-manager' ),
+                self::label( $step )
+            );
+        }
+
         return sprintf(
             /* translators: 1: the action, e.g. "updating the workflow"; 2: what n8n answered, e.g. "n8n answered HTTP 500" */
             __( 'The plugin could not finish %1$s (%2$s). Try again in a moment.', 'post-quality-manager' ),
@@ -1496,6 +1580,9 @@ class PQM_N8n {
                 default      => __( 'n8n did not return what it created', 'post-quality-manager' ),
             };
         }
+        if ( 401 === $response['code'] ) {
+            return __( 'n8n refused the API key', 'post-quality-manager' ); // story 74
+        }
 
         /* translators: %d: HTTP status code */
         return sprintf( __( 'n8n answered HTTP %d', 'post-quality-manager' ), $response['code'] );
@@ -1510,12 +1597,5 @@ class PQM_N8n {
      */
     private static function gone( $response ): bool {
         return ! is_wp_error( $response ) && 404 === $response['code'] && null !== $response['json'];
-    }
-
-    /** Whether an n8n API key is stored and its last probe passed. */
-    private static function connected_key(): bool {
-        $connection = self::connection();
-
-        return '' !== $connection['api_key'] && ! empty( $connection['probe']['ok'] );
     }
 }

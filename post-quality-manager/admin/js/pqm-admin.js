@@ -435,7 +435,9 @@
      *  reply carries no body: the status is re-read instead). The
      *  element names its route (data-pqm-post), an optional JSON body
      *  (data-pqm-body), its busy label (data-pqm-busy) and what to
-     *  focus after the swap (data-pqm-focus). A REST error or a
+     *  focus after the swap (data-pqm-focus). A REST error whose data
+     *  carries the page's body (status_html: Rotate and Update, story
+     *  74) is swapped in like a reply; any other REST error or a
      *  request that did not go through shows in the outcome line, the
      *  control enabled again.
      * ================================================================ */
@@ -466,6 +468,11 @@
                 .then(function (resp) {
                     // A refusal is a REST error {code, message, data}.
                     if (!resp.ok) {
+                        var error = resp.data.data;
+                        if (error && typeof error.status_html === 'string') {
+                            swapWorkflowStatus(error.status_html, el.dataset.pqmFocus);
+                            return;
+                        }
                         showOutcome(typeof resp.data.message === 'string' ? resp.data.message : i18n.networkError, 'error');
                         return;
                     }

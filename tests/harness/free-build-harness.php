@@ -266,6 +266,9 @@ function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const EDITABLE = 'POST, PUT, PATCH'; }
 class WP_Error {
     public function __construct(public $code = '', public $message = '', public $data = null) {}
+    public function get_error_message() { return $this->message; }
+    public function get_error_data() { return $this->data; } // story 74: a refused managed action adds the page's body
+    public function add_data($data) { $this->data = $data; }
 }
 class WP_REST_Request {
     public function __construct(private $json = null) {}
@@ -409,8 +412,9 @@ check('the provision route is there, as on Pro (provisioning is free), gated by 
     ($GLOBALS['pqm_routes']['/n8n/provision']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
 $ok = static fn(array $json) => ['response' => ['code' => 200], 'body' => json_encode($json)];
 $options_before = $GLOBALS['tw']['options'];
+// Story 74: provisioning needs a connected key (a stored key whose last probe passed).
 $GLOBALS['tw']['options'] = [
-    'pqm_n8n_api'  => ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => null],
+    'pqm_n8n_api'  => ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1]],
     'pqm_settings' => ['webhook_token' => 'free-token'],
 ];
 $GLOBALS['tw']['calls'] = [];

@@ -558,18 +558,20 @@ function pqm_setup_complete(): bool
  * (`['kind' => 'probe', 'message' => cause sentence, 'at' => date in the
  * site's date format]`), else the owner's own choice
  * (`['kind' => 'choice']`, `manual` in the setup progress), else null. A
- * passing check hides both. The one reader for the Workflow File section
- * and the wizard (entry 6.6).
+ * passing check hides both (PQM_N8n::connected(), story 74). The one reader
+ * for the Workflow File section and the wizard (entry 6.6).
  */
 function pqm_manual_reason(): ?array
 {
-    $connection = PQM_N8n::connection();
-    if ($connection['api_key'] !== '' && !empty($connection['probe']['ok'])) {
+    if (PQM_N8n::connected()) {
         return null;
     }
 
-    $failed = $connection['failed'];
-    if (is_array($failed) && !empty($failed['message']) && !empty($failed['at'])) {
+    $connection = PQM_N8n::connection();
+    $failed     = $connection['failed'];
+    // Story 74: a record older than the stored key's refusal is not why the owner is here now.
+    if (is_array($failed) && !empty($failed['message']) && !empty($failed['at'])
+        && (int) $failed['at'] >= (int) ($connection['probe']['at'] ?? 0)) {
         return [
             'kind'    => 'probe',
             'message' => (string) $failed['message'],

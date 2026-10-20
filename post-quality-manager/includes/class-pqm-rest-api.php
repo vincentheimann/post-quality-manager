@@ -1090,7 +1090,7 @@ class PQM_REST_API {
         $n8n       = PQM_N8n::public_state();
         $connected = ! empty( $settings['n8n_webhook_url'] );
         $reason    = pqm_manual_reason();
-        $key_ok    = $n8n['key_set'] && ! empty( $n8n['probe'] );
+        $key_ok    = $n8n['connected'];
         // What the plugin set up in n8n (entry 6.4); a URL without it was made by hand.
         $provisioned = (bool) get_option( PQM_N8n::SETUP_OPTION );
         $leftovers   = get_option( PQM_N8n::LEFTOVERS_OPTION, false );
@@ -1368,9 +1368,10 @@ class PQM_REST_API {
     /* ─── n8n instance connection (n8n provisioning, entry 1) ───────── */
 
     /**
-     * The stored connection: `{ base_url, key_set, key_hint, probe }`, the
-     * key itself never (only its last 4 characters). Calls nothing on n8n:
-     * the page shows the last passing probe.
+     * The stored connection: `{ base_url, key_set, key_hint, probe,
+     * connected, … }`, the key itself never (only its last 4 characters).
+     * Calls nothing on n8n: the page shows the stored key's last probe,
+     * passing or refused (story 74).
      */
     public static function get_n8n_connection_callback(): WP_REST_Response {
         return new WP_REST_Response( PQM_N8n::public_state(), 200 );
@@ -1380,6 +1381,9 @@ class PQM_REST_API {
      * Probe an instance and store its base URL and key once the probe
      * passes; a failed probe leaves the stored URL and key as they were and,
      * when it offers the manual path, records its cause (PQM_N8n::record_failure()).
+     * A refusal of the stored key on the stored address (cause `key` or
+     * `scoped`) also replaces its probe (story 74, D1: a timeout or a 500
+     * keeps the passing one; D2: a new key refused changes nothing stored).
      * Without `api_key`, the stored key re-runs the probe (Check again) —
      * for the stored address only, so a new address never receives it.
      * Answers the stored state with `probe` = this run's result.
@@ -1407,6 +1411,9 @@ class PQM_REST_API {
         } else {
             // Entry 2: the Workflow File section states the cause after a reload.
             PQM_N8n::record_failure( $probe );
+            if ( in_array( $probe['cause'], [ 'key', 'scoped' ], true ) && $key === $stored['api_key'] && $origin === $stored['base_url'] ) {
+                PQM_N8n::record_refusal( $probe );
+            }
         }
 
         return new WP_REST_Response( [ 'probe' => $probe ] + PQM_N8n::public_state(), 200 );
@@ -1635,7 +1642,7 @@ class PQM_REST_API {
     public static function rotate_n8n_token_callback(): WP_REST_Response|WP_Error {
         $token = PQM_N8n::rotate_token();
         if ( is_wp_error( $token ) ) {
-            return $token;
+            return self::with_body( $token );
         }
         PQM_Admin::save_webhook_token( $token );
 
@@ -1677,7 +1684,7 @@ class PQM_REST_API {
     public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
         $setup = PQM_N8n::update_workflow();
         if ( is_wp_error( $setup ) ) {
-            return $setup;
+            return self::with_body( $setup );
         }
 
         // The PUT just passed: the workflow is there, so a 404 is never read as a gone workflow (story 71, no read).
@@ -1701,5 +1708,17 @@ class PQM_REST_API {
         $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
+    }
+
+    /**
+     * A refused managed action (Rotate, Update) with the page's body in its
+     * data (story 74, D4): the refusal as the outcome line, the state as it
+     * is now — a refused key recorded on the way takes Rotate and Update
+     * off the page at once. pqm-admin.js swaps it on an error reply too.
+     */
+    private static function with_body( WP_Error $error ): WP_Error {
+        $error->add_data( (array) $error->get_error_data() + [ 'status_html' => PQM_Admin::render_workflow_body( $error->get_error_message(), 'error' ) ] );
+
+        return $error;
     }
 }

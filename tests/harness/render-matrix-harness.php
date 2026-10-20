@@ -633,6 +633,13 @@ check('... a record of another instance (story 71): state 2 without the leftover
     $state_of($page = $render_workflow($no_url, $key_passing + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://other.example', 'credentials' => ['c1'], 'at' => 1]])) === 'connected'
     && !str_contains($page, 'An earlier setup left'));
 check('... a passing key with a setup map but no URL saved (the URL save refused): connected too, the wizard offers the paste-URL body', $state_of($render_workflow($no_url, $key_passing + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) === 'connected');
+// Story 74: a refusal of the stored key replaces its probe; the page asks PQM_N8n::connected().
+$key_refused = [PQM_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'key', 'message' => 'n8n refused this API key.', 'at' => $at]] + $key_passing[PQM_N8n::OPTION]];
+check('... a stored refusal of the key (story 74): not state 2 — state 1, Set up n8n the one primary; the n8n connection disclosure stays (the island shows the refusal, Forget key)',
+    $state_of($page = $render_workflow($no_url, $key_refused)) === 'not-set-up' && $primaries($page) === 1 && str_contains($page, $set_up_button)
+    && $disclosures_of($page) === ['pqm-n8n-connection' => false]);
+check('... the same with a setup map: not connected either, no Update workflow, no Rotate token', $state_of($page = $render_workflow($no_url, $key_refused + [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) !== 'connected'
+    && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-rotate-token'));
 // Row 3: manual path
 $probe_line = 'On ' . gmdate('Y-m-d', $at) . ', the n8n connection check did not pass: ' . $failed['message'];
 foreach ([
@@ -778,6 +785,7 @@ check('sentence stored, current, managed: Test again the one primary, no Update 
 foreach ([
     'no key'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::OPTION]); },
     'a key without a passing probe' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = null; },
+    'a stored refusal of the key (story 74)' => static function () { $GLOBALS['tw_options'][PQM_N8n::OPTION]['probe'] = ['ok' => false, 'cause' => 'key', 'message' => 'n8n refused this API key.', 'at' => 1]; },
     'no map'                       => static function () { unset($GLOBALS['tw_options'][PQM_N8n::SETUP_OPTION]); },
     'the URL on another path'      => static function () { $GLOBALS['tw_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook/elsewhere']; },
     'the map made on another instance (story 71)' => static function () { $GLOBALS['tw_options'][PQM_N8n::SETUP_OPTION]['base_url'] = 'https://other.example'; },

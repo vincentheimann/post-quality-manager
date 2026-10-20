@@ -100,12 +100,19 @@ const NEW_BLOCK =
 	'<div class="pqm-workflow-status"><p>Your workflow answers.</p></div>';
 
 /* eslint-disable camelcase -- REST field names. */
-const NOT_SET = { base_url: '', key_set: false, key_hint: '', probe: null };
+const NOT_SET = {
+	base_url: '',
+	key_set: false,
+	key_hint: '',
+	probe: null,
+	connected: false,
+};
 const PASSING = {
 	base_url: BASE,
 	key_set: true,
 	key_hint: 'ab12',
 	probe: { ok: true, cause: '', message: 'Connected to n8n.', at: 1 },
+	connected: true,
 };
 
 /**
@@ -140,7 +147,13 @@ function siteState( values = {} ) {
 	};
 }
 const HAND_URL = 'https://n8n.example.com/webhook/by-hand';
-const FORGOTTEN = { base_url: BASE, key_set: false, key_hint: '', probe: null };
+const FORGOTTEN = {
+	base_url: BASE,
+	key_set: false,
+	key_hint: '',
+	probe: null,
+	connected: false,
+};
 
 /**
  * GET /setup of a site the plugin set up: the setup map, the URL saved and

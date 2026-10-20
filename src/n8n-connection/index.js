@@ -7,11 +7,15 @@
  * never sends it back, only its last four characters (`key_hint`), so the
  * field always starts empty, with the hint as its masked placeholder, and
  * the page shows "set, ending in …" or "not set". The state comes from GET
- * /n8n/connection, which calls nothing on n8n: a reload shows the last
- * passing probe. Forget (DELETE) removes the key and keeps the address.
+ * /n8n/connection, which calls nothing on n8n: a reload shows the stored
+ * key's last probe. Story 74: that probe is passing or refused (a refusal
+ * of the stored key replaces it on the server), `connected` is the one
+ * predicate, and a stored refusal shows as an error Notice above the open
+ * form. Forget (DELETE) removes the key and keeps the address.
  * The setup wizard (entry 6) passes `onChange`, called with the stored
- * state after every call that reads or changes it (a failed probe changes
- * nothing, so it is not called then); the page mount passes none.
+ * state after every call that reads or changes it, a failed probe included
+ * (the server may have recorded a refusal); the page mount passes none and
+ * re-reads the page's body instead when `connected` flips.
  * Entry 8: with a passing key and a saved webhook URL but no setup map
  * (`adoptable`), the section offers to manage the hand-made workflow: GET
  * /n8n/adoption shows what the plugin found by name, in place of the offer,
@@ -76,14 +80,13 @@ const credentialName = ( credential ) => credential.name || credential.id;
 const dateOf = ( at ) => new Date( at * 1000 ).toLocaleDateString();
 
 /**
- * Connected: a key stored and its last check passing (the server keeps the
- * last passing probe only).
+ * Connected: the server's one predicate (story 74: PQM_N8n::connected(), a
+ * key stored and its last probe passing).
  *
  * @param {Object} data The stored state.
  * @return {boolean} Whether the section shows the summary.
  */
-const isConnected = ( data ) =>
-	!! ( data.key_set && data.probe && data.probe.ok );
+const isConnected = ( data ) => !! data.connected;
 
 /**
  * The REST error's own message, or the generic one.
@@ -103,12 +106,12 @@ function errorMessage( err ) {
 
 /**
  * @param {Object}    props
- * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, setup, adoptable, rotatable } )` after a call that read or stored the state.
+ * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, connected, setup, adoptable, rotatable } )` after a call that read or stored the state.
  * @param {string=}   props.variant  The submit's and the confirm's Button variant: 'primary' (default) or 'secondary'.
  * @return {Element|null} The section.
  */
 export default function N8nConnection( { onChange, variant = 'primary' } ) {
-	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe, setup, adoptable, rotatable }
+	const [ state, setState ] = useState( null ); // { base_url, key_set, key_hint, probe, connected, setup, adoptable, rotatable }
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ url, setUrl ] = useState( '' );
 	const [ key, setKey ] = useState( '' );
@@ -175,6 +178,9 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	}
 
 	const connected = isConnected( state );
+	// Story 74: the stored key's last probe was refused; the form stays open under its Notice.
+	const refusal =
+		! connected && state.key_set && !! state.probe && ! state.probe.ok;
 	// A form shows while nothing passes, or while the owner changes a passing connection.
 	const formOpen = changing || ! connected;
 
@@ -234,15 +240,34 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 
 	/**
 	 * One call to the connection route. A POST reply's `probe` is this run's
-	 * result: a failed one changed nothing stored, and the form stays. A
-	 * passing one shows the summary; Forget shows the fields again.
+	 * result. A failed one is stored all the same (story 74: the server may
+	 * have recorded a refusal of the stored key): still connected, the
+	 * passing probe stays shown and the failure goes in the Notice; a stored
+	 * refusal shows in its own Notice above the form. A passing one shows
+	 * the summary; Forget shows the fields again. On the page, a flip of
+	 * `connected` re-reads the page's body: Update, Rotate and the adoption
+	 * offer follow it.
 	 *
 	 * @param {Object} options apiFetch options beyond the path.
 	 */
 	const send = ( options ) =>
 		call( 'connection', { path: PATH, ...options }, ( data ) => {
+			if ( ! onChange && isConnected( data ) !== isConnected( state ) ) {
+				requestWorkflowRefresh(
+					WORKFLOW_REFRESH_EVENT,
+					'pqm-n8n-connection'
+				);
+			}
 			if ( data.probe && ! data.probe.ok ) {
-				failIn( 'connection', data.probe.message );
+				stored(
+					isConnected( data ) && isConnected( state )
+						? { ...data, probe: state.probe }
+						: data
+				);
+				// No key stored: no stored-refusal Notice, so the cause shows here.
+				if ( isConnected( data ) || ! data.key_set ) {
+					failIn( 'connection', data.probe.message );
+				}
 				return;
 			}
 			stored( data );
@@ -755,8 +780,11 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 						) }
 					</p>
 				) }
-				{ connected ? (
-					<Notice status="success" isDismissible={ false }>
+				{ connected || refusal ? (
+					<Notice
+						status={ connected ? 'success' : 'error' }
+						isDismissible={ false }
+					>
 						{ state.probe.message }{ ' ' }
 						{ sprintf(
 							/* translators: %s: date and time of the last check */

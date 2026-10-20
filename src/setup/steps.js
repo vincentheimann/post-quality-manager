@@ -29,13 +29,14 @@ const PROVISION_PATH = '/post-quality/v1/n8n/provision';
 export const BY_HAND_ID = 'pqm-by-hand';
 
 /**
- * Whether the stored n8n key passed its last check (the island's state).
+ * Whether the stored n8n key passed its last check: the server's one
+ * predicate (story 74, `n8n.connected`).
  *
  * @param {Object} state GET /setup state.
  * @return {boolean} Passing.
  */
 export function keyPasses( state ) {
-	return !! ( state.n8n && state.n8n.key_set && state.n8n.probe );
+	return !! ( state.n8n && state.n8n.connected );
 }
 
 /**

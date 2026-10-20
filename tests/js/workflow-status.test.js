@@ -472,6 +472,27 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 		}
 	);
 
+	test( 'story 74 (D4): a refusal whose data carries the body (Rotate, Update) swaps it in, the outcome line inside, the islands told once', async () => {
+		renderPage( MANAGED_OUTDATED );
+		boot();
+		const refused =
+			'<div class="pqm-workflow-status" data-state="outdated"><p class="pqm-workflow-outcome is-error">The plugin could not finish updating the workflow: n8n refused the API key.</p></div>';
+		answerRest( 502, {
+			code: 'pqm_update_failed',
+			message:
+				'The plugin could not finish updating the workflow: n8n refused the API key.',
+			data: { status: 502, status_html: refused },
+		} );
+		$( '.pqm-update-workflow' ).click();
+		await flush();
+		expect( bodyEl().innerHTML ).toBe( refused );
+		expect( $( '.pqm-update-workflow' ) ).toBeNull();
+		expect( outcome().textContent ).toBe(
+			'The plugin could not finish updating the workflow: n8n refused the API key.'
+		);
+		expect( heard ).toBe( 1 );
+	} );
+
 	test( 'a second click while the first is in flight sends nothing', async () => {
 		renderPage( MANAGED_OUTDATED );
 		boot();

@@ -101,6 +101,7 @@ function completedState( values = {} ) {
 			base_url: 'https://n8n.example.com',
 			key_set: true,
 			probe: { ok: true, cause: '', message: 'Connected to n8n.', at: 1 },
+			connected: true,
 		},
 		manual: false,
 		manual_reason: null,

@@ -39,6 +39,11 @@
  * add_option() as a read then an upsert, with a hook in the gap, and the
  * $wpdb stub serializes the lock's two statements, so the same-instant row
  * fails on bug 72's claim() and passes on bug 82's.
+ * Story 74 rows: the stored probe is the last probe of the stored key — a
+ * 401 from it (Check again, a managed call, the diagnosis) replaces it, and
+ * `connected` is the one predicate; the route probe's 401 and JSON 403; the
+ * rotation refused while a mis-wiring sentence is stored; a refused Rotate or
+ * Update carries the page's body (`status_html` in the error data).
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -233,6 +238,8 @@ class WP_Error {
     public function __construct(public $code = '', public $message = '', public $data = null) {}
     public function get_error_code() { return $this->code; }
     public function get_error_message() { return $this->message; }
+    public function get_error_data() { return $this->data; } // story 74: a refused Rotate or Update adds the page's body
+    public function add_data($data) { $this->data = $data; }
 }
 function is_wp_error($t) { return $t instanceof WP_Error; }
 
@@ -344,7 +351,8 @@ $r = post(['base_url' => '  https://n8n.example.com/home/workflows?x=1  ', 'api_
 check('probe ok, "Connected to n8n.", no version claimed', $r['probe'] === ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => $r['probe']['at']]
     && abs($r['probe']['at'] - time()) <= 5);
 check('reply: base URL = the origin (editor path dropped), key set, its last 4 characters, the probe',
-    $r['base_url'] === BASE && $r['key_set'] === true && $r['key_hint'] === '6789' && array_keys($r) === ['probe', 'base_url', 'key_set', 'key_hint', 'setup', 'adoptable', 'rotatable']);
+    $r['base_url'] === BASE && $r['key_set'] === true && $r['key_hint'] === '6789' && $r['connected'] === true
+    && array_keys($r) === ['probe', 'base_url', 'key_set', 'key_hint', 'connected', 'setup', 'adoptable', 'rotatable']);
 check('calls, in order: one-item workflow list, the two route probes (D2)', calls() === [
     'GET ' . BASE . '/api/v1/workflows?limit=1',
     'POST ' . BASE . '/api/v1/workflows/pqm-probe-unknown-id/activate',
@@ -362,7 +370,7 @@ check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes']
 $GLOBALS['tw']['calls'] = [];
 $s = get_state();
 check('reload (GET): the stored state — connected, key set — and zero calls to n8n',
-    $s === ['base_url' => BASE, 'key_set' => true, 'key_hint' => '6789', 'probe' => $r['probe'], 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['calls'] === []);
+    $s === ['base_url' => BASE, 'key_set' => true, 'key_hint' => '6789', 'probe' => $r['probe'], 'connected' => true, 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['calls'] === []);
 
 /* ─── Rows: the key hint (last 4 characters, computed at read time) ──── */
 echo "Key hint\n";
@@ -384,7 +392,7 @@ $r = post(['base_url' => BASE, 'api_key' => KEY]);
 check('the router\'s generic 404 "not found" on activate = missing endpoint; only its cause stored (entry 2), no URL, no key', $r['probe']['cause'] === 'missing_endpoint'
     && $r['probe']['message'] === 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later. Or set up the workflow by hand with the Workflow File section.'
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['failed' => ['cause' => 'missing_endpoint', 'message' => 'Your n8n lacks an API endpoint the setup needs. Update n8n to 2.42.3 or later.', 'at' => $r['probe']['at']]]
-    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false]);
+    && PQM_N8n::public_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'connected' => false, 'setup' => null, 'adoptable' => false, 'rotatable' => false]);
 site([], [LIST_OK, ROUTE_OK, resp(404, ['message' => 'NOT FOUND '])]);
 check('... case and spaces do not matter', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'missing_endpoint');
 foreach ([
@@ -434,6 +442,9 @@ $failures = [
     'Missing endpoint: a JSON 404 without n8n\'s shape on PATCH /credentials' => [[LIST_OK, ROUTE_OK, resp(404, ['error' => 'route'])], 'missing_endpoint', 'lacks an API endpoint'],
     'Route probe: a non-JSON 404 is a proxy, never a missing endpoint (D2)' => [[LIST_OK, resp(404, '<html>Not Found</html>')], 'proxy', 'proxy or firewall'],
     'Route probe unreachable' => [[LIST_OK, ROUTE_OK, new WP_Error('http_request_failed', 'cURL error 28: timed out')], 'unreachable', 'cURL error 28'],
+    'Route probe: the key refused (401, story 74)' => [[LIST_OK, resp(401, ['message' => 'unauthorized'])], 'key', 'Settings → n8n API'],
+    'Route probe: a JSON 403, a key whose scopes exclude the setup\'s routes (story 74)' => [[LIST_OK, resp(403, ['message' => 'Forbidden'])], 'scoped', 'cannot create credentials or publish workflows'],
+    'Route probe: a non-JSON 403 is a proxy (story 74)' => [[LIST_OK, ROUTE_OK, resp(403, '<html>Forbidden</html>')], 'proxy', 'proxy or firewall'],
     'n8n error (500 JSON)' => [[resp(500, ['message' => 'Internal error'])], 'unexpected', 'HTTP 500'],
 ];
 foreach ($failures as $label => [$queue, $cause, $says]) {
@@ -484,7 +495,7 @@ check('fresh site: connection() carries failed => null', PQM_N8n::connection()['
 site([], [new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host')]);
 post(['base_url' => BASE, 'api_key' => KEY]);
 check('the stored failure never carries the key', !str_contains(json_encode($GLOBALS['tw']['options']), KEY));
-check('public_state() leaves the failure out (entries 8 and 10 add setup, adoptable and rotatable only)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'key_hint', 'probe', 'setup', 'adoptable', 'rotatable']);
+check('public_state() leaves the failure out (entries 8 and 10 add setup, adoptable and rotatable; story 74 connected, after probe)', array_keys(PQM_N8n::public_state()) === ['base_url', 'key_set', 'key_hint', 'probe', 'connected', 'setup', 'adoptable', 'rotatable']);
 
 /* ─── Row: Re-check ──────────────────────────────────────────────────── */
 echo "Re-check\n";
@@ -498,7 +509,11 @@ check('POST with the stored address typed again, key empty: same re-check', post
 $before = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $stored_conn[PQM_N8n::OPTION]['probe']]];
 site($before, [resp(401, ['message' => 'unauthorized'])]);
 $r = post([]);
-check('re-check refused (key expired): cause key, stored key and last passing probe unchanged', $r['probe']['cause'] === 'key' && unchanged($before));
+// Story 74, the golden row: the refusal of the stored key replaces its probe.
+check('re-check refused (key revoked, story 74): cause key; the stored probe = the refusal {ok, cause, message, at}, the URL and key kept; connected, rotatable, adoptable false; the reply\'s probe the same',
+    $r['probe']['cause'] === 'key' && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => BASE, 'api_key' => KEY, 'probe' => $r['probe']]
+    && array_keys($r['probe']) === ['ok', 'cause', 'message', 'at'] && $GLOBALS['tw']['writes'] === [PQM_N8n::OPTION]
+    && $r['connected'] === false && $r['rotatable'] === false && $r['adoptable'] === false && PQM_N8n::public_state()['connected'] === false);
 site($stored_conn, [LIST_OK, ROUTE_OK, ROUTE_OK]);
 $r = post(['base_url' => BASE, 'api_key' => KEY]);
 check('Connect with a new key: the reply carries the last 4 of the new key at once', $r['probe']['ok'] === true && $r['key_hint'] === '6789');
@@ -517,12 +532,12 @@ check('no key given, none stored: 400, zero calls, nothing stored', $r instanceo
 echo "Forget\n";
 site($stored_conn);
 $r = forget();
-check('DELETE: key and probe removed, URL kept, "not set", no hint', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false]
+check('DELETE: key and probe removed, URL kept, "not set", no hint', $r === ['base_url' => 'https://old.example.com', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'connected' => false, 'setup' => null, 'adoptable' => false, 'rotatable' => false]
     && $GLOBALS['tw']['options'][PQM_N8n::OPTION] === ['base_url' => 'https://old.example.com'] && $GLOBALS['tw']['autoload'][PQM_N8n::OPTION] === false);
 check('... nothing sent to n8n', $GLOBALS['tw']['calls'] === []);
 check('... a reload shows "not set"', get_state() === $r);
 site();
-check('fresh site GET: nothing stored, not set, no hint', get_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['writes'] === []);
+check('fresh site GET: nothing stored, not set, no hint', get_state() === ['base_url' => '', 'key_set' => false, 'key_hint' => '', 'probe' => null, 'connected' => false, 'setup' => null, 'adoptable' => false, 'rotatable' => false] && $GLOBALS['tw']['writes'] === []);
 
 /* ─── The client boundary later entries call ─────────────────────────── */
 echo "PQM_N8n::request()\n";
@@ -1341,9 +1356,14 @@ function adopt_post(string $workflow_id) {
     $GLOBALS['adoption_calls'] = array_merge($GLOBALS['adoption_calls'], $GLOBALS['tw']['calls']);
     return $r instanceof WP_Error ? $r : $r->get_data();
 }
-/** A refusal: this code and status, zero writes, no ping. */
+/** A refusal: this code and status, zero writes, no ping. The page's body a refused Rotate or Update carries (story 74) is checked in its own rows. */
 function refused($r, string $code, int $status): bool {
-    return $r instanceof WP_Error && $r->code === $code && $r->data === ['status' => $status] && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === [];
+    return $r instanceof WP_Error && $r->code === $code && array_diff_key((array) $r->data, ['status_html' => 1]) === ['status' => $status]
+        && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === [];
+}
+/** An error as the leak scans record it: its data without the page's body, which shows the page's own token row (story 74, as without_body() for a reply). */
+function error_json(WP_Error $r): string {
+    return json_encode([$r->code, $r->message, array_diff_key((array) $r->data, ['status_html' => 1])]);
 }
 $hand_nodes = wired(HAND_NAMES);
 $proposed   = [
@@ -1414,7 +1434,6 @@ echo "Adoption: n8n did not answer\n";
 foreach ([
     'unreachable (WP_Error)' => [timed_out(), 'n8n could not be reached: cURL error 28: timed out'],
     'a 500'                  => [resp(500, ['message' => 'Internal error']), 'n8n answered HTTP 500'],
-    'the key refused (401)'  => [resp(401, ['message' => 'unauthorized']), 'n8n answered HTTP 401'],
     'a proxy\'s non-JSON 200' => [resp(200, '<html>Just a moment...</html>'), 'n8n did not answer with your workflows'],
 ] as $label => [$answer, $says]) {
     hand_made([$answer]);
@@ -1549,7 +1568,7 @@ function managed(array $queue, ?array $map = null, string $url = HOOK): void {
 }
 function rotate() {
     $r     = PQM_REST_API::rotate_n8n_token_callback();
-    $reply = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
+    $reply = $r instanceof WP_Error ? error_json($r) : json_encode($r->get_data());
     $GLOBALS['replies'][]       = $reply;
     $GLOBALS['rotation_runs'][] = [$reply, $GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
     return $r instanceof WP_Error ? $r : $r->get_data();
@@ -1615,8 +1634,13 @@ check('... an older workflow answers the ping: rotated, ping_ok and outdated tru
     && isset($r['status_html']) && token_now() === ROTATED);
 managed([PATCHED]);
 $GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE];
-rotate();
-check('... a stored mis-wiring sentence: kept (no diagnosis ran), still shown', pqm_workflow_report()['miswired'] === SHARED_SENTENCE);
+$r = rotate();
+// Story 74 (D3): with the Claude nodes on the webhook credential, a new token would stop them.
+check('... a stored mis-wiring sentence (story 74): zero calls, 409 pqm_workflow_miswired, the sentence then the diagnosis\'s fix; the token and the sentence kept',
+    refused($r, 'pqm_workflow_miswired', 409) && calls() === [] && token_now() === TOKEN && pqm_workflow_report()['miswired'] === SHARED_SENTENCE
+    && $r->message === 'The token was not rotated: the last test found the workflow\'s credentials mis-wired, so fix that first. ' . SHARED_SENTENCE);
+check('... D4: the error carries the page\'s body, the refusal its outcome line, Test again the one primary', $r->data['status_html'] === PQM_Admin::render_workflow_body($r->message, 'error')
+    && str_contains($r->data['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r->message . '</p>') && one_primary($r->data['status_html']));
 
 echo "Rotation: refused at the gate — zero calls, nothing written\n";
 foreach ([
@@ -1645,7 +1669,6 @@ echo "Rotation: n8n refuses the PATCH — the stored token unchanged, no ping\n"
 foreach ([
     'a 400 quoting the request'  => [resp(400, ['message' => 'request/body/data must match ' . ROTATED]), 'n8n answered HTTP 400'],
     'a 500'                      => [resp(500, ['message' => 'Internal error']), 'n8n answered HTTP 500'],
-    'the key refused (401)'      => [resp(401, ['message' => 'unauthorized']), 'n8n answered HTTP 401'],
     'a proxy\'s non-JSON 404'    => [resp(404, '<html>Not Found</html>'), 'n8n answered HTTP 404'],
     'a 2xx without JSON'         => [resp(200, '<html>Just a moment...</html>'), 'n8n did not confirm the change'],
     'n8n unreachable (WP_Error)' => [timed_out(), 'n8n could not be reached: cURL error 28: timed out'],
@@ -1726,7 +1749,7 @@ $older_report = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSI
 $update_runs  = []; // [reply, options, calls, pings] after every update, for the leak scan
 function update() {
     $r     = PQM_REST_API::update_n8n_workflow_callback();
-    $reply = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
+    $reply = $r instanceof WP_Error ? error_json($r) : json_encode($r->get_data());
     $GLOBALS['replies'][]     = $reply;
     $GLOBALS['update_runs'][] = [$reply, $GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
     return $r instanceof WP_Error ? $r : $r->get_data();
@@ -1861,7 +1884,6 @@ check('a JSON 404 on the GET: 502 pqm_update_failed, the sentence says the workf
 echo "Update: the read refused — no PUT\n";
 foreach ([
     'a 500'                      => [resp(500, ['message' => 'Internal error']), 'n8n answered HTTP 500'],
-    'the key refused (401)'      => [resp(401, ['message' => 'unauthorized']), 'n8n answered HTTP 401'],
     'a proxy\'s non-JSON 404'    => [resp(404, '<html>Not Found</html>'), 'n8n answered HTTP 404'],
     'a proxy\'s non-JSON 200'    => [resp(200, '<html>Just a moment...</html>'), 'n8n did not answer with your workflows'],
     'n8n unreachable (WP_Error)' => [timed_out(), 'n8n could not be reached: cURL error 28: timed out'],
@@ -1949,7 +1971,7 @@ const OTHER_BLOCKED     = 'The plugin set this workflow up on other.example.com,
 const START_OVER_CLAUSE = 'Choose Start over in the n8n connection section to set it up again.';
 const GONE_PING         = 'The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.';
 const PLAIN_404         = 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
-$state_keys = ['base_url', 'key_set', 'key_hint', 'probe', 'setup', 'adoptable', 'rotatable'];
+$state_keys = ['base_url', 'key_set', 'key_hint', 'probe', 'connected', 'setup', 'adoptable', 'rotatable'];
 $report     = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
 $elsewhere  = [PQM_N8n::SETUP_OPTION => array_replace(pro_map(1), ['base_url' => OTHER_INSTANCE])];
 function start_over(bool $remove) {
@@ -2131,6 +2153,157 @@ $GLOBALS['tw']['ping_response'] = HOOK_404;
 $r = provision();
 check('... a failed ping after: the prefix on the reply, the failure on record without it', str_starts_with($r['message'], 'An earlier setup left a workflow or credentials on old.example.com.')
     && str_ends_with($r['message'], EARLY_404) && (pqm_workflow_report()['failed']['message'] ?? null) === EARLY_404);
+
+/* ─── Story 74: the n8n connection state tells the truth ─────────────── */
+echo "Story 74: a refusal of the stored key replaces its probe (Check again)\n";
+const KEY_SENTENCE    = 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.';
+const SCOPED_SENTENCE = 'This API key cannot create credentials or publish workflows: n8n limits what it may do. In n8n under Settings → n8n API, create a key without scope limits, then try again.';
+const REFUSED_FIX     = 'n8n refused the API key. Create a new one in n8n under Settings → n8n API, connect again, then try again.';
+define('UNAUTHORIZED', resp(401, ['message' => 'unauthorized']));
+$passing_probe = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000];
+$passing_conn  = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $passing_probe]];
+$refused_conn  = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => false, 'cause' => 'key', 'message' => KEY_SENTENCE, 'at' => 1700000500]]];
+/** The stored probe is a fresh refusal of this cause, {ok, cause, message, at}; the URL and key kept; not connected. */
+function refusal_stored(string $cause): bool {
+    $c = $GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? [];
+    return ($c['base_url'] ?? '') === BASE && ($c['api_key'] ?? '') === KEY && is_array($c['probe'] ?? null)
+        && array_keys($c['probe']) === ['ok', 'cause', 'message', 'at'] && $c['probe']['ok'] === false && $c['probe']['cause'] === $cause
+        && abs($c['probe']['at'] - time()) <= 5 && PQM_N8n::connected() === false;
+}
+
+managed([UNAUTHORIZED], $setup_map + $older_report);
+$failed_before = ['cause' => 'proxy', 'message' => 'n8n did not answer as expected.', 'at' => 1700000100];
+$GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed'] = $failed_before;
+$r = post([]);
+check('re-check refused on a managed site: the refusal stored with the key sentence, `failed` kept; rotatable false; the page offers neither Update nor Rotate',
+    refusal_stored('key') && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['message'] === KEY_SENTENCE
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed'] === $failed_before && $r['rotatable'] === false && $r['connected'] === false
+    && !str_contains($block = PQM_Admin::render_workflow_body(), 'pqm-update-workflow') && !str_contains($block, 'pqm-rotate-token'));
+hand_made([UNAUTHORIZED]);
+check('... on a hand-made site: adoptable false (no offer)', post([])['adoptable'] === false && refusal_stored('key'));
+site($passing_conn, [UNAUTHORIZED]);
+check('... the stored key typed again on the stored address counts as the stored key: recorded', post(['base_url' => BASE, 'api_key' => KEY])['probe']['cause'] === 'key' && refusal_stored('key'));
+foreach ([
+    'a 500'                   => [resp(500, ['message' => 'Internal error'])],
+    'a timeout'               => [timed_out()],
+    'a 404 on the list'       => [resp(404, ['message' => 'not found'])],
+    'a proxy\'s 404 on a route' => [LIST_OK, resp(404, '<html>Not Found</html>')],
+] as $label => $queue) {
+    site($passing_conn, $queue);
+    $r = post([]);
+    check("re-check, $label (D1): the passing probe kept, `failed` recorded as today, connected true", $r['probe']['ok'] === false && $r['connected'] === true
+        && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe'] === $passing_probe && ($GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']['cause'] ?? '') === $r['probe']['cause']
+        && PQM_N8n::connected() === true);
+}
+site($passing_conn, [UNAUTHORIZED]);
+$r = post(['base_url' => BASE, 'api_key' => OLD_KEY]);
+check('a new key refused on Connect (D2): nothing stored changes; the reply\'s probe cause key, connected true', unchanged($passing_conn) && $r['probe']['cause'] === 'key' && $r['connected'] === true);
+site($passing_conn, [UNAUTHORIZED]);
+$r = post(['base_url' => 'https://other.example.com', 'api_key' => KEY]);
+check('... the stored key typed for another address: not the stored connection, nothing stored changes', unchanged($passing_conn) && $r['probe']['cause'] === 'key');
+
+echo "Story 74: the route probe's 401 and 403\n";
+site($passing_conn, [LIST_OK, UNAUTHORIZED]);
+$r = post([]);
+check('route 401 (list 200, activate 401): cause key, the key sentence, no manual path; the stored key\'s, so recorded', $r['probe']['cause'] === 'key'
+    && $r['probe']['message'] === KEY_SENTENCE && !isset($r['probe']['reason']) && refusal_stored('key') && !isset($GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']));
+site($passing_conn, [LIST_OK, ROUTE_OK, resp(403, ['message' => 'Forbidden'])]);
+$r = post([]);
+check('route 403 with JSON (on PATCH /credentials): cause scoped, the scoped sentence + the manual one; `failed` recorded; the stored key\'s: the probe replaced, without `reason`',
+    $r['probe']['cause'] === 'scoped' && $r['probe']['message'] === SCOPED_SENTENCE . ' ' . MANUAL_SENTENCE && $r['probe']['reason'] === SCOPED_SENTENCE
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed'] === ['cause' => 'scoped', 'message' => SCOPED_SENTENCE, 'at' => $r['probe']['at']]
+    && refusal_stored('scoped') && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['message'] === $r['probe']['message']);
+check('... the Workflow File section says so after a reload: the manual reason is the scoped sentence, the page on the manual path', pqm_manual_reason() === ['kind' => 'probe', 'message' => SCOPED_SENTENCE, 'at' => gmdate('F j, Y', $r['probe']['at'])]
+    && state_of($block = PQM_Admin::render_workflow_body()) === 'manual' && str_contains($block, SCOPED_SENTENCE));
+site($passing_conn + ['pqm_settings' => ['webhook_token' => TOKEN]], [UNAUTHORIZED]);
+$GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed'] = ['cause' => 'proxy', 'message' => 'n8n did not answer as expected.', 'at' => 1700000100];
+post([]);
+check('an older proxy record, then a re-check refused (401): no manual reason (the record predates the refusal), the page not set up (not manual), GET /setup not manual',
+    refusal_stored('key') && pqm_manual_reason() === null && state_of(PQM_Admin::render_workflow_body()) === 'not-set-up'
+    && PQM_REST_API::get_setup_callback()->get_data()['manual'] === false);
+site($passing_conn, [LIST_OK, ROUTE_OK, resp(403, ['message' => 'Forbidden'])]);
+$r = post([]);
+check('... a scoped refusal writes the probe and `failed` with one `at`: the manual reason is its sentence', ($GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']['at'] ?? 0) === $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['at']
+    && (pqm_manual_reason()['message'] ?? '') === SCOPED_SENTENCE);
+site($passing_conn, [LIST_OK, resp(403, '<html>Forbidden</html>')]);
+$r = post([]);
+check('route 403 without JSON: proxy as today; the passing probe kept, `failed` recorded', $r['probe']['cause'] === 'proxy'
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe'] === $passing_probe && ($GLOBALS['tw']['options'][PQM_N8n::OPTION]['failed']['cause'] ?? '') === 'proxy');
+
+echo "Story 74: a 401 on a managed call is recorded\n";
+managed([UNAUTHORIZED]);
+$r = rotate();
+check('Rotate, the PATCH answers 401: 502 pqm_rotation_failed, "could not finish updating the webhook credential: n8n refused the API key…"; recorded; the token kept, no ping',
+    $r instanceof WP_Error && $r->code === 'pqm_rotation_failed' && $r->data['status'] === 502 && calls() === [PATCH_WEBHOOK]
+    && $r->message === 'The plugin could not finish updating the webhook credential: ' . REFUSED_FIX && refusal_stored('key') && token_now() === TOKEN && $GLOBALS['tw']['pings'] === []);
+check('... D4: the error carries the page\'s body as it is now — the refusal its outcome line, neither Rotate token nor Update workflow on it',
+    $r->data['status_html'] === PQM_Admin::render_workflow_body($r->message, 'error') && str_contains($r->data['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r->message . '</p>')
+    && !str_contains($r->data['status_html'], 'pqm-rotate-token') && !str_contains($r->data['status_html'], 'pqm-update-workflow'));
+managed([UNAUTHORIZED, UPDATED], $setup_map + $older_report);
+$r = update();
+check('Update, the read answers 401: 502 pqm_update_failed, "could not finish reading your workflows: n8n refused the API key…"; no PUT; recorded; the body without Update workflow',
+    $r instanceof WP_Error && $r->code === 'pqm_update_failed' && $r->data['status'] === 502 && $r->message === 'The plugin could not finish reading your workflows: ' . REFUSED_FIX
+    && calls() === [READ_WF] && refusal_stored('key') && $r->data['status_html'] === PQM_Admin::render_workflow_body($r->message, 'error')
+    && !str_contains($r->data['status_html'], 'pqm-update-workflow'));
+managed([CLEAN_WF, UNAUTHORIZED], $setup_map + $older_report);
+$r = update();
+check('... the PUT answers 401: "could not finish updating the workflow: n8n refused the API key…"; recorded; the version record untouched',
+    $r->message === 'The plugin could not finish updating the workflow: ' . REFUSED_FIX && calls() === [READ_WF, PUT_WF] && refusal_stored('key')
+    && $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $older_report['pqm_workflow_version_seen']);
+hand_made([UNAUTHORIZED]);
+$r = proposal();
+check('the adoption read answers 401: 502 pqm_adoption_failed, could_not(\'read\') with the same cause; recorded; the offer gone', $r instanceof WP_Error && $r->code === 'pqm_adoption_failed'
+    && $r->data === ['status' => 502] && $r->message === 'The plugin could not finish reading your workflows: ' . REFUSED_FIX && refusal_stored('key') && get_state()['adoptable'] === false);
+managed([UNAUTHORIZED]);
+check('the diagnosis answers 401: null as today; recorded', diagnosed() === null && calls() === [READ_WF] && refusal_stored('key'));
+$refused_at = $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['at'] = 1700000500;
+$GLOBALS['tw']['calls'] = [];
+$GLOBALS['tw']['queue'] = [CLEAN_WF];
+check('... a stored refusal, the next passing ping\'s diagnosis: null with zero calls (the refused key is not sent again), the stored probe\'s `at` unchanged',
+    diagnosed() === null && calls() === [] && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['at'] === $refused_at);
+managed([UNAUTHORIZED, UNAUTHORIZED], [PQM_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(true);
+check('Start over\'s removal answers 401: the clears done, what n8n kept on record (the warning), the refusal recorded', is_array($r) && $r['message'] === REMOVED_LEFT && started_over()
+    && calls() === array_slice(UNDO_ALL, 0, 2) && refusal_stored('key'));
+managed([resp(403, ['message' => 'Forbidden'])]);
+$r = rotate();
+check('a 403 on a managed call stays could_not() (a WAF can answer it): "n8n answered HTTP 403", nothing recorded, still connected',
+    $r->message === sprintf(ROTATION_STOPPED, 'n8n answered HTTP 403') && PQM_N8n::connected() && !in_array(PQM_N8n::OPTION, $GLOBALS['tw']['writes'], true));
+
+echo "Story 74: after a refusal — zero calls, the stored refusal's sentence\n";
+foreach ([
+    'Rotate'                     => [static fn() => managed([PATCHED]), static fn() => rotate()],
+    'Update'                     => [static fn() => managed([CLEAN_WF, UPDATED], $GLOBALS['setup_map'] + $GLOBALS['older_report']), static fn() => update()],
+    'GET /n8n/adoption'          => [static fn() => hand_made([LIST_OK]), static fn() => proposal()],
+    'provision'                  => [static fn() => connected(PRO_OK), static fn() => provision()],
+    'Start over with the removal' => [static fn() => managed([INACTIVE], [PQM_N8n::SETUP_OPTION => pro_map(1)]), static fn() => start_over(true)],
+] as $label => [$arrange, $run]) {
+    $arrange();
+    $GLOBALS['tw']['options'][PQM_N8n::OPTION] = $refused_conn[PQM_N8n::OPTION];
+    $r = $run();
+    check("$label: 400 pqm_n8n_not_connected, the stored probe's message (not \"No n8n API key is set\"), zero calls, nothing written",
+        refused($r, 'pqm_n8n_not_connected', 400) && $r->message === KEY_SENTENCE && calls() === [] && untouched());
+}
+managed([LIST_OK, ROUTE_OK, ROUTE_OK]);
+$GLOBALS['tw']['options'][PQM_N8n::OPTION] = $refused_conn[PQM_N8n::OPTION];
+$r = post(['base_url' => BASE, 'api_key' => KEY]);
+check('a probe passes again: connected, rotatable — Update and Rotate back on the page', $r['connected'] === true && $r['rotatable'] === true && PQM_N8n::connected()
+    && $GLOBALS['tw']['options'][PQM_N8n::OPTION]['probe']['ok'] === true);
+
+echo "Story 74: the mis-wired workflow — Update stays the repair\n";
+managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]]);
+$r = update();
+check('mis-wired, Update (D3): allowed — GET, PUT, the ping\'s read; the clean read clears the sentence', is_array($r) && $r['updated'] === true
+    && calls() === [READ_WF, PUT_WF, READ_WF] && !isset(pqm_workflow_report()['miswired']));
+
+echo "Story 74: one predicate\n";
+site($refused_conn + ['pqm_settings' => ['webhook_token' => TOKEN]]);
+check('a stored refusal: connected() false; public_state().connected false; pqm_manual_reason() null (cause key: no manual path); the page state not connected; GET /setup\'s n8n step open',
+    PQM_N8n::connected() === false && PQM_N8n::public_state()['connected'] === false && pqm_manual_reason() === null
+    && state_of(PQM_Admin::render_workflow_body()) === 'not-set-up' && PQM_REST_API::get_setup_callback()->get_data()['steps']['n8n'] === false);
+$sources = ['includes/class-pqm-rest-api.php', 'includes/pqm-functions.php', 'admin/class-pqm-admin.php'];
+check('every reader asks PQM_N8n::connected(): the stored probe\'s `ok` is read in connected() only (source)', substr_count($src_n8n = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php'), "['probe']['ok']") === 1
+    && !array_filter($sources, static fn($f) => str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/' . $f), "['probe']['ok']")));
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";

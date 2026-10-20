@@ -90,6 +90,7 @@ const CONNECTED = {
 		message: 'Connected to n8n.',
 		at: 1760000000,
 	},
+	connected: true,
 	setup: null,
 	adoptable: false,
 	rotatable: false,
@@ -102,8 +103,22 @@ const NOT_SET = {
 	// eslint-disable-next-line camelcase -- REST field name.
 	key_hint: '',
 	probe: null,
+	connected: false,
 	setup: null,
 	adoptable: false,
+};
+// Story 74: the stored key refused (a re-check, or a managed call answering 401).
+const REFUSED_MESSAGE =
+	'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.';
+const REFUSED = {
+	...CONNECTED,
+	probe: {
+		ok: false,
+		cause: 'key',
+		message: REFUSED_MESSAGE,
+		at: 1760000500,
+	},
+	connected: false,
 };
 
 let root;
@@ -246,7 +261,7 @@ describe( 'n8n Instance section: the connection block', () => {
 	} );
 
 	test( 'Connecting, a stored key without a passing check: the fields and Connect, Check again and Forget key beside it', async () => {
-		await mount( { ...CONNECTED, probe: null } );
+		await mount( { ...CONNECTED, probe: null, connected: false } );
 		expect( $( '.mock-notice-success' ) ).toBeNull();
 		expect( field( 'n8n address' ).value ).toBe( BASE );
 		expect( field( 'n8n API key' ).value ).toBe( '' );
@@ -476,7 +491,7 @@ describe( 'n8n Instance section: the connection block', () => {
 		expect( document.activeElement ).toBe( field( 'n8n address' ) );
 	} );
 
-	test( 'the setup wizard (onChange): Connecting, then Connected; onChange after the read, a passing connect and Forget — never after a failed probe', async () => {
+	test( 'the setup wizard (onChange): Connecting, then Connected; onChange after the read, a failed probe (story 74: the server may have changed), a passing connect and Forget', async () => {
 		const onChange = jest.fn();
 		await mount( NOT_SET, onChange );
 		expect( onChange ).toHaveBeenLastCalledWith( NOT_SET );
@@ -484,17 +499,22 @@ describe( 'n8n Instance section: the connection block', () => {
 
 		await typeInto( 'n8n address', BASE );
 		await typeInto( 'n8n API key', 'bad-key' );
-		apiFetch.mockResolvedValueOnce( {
+		const failed = {
 			...NOT_SET,
 			probe: { ok: false, cause: 'key', message: 'Refused.' },
-		} );
+		};
+		apiFetch.mockResolvedValueOnce( failed );
 		await submit();
-		expect( onChange ).toHaveBeenCalledTimes( 1 );
+		expect( onChange ).toHaveBeenCalledTimes( 2 );
+		expect( onChange ).toHaveBeenLastCalledWith( failed );
+		expect(
+			$( '.pqm-n8n-connection-block .mock-notice-error' ).textContent
+		).toBe( 'Refused.' );
 
 		await typeInto( 'n8n API key', 'good-key' );
 		apiFetch.mockResolvedValueOnce( CONNECTED );
 		await submit();
-		expect( onChange ).toHaveBeenCalledTimes( 2 );
+		expect( onChange ).toHaveBeenCalledTimes( 3 );
 		expect( onChange ).toHaveBeenLastCalledWith( CONNECTED );
 		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
 		expect( $( 'input' ) ).toBeNull();
@@ -508,8 +528,120 @@ describe( 'n8n Instance section: the connection block', () => {
 		};
 		apiFetch.mockResolvedValueOnce( forgotten );
 		await click( '.pqm-n8n-forget' );
-		expect( onChange ).toHaveBeenCalledTimes( 3 );
+		expect( onChange ).toHaveBeenCalledTimes( 4 );
 		expect( onChange ).toHaveBeenLastCalledWith( forgotten );
+	} );
+} );
+
+describe( 'Story 74: the connection state tells the truth', () => {
+	const errorNotices = () =>
+		document.querySelectorAll(
+			'.pqm-n8n-connection-block .mock-notice-error'
+		);
+	const checked = ( at ) =>
+		`Checked ${ new Date( at * 1000 ).toLocaleString() }.`;
+
+	/**
+	 * Count pqm:workflow-refresh events while `run` runs.
+	 *
+	 * @param {Function} run Async steps.
+	 * @return {Promise<Array>} Each event's detail.
+	 */
+	async function refreshesDuring( run ) {
+		const details = [];
+		const listener = ( e ) => details.push( e.detail );
+		document.addEventListener( 'pqm:workflow-refresh', listener );
+		await run();
+		document.removeEventListener( 'pqm:workflow-refresh', listener );
+		return details;
+	}
+
+	test( 'a stored refusal: the error Notice "{message} Checked {date}." above the open form; no summary, no success Notice, no adoption offer', async () => {
+		await mount( { ...REFUSED, adoptable: false } );
+		expect( errorNotices() ).toHaveLength( 1 );
+		expect( errorNotices()[ 0 ].textContent ).toBe(
+			`${ REFUSED_MESSAGE } ${ checked( 1760000500 ) }`
+		);
+		const block = $( '.pqm-n8n-connection-block' );
+		expect(
+			// eslint-disable-next-line no-bitwise -- DOCUMENT_POSITION_FOLLOWING is a bit mask.
+			errorNotices()[ 0 ].compareDocumentPosition(
+				block.querySelector( '.pqm-n8n-connection-form' )
+			) & window.Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+		expect( $( '.pqm-n8n-summary' ) ).toBeNull();
+		expect( $( '.mock-notice-success' ) ).toBeNull();
+		expect( $( '.pqm-n8n-adopt' ) ).toBeNull();
+		expect( field( 'n8n address' ).value ).toBe( BASE );
+		expect(
+			[
+				...document.querySelectorAll(
+					'.pqm-n8n-connection-actions button'
+				),
+			].map( ( b ) => b.textContent )
+		).toEqual( [ 'Connect', 'Check again', 'Forget key' ] );
+	} );
+
+	test( 'Check again refused on the page: the reply is stored — the refusal Notice once, the form open, the offer gone; the page re-reads its body once', async () => {
+		await mount( { ...CONNECTED, adoptable: true } );
+		expect( $( '.pqm-n8n-adopt' ) ).not.toBeNull();
+		apiFetch.mockResolvedValueOnce( { ...REFUSED, adoptable: false } );
+		const refreshes = await refreshesDuring( () =>
+			click( '.pqm-n8n-recheck' )
+		);
+		expect( apiFetch ).toHaveBeenLastCalledWith( {
+			path: PATH,
+			method: 'POST',
+		} );
+		expect( errorNotices() ).toHaveLength( 1 );
+		expect( errorNotices()[ 0 ].textContent ).toBe(
+			`${ REFUSED_MESSAGE } ${ checked( 1760000500 ) }`
+		);
+		expect( $( '.pqm-n8n-summary' ) ).toBeNull();
+		expect( $( '.pqm-n8n-connection-form' ) ).not.toBeNull();
+		expect( $( '.pqm-n8n-adopt' ) ).toBeNull();
+		expect( refreshes ).toEqual( [ { focus: 'pqm-n8n-connection' } ] );
+	} );
+
+	test( 'a failed re-check that keeps the connection (n8n answered 500): the summary and the passing probe stay, the cause in its Notice, no refresh', async () => {
+		await mount( CONNECTED );
+		const cause = 'n8n answered HTTP 500. Try again in a moment.';
+		apiFetch.mockResolvedValueOnce( {
+			...CONNECTED,
+			probe: { ok: false, cause: 'unexpected', message: cause, at: 1 },
+		} );
+		const refreshes = await refreshesDuring( () =>
+			click( '.pqm-n8n-recheck' )
+		);
+		expect( $( '.mock-notice-success' ).textContent ).toBe(
+			`Connected to n8n. ${ checked( 1760000000 ) }`
+		);
+		expect( errorNotices()[ 0 ].textContent ).toBe( cause );
+		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
+		expect( refreshes ).toEqual( [] );
+	} );
+
+	test( 'in the setup wizard (onChange): a refused Check again reaches onChange, the page is not asked to refresh', async () => {
+		const onChange = jest.fn();
+		await mount( CONNECTED, onChange );
+		apiFetch.mockResolvedValueOnce( REFUSED );
+		const refreshes = await refreshesDuring( () =>
+			click( '.pqm-n8n-recheck' )
+		);
+		expect( onChange ).toHaveBeenLastCalledWith( REFUSED );
+		expect( refreshes ).toEqual( [] );
+		expect( errorNotices() ).toHaveLength( 1 );
+	} );
+
+	test( 'a new key passes after a refusal: the summary back, the page re-reads its body (Update, Rotate and the offer return)', async () => {
+		await mount( REFUSED );
+		await typeInto( 'n8n API key', 'new-key-wxyz' );
+		// eslint-disable-next-line camelcase -- REST field name.
+		apiFetch.mockResolvedValueOnce( { ...CONNECTED, key_hint: 'wxyz' } );
+		const refreshes = await refreshesDuring( () => submit() );
+		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
+		expect( errorNotices() ).toHaveLength( 0 );
+		expect( refreshes ).toEqual( [ { focus: 'pqm-n8n-connection' } ] );
 	} );
 } );
 
@@ -1054,6 +1186,7 @@ describe( 'Start over (story 71)', () => {
 				ok: false,
 				message: 'n8n refused this API key.',
 			},
+			connected: false,
 		} );
 		await click( '.pqm-n8n-start-over' );
 		expect( checkbox() ).toBeNull();
