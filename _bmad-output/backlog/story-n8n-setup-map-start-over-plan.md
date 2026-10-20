@@ -3,7 +3,7 @@ title: "Start over on the n8n setup, and a setup map that remembers its instance
 type: 'feature'
 ticket: '71'
 created: '2026-10-20'
-status: 'built'
+status: done
 baseline_revision: 'f63d057a0c01af83c888bda92141916fdd449e77'
 route: 'full'
 route_source: 'pinned'
