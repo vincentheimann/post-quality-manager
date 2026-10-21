@@ -3,7 +3,7 @@ title: 'Every n8n fact the plugin repeats has one source: names, headers, the co
 type: 'refactor'
 ticket: '77'
 created: '2026-10-21'
-status: 'built'
+status: done
 baseline_revision: '419543b8a44d80606f58da9b807ebb67a700d790'
 route: 'full'
 route_source: 'auto'
