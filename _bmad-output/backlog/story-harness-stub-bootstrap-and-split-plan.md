@@ -3,7 +3,7 @@ title: 'The CLI harnesses share one WordPress stub bootstrap (story 78, build 1 
 type: 'refactor'
 ticket: '78'
 created: '2026-10-21'
-status: 'built'
+status: 'done'
 baseline_revision: '90179a2c763963b4c5782ba8c9feb04ffa5edb19'
 route: 'full'
 route_source: 'auto'

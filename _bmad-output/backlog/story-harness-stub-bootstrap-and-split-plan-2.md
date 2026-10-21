@@ -3,7 +3,7 @@ title: 'The n8n API harness is split by concern over a shared world (story 78, b
 type: 'refactor'
 ticket: '78'
 created: '2026-10-21'
-status: 'built'
+status: 'done'
 baseline_revision: '9d4a753a1cae4cf1ee954d154fef6946ad3ab8f5'
 route: 'full'
 route_source: 'auto'
