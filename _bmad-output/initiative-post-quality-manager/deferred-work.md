@@ -86,4 +86,4 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 
 - source_plan: none
   summary: Story 78's second goal, the split of `tests/harness/n8n-api-harness.php` into four files by concern (client; provisioning and rollback; diagnosis and adoption; managed actions) with the constants, HTTP and `$wpdb` stubs and world builders in a shared include, builds second on top of the shared stub bootstrap.
-  evidence: Owner decision 2026-10-21 at the story's multi-goal check: two builds, two PRs, the bootstrap first so the split is written against it; the four files each keep their own "key never leaves the server" scan (+3 checks accepted as the one count delta).
+  evidence: Owner decision 2026-10-21 at the story's multi-goal check: two builds, two PRs, the bootstrap first so the split is written against it; the four files each keep their own "key never leaves the server" scan (+3 checks accepted as the one count delta). Resolved by `_bmad-output/backlog/story-harness-stub-bootstrap-and-split-plan-2.md` (built 2026-10-21).

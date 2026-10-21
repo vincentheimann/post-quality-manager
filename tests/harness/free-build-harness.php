@@ -241,7 +241,7 @@ $wpdb = new class {
     public function get_results($sql, $output = null) { return []; }
     public $has_result = null; // story 67: PQM_DB::has_result() on the Free build
     public function get_var($sql) { return $this->has_result; }
-    /* Bug 82: the provisioning lock's two statements against the options store (the race rows are n8n-api-harness.php's). */
+    /* Bug 82: the provisioning lock's two statements against the options store (the race rows are n8n-provisioning-harness.php's). */
     public function query($prepared) {
         [$sql, $args] = $prepared;
         $store = &$GLOBALS['tw']['options'];
