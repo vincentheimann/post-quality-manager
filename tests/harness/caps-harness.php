@@ -13,8 +13,6 @@
  * retirement (its harness is gone; uninstall still deletes the meta).
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
 
 /* ─── Mutable test world ─────────────────────────────────────────────── */
@@ -62,32 +60,18 @@ function apply_filters($tag, $value) {
     }
     return $value;
 }
-function __($s, $d = null) { return $s; }
-/* Ticket 12: maybe_upgrade() reads/writes pqm_caps_version; stubs at WP's real arity, writes counted. */
-function get_option($option, $default_value = false) {
-    return array_key_exists($option, $GLOBALS['tw']['options'] ?? []) ? $GLOBALS['tw']['options'][$option] : $default_value;
-}
-function update_option($option, $value, $autoload = null) {
-    $GLOBALS['tw']['option_writes'] = ($GLOBALS['tw']['option_writes'] ?? 0) + 1;
-    $GLOBALS['tw']['options'][$option] = $value;
-    return true;
-}
+/* Ticket 12: maybe_upgrade() reads/writes pqm_caps_version through the bootstrap's options store; tw.writes counts the writes. */
+
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
-require __DIR__ . '/fs-stub.php';
 require $base . '/includes/class-pqm-license.php';
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-activator.php';
 require $base . '/includes/class-pqm-n8n.php'; // bug 73: uninstall() revokes the setup map's Application Password through it
 
-/* ─── Tiny assert runner ─────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 function reset_world($role_names = ['administrator', 'editor', 'author', 'contributor'], $is_pro = false, $current_role = null) {
     $GLOBALS['tw'] = [
         'roles'        => [],
@@ -332,17 +316,17 @@ foreach ($default_map as $cap => $granted_roles) {
     check("option absent: $cap granted to exactly its default roles", holders_of($cap) === $granted_roles);
 }
 check('option absent: pqm_caps_version stored as CAPS_VERSION, one write',
-    ($GLOBALS['tw']['options']['pqm_caps_version'] ?? null) === PQM_Features::CAPS_VERSION && $GLOBALS['tw']['option_writes'] === 1);
+    ($GLOBALS['tw']['options']['pqm_caps_version'] ?? null) === PQM_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
 
 reset_world();
 PQM_Features::register_capabilities();
 $GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) PQM_Features::CAPS_VERSION]; // real get_option returns the stored scalar as a string
-$GLOBALS['tw']['option_writes'] = 0;
+$GLOBALS['tw']['writes'] = [];
 unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // an admin removed it by hand
 $before = role_caps_snapshot();
 PQM_Activator::maybe_upgrade();
 check('equal version: no grant — every role byte-identical (hand edit kept)', role_caps_snapshot() === $before);
-check('equal version: no option write', $GLOBALS['tw']['option_writes'] === 0);
+check('equal version: no option write', count($GLOBALS['tw']['writes'] ?? []) === 0);
 
 /* Story 42 rewrote this case: a lower version grants only a capability no
  * manage_options role holds yet (one new in this version); a cap an
@@ -352,7 +336,7 @@ $GLOBALS['tw']['roles']['administrator']->add_cap('manage_options');
 PQM_Features::register_capabilities();
 /* Ceiling: with CAPS_VERSION = 1 this stores 0 — distinct from 'absent' only once CAPS_VERSION > 1. */
 $GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) (PQM_Features::CAPS_VERSION - 1)];
-$GLOBALS['tw']['option_writes'] = 0;
+$GLOBALS['tw']['writes'] = [];
 unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // set on the Roles tab
 foreach ($GLOBALS['tw']['roles'] as $role) { $role->remove_cap('pqm_manage_agents'); } // as if new in this version
 $before = role_caps_snapshot();
@@ -364,7 +348,7 @@ check('lower version: a cap no manage_options role holds is granted to exactly i
 $before['administrator']['pqm_manage_agents'] = $before['editor']['pqm_manage_agents'] = true;
 check('lower version: nothing else changes on any role', role_caps_snapshot() == $before);
 check('lower version: stores CAPS_VERSION, one write',
-    $GLOBALS['tw']['options']['pqm_caps_version'] === PQM_Features::CAPS_VERSION && $GLOBALS['tw']['option_writes'] === 1);
+    $GLOBALS['tw']['options']['pqm_caps_version'] === PQM_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
 
 /* ─── Row 9 (story 42): activation and upgrade keep the roles as set ─── */
 echo "Row 9 — register_capabilities() grants a cap's defaults only while no manage_options role holds it\n";
@@ -493,5 +477,4 @@ check('uninstall strips every pqm_ cap from every role', array_filter(array_map(
 check('uninstall clears the review cron', $GLOBALS['tw_cleared_hooks'] === ['pqm_cron_review_posts']);
 check('no uninstall.php left (WordPress would run it instead of the SDK hook)', !file_exists($base . '/uninstall.php'));
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

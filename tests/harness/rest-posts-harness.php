@@ -25,7 +25,6 @@
  * (webhook URL set or empty × admin or author).
  */
 
-error_reporting(E_ALL & ~E_DEPRECATED);
 date_default_timezone_set('UTC'); // deterministic latest_reviewed_display assertions
 
 define('ABSPATH', __DIR__ . '/');
@@ -36,39 +35,22 @@ $GLOBALS['tw'] = [
     'caps'      => [],
     'user_id'   => 42,
     'user_meta' => [], // user_id => [key => value]
-    'options'   => [], // option overrides (story 5.6: pqm_settings, pqm_cron_nudge_dismissed)
+    'options'   => site_options(), // the site's options + overrides (story 5.6: pqm_settings, pqm_cron_nudge_dismissed)
     'post_meta'   => [], // post_id => [key => value] (story 5.10: Yoast scores)
     'meta_reads'  => 0,  // get_post_meta() calls
     'meta_primes' => [], // update_postmeta_cache() calls, each its id list
 ];
 $GLOBALS['pqm_routes'] = [];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) {
-    return $GLOBALS['tw']['options'][$k] ?? ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d;
-}
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
+/* The site's options every row starts from (the bootstrap's store); a row replaces tw.options through this. */
+function site_options(array $extra = []): array { return $extra + ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []]; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
-function __($s, $d = null) { return $s; }
-function esc_html__($s, $d = null) { return $s; }
-function esc_html($s) { return (string) $s; }
-function esc_attr($s) { return (string) $s; }
-function esc_url($s) { return (string) $s; }
-function sanitize_text_field($s) { return (string) $s; }
-function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
-function absint($n) { return abs((int) $n); }
 function sanitize_title($title, $fallback_title = '', $context = 'save') { return strtolower((string) $title); } // WP's real arity
 function is_admin() { return false; }
 function home_url($p = '') { return 'https://example.com' . $p; }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return '/wp-json/' . $p; }
 function get_edit_post_link($id, $context = 'display') { return '/wp-admin/post.php?post=' . $id . '&action=edit'; }
 /* Stored dates are GMT; the site timezone is pinned to UTC here, so display == stored (story 5.4 fix). */
@@ -92,33 +74,7 @@ function get_post_meta($post_id, $key = '', $single = false) {
 }
 function update_postmeta_cache($post_ids) { $GLOBALS['tw']['meta_primes'][] = $post_ids; return []; }
 
-/* ─── WP REST / wpdb stubs ───────────────────────────────────────────── */
-class WP_REST_Server {
-    const READABLE  = 'GET';
-    const CREATABLE = 'POST';
-    const DELETABLE = 'DELETE';
-}
-
-class WP_REST_Request {
-    private $params;
-    public function __construct(array $params = []) { $this->params = $params; }
-    public function get_param($k) { return $this->params[$k] ?? null; }
-    public function get_header($k) { return null; }
-}
-
-class WP_REST_Response {
-    public $data;
-    public $status;
-    public function __construct($data = null, $status = 200) { $this->data = $data; $this->status = $status; }
-    public function get_data() { return $this->data; }
-    public function get_status() { return $this->status; }
-    public function header($k, $v) {}
-}
-
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $error_data = null) {}
-}
-
+/* ─── wpdb stub ──────────────────────────────────────────────────────── */
 class PQM_Stub_WPDB {
     public $prefix = 'wp_';
     public $posts = 'wp_posts';
@@ -143,16 +99,10 @@ class PQM_Stub_WPDB {
 }
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner ─────────────────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 
 function fresh_wpdb(array $results_queue, array $var_queue): PQM_Stub_WPDB {
     global $wpdb;
@@ -547,13 +497,13 @@ foreach ([
 ] as $label => [$url, $caps, $connected, $can_manage]) {
     $GLOBALS['tw']['caps'] = $caps;
     $GLOBALS['tw']['user_meta'] = [];
-    $GLOBALS['tw']['options'] = ['pqm_settings' => ['n8n_webhook_url' => $url]];
+    $GLOBALS['tw']['options'] = site_options(['pqm_settings' => ['n8n_webhook_url' => $url]]);
     $v = viewer_block();
     check("$label → connected " . var_export($connected, true) . ', can_manage_settings ' . var_export($can_manage, true),
         $v['connected'] === $connected && $v['can_manage_settings'] === $can_manage);
     check("$label → existing viewer keys keep their order", array_slice(array_keys($v), 0, 4) === ['can_trigger', 'quota', 'gated_commands', 'hidden_commands']);
 }
-$GLOBALS['tw']['options'] = [];
+$GLOBALS['tw']['options'] = site_options();
 
 /* ─── Fix-next queue: orderby=priority (story 5.6) ───────────────────── */
 
@@ -588,7 +538,7 @@ check('/dashboard gated by check_view_reviews (no pqm_view_reviews → 401/403)'
 function dashboard_with(array $caps, array $settings, array $rows, bool $dismissed = false, bool $pro = true): array {
     $GLOBALS['tw']['caps'] = $caps;
     pqm_fs()->pro = $pro; // the SDK stand-in's license (story 44)
-    $GLOBALS['tw']['options'] = ['pqm_settings' => $settings, 'pqm_cron_nudge_dismissed' => $dismissed ? 1 : false];
+    $GLOBALS['tw']['options'] = site_options(['pqm_settings' => $settings, 'pqm_cron_nudge_dismissed' => $dismissed ? 1 : false]);
     fresh_wpdb([$rows], []);
     $res = PQM_REST_API::dashboard_callback();
     return ['status' => $res->get_status(), 'data' => $res->get_data()];
@@ -684,7 +634,7 @@ foreach ($cases as $label => $r) {
     check("$label → cron_nudge false, no dismiss url",
         $r['data']['cron_nudge'] === false && !array_key_exists('cron_nudge_dismiss_url', $r['data']));
 }
-$GLOBALS['tw']['options'] = [];
+$GLOBALS['tw']['options'] = site_options();
 pqm_fs()->pro = false;
 
 /* ─── Yoast column and Pending marker (story 5.10) ───────────────────── */
@@ -765,5 +715,4 @@ foreach (['audit' => [70, 14, 4, 'audit'], 'review (default)' => [70, 14, 4]] as
     check("$what: placeholder count matches args", substr_count($p['sql'], '%') === count($p['args']));
 }
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

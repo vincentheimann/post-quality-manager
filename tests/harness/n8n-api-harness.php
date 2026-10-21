@@ -53,8 +53,6 @@
  * Run: php n8n-api-harness.php
  */
 
-error_reporting(E_ALL & ~E_DEPRECATED);
-
 define('ABSPATH', __DIR__ . '/');
 
 $GLOBALS['tw'] = [
@@ -75,21 +73,9 @@ $GLOBALS['tw'] = [
 ];
 $GLOBALS['pqm_routes'] = [];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 function is_admin() { return false; }
-function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d; }
-function update_option($k, $v, $autoload = null) {
-    $GLOBALS['tw']['options'][$k] = $v;
-    $GLOBALS['tw']['autoload'][$k] = $autoload;
-    $GLOBALS['tw']['writes'][] = $k;
-    return true;
-}
 /* WP core: add_option() writes only a key that does not exist yet (entry 8, adopt()), the way core does it: a read, then an
    INSERT … ON DUPLICATE KEY UPDATE, with a gap between them a racing claim can land in (bug 82: `on_claim` fires there). The
    upsert answers true unless the stored value is byte-identical, as core reads its affected rows. */
@@ -109,17 +95,10 @@ function race(string $hook): void {
     $GLOBALS['tw'][$hook] = null;
     $fn();
 }
-function maybe_serialize($d) { return is_array($d) || is_object($d) ? serialize($d) : $d; }
-function maybe_unserialize($d) { $u = is_string($d) ? @unserialize($d) : false; return $u === false ? $d : $u; }
 /* The Options API cache a raw write brings in line (bug 82); delete_option() leaves it, so a row can read what the claim cached. */
 function wp_cache_get($k, $group = '') { return $GLOBALS['tw']['cache'][$group][$k] ?? false; }
 function wp_cache_set($k, $v, $group = '') { $GLOBALS['tw']['cache'][$group][$k] = $v; return true; }
-function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); $GLOBALS['tw']['writes'][] = "-$k"; return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function __($s, $d = null) { return $s; }
-function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
-function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
 /* A scripted answer may be a closure: it runs when its call is made, and returns the answer. */
 function wp_remote_request($url, $args) {
@@ -133,13 +112,8 @@ function wp_remote_post($url, $args) {
     $GLOBALS['tw']['pings'][] = [$url, $args];
     return $GLOBALS['tw']['ping_queue'] !== [] ? array_shift($GLOBALS['tw']['ping_queue']) : $GLOBALS['tw']['ping_response'];
 }
-function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
-function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
-function wp_generate_uuid4() { return $GLOBALS['tw']['uuid'] ?? 'stub-uuid'; } // entry 10 rotates to a distinct token
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
+/* Entry 10 rotates to a distinct token through tw.uuid, which the bootstrap's wp_generate_uuid4() reads. */
 function apply_filters($tag, $value) { return $GLOBALS['tw']['filters'][$tag] ?? $value; }
-function esc_url_raw($s) { return trim((string) $s); }
-function absint($n) { return abs((int) $n); }
 function home_url($p = '') { return $GLOBALS['tw']['home'] . $p; }
 function wp_get_current_user() { return (object) ['ID' => 7, 'user_login' => 'admin-anna', 'display_name' => 'Anna Admin']; }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
@@ -154,19 +128,9 @@ class WP_Application_Passwords {
         return true;
     }
 }
-/* GET /setup, read once for the acceptance row. */
-function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 /* A ping answers the page's refreshed body (entry 6; story 67: the whole page under the H1). */
 define('MINUTE_IN_SECONDS', 60);
-function esc_html($s) { return (string) $s; }
-function esc_html__($s, $d = null) { return (string) $s; } // the status block's re-import button label
-function esc_html_e($s, $d = null) { echo $s; } // the status block's notices (entry 7: Test again)
-function esc_attr($s) { return (string) $s; }
-function esc_attr__($s, $d = null) { return (string) $s; }
-function esc_attr_e($s, $d = null) { echo $s; }
-function esc_url($s) { return (string) $s; }
 function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; }
-function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; } // the build notice, unbuilt (CI)
 function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 /* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
 function wp_sprintf($pattern, ...$args) {
@@ -222,41 +186,13 @@ $wpdb = new class {
     }
 };
 
-class WP_REST_Server {
-    const READABLE  = 'GET';
-    const CREATABLE = 'POST';
-    const DELETABLE = 'DELETE';
-}
-class WP_REST_Request {
-    public function __construct(private array $params = []) {}
-    public function get_param($k) { return $this->params[$k] ?? null; }
-}
-class WP_REST_Response {
-    public function __construct(public $data = null, public $status = 200) {}
-    public function get_data() { return $this->data; }
-}
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $data = null) {}
-    public function get_error_code() { return $this->code; }
-    public function get_error_message() { return $this->message; }
-    public function get_error_data() { return $this->data; } // story 74: a refused Rotate or Update adds the page's body
-    public function add_data($data) { $this->data = $data; }
-}
-function is_wp_error($t) { return $t instanceof WP_Error; }
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
-require __DIR__ . '/fs-stub.php';
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner ─────────────────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
-
-const KEY     = 'n8n_api_key-SECRET-0123456789';
+/* ─── Helpers ────────────────────────────────────────────────────────── */
+const KEY    = 'n8n_api_key-SECRET-0123456789';
 const OLD_KEY = 'n8n_api_key-OLD-9876543210';
 const BASE    = 'https://n8n.example.com';
 const UA      = 'PostQualityManager/' . PQM_VERSION . ' (+https://postquality.com)';
@@ -2331,5 +2267,4 @@ check('the client and the REST class log nothing (no error_log, print_r, var_dum
 check('the client sends to n8n through wp_remote_request() in one place; its one wp_remote_get() goes to Anthropic', substr_count($src, 'wp_remote_request(') === 1
     && !str_contains($src, 'wp_remote_post(') && substr_count($src, 'wp_remote_get(') === 1 && str_contains($src, "wp_remote_get( 'https://api.anthropic.com/v1/models?limit=1'"));
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

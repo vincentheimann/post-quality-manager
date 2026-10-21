@@ -15,16 +15,9 @@
  * header the way Plugin Check compares them.
  */
 
-error_reporting(E_ALL);
+require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
 
 $file = dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
-
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
 
 /* WordPress get_file_data(): first 8 KB, CR → LF, one regex per header. */
 function header_value($data, $name) {
@@ -137,5 +130,4 @@ $rp = json_decode((string) file_get_contents($root . '/release-please-config.jso
 check('release-please-config.json lists readme.txt as a generic extra file', in_array(
     ['type' => 'generic', 'path' => 'post-quality-manager/readme.txt'], $rp['packages']['.']['extra-files'] ?? [], true));
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

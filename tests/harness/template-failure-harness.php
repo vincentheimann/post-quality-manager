@@ -9,7 +9,7 @@
  * fails loudly without it. No n8n, no WP install.
  */
 
-error_reporting(E_ALL);
+require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
 
 $tpl = json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true);
 if (!is_array($tpl)) { fwrite(STDERR, "FATAL: template is not valid JSON\n"); exit(1); }
@@ -79,13 +79,6 @@ const V2_BODY = "={{ JSON.stringify({ post_id: \$json.post_id, command: \$json.c
 function if_target(string $if, int $output): ?string {
     global $tpl;
     return $tpl['connections'][$if]['main'][$output][0]['node'] ?? null;
-}
-
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
 }
 
 /* ─── Parse Input item, produced by the real Parse Input node ────────── */
@@ -244,5 +237,4 @@ foreach ($successes as $cmd => $item) {
 }
 check('rewrite success still stored as rewritten', $successes['rewrite']['status'] === 'rewritten');
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

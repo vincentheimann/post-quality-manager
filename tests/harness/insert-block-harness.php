@@ -14,8 +14,6 @@
  * (Case 7), the dropdown in render-matrix-harness.php.
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A', 'ARRAY_A');
 
@@ -23,7 +21,7 @@ $GLOBALS['tw'] = [
     'caps'     => [],
     'can_edit' => [],   // post ids the user may edit_post
     'pro'      => true,
-    'settings' => [],
+    'options'  => ['pqm_settings' => []], // the stored settings (the pattern per command)
     'posts'    => [],   // id => post_content
     'parsed'   => [],   // post_content => parse_blocks() fixture
     'updates'  => [],   // wp_update_post() calls (raw, slashed)
@@ -33,18 +31,9 @@ $GLOBALS['tw'] = [
 ];
 $GLOBALS['pqm_routes'] = [];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 function is_admin() { return false; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
-function __($s, $d = null) { return $s; }
-function get_option($k, $d = false) { return $k === 'pqm_settings' ? $GLOBALS['tw']['settings'] : $d; }
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function apply_filters($tag, $value, ...$a) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
 function current_user_can($cap, ...$args) {
     if ($cap === 'edit_post') {
@@ -60,10 +49,7 @@ function wp_timezone() { return new DateTimeZone('UTC'); }
 /* WP's esc_html/esc_attr: specialchars, quotes included, no double-encoding. */
 function esc_html($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8', false); }
 function esc_attr($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8', false); }
-function sanitize_key($s) { return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $s)); }
-function wp_json_encode($data, $flags = 0) { return json_encode($data, $flags); }
 function wp_slash($value) { return is_array($value) ? array_map('wp_slash', $value) : (is_string($value) ? addslashes($value) : $value); }
-function is_wp_error($v) { return $v instanceof WP_Error; }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
 function get_post($id) {
     $content = $GLOBALS['tw']['posts'][$id] ?? $GLOBALS['tw']['patterns'][$id][2] ?? null;
@@ -157,21 +143,7 @@ function serialize_blocks( $blocks ) {
 }
 
 /* ─── WP class stubs ─────────────────────────────────────────────────── */
-class WP_REST_Server {
-    const READABLE  = 'GET';
-    const CREATABLE = 'POST';
-    const DELETABLE = 'DELETE';
-}
-class WP_REST_Request {
-    public function __construct(private array $params = []) {}
-    public function get_param($k) { return $this->params[$k] ?? null; }
-    public function get_header($k) { return null; }
-}
-class WP_REST_Response {
-    public function __construct(public $data = null, public $status = 200) {}
-    public function get_data() { return $this->data; }
-    public function get_status() { return $this->status; }
-}
+/* Kept local: the checks read ->error_data (WP's property name), not the bootstrap's ->data. */
 class WP_Error {
     public function __construct(public $code = '', public $message = '', public $error_data = null) {}
 }
@@ -185,17 +157,10 @@ class PQM_Stub_WPDB {
 }
 $wpdb = new PQM_Stub_WPDB();
 
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner + fixtures ──────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
-
+/* ─── Fixtures ───────────────────────────────────────────────────────── */
 /** A parsed block as WP_Block_Parser returns it. */
 function blk(?string $name, array $attrs = [], array $inner = [], array $content = []): array {
     return [
@@ -431,12 +396,12 @@ $gate = PQM_REST_API::check_can_insert(req(7, 'sources'));
 check('role without paid agents → 403 role copy', $gate instanceof WP_Error && $gate->error_data['status'] === 403
     && str_contains($gate->message, 'not available for your role'));
 as_user($editor, [7], false);
-$GLOBALS['tw']['settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook'];
+$GLOBALS['tw']['options']['pqm_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook'];
 $trigger = PQM_REST_API::trigger_review_callback(req(7, 'sources'));
 $insert  = PQM_REST_API::check_can_insert(req(7, 'sources'));
 check('trigger-review refuses with the identical gate error (shared helper)',
     $trigger instanceof WP_Error && $insert instanceof WP_Error && $trigger == $insert);
-$GLOBALS['tw']['settings'] = [];
+$GLOBALS['tw']['options']['pqm_settings'] = [];
 
 /* ─── Callback: insert() end to end ──────────────────────────────────── */
 function stored(string $command, string $status, array $result): array {
@@ -452,11 +417,11 @@ function run_insert(string $command, array $rows, string $content, array $parsed
     return PQM_REST_API::insert_block_callback(req(7, $command));
 }
 function written(): string { return stripslashes($GLOBALS['tw']['updates'][0]['post_content'] ?? ''); }
-function with_pattern(string $command, $id): void { $GLOBALS['tw']['settings'] = ['agent_prompts' => [$command => ['pattern' => $id]]]; }
+function with_pattern(string $command, $id): void { $GLOBALS['tw']['options']['pqm_settings'] = ['agent_prompts' => [$command => ['pattern' => $id]]]; }
 
 echo "Insert end to end\n";
 as_user($editor, [7], true);
-$GLOBALS['tw']['settings'] = [];
+$GLOBALS['tw']['options']['pqm_settings'] = [];
 $content = '<!-- wp:paragraph --><p>Intro</p><!-- /wp:paragraph -->';
 $res = run_insert('takeaways', [stored('review', 'ship', []), stored('takeaways', 'ship', ['rewritten_items' => $four])], $content, [$intro]);
 check('200 { success, message }', $res instanceof WP_REST_Response && $res->get_status() === 200 && $res->data['success'] === true
@@ -488,7 +453,7 @@ $tk_content = 'post-with-takeaways';
 run_insert('sources', [stored('sources', 'needs_revision', ['rewritten_sources' => $three, 'rewritten_items' => ['nope']])], $tk_content, $tk_only);
 check('sources read rewritten_sources and append the pattern copy last, Takeaways copy untouched',
     written() === owner_html($four) . "\n\n" . owner_html($three, 'sources'));
-$GLOBALS['tw']['settings'] = [];
+$GLOBALS['tw']['options']['pqm_settings'] = [];
 run_insert('sources', [stored('sources', 'ship', ['rewritten_sources' => $three])], $content, [$intro]);
 check('sources default: plain list appended last', written() === serialize_blocks([$intro]) . "\n\n" . list_html($three, 'sources'));
 run_insert('takeaways', [stored('takeaways', 'ship', ['rewritten_items' => ['  A  ', '', '   ', 'B', ['nested']]])], $content, [$intro]);
@@ -512,5 +477,4 @@ foreach ([
 $res = run_insert('sources', [], $content, [$intro]);
 check('Sources copy names Sources', $res instanceof WP_Error && $res->message === 'Run Sources first, then insert.');
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

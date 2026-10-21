@@ -17,7 +17,7 @@
  * placeholder __PQM_WEBHOOK_PATH__, never a literal (spike finding 5).
  */
 
-error_reporting(E_ALL);
+require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
 
 /** Must match the str_replace() in pqm_workflow_json() (includes/pqm-functions.php). */
 const FILLED_PLACEHOLDERS = ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'];
@@ -27,13 +27,6 @@ const ALLOWED_HOSTS = ['api.anthropic.com'];
 
 /** Keys of a bare export; an instance export adds id, versionId, meta.instanceId, pinData, tags… */
 const TOP_LEVEL_KEYS = ['active', 'connections', 'name', 'nodes', 'settings'];
-
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
 
 exec('node --version 2>&1', $out, $code);
 if ($code !== 0) { fwrite(STDERR, "FATAL: `node` is not on PATH; this harness compiles the template's Code nodes with Node.js.\n"); exit(1); }
@@ -209,5 +202,4 @@ check('the result callback forwards the variant',
     str_contains($nodes['POST Result to WordPress']['parameters']['body'], 'workflow_variant: $json.workflow_variant, '));
 check('the Pro template states no variant (absent = Pro)', !str_contains($templates['Pro']['raw'], 'workflow_variant'));
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

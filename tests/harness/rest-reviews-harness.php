@@ -10,7 +10,6 @@
  * WP install.
  */
 
-error_reporting(E_ALL & ~E_DEPRECATED);
 date_default_timezone_set('UTC');
 
 define('ABSPATH', __DIR__ . '/');
@@ -20,42 +19,23 @@ $GLOBALS['tw'] = [
     'caps'      => ['pqm_view_reviews'],
     'user_id'   => 42,
     'user_meta' => [],
+    'options'   => site_options(),
 ];
 $GLOBALS['pqm_routes'] = [];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) {
-    return $GLOBALS['tw']['options'][$k] ?? (['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []][$k] ?? $d);
-}
-function update_option($k, $v, $autoload = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
-function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); return true; }
+/* The site's options every row starts from (the bootstrap's store); a row replaces tw.options through this. */
+function site_options(array $extra = []): array { return $extra + ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []]; }
 function get_post($id) { return (int) $id === 7 ? (object) ['ID' => 7] : null; }
 function current_time($type, $gmt = 0) { return '2026-10-06 12:00:00'; }
-function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
-function __($s, $d = null) { return $s; }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; } // already the site locale
 function restore_previous_locale() { return false; }
-function esc_html__($s, $d = null) { return $s; }
-function esc_html($s) { return (string) $s; }
-function esc_attr($s) { return (string) $s; }
-function esc_url($s) { return (string) $s; }
-function sanitize_text_field($s) { return (string) $s; }
-function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
-function absint($n) { return abs((int) $n); }
 function is_admin() { return false; }
 function home_url($p = '') { return ($GLOBALS['tw']['home'] ?? 'https://example.com') . $p; }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return 'http://example.test:8080/blog/?rest_route=/' . ltrim($p, '/'); } // plain permalinks, port, subdirectory
 /* Story 35: pqm_n8n_payload() runs for real — post 7 is a page; post 8's type is not in REST. */
 class WP_Post {
@@ -87,33 +67,7 @@ function wp_date($format, $ts = null) {
 }
 function wp_timezone() { return new DateTimeZone('UTC'); }
 
-/* ─── WP REST / wpdb stubs ───────────────────────────────────────────── */
-class WP_REST_Server {
-    const READABLE  = 'GET';
-    const CREATABLE = 'POST';
-    const DELETABLE = 'DELETE';
-}
-
-class WP_REST_Request {
-    private $params;
-    public function __construct(array $params = []) { $this->params = $params; }
-    public function get_param($k) { return $this->params[$k] ?? null; }
-    public function get_header($k) { return null; }
-}
-
-class WP_REST_Response {
-    public $data;
-    public $status;
-    public function __construct($data = null, $status = 200) { $this->data = $data; $this->status = $status; }
-    public function get_data() { return $this->data; }
-    public function get_status() { return $this->status; }
-    public function header($k, $v) {}
-}
-
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $error_data = null) {}
-}
-
+/* ─── wpdb stub ──────────────────────────────────────────────────────── */
 class PQM_Stub_WPDB {
     public $prefix = 'wp_';
     public $posts = 'wp_posts';
@@ -140,17 +94,10 @@ class PQM_Stub_WPDB {
 }
 
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner ─────────────────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
-
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 function fresh_wpdb(array $results_queue): PQM_Stub_WPDB {
     global $wpdb;
     $wpdb = new PQM_Stub_WPDB();
@@ -244,7 +191,7 @@ function save_body(array $body): array {
 
 /* Row: failed run — error_message non-empty → stored status error + the message */
 echo "Save failed run\n";
-$GLOBALS['tw']['options'] = [];
+$GLOBALS['tw']['options'] = site_options();
 [$res, $row] = save_body([
     'post_id' => 7, 'command' => 'review', 'overall_score' => 0, 'status' => '', 'result' => [],
     'workflow_version' => 3,
@@ -269,7 +216,7 @@ check('stored row identical to a body without error_message', $with === $without
 /* Rows: the workflow version report — callback writer, legacy read, forget on serve */
 echo "Workflow version report\n";
 $ping_report = ['version' => 5, 'via' => 'test', 'at' => 1700000000];
-$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report];
+$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report]);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result]);
 check('callback without workflow_version (0): last report untouched', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $ping_report);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
@@ -287,24 +234,24 @@ check('save-review workflow_variant: optional string, enum free/pro (400 on othe
     ($variant_arg['required'] ?? null) === false && ($variant_arg['type'] ?? null) === 'string'
     && ($variant_arg['enum'] ?? null) === ['free', 'pro'] && ($variant_arg['default'] ?? null) === 'pro');
 foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
-    $GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $legacy];
+    $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $legacy]);
     check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', pqm_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);
 }
-$GLOBALS['tw']['options'] = [];
+$GLOBALS['tw']['options'] = site_options();
 check('option absent: no report', pqm_workflow_report() === null);
 /* n8n provisioning entry 7: a test's mis-wiring sentence rides with the report; only a test clears it */
 $sentence = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then check again.';
-$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]];
+$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
 check('a stored sentence: the report carries miswired', pqm_workflow_report() === $ping_report + ['miswired' => $sentence]);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
 check('a command\'s callback while a sentence is stored: via command, the sentence kept', pqm_workflow_report()['via'] === 'command'
     && pqm_workflow_report()['miswired'] === $sentence);
-$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => '']];
+$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => '']]);
 check('an empty sentence: the report carries no miswired key', pqm_workflow_report() === $ping_report);
-$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]];
+$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
 PQM_REST_API::workflow_callback();
 check('GET /workflow (a serve) forgets the report, the sentence with it', pqm_workflow_report() === null);
-$GLOBALS['tw']['options'] = ['pqm_workflow_version_seen' => $ping_report];
+$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report]);
 $res = PQM_REST_API::workflow_callback();
 check('GET /workflow (n8n Import from URL): serves the template and forgets the report',
     $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen'])
@@ -332,7 +279,7 @@ unset($GLOBALS['tw']['home']);
 $admin_src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
 check('Download forgets the report only once the template is found (after the not-found wp_die)',
     (bool) preg_match("/function download_workflow\(\).*?pqm_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
-$GLOBALS['tw']['options'] = [];
+$GLOBALS['tw']['options'] = site_options();
 
 /* ─── Template contract (static checks on templates/n8n-workflow.json) ── */
 echo "Template contract\n";
@@ -424,5 +371,4 @@ echo "In flight, none\n";
 fresh_wpdb([[]]);
 check('no processing rows → []', PQM_DB::get_in_flight_for_posts([7]) === []);
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

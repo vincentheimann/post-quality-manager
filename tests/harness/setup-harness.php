@@ -20,8 +20,6 @@
  * `true` accepted, kept by every other write).
  */
 
-error_reporting(E_ALL & ~E_DEPRECATED);
-
 define('ABSPATH', __DIR__ . '/');
 
 $GLOBALS['tw'] = [
@@ -36,40 +34,18 @@ $GLOBALS['tw'] = [
 ];
 $GLOBALS['pqm_routes'] = [];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
-function wp_generate_uuid4() { return 'stub-uuid'; }
-function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d; }
-function update_option($k, $v, $autoload = null) {
-    $GLOBALS['tw']['options'][$k] = $v;
-    $GLOBALS['tw']['autoload'][$k] = $autoload;
-    $GLOBALS['tw']['writes'][] = $k;
-    return true;
-}
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
-function __($s, $d = null) { return $s; }
-function esc_html__($s, $d = null) { return $s; }
-function esc_url_raw($s) { return trim((string) $s); }
-function sanitize_text_field($s) { return (string) $s; }
-function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
 function restore_previous_locale() {}
 function wp_next_scheduled($hook) { return false; }
 function wp_schedule_event($ts, $recurrence, $hook) { $GLOBALS['tw']['scheduled'][] = [$recurrence, $hook]; return true; }
 function wp_unschedule_event(...$a) { return true; }
-function sanitize_key($s) { return preg_replace('/[^a-z0-9_\-]/', '', strtolower((string) $s)); }
-function absint($n) { return abs((int) $n); }
 function is_admin() { return false; }
 function home_url($p = '') { return 'https://example.com' . $p; }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return 'https://example.com/wp-json/' . $p; }
 function admin_url($p = '') { return 'https://example.com/wp-admin/' . $p; }
 function wp_create_nonce($a = '') { return 'nonce-' . $a; }
@@ -80,62 +56,20 @@ function add_query_arg($args, $url = '', $unused = null) {
     return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args);
 }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
-function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
-function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
-function wp_remote_retrieve_body($r) { return $r['body'] ?? ''; }
 /* The connect step answers the n8n Workflow page's refreshed body (story 67: the whole page under the H1). */
-function esc_html($s) { return (string) $s; }
-function esc_html_e($s, $d = null) { echo $s; }
-function esc_attr($s) { return (string) $s; }
-function esc_attr__($s, $d = null) { return (string) $s; }
-function esc_attr_e($s, $d = null) { echo $s; }
-function esc_url($s) { return (string) $s; }
 function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; }
-function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; } // the build notice, unbuilt (CI)
 define('MINUTE_IN_SECONDS', 60);
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'editor-anna']; }
 function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
 
-class WP_REST_Server {
-    const READABLE  = 'GET';
-    const CREATABLE = 'POST';
-    const DELETABLE = 'DELETE';
-}
-
-class WP_REST_Request {
-    public function __construct(private array $params = [], private $json = null) {}
-    public function get_param($k) { return $this->params[$k] ?? null; }
-    public function get_json_params() { return $this->json; }
-    public function get_header($k) { return null; }
-}
-
-class WP_REST_Response {
-    public function __construct(public $data = null, public $status = 200) {}
-    public function get_data() { return $this->data; }
-    public function get_status() { return $this->status; }
-}
-
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $data = null) {}
-    public function get_error_message() { return $this->message; }
-}
-function is_wp_error($t) { return $t instanceof WP_Error; }
-
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner ─────────────────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
-
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 /* Review rows for PQM_DB::has_result(): the stub answers its one get_var
  * from the stored statuses, mirroring the SQL's exclusion list (asserted below). */
 $wpdb = new class {
@@ -677,5 +611,4 @@ check('uninstall deletes the n8n connection option (PQM_N8n::OPTION: base URL an
 check('uninstall deletes the provisioning lock option (PQM_N8n::LOCK_OPTION, bug 72)', PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning'
     && in_array(PQM_N8n::LOCK_OPTION, $GLOBALS['tw_deleted'], true));
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

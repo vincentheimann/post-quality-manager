@@ -5,23 +5,15 @@
  * Run: php sanitize-matrix-harness.php
  */
 
-error_reporting(E_ALL);
-
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 define('ABSPATH', __DIR__ . '/');
 
-$GLOBALS['pqm_test_caps']    = [];
-$GLOBALS['pqm_test_pro']     = false;
-$GLOBALS['pqm_test_options'] = [];
+$GLOBALS['pqm_test_caps'] = [];
+$GLOBALS['pqm_test_pro']  = false;
+$GLOBALS['tw'] = ['options' => []];
 
-function plugin_dir_path($file) { return rtrim(dirname($file), '/\\') . '/'; }
 function plugin_dir_url($file) { return 'https://example.test/wp-content/plugins/post-quality-manager/'; }
-function register_activation_hook($f, $cb) {}
-function register_deactivation_hook($f, $cb) {}
-function add_action(...$a) {}
-function add_filter(...$a) {}
 function is_admin() { return false; }
-function __($s, $d = null) { return $s; }
 function apply_filters($tag, $value, ...$a) {
     if ($tag === 'pqm_is_pro') {
         // null = pass-through (no mu-plugin): the provider's answer stands.
@@ -31,14 +23,6 @@ function apply_filters($tag, $value, ...$a) {
     return $value;
 }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['pqm_test_caps'], true); }
-function get_option($name, $default = false) { return $GLOBALS['pqm_test_options'][$name] ?? $default; }
-function wp_parse_args($args, $defaults = []) { return array_merge($defaults, (array) $args); }
-function wp_generate_uuid4() { return 'freshly-generated-default-token'; }
-function esc_url_raw($url) { return trim((string) $url); }
-function sanitize_text_field($s) { return trim(strip_tags((string) $s)); }
-function sanitize_textarea_field($s) { return trim(strip_tags((string) $s)); }
-function absint($n) { return abs((int) $n); }
-function wp_parse_url($url, $component = -1) { return parse_url($url, $component); }
 /* Story 35: the sanitizer raises a warning notice for an n8n test URL. */
 $GLOBALS['pqm_test_settings_errors'] = [];
 function add_settings_error($setting, $code, $message, $type = 'error') {
@@ -78,7 +62,7 @@ function wp_roles() { return (object) ['role_objects' => $GLOBALS['pqm_test_role
 /* Per-user grants are never read: any user query would be recorded here. */
 function get_users($args = []) { $GLOBALS['pqm_test_user_queries'][] = $args; return []; }
 
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Fixtures ───────────────────────────────────────────────────────── */
@@ -110,17 +94,10 @@ $ADMIN_ONLY = ['license_key', 'n8n_webhook_url', 'webhook_token', 'notification_
     'brand_voice_preset', 'brand_voice', 'website_context', 'author_quota', 'default_model', 'custom_model'];
 $CRON_KEYS  = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
 
-$pass = 0;
-$fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "FAIL  $label\n"; }
-}
 function setup($caps, $pro, $stored) {
     $GLOBALS['pqm_test_caps'] = $caps;
     $GLOBALS['pqm_test_pro'] = $pro;
-    $GLOBALS['pqm_test_options'] = ['pqm_settings' => $stored];
+    $GLOBALS['tw']['options'] = ['pqm_settings' => $stored];
 }
 
 /* ─── Case 1: Editor, licensed — overrides + cron POST, globals absent ── */
@@ -793,5 +770,4 @@ foreach ([
 }
 check('no save ever queried users (per-user grants untouched)', $GLOBALS['pqm_test_user_queries'] === []);
 
-echo "\n──────────────\n$pass passed, $fail failed\n";
-exit($fail > 0 ? 1 : 0);
+harness_exit();

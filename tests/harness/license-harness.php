@@ -9,11 +9,7 @@
  * override, and a stub-era stored key that no longer unlocks anything.
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
-
-require __DIR__ . '/fs-stub.php';
 
 /* ─── Mutable test world ─────────────────────────────────────────────── */
 $GLOBALS['tw'] = [
@@ -34,21 +30,14 @@ function apply_filters($tag, $value) {
 }
 function current_user_can($cap) { return !empty($GLOBALS['tw']['user_caps'][$cap]); }
 function get_role($r) { return null; }
-function __($s, $d = null) { return $s; }
-class WP_Role {}
+
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
 require $base . '/includes/class-pqm-license.php';
 require $base . '/includes/class-pqm-features.php';
 
-/* ─── Tiny assert runner ─────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
 /* $pro: SDK can_use_premium_code(); $has_license: SDK has_any_license(). */
 function reset_world($pro = false, $has_license = false, $settings = [], $filter_pro = null, $caps = []) {
     $GLOBALS['tw'] = ['settings' => $settings, 'filter_pro' => $filter_pro, 'user_caps' => $caps];
@@ -106,5 +95,4 @@ check('license_key = anything, no SDK license → free', PQM_License::is_pro() =
 check('PQM_Features::is_pro() false', PQM_Features::is_pro() === false);
 check('not lapsed either (the key is not a license)', PQM_License::has_lapsed() === false);
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

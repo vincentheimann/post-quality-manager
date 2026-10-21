@@ -83,3 +83,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `../backlog/story-n8n-one-source-each-plan.md`
   summary: The example production URL "https://your-n8n.example.com/webhook/<path>" is spelled in PHP (`class-pqm-admin.php` render_workflow_file) and in JS (`src/setup/steps.js`), two copies of one placeholder string.
   evidence: Story 77's review (finding 6) found it while grepping `/webhook/`; it predates the sweep and is a copy string, not one of the ticket's duplication-map items; story 67's copy pass against docs/brand.md is where one source for it belongs.
+
+- source_plan: none
+  summary: Story 78's second goal, the split of `tests/harness/n8n-api-harness.php` into four files by concern (client; provisioning and rollback; diagnosis and adoption; managed actions) with the constants, HTTP and `$wpdb` stubs and world builders in a shared include, builds second on top of the shared stub bootstrap.
+  evidence: Owner decision 2026-10-21 at the story's multi-goal check: two builds, two PRs, the bootstrap first so the split is written against it; the four files each keep their own "key never leaves the server" scan (+3 checks accepted as the one count delta).

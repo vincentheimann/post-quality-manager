@@ -5,14 +5,11 @@
  * fieldsets + upgrade copy per plan state. WP stubs, no WP install.
  */
 
-error_reporting(E_ALL & ~E_DEPRECATED);
-
 define('ABSPATH', __DIR__ . '/');
 
 $GLOBALS['tw'] = ['caps' => [], 'pro' => false];
 
-/* ─── WP stubs ───────────────────────────────────────────────────────── */
-function add_action(...$a) {}
+/* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 /* Ticket 12: add_filter records its calls (WP's real arity) so a hook's callback is asserted, not grepped. */
 $GLOBALS['tw_filters'] = [];
 function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
@@ -20,33 +17,18 @@ function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
     return true;
 }
 function register_setting($option_group, $option_name, $args = []) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return ''; }
 function plugin_basename($f) { return basename($f); }
-function wp_generate_uuid4() { return 'stub-uuid'; }
+/* Kept local: the rows mutate two globals the checks read — tw_settings (merged over the stored pqm_settings) and tw_options
+   (the other options, written by update_option()/delete_option() below). */
 function get_option($k, $d = false) { if (isset($GLOBALS['tw_options'][$k])) { return $GLOBALS['tw_options'][$k]; } return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
-function __($s, $d = null) { return $s; }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; } // already the site locale
 function restore_previous_locale() { return false; }
-function _e($s, $d = null) { echo $s; }
-function esc_html__($s, $d = null) { return $s; }
-function esc_html_e($s, $d = null) { echo $s; }
-function esc_attr__($s, $d = null) { return $s; }
-function esc_attr_e($s, $d = null) { echo $s; }
-function esc_html($s) { return (string) $s; }
-function esc_attr($s) { return (string) $s; }
-function esc_url($s) { return (string) $s; }
-function esc_url_raw($s) { return (string) $s; }
 function esc_textarea($s) { return (string) $s; }
 function wp_kses_post($s) { return (string) $s; }
-/* Story 36: the build notice (CI's php job runs unbuilt) goes through wp_kses. */
-function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; }
 /* Story 27: the tab-hash guard prints inline under the tab bar. */
 function wp_print_inline_script_tag($data, $attributes = []) { echo "<script>$data</script>"; }
 function admin_url($p = '') { return '/wp-admin/' . $p; }
@@ -56,10 +38,6 @@ function submit_button() { echo '<input type="submit" />'; }
 function checked($a, $b = true) { if ((string) $a === (string) $b) { echo " checked"; } }
 function selected($a, $b = true) { if ((string) $a === (string) $b) { echo " selected"; } }
 function disabled($a, $b = true) { if ($a == $b) { echo " disabled"; } }
-function sanitize_text_field($s) { return (string) $s; }
-function sanitize_textarea_field($s) { return (string) $s; }
-function sanitize_key($s) { return strtolower((string) $s); }
-function absint($n) { return abs((int) $n); }
 function rest_url($p = '') { return '/wp-json/' . $p; }
 function wp_create_nonce($a = '') { return 'nonce'; }
 function get_current_user_id() { return 1; }
@@ -73,9 +51,9 @@ function wp_next_scheduled(...$a) { return false; }
 function wp_schedule_event(...$a) { return true; }
 function wp_clear_scheduled_hook(...$a) {}
 function home_url($p = '') { return 'https://example.com' . $p; }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
-/* The workflow version report: written by the ping, read by the status block. */
+/* The workflow version report: written by the ping, read by the status block (kept local with get_option(): same tw_options global). */
 function update_option($k, $v, $autoload = null) { $GLOBALS['tw_options'][$k] = $v; return true; }
+function add_option($k, $v, $deprecated = '', $autoload = null) { return isset($GLOBALS['tw_options'][$k]) ? false : update_option($k, $v, $autoload); }
 function delete_option($k) { unset($GLOBALS['tw_options'][$k]); return true; }
 define('MINUTE_IN_SECONDS', 60);
 function human_time_diff($from, $to = 0) { return round((($to ?: time()) - $from) / 3600) . ' hours'; }
@@ -119,24 +97,12 @@ function wp_roles() {
 }
 function translate_user_role($name, $domain = 'default') { return "[$name]"; } // marks the translated label
 
-/* The status block asks PQM_N8n::managed_blocked() which fix to offer (n8n provisioning, entry 9): a refusal is a WP_Error. */
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $data = null) {}
-    public function get_error_message() { return $this->message; }
-}
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 
 /* ─── Load the plugin bootstrap (defines pqm_* helpers, loads classes) ── */
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
-/* ─── Runner ─────────────────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
-
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 function render_for(array $caps, bool $pro): string {
     $GLOBALS['tw'] = ['caps' => $caps, 'pro' => $pro];
     ob_start();
@@ -846,14 +812,10 @@ function check_ajax_referer($action = -1, ...$a) {
 function wp_unslash($v) { return $v; }
 function wp_send_json_error($data = null, $status = null) { throw new PQM_Json_Exit(false, $data, $status); }
 function wp_send_json_success($data = null, $status = null) { throw new PQM_Json_Exit(true, $data, $status); }
-function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw_pings'][] = [$url, $args];
     return $GLOBALS['tw_ping_error'] ?? ['response' => ['code' => $GLOBALS['tw_ping_code'] ?? 200], 'body' => $GLOBALS['tw_ping_body'] ?? ''];
 }
-function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
-function wp_remote_retrieve_body($r) { return $r['body']; }
-function is_wp_error($t) { return $t instanceof WP_Error; }
 function ping(string $url): PQM_Json_Exit {
     $GLOBALS['tw_pings'] = [];
     $_POST = ['webhook_url' => $url];
@@ -1404,5 +1366,4 @@ check('CSS: the hint is hidden unless its View reviews box is unchecked (no JS)'
     && (bool) preg_match('/^\.pqm-roles-table input:not\(:checked\) \+ \.pqm-role-hint \{ display: inline; \}/m', $css));
 $GLOBALS['tw_roles'] = [];
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

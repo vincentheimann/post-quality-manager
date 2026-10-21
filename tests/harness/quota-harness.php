@@ -5,8 +5,6 @@
  * PQM_Features quota helpers and PQM_REST_API::trigger_review_callback().
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
 
 /* ─── Mutable test world ─────────────────────────────────────────────── */
@@ -15,6 +13,7 @@ $GLOBALS['tw'] = [
     'user_id'        => 42,
     'user_meta'      => [],            // user_id => [key => value]
     'settings'       => [],
+    'options'        => ['date_format' => 'F j, Y'], // the site's date format (quota_state()'s `resets`)
     'now_month'      => '2026-10',
     'webhook_result' => 200,           // int status, or 'error' for WP_Error
     'webhook_calls'  => 0,
@@ -34,16 +33,12 @@ function wp_date($format, $ts = null) {
     return gmdate($format, $ts ?? time());
 }
 function wp_timezone() { return new DateTimeZone('Europe/Zurich'); }
-function get_option($k, $d = false) { return $k === 'date_format' ? 'F j, Y' : $d; }
 function apply_filters($tag, $value) { return $value; }
 function get_role($r) { return null; }
-function sanitize_key($k) { return strtolower(preg_replace('/[^a-z0-9_\-]/', '', strtolower((string)$k))); }
-function __($s, $d = null) { return $s; }
 function get_post($id) {
     return (object)['ID' => $id, 'post_status' => 'publish', 'post_title' => 'Test Post'];
 }
 function pqm_n8n_payload($post, $command, $settings) { return ['command' => $command, 'post_id' => $post->ID]; }
-function wp_json_encode($v) { return json_encode($v); }
 /* Same shape as the real helper (unit-tested in rest-reviews-harness.php, which loads the bootstrap). */
 function pqm_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
 function wp_remote_post($url, $args) {
@@ -52,12 +47,8 @@ function wp_remote_post($url, $args) {
     if ($GLOBALS['tw']['webhook_result'] === 'error') { return new WP_Error('http_request_failed', 'cURL error 7'); }
     return ['response' => ['code' => $GLOBALS['tw']['webhook_result']]];
 }
-function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
-function is_wp_error($t) { return $t instanceof WP_Error; }
 /* Processing-row stubs (story 5.4): PQM_DB::save_review() runs inside the trigger callback. */
 function current_time($type, $gmt = 0) { return '2026-10-05 12:00:00'; }
-function sanitize_text_field($s) { return (string) $s; }
-function absint($n) { return abs((int) $n); }
 
 class PQM_Stub_WPDB {
     public $prefix = 'wp_';
@@ -71,45 +62,17 @@ class PQM_Stub_WPDB {
 }
 $wpdb = new PQM_Stub_WPDB();
 
-class WP_Error {
-    private $code; private $message; private $data;
-    public function __construct($code = '', $message = '', $data = null) { $this->code = $code; $this->message = $message; $this->data = $data; }
-    public function get_error_code() { return $this->code; }
-    public function get_error_message() { return $this->message; }
-    public function get_error_data() { return $this->data; }
-}
-class WP_REST_Request {
-    private $params = [];
-    public function __construct($m = '', $r = '') {}
-    public function set_param($k, $v) { $this->params[$k] = $v; }
-    public function get_param($k) { return $this->params[$k] ?? null; }
-    public function get_header($k) { return null; }
-}
-class WP_REST_Response {
-    private $data; private $status;
-    public function __construct($data = null, $status = 200) { $this->data = $data; $this->status = $status; }
-    public function get_data() { return $this->data; }
-    public function header($k, $v) {}
-}
-class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const DELETABLE = 'DELETE'; }
-class WP_Role {}
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-n8n.php'; // the trigger route's 2xx test is PQM_N8n::is_2xx() (story 77)
 require $base . '/includes/class-pqm-db.php';       // processing placeholder (story 5.4)
 require $base . '/includes/class-pqm-rest-api.php';
 
-/* ─── Tiny assert runner ─────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 function author_caps() { return ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true]; }
 function editor_caps() { return author_caps() + ['pqm_run_paid_agents' => true]; }
 function reset_world($caps, $meta = null, $settings = []) {
@@ -347,5 +310,4 @@ $s = PQM_Features::quota_state();
 check('resets looks like a real date (non-empty)', is_string($s['resets']) && $s['resets'] !== '');
 echo "  info resets = {$s['resets']}\n";
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

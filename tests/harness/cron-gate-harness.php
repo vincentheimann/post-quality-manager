@@ -5,8 +5,6 @@
  * PQM_Features::plan_allows() and PQM_Cron::run_scheduled_review().
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
 define('WEEK_IN_SECONDS', 604800);
 
@@ -42,15 +40,11 @@ function apply_filters($tag, $value) {
 function current_user_can($cap) { return !empty($GLOBALS['tw']['user_caps'][$cap]); }
 function get_user_meta($uid, $key, $single) { return $GLOBALS['tw']['user_meta'][$uid][$key] ?? ''; }
 function update_user_meta($uid, $key, $value) { $GLOBALS['tw']['user_meta'][$uid][$key] = $value; return true; }
-function absint($n) { return abs((int)$n); }
-function sanitize_key($k) { return strtolower(preg_replace('/[^a-z0-9_\-]/', '', strtolower((string)$k))); }
 function get_role($r) { return null; }
-function __($s, $d = null) { return $s; }
 function get_post($id) {
     return (object)['ID' => $id, 'post_status' => 'publish', 'post_title' => 'Test Post'];
 }
 function pqm_n8n_payload($post, $command, $settings) { $GLOBALS['tw']['sent_commands'][] = $command; return ['command' => $command, 'post_id' => $post->ID]; }
-function wp_json_encode($v) { return json_encode($v); }
 /* Same shape as the real helper (unit-tested in rest-reviews-harness.php, which loads the bootstrap). */
 function pqm_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
 function wp_remote_post($url, $args) {
@@ -58,7 +52,6 @@ function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_headers'][] = $args['headers'] ?? null;
     return ['response' => ['code' => 200]];
 }
-class WP_Role {}
 /* WP-Cron stubs — a hook => timestamp map (ticket 13: schedule() clears the event). */
 $GLOBALS['tw']['events'] = [];
 function wp_next_scheduled($hook) { return $GLOBALS['tw']['events'][$hook] ?? false; }
@@ -76,19 +69,13 @@ class PQM_DB {
 }
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
+require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
-require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
 require $base . '/includes/class-pqm-cron.php';
 
-/* ─── Tiny assert runner ─────────────────────────────────────────────── */
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "  FAIL $label\n"; }
-}
+/* ─── Helpers ────────────────────────────────────────────────────────── */
 function reset_world($settings = [], $is_pro = false) {
     $GLOBALS['tw']['settings'] = $settings;
     $GLOBALS['tw']['is_pro'] = $is_pro;
@@ -207,5 +194,4 @@ $GLOBALS['tw']['is_pro'] = false;
 check("why_not(seo) is 'role' before 'plan'", PQM_Features::why_not('seo') === 'role');
 check("why_not(review) is 'role' without the free cap", PQM_Features::why_not('review') === 'role');
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail === 0 ? 0 : 1);
+harness_exit();

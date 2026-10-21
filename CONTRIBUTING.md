@@ -14,7 +14,7 @@ Once agreed:
 
 - Branch from `main` as `feat/…`, `fix/…` or `chore/…`; commit with [Conventional Commits](https://www.conventionalcommits.org/) (`fix(rest): refuse unknown commands`). Releases are cut from those messages by release-please, so the type and scope matter.
 - Never bump the version: the `Version:` header, `PQM_VERSION` and `package.json` belong to release-please.
-- Before pushing, run what CI runs:
+- Before pushing, run what CI runs (the harness loop runs the files at the top of `tests/harness/` only; shared includes live in `tests/harness/lib/` and are never run alone):
 
   ```sh
   php -l <each touched PHP file>

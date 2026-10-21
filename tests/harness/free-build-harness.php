@@ -11,22 +11,17 @@
  * Run: php free-build-harness.php
  */
 
-error_reporting(E_ALL);
-
 define('ABSPATH', __DIR__ . '/');
+
+/* The shared world (runner, WP classes, the common stubs, fs-stub.php) loads here, before the first check; the stubs the
+   stripped tree needs beyond it are declared with the boot below (hoisted, so they win over the bootstrap's guards). */
+require __DIR__ . '/lib/wp-stubs.php';
 
 $root    = dirname(__DIR__, 2);
 $builder = $root . '/bin/build-free.php';
 $tmp     = sys_get_temp_dir() . '/pqm-free-build-' . getmypid() . '-' . bin2hex(random_bytes(4));
 $free    = $tmp . '/out/post-quality-manager';
 const PAID_COMMANDS = ['rewrite', 'sources', 'seo', 'audit'];
-
-$pass = 0; $fail = 0;
-function check($label, $cond) {
-    global $pass, $fail;
-    if ($cond) { $pass++; echo "  ok  $label\n"; }
-    else { $fail++; echo "FAIL  $label\n"; }
-}
 
 /** Runs the builder; [exit code, stdout + stderr]. */
 function build(string $out, ?string $src = null): array {
@@ -181,41 +176,18 @@ check('a file on one side only: exit 1 naming it; vendor/ ignored', $code === 1 
 /* ─── Boot the stripped tree (WP stubs, no SDK) ──────────────────────── */
 $GLOBALS['tw'] = ['caps' => [], 'options' => []];
 $GLOBALS['pqm_routes'] = [];
-function add_action(...$a) {}
-function add_filter(...$a) {}
-function register_activation_hook(...$a) {}
-function register_deactivation_hook(...$a) {}
 function register_setting(...$a) {}
-function plugin_dir_path($f) { return dirname($f) . '/'; }
 function plugin_dir_url($f) { return '/wp-content/plugins/post-quality-manager/'; }
 function plugin_basename($f) { return basename($f); }
 function load_plugin_textdomain(...$a) {}
 function is_admin() { return true; }
-function wp_generate_uuid4() { return $GLOBALS['tw']['uuid'] ?? 'stub-uuid'; } // entry 10 rotates to a distinct token
-function get_option($k, $d = false) { return $GLOBALS['tw']['options'][$k] ?? $d; }
-function update_option($k, $v, $a = null) { $GLOBALS['tw']['options'][$k] = $v; return true; }
-function add_option($k, $v, $deprecated = '', $a = null) { if (array_key_exists($k, $GLOBALS['tw']['options'])) { return false; } $GLOBALS['tw']['options'][$k] = $v; return true; }
-function delete_option($k) { unset($GLOBALS['tw']['options'][$k]); return true; }
+/* Entry 10 rotates to a distinct token through tw.uuid, which the bootstrap's wp_generate_uuid4() reads. */
 /* Bug 82: the provisioning lock's raw writes serialize their value and bring the option cache in line; the cache is not read here. */
-function maybe_serialize($d) { return is_array($d) || is_object($d) ? serialize($d) : $d; }
-function maybe_unserialize($d) { $u = is_string($d) ? @unserialize($d) : false; return $u === false ? $d : $u; }
 function wp_cache_get($k, $group = '') { return false; }
 function wp_cache_set($k, $v, $group = '') { return true; }
-function wp_parse_args($args, $defaults) { return array_merge($defaults, (array) $args); }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $value; }
-function __($s, $d = null) { return $s; }
-function _e($s, $d = null) { echo $s; }
-function esc_html__($s, $d = null) { return $s; }
-function esc_html_e($s, $d = null) { echo $s; }
-function esc_attr__($s, $d = null) { return $s; }
-function esc_attr_e($s, $d = null) { echo $s; }
-function esc_html($s) { return (string) $s; }
-function esc_attr($s) { return (string) $s; }
-function esc_url($s) { return (string) $s; }
-function esc_url_raw($s) { return (string) $s; }
 function esc_textarea($s) { return (string) $s; }
-function wp_kses($s, $allowed_html, $allowed_protocols = []) { return (string) $s; }
 function wp_print_inline_script_tag($data, $attributes = []) { echo "<script>$data</script>"; }
 function settings_fields($g) {}
 function settings_errors(...$a) {}
@@ -223,15 +195,10 @@ function submit_button() { echo '<input type="submit" />'; }
 function checked($a, $b = true) { if ((string) $a === (string) $b) { echo ' checked'; } }
 function selected($a, $b = true) { if ((string) $a === (string) $b) { echo ' selected'; } }
 function disabled($a, $b = true) { if ($a == $b) { echo ' disabled'; } }
-function sanitize_key($s) { return strtolower((string) $s); }
-function sanitize_text_field($s) { return (string) $s; }
-function sanitize_textarea_field($s) { return (string) $s; }
-function absint($n) { return abs((int) $n); }
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
 function restore_previous_locale() { return false; }
 function home_url($p = '') { return 'https://example.com' . $p; }
-function wp_parse_url($u, $c = -1) { return parse_url($u, $c); }
 function rest_url($p = '') { return 'https://example.com/wp-json/' . $p; }
 function admin_url($p = '') { return '/wp-admin/' . $p; }
 function wp_create_nonce($a = '') { return 'nonce'; }
@@ -254,30 +221,16 @@ function wp_remote_request($url, $args) {
     return array_shift($GLOBALS['tw']['queue']) ?? ['response' => ['code' => 599], 'body' => ''];
 }
 function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
-function wp_remote_retrieve_response_code($r) { return $r['response']['code']; }
-function wp_remote_retrieve_body($r) { return $r['body']; }
-function is_wp_error($thing) { return $thing instanceof WP_Error; }
 define('MINUTE_IN_SECONDS', 60);
 define('ARRAY_A', 'ARRAY_A');
 define('WEEK_IN_SECONDS', 604800);
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_date_from_gmt($gmt, $format = '') { return $gmt; }
-function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
-class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const DELETABLE = 'DELETE'; const EDITABLE = 'POST, PUT, PATCH'; }
-class WP_Error {
-    public function __construct(public $code = '', public $message = '', public $data = null) {}
-    public function get_error_message() { return $this->message; }
-    public function get_error_data() { return $this->data; } // story 74: a refused managed action adds the page's body
-    public function add_data($data) { $this->data = $data; }
-}
+/* Kept local: the rows build a JSON-body request from one array (get_json_params() and get_param() read the same array). */
 class WP_REST_Request {
     public function __construct(private $json = null) {}
     public function get_json_params() { return $this->json; }
     public function get_param($k) { return $this->json[$k] ?? null; }
-}
-class WP_REST_Response {
-    public function __construct(public $data = null, public $status = 200) {}
-    public function get_data() { return $this->data; }
 }
 $wpdb = new class {
     public $prefix = 'wp_';
@@ -306,7 +259,7 @@ $wpdb = new class {
     }
 };
 
-require __DIR__ . '/fs-stub.php'; // pqm_fs() without the SDK; no premium check is left to read it
+/* pqm_fs() is fs-stub.php's (loaded by the bootstrap at the top) without the SDK; no premium check is left to read it. */
 if (!is_file($free . '/post-quality-manager.php')) {
     echo "\n$pass passed, " . ($fail + 1) . " failed (no Free tree to boot)\n";
     exit(1);
@@ -672,5 +625,4 @@ foreach ([
         is_array($out) && $out['calls'] === [[$want_premium, 'post-quality-manager.php']] && $out['functions'] === false && $err === '');
 }
 
-echo "\n$pass passed, $fail failed\n";
-exit($fail ? 1 : 0);
+harness_exit();
