@@ -91,6 +91,7 @@ function wp_timezone() { return new DateTimeZone('UTC'); }
 class WP_REST_Server {
     const READABLE  = 'GET';
     const CREATABLE = 'POST';
+    const DELETABLE = 'DELETE';
 }
 
 class WP_REST_Request {

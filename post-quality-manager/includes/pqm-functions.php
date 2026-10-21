@@ -504,7 +504,7 @@ function pqm_n8n_headers(array $settings): array
 {
     return [
         'Content-Type' => 'application/json',
-        'X-PQM-Token'  => (string) ($settings['webhook_token'] ?? ''),
+        PQM_N8n::TOKEN_HEADER => (string) ($settings['webhook_token'] ?? ''),
     ];
 }
 

@@ -163,7 +163,7 @@ class PQM_REST_API {
                 ],
             ],
             [
-                'methods'             => 'DELETE', // WP_REST_Server::DELETABLE
+                'methods'             => WP_REST_Server::DELETABLE,
                 'callback'            => [ __CLASS__, 'forget_n8n_callback' ],
                 'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
             ],
@@ -212,7 +212,7 @@ class PQM_REST_API {
 
         // Story 71: start over — forget the setup here and, when asked, remove the map's objects from n8n.
         register_rest_route( PQM_REST_NAMESPACE, '/n8n/setup', [
-            'methods'             => 'DELETE', // WP_REST_Server::DELETABLE
+            'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [ __CLASS__, 'start_over_n8n_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
             'args'                => [
@@ -308,7 +308,7 @@ class PQM_REST_API {
 
         $settings       = pqm_get_settings();
         $expected_token  = $settings['webhook_token'];
-        $provided_token  = $request->get_header( 'X-PQM-Token' ) ?? '';
+        $provided_token  = $request->get_header( PQM_N8n::TOKEN_HEADER ) ?? '';
 
         if ( empty( $expected_token ) || empty( $provided_token ) ) {
             return false;
@@ -670,7 +670,7 @@ class PQM_REST_API {
         }
 
         $status_code = wp_remote_retrieve_response_code( $response );
-        $accepted    = $status_code >= 200 && $status_code < 300;
+        $accepted    = PQM_N8n::is_2xx( (int) $status_code );
 
         // Quota is spent only on success: n8n answered 2xx, so API money
         // is being spent. A failed webhook never costs the user an action.
@@ -1254,12 +1254,7 @@ class PQM_REST_API {
         $saved = PQM_Admin::save_webhook_url( $url );
 
         if ( is_wp_error( $saved ) ) {
-            return new WP_REST_Response( [
-                'saved'       => false,
-                'ping_ok'     => false,
-                'message'     => $saved->get_error_message(),
-                'status_html' => PQM_Admin::render_workflow_body( $saved->get_error_message(), 'error' ),
-            ], 200 );
+            return self::finish( [ 'saved' => false, 'ping_ok' => false, 'message' => $saved->get_error_message() ], null );
         }
 
         $ping     = PQM_Admin::ping_webhook( esc_url_raw( $url ) );
@@ -1271,23 +1266,10 @@ class PQM_REST_API {
             /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
             $message = sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] );
 
-            return new WP_REST_Response( [
-                'saved'       => true,
-                'ping_ok'     => false,
-                'message'     => $message,
-                'status_html' => PQM_Admin::render_workflow_body( $message, 'error' ),
-            ], 200 );
+            return self::finish( [ 'saved' => true, 'ping_ok' => false, 'message' => $message ], $ping );
         }
 
-        pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-
-        return new WP_REST_Response( [
-            'saved'       => true,
-            'ping_ok'     => true,
-            'outdated'    => $ping['outdated'],
-            'message'     => $ping['message'],
-            'status_html' => PQM_Admin::render_workflow_body( $ping['message'], $ping['outdated'] ? 'warning' : 'success' ),
-        ], 200 );
+        return self::finish( [ 'saved' => true, 'ping_ok' => true, 'outdated' => $ping['outdated'], 'message' => $ping['message'] ], $ping );
     }
 
     /**
@@ -1485,7 +1467,8 @@ class PQM_REST_API {
      * ping keeps everything: n8n may serve webhooks on another address than
      * its editor (WEBHOOK_URL), so the reply points to pasting the Webhook
      * Trigger's production URL.
-     * Answers `{ provisioned, ping_ok, workflow_id, message }`, plus the
+     * Answers `{ provisioned, ping_ok, workflow_id, webhook_url, message }`
+     * (`webhook_url`: the URL just saved, which the wizard shows), plus the
      * page's refreshed `status_html` when the ping passed (entry 6), and on the
      * Pro build `rewrite_ready` (false when no WordPress credential was
      * created, D1).
@@ -1512,11 +1495,10 @@ class PQM_REST_API {
             'provisioned' => true,
             'ping_ok'     => $ping['ok'],
             'workflow_id' => $setup['workflow_id'],
+            'webhook_url' => $url,
             'message'     => $ping['ok'] ? $ping['message'] : self::ping_failed_sentence( $ping ),
         ];
-        if ( $ping['ok'] ) {
-            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-        } elseif ( 404 === ( $ping['code'] ?? 0 ) ) {
+        if ( ! $ping['ok'] && 404 === ( $ping['code'] ?? 0 ) ) {
             // The page's "needs attention" says the same as the dialog, not the Test button's 404 line.
             pqm_record_workflow_failure( $reply['message'] );
         }
@@ -1527,10 +1509,8 @@ class PQM_REST_API {
             }
         }
         $reply['message'] = self::dropped_leftovers_prefix( $dropped ) . $reply['message'];
-        // The page's body, as POST /setup/connect answers it (entry 6; story 67: in every reply, the message first).
-        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
-        return new WP_REST_Response( $reply, 200 );
+        return self::finish( $reply, $ping );
     }
 
     /**
@@ -1571,6 +1551,21 @@ class PQM_REST_API {
             __( 'Your workflow is set up and active in n8n, but the ping did not get through. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
             $ping['message']
         );
+    }
+
+    /**
+     * The tail every pinging reply shares (story 77): the answered version
+     * recorded when the ping got through, the page's refreshed body with the
+     * message first (entry 6; story 67) in tone(), 200. `$ping` is null when
+     * no ping was sent (the URL could not be saved).
+     */
+    private static function finish( array $reply, ?array $ping ): WP_REST_Response {
+        if ( $ping && $ping['ok'] ) {
+            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
+        }
+        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
+
+        return new WP_REST_Response( $reply, 200 );
     }
 
     /**
@@ -1658,13 +1653,7 @@ class PQM_REST_API {
             $message = sprintf( __( 'The token was rotated in n8n and saved here. %s', 'post-quality-manager' ), $ping['message'] );
         }
 
-        $reply = [ 'rotated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
-        if ( $ping['ok'] ) {
-            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-        }
-        $reply['status_html'] = PQM_Admin::render_workflow_body( $message, self::tone( $reply ) );
-
-        return new WP_REST_Response( $reply, 200 );
+        return self::finish( [ 'rotated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ], $ping );
     }
 
     /* ─── One-click workflow update (n8n provisioning, entry 9) ──────── */
@@ -1696,18 +1685,13 @@ class PQM_REST_API {
             : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
 
         $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
-        if ( $ping['ok'] ) {
-            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
-        }
         if ( pqm_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
             if ( ! $reply['rewrite_ready'] ) {
                 $reply['message'] .= ' ' . __( 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
         }
-        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
-
-        return new WP_REST_Response( $reply, 200 );
+        return self::finish( $reply, $ping );
     }
 
     /**

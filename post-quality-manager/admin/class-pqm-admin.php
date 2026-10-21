@@ -817,7 +817,7 @@ class PQM_Admin
                         <th><?php esc_html_e('Webhook Token', 'post-quality-manager'); ?></th>
                         <td>
                             <a href="<?php echo esc_url($workflow_page_url); ?>"><?php esc_html_e('Shown on the n8n Workflow page', 'post-quality-manager'); ?></a>
-                            <p class="description"><?php esc_html_e('Shared secret for both directions, always in the X-PQM-Token header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER)); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -1706,7 +1706,7 @@ class PQM_Admin
             <summary><h2><?php esc_html_e('Webhook', 'post-quality-manager'); ?></h2></summary>
             <?php self::render_webhook_form($settings, false, 'disclosure'); ?>
             <?php self::render_copy_value(__('Webhook token', 'post-quality-manager'), (string) $settings['webhook_token']); ?>
-            <p class="description"><?php esc_html_e('Shared secret for both directions, always in the X-PQM-Token header: this site sends it to start the workflow (the webhook credential in n8n holds the same value), and n8n sends it back with the results.', 'post-quality-manager'); ?></p>
+            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: this site sends it to start the workflow (the webhook credential in n8n holds the same value), and n8n sends it back with the results.', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER)); ?></p>
             <?php if ($state['managed']): ?>
             <p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="<?php esc_attr_e('Rotating the token…', 'post-quality-manager'); ?>"><?php esc_html_e('Rotate token', 'post-quality-manager'); ?></button></p>
             <p class="description"><?php esc_html_e('Writes a new token into the webhook credential in n8n and here, then tests the connection: the old token stops working at once.', 'post-quality-manager'); ?></p>
@@ -1841,8 +1841,9 @@ class PQM_Admin
     private static function render_workflow_file(array $settings, bool $primary): void
     {
         $host     = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__)
-        $webhook  = 'Post Quality webhook - ' . $host;
-        $claude   = 'Anthropic - Claude';
+        $names    = PQM_N8n::credential_names($host);
+        $webhook  = $names['webhook'];
+        $claude   = $names['anthropic'];
         $download = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
         $n8n_url  = self::n8n_editor_url((string) $settings['n8n_webhook_url']);
         $n8n      = $n8n_url !== ''
@@ -1867,7 +1868,7 @@ class PQM_Admin
                 esc_html__('Pick %1$s in the Webhook Trigger, %2$s in the six Claude nodes and %3$s in Update WP Post (Rewrite).', 'post-quality-manager'),
                 '<strong>' . esc_html($webhook) . '</strong>',
                 '<strong>' . esc_html($claude) . '</strong>',
-                '<strong>' . esc_html('WordPress - ' . $host) . '</strong>'
+                '<strong>' . esc_html($names['wordpress']) . '</strong>'
             );
         }
 ?>
@@ -1898,7 +1899,7 @@ class PQM_Admin
                     <h4><?php echo esc_html($webhook); ?></h4>
                     <?php self::render_copy_value($name, $webhook, $webhook); ?>
                     <p><?php esc_html_e('Type: Header Auth. Goes in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'); ?></p>
-                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), 'X-PQM-Token', $webhook); ?>
+                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER, $webhook); ?>
                     <?php self::render_copy_value(__('Value', 'post-quality-manager'), (string) $settings['webhook_token'], $webhook); ?>
                 </div>
                 <div class="pqm-workflow-credential">
@@ -1951,7 +1952,7 @@ class PQM_Admin
      */
     private static function render_wordpress_credential__premium_only(string $host, string $name): void
     {
-        $credential = 'WordPress - ' . $host;
+        $credential = PQM_N8n::credential_names($host)['wordpress'];
         $user       = wp_get_current_user();
 ?>
                 <div class="pqm-workflow-credential">
@@ -2015,12 +2016,7 @@ class PQM_Admin
             return $base;
         }
 
-        $parts = wp_parse_url($webhook_url) ?: [];
-        if (!in_array($parts['scheme'] ?? '', ['http', 'https'], true) || empty($parts['host'])) {
-            return '';
-        }
-
-        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . (int) $parts['port'] : '');
+        return PQM_N8n::origin_of($webhook_url);
     }
 
     /**
@@ -2164,7 +2160,7 @@ class PQM_Admin
 
         $code = wp_remote_retrieve_response_code($response);
 
-        if ($code >= 200 && $code < 300) {
+        if (PQM_N8n::is_2xx((int) $code)) {
             // The reply says which workflow answered. Without a version (or
             // not JSON) it is a v1–v4 import, which may ignore the header:
             // its 2xx proves only the reachability.
@@ -2184,9 +2180,10 @@ class PQM_Admin
 
         if ($code === 401 || $code === 403) {
             return ['ok' => false, 'message' => sprintf(
-                /* translators: %d: HTTP status code (401 or 403) */
-                __('n8n refused the webhook credential (HTTP %d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be X-PQM-Token and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
-                $code
+                /* translators: 1: HTTP status code (401 or 403), 2: the header name, X-PQM-Token */
+                __('n8n refused the webhook credential (HTTP %1$d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be %2$s and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
+                $code,
+                PQM_N8n::TOKEN_HEADER
             ), 'version' => null, 'outdated' => false, 'refused' => true, 'code' => $code];
         }
 

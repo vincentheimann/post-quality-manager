@@ -91,7 +91,7 @@ class WP_REST_Response {
     public function get_data() { return $this->data; }
     public function header($k, $v) {}
 }
-class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; }
+class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const DELETABLE = 'DELETE'; }
 class WP_Role {}
 
 /* ─── Load plugin classes ────────────────────────────────────────────── */
@@ -99,6 +99,7 @@ $base = dirname(__DIR__, 2) . '/post-quality-manager';
 require __DIR__ . '/fs-stub.php'; // the Freemius SDK stand-in (story 44)
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
+require $base . '/includes/class-pqm-n8n.php'; // the trigger route's 2xx test is PQM_N8n::is_2xx() (story 77)
 require $base . '/includes/class-pqm-db.php';       // processing placeholder (story 5.4)
 require $base . '/includes/class-pqm-rest-api.php';
 

@@ -263,7 +263,7 @@ define('WEEK_IN_SECONDS', 604800);
 function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_date_from_gmt($gmt, $format = '') { return $gmt; }
 function wp_json_encode($v, $flags = 0) { return json_encode($v, $flags); }
-class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const EDITABLE = 'POST, PUT, PATCH'; }
+class WP_REST_Server { const READABLE = 'GET'; const CREATABLE = 'POST'; const DELETABLE = 'DELETE'; const EDITABLE = 'POST, PUT, PATCH'; }
 class WP_Error {
     public function __construct(public $code = '', public $message = '', public $data = null) {}
     public function get_error_message() { return $this->message; }

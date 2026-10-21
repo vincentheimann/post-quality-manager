@@ -394,6 +394,7 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				provisioned: true,
 				ping_ok: true,
 				workflow_id: 'wf1',
+				webhook_url: `${ BASE }/webhook/${ PATH }`,
 				message: 'Ping OK — up to date.',
 				rewrite_ready: true,
 				status_html: NEW_BLOCK,
@@ -431,6 +432,8 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				provisioned: true,
 				// eslint-disable-next-line camelcase -- REST field name.
 				ping_ok: false,
+				// eslint-disable-next-line camelcase -- REST field name.
+				webhook_url: `${ BASE }/webhook/${ PATH }`,
 				message:
 					'Your workflow is set up, but the ping did not get through.',
 			},
@@ -472,6 +475,8 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				provisioned: true,
 				// eslint-disable-next-line camelcase -- REST field name.
 				ping_ok: true,
+				// eslint-disable-next-line camelcase -- REST field name.
+				webhook_url: `${ BASE }/webhook/${ PATH }`,
 				message: 'Ping OK. Rewrite stays off until …',
 				// eslint-disable-next-line camelcase -- REST field name.
 				rewrite_ready: false,

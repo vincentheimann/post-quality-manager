@@ -160,6 +160,7 @@ function serialize_blocks( $blocks ) {
 class WP_REST_Server {
     const READABLE  = 'GET';
     const CREATABLE = 'POST';
+    const DELETABLE = 'DELETE';
 }
 class WP_REST_Request {
     public function __construct(private array $params = []) {}

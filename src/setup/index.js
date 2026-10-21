@@ -256,8 +256,8 @@ export default function SetupIsland() {
 	// A URL was saved (pinged or not): re-read the state.
 	const onConnected = () => reread();
 
-	// POST /n8n/provision saved the connected origin + /webhook/ + the path.
-	const onProvisioned = ( pingOk ) =>
+	// POST /n8n/provision answered: the state as a re-read would give it, the saved URL from the reply.
+	const onProvisioned = ( reply ) =>
 		setState( ( prev ) => ( {
 			...prev,
 			connected: true,
@@ -265,9 +265,13 @@ export default function SetupIsland() {
 			leftovers: false,
 			// eslint-disable-next-line camelcase -- REST field name.
 			leftovers_elsewhere: '',
-			steps: { ...prev.steps, provision: pingOk, manual: pingOk },
+			steps: {
+				...prev.steps,
+				provision: !! reply.ping_ok,
+				manual: !! reply.ping_ok,
+			},
 			// eslint-disable-next-line camelcase -- REST field name.
-			webhook_url: `${ prev.n8n.base_url }/webhook/${ prev.webhook_path }`,
+			webhook_url: reply.webhook_url || '',
 		} ) );
 
 	const complete = !! ( state && state.complete );

@@ -96,6 +96,7 @@ function update_postmeta_cache($post_ids) { $GLOBALS['tw']['meta_primes'][] = $p
 class WP_REST_Server {
     const READABLE  = 'GET';
     const CREATABLE = 'POST';
+    const DELETABLE = 'DELETE';
 }
 
 class WP_REST_Request {

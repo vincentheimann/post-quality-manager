@@ -204,8 +204,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 
 	const connected = isConnected( state );
 	// Story 74: the stored key's last probe was refused; the form stays open under its Notice.
-	const refusal =
-		! connected && state.key_set && !! state.probe && ! state.probe.ok;
+	const refusal = ! connected && state.key_set && !! state.probe;
 	// A form shows while nothing passes, or while the owner changes a passing connection.
 	const formOpen = changing || ! connected;
 

@@ -5,9 +5,10 @@
  * Holds the connection an Administrator set on the n8n Workflow page — the
  * instance's base URL and an n8n API key — in its own option, autoload off,
  * never in pqm_settings (the Settings save rebuilds that array from the
- * posted form). The key never leaves the server: no REST reply, no page
- * source, no log carries it; only its last four characters are shown, so an
- * owner can tell which key is stored (key_hint). Every call sends the
+ * posted form). The key never leaves the server: no REST reply or page
+ * source carries it, and the plugin never logs the keys itself; only its
+ * last four characters are shown, so an owner can tell which key is stored
+ * (key_hint). Every call sends the
  * plugin User-Agent (a generic one gets banned by some proxies in front of
  * n8n, spike 56) and never follows a redirect, so the key header cannot
  * travel to another address.
@@ -39,6 +40,13 @@ class PQM_N8n {
 
     /** The n8n public API, below the instance's base URL. */
     const API_PATH = '/api/v1';
+
+    /**
+     * The header the webhook token travels in, both directions (ADR 0010):
+     * the one the template's Webhook Trigger checks, the webhook credential
+     * carries and pqm_n8n_headers() sends. Spelled here only (story 77).
+     */
+    const TOKEN_HEADER = 'X-PQM-Token';
 
     /** An id no n8n object can carry (n8n ids are alphanumeric): the route probe finds nothing to act on. */
     const PROBE_ID = 'pqm-probe-unknown-id';
@@ -213,18 +221,36 @@ class PQM_N8n {
      * @return string|WP_Error The origin, or why the address is refused ('insecure' or 'invalid_url').
      */
     public static function origin( string $url ): string|WP_Error {
-        $parts  = wp_parse_url( trim( $url ) ) ?: [];
-        $scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
-        $host   = strtolower( (string) ( $parts['host'] ?? '' ) );
-
-        if ( ! in_array( $scheme, [ 'http', 'https' ], true ) || '' === $host ) {
+        $origin = self::origin_of( $url );
+        if ( '' === $origin ) {
             return new WP_Error( 'invalid_url', __( 'Enter the full n8n address, for example https://n8n.example.com.', 'post-quality-manager' ) );
         }
-        if ( 'https' !== $scheme && ! in_array( trim( $host, '[]' ), [ 'localhost', '127.0.0.1', '::1' ], true ) ) {
+        if ( ! preg_match( '#^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$#', $origin ) && ! str_starts_with( $origin, 'https://' ) ) {
             return new WP_Error( 'insecure', __( 'The n8n address must start with https:// (http:// works for localhost only). Nothing was sent.', 'post-quality-manager' ) );
         }
 
+        return $origin;
+    }
+
+    /**
+     * The origin of a URL — scheme://host[:port], lower-cased — or '' when
+     * the scheme is not http(s) or the host is missing: the one parse behind
+     * origin() and the admin's editor-link fallback (story 77).
+     */
+    public static function origin_of( string $url ): string {
+        $parts  = wp_parse_url( trim( $url ) ) ?: [];
+        $scheme = strtolower( (string) ( $parts['scheme'] ?? '' ) );
+        $host   = strtolower( (string) ( $parts['host'] ?? '' ) );
+        if ( ! in_array( $scheme, [ 'http', 'https' ], true ) || '' === $host ) {
+            return '';
+        }
+
         return $scheme . '://' . $host . ( isset( $parts['port'] ) ? ':' . (int) $parts['port'] : '' );
+    }
+
+    /** Whether an HTTP status code is 2xx: the one success test for every n8n and Anthropic reply (story 77). */
+    public static function is_2xx( int $code ): bool {
+        return $code >= 200 && $code < 300;
     }
 
     /**
@@ -325,7 +351,7 @@ class PQM_N8n {
         }
 
         $list = self::call( $origin, $key, 'GET', self::API_PATH . '/workflows?limit=1' );
-        if ( ! is_wp_error( $list ) && $list['code'] >= 200 && $list['code'] < 300 && null !== $list['json'] ) {
+        if ( ! is_wp_error( $list ) && self::is_2xx( $list['code'] ) && null !== $list['json'] ) {
             // The key works; does this version have every endpoint the setup needs?
             // An empty JSON body: without one, PATCH answers 415 before the route is known.
             foreach ( [ [ 'POST', '/workflows/' . self::PROBE_ID . '/activate' ], [ 'PATCH', '/credentials/' . self::PROBE_ID ] ] as [ $method, $path ] ) {
@@ -426,8 +452,10 @@ class PQM_N8n {
      * describes what the site calls) and the map is the connected
      * instance's (story 71: its ids mean nothing elsewhere), else as the active workflow whose
      * Webhook trigger path is the URL's last segment; never by name. Its
-     * published nodes are read (n8n 2.x runs `activeVersion`; a save changes
-     * only the draft), disabled ones skipped; miswiring() names the shape.
+     * published nodes are read (n8n 2.x runs `activeVersion`; the editor's
+     * save changes only the draft, while the API's PUT republishes —
+     * memory/n8n-provisioning.md, seen 2026-10-16 on n8n 2.42.x), disabled
+     * ones skipped; miswiring() names the shape.
      *
      * @return string|null The sentence naming the nodes, the credential and
      *                     the fix; '' when the workflow is clean or no key is
@@ -637,7 +665,7 @@ class PQM_N8n {
      * @param array|WP_Error $response
      */
     private static function answered( $response ): bool {
-        return ! is_wp_error( $response ) && $response['code'] >= 200 && $response['code'] < 300 && is_array( $response['json'] );
+        return ! is_wp_error( $response ) && self::is_2xx( $response['code'] ) && is_array( $response['json'] );
     }
 
     /* ─── Adoption of a hand-made workflow (entry 8) ─────────────────── */
@@ -785,7 +813,8 @@ class PQM_N8n {
      * template's nodes carry; create the build's workflow with every
      * credentialed node linked by id; activate it; store the setup map.
      * The provider key goes into the validation request and the Anthropic
-     * credential only — never an option, a reply or a log. A refused step
+     * credential only — never an option or a reply, and the plugin never
+     * logs the keys itself. A refused step
      * after the first creation stops the run and goes through fail(): what
      * this run created is removed again (entry 5). What an earlier rollback
      * could not remove (LEFTOVERS_OPTION) is removed before anything is
@@ -904,7 +933,7 @@ class PQM_N8n {
         $host        = pqm_site_host();
         $names       = self::credential_names( $host );
         $credentials = [
-            'webhook'   => [ 'name' => $names['webhook'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'X-PQM-Token', 'value' => (string) pqm_get_settings()['webhook_token'] ] ],
+            'webhook'   => [ 'name' => $names['webhook'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => self::TOKEN_HEADER, 'value' => (string) pqm_get_settings()['webhook_token'] ] ],
             'anthropic' => [ 'name' => $names['anthropic'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'x-api-key', 'value' => $provider_key ] ],
         ];
         if ( pqm_fs()->is__premium_only() ) {
@@ -991,7 +1020,7 @@ class PQM_N8n {
      *
      * @return array{webhook: string, anthropic: string, wordpress: string}
      */
-    private static function credential_names( string $host ): array {
+    public static function credential_names( string $host ): array {
         return [ 'webhook' => 'Post Quality webhook - ' . $host, 'anthropic' => 'Anthropic - Claude', 'wordpress' => 'WordPress - ' . $host ];
     }
 
@@ -1055,7 +1084,7 @@ class PQM_N8n {
         ] );
         $code = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
 
-        if ( $code >= 200 && $code < 300 ) {
+        if ( self::is_2xx( $code ) ) {
             return null;
         }
         if ( 401 === $code || 403 === $code ) {
@@ -1216,7 +1245,7 @@ class PQM_N8n {
      * @param array|WP_Error $response
      */
     private static function removed( $response ): bool {
-        return self::gone( $response ) || ( ! is_wp_error( $response ) && $response['code'] >= 200 && $response['code'] < 300 );
+        return self::gone( $response ) || ( ! is_wp_error( $response ) && self::is_2xx( $response['code'] ) );
     }
 
     /**
@@ -1293,7 +1322,7 @@ class PQM_N8n {
         }
         $token    = wp_generate_uuid4();
         $id       = (string) get_option( self::SETUP_OPTION )['credentials']['webhook'];
-        $response = self::request( 'PATCH', '/credentials/' . rawurlencode( $id ), [ 'data' => [ 'name' => 'X-PQM-Token', 'value' => $token ] ] );
+        $response = self::request( 'PATCH', '/credentials/' . rawurlencode( $id ), [ 'data' => [ 'name' => self::TOKEN_HEADER, 'value' => $token ] ] );
         if ( self::answered( $response ) ) {
             return $token;
         }
@@ -1346,7 +1375,8 @@ class PQM_N8n {
      * credentialed node, the trigger on the map's path (D1: an adopted
      * workflow keeps its own, never pqm_webhook_path()), the four keys n8n
      * takes and never `active` — n8n republishes a PUT workflow by itself
-     * (spike 56), so the production URL stays. A role the map lacks leaves
+     * (memory/n8n-provisioning.md: PUT republishes, seen 2026-10-16 on n8n
+     * 2.42.x), so the production URL stays. A role the map lacks leaves
      * its node name-only, as provisioning's D1 does. Nothing else in n8n is
      * read or changed; nothing is stored here (the caller pings and records
      * the version). n8n's reply body is never repeated.
@@ -1572,7 +1602,7 @@ class PQM_N8n {
             /* translators: %s: connection error message */
             return sprintf( __( 'n8n could not be reached: %s', 'post-quality-manager' ), $response->get_error_message() );
         }
-        if ( $response['code'] >= 200 && $response['code'] < 300 ) {
+        if ( self::is_2xx( $response['code'] ) ) {
             return match ( $step ) {
                 'read'       => __( 'n8n did not answer with your workflows', 'post-quality-manager' ),
                 'credential' => __( 'n8n did not confirm the change', 'post-quality-manager' ),

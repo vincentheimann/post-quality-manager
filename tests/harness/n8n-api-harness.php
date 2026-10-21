@@ -225,6 +225,7 @@ $wpdb = new class {
 class WP_REST_Server {
     const READABLE  = 'GET';
     const CREATABLE = 'POST';
+    const DELETABLE = 'DELETE';
 }
 class WP_REST_Request {
     public function __construct(private array $params = []) {}
@@ -659,6 +660,14 @@ function pro_map(?int $at): array {
 }
 
 $template = json_decode((string) pqm_workflow_json(), true);
+$raw_template   = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true); // placeholders unfilled
+$template_names = array_values(array_unique(array_merge(...array_map(static fn($n) => array_column($n['credentials'] ?? [], 'name'), $raw_template['nodes']))));
+$expected_names = array_values(PQM_N8n::credential_names('__PQM_SITE_HOST__'));
+sort($template_names);
+sort($expected_names);
+check('story 77: the template\'s credential names are credential_names(__PQM_SITE_HOST__) and its header parameter is TOKEN_HEADER (JSON pinned to the PHP source)',
+    $template_names === $expected_names && $template_names !== []
+    && array_filter($raw_template['nodes'], static fn($n) => in_array(PQM_N8n::TOKEN_HEADER, array_column($n['parameters']['headerParameters']['parameters'] ?? [], 'name'), true)) !== []);
 $strip    = static fn(array $nodes) => array_map(static function ($n) { unset($n['credentials']); return $n; }, $nodes);
 
 echo "Provisioning: Pro, fresh instance\n";
@@ -709,9 +718,10 @@ check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) ===
 check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === PQM_WORKFLOW_VERSION);
 check('the ping recorded as the connect route does (autoload off): Set up the workflow reads done', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true
     && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
-check('reply: {provisioned, ping_ok, workflow_id, message, rewrite_ready, status_html}; neither the uuid nor the password in it', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html']
+check('reply: {provisioned, ping_ok, workflow_id, webhook_url, message, rewrite_ready, status_html}; neither the uuid nor the password in it', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'webhook_url', 'message', 'rewrite_ready', 'status_html']
     && $r['provisioned'] === true && $r['ping_ok'] === true && $r['workflow_id'] === 'wf1' && $r['rewrite_ready'] === true
     && str_starts_with($r['message'], 'Ping OK') && !str_contains(json_encode($r), 'app-uuid') && !str_contains(json_encode($r), APP_PASSWORD));
+check('... webhook_url = the saved URL (story 77: the wizard reads it instead of rebuilding it)', $r['webhook_url'] === HOOK);
 check('... status_html = the page\'s refreshed body with the message first (entry 6; story 67): set up', $r['status_html'] === PQM_Admin::render_workflow_body($r['message'], 'success')
     && str_contains($r['status_html'], '<div class="pqm-workflow-status" data-state="set-up">') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>'));
 $hits = array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), PROVIDER_KEY)));
@@ -2147,7 +2157,7 @@ check('provisioning: the normal run, nothing sent to the old instance, the recor
 check('... the reply\'s message prefixed with the old host and the by-hand removal, then the ping\'s; the body shows it; the map stores no trace of it; the reply\'s keys as before',
     $r['message'] === 'An earlier setup left a workflow or credentials on old.example.com. The plugin does not touch another instance: remove them there by hand. ' . PING_OK
     && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>') && !isset($GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION]['dropped_leftovers'])
-    && array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'message', 'rewrite_ready', 'status_html'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION);
+    && array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'webhook_url', 'message', 'rewrite_ready', 'status_html'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION);
 connected(PRO_OK, $old_record);
 $GLOBALS['tw']['ping_response'] = HOOK_404;
 $r = provision();
@@ -2304,6 +2314,12 @@ check('a stored refusal: connected() false; public_state().connected false; pqm_
 $sources = ['includes/class-pqm-rest-api.php', 'includes/pqm-functions.php', 'admin/class-pqm-admin.php'];
 check('every reader asks PQM_N8n::connected(): the stored probe\'s `ok` is read in connected() only (source)', substr_count($src_n8n = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php'), "['probe']['ok']") === 1
     && !array_filter($sources, static fn($f) => str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/' . $f), "['probe']['ok']")));
+check('story 77: is_2xx() = 200, 204, 299 pass; 300 and 199 fail; origin_of() = scheme://host[:port] lower-cased, empty without scheme or host',
+    PQM_N8n::is_2xx(200) && PQM_N8n::is_2xx(204) && PQM_N8n::is_2xx(299) && !PQM_N8n::is_2xx(300) && !PQM_N8n::is_2xx(199)
+    && PQM_N8n::origin_of('HTTP://Host.Example:5678/webhook/x') === 'http://host.example:5678' && PQM_N8n::origin_of('host.example/webhook/x') === '' && PQM_N8n::origin_of('ftp://host.example') === '');
+check('story 77: the token header, the Anthropic credential name and the 2xx test are spelled once each, in the client; the REST class, functions and admin read them',
+    substr_count($src_n8n, "'X-PQM-Token'") === 1 && substr_count($src_n8n, "'Anthropic - Claude'") === 1 && substr_count($src_n8n, '>= 200 &&') === 1
+    && !array_filter($sources, static fn($f) => preg_match("/'X-PQM-Token'|'Anthropic - Claude'|>= 200 &&/", file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/' . $f))));
 
 /* ─── The key never leaves the server ────────────────────────────────── */
 echo "The key never leaves the server\n";

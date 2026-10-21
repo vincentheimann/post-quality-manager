@@ -194,7 +194,7 @@ function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
  *
  * @param {Object}   props
  * @param {Object}   props.state         GET /setup state.
- * @param {Function} props.onProvisioned `( pingOk )` once the workflow is set up.
+ * @param {Function} props.onProvisioned `( reply )` once the workflow is set up.
  * @param {Function} props.onConnected   Connect's `onConnected`.
  * @return {Element} The step body.
  */
@@ -281,7 +281,7 @@ function Provision( { state, onProvisioned, onConnected } ) {
 					pingOk: !! reply.ping_ok,
 				} );
 				swapStatusBlock( reply.status_html );
-				onProvisioned( !! reply.ping_ok );
+				onProvisioned( reply );
 			},
 			( err ) => {
 				setBusy( false );

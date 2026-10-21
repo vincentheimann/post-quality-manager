@@ -102,6 +102,7 @@ function wp_is_application_passwords_available_for_user($user) { return $GLOBALS
 class WP_REST_Server {
     const READABLE  = 'GET';
     const CREATABLE = 'POST';
+    const DELETABLE = 'DELETE';
 }
 
 class WP_REST_Request {

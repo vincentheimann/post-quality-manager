@@ -79,3 +79,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
   summary: `docs/policies/privacy.md` and `readme-external-services.md` do not say that, with an n8n API key stored, every test ping of the saved webhook URL also reads the workflow through the n8n API (entry 6.7's diagnosis, GET only); entry 6.8 added the adoption reads beside it.
   evidence: Entry 6.8 quick review, row 10. Pre-existing since PR #134: the policy lines name Connect, Check again, setup and now adoption, never the diagnosis. Fix with story 68's site sync or entry 12's records.
   resolved: 2026-10-16, entry 11 — both policy files say that a test ping with an n8n API key stored also reads the workflow at the webhook address through n8n's API, changing nothing (the readme's suggested privacy text lists the test too); the site copy follows through story 68 (branch `feat/n8n-refactor-sweep`).
+
+- source_plan: `../backlog/story-n8n-one-source-each-plan.md`
+  summary: The example production URL "https://your-n8n.example.com/webhook/<path>" is spelled in PHP (`class-pqm-admin.php` render_workflow_file) and in JS (`src/setup/steps.js`), two copies of one placeholder string.
+  evidence: Story 77's review (finding 6) found it while grepping `/webhook/`; it predates the sweep and is a copy string, not one of the ticket's duplication-map items; story 67's copy pass against docs/brand.md is where one source for it belongs.
