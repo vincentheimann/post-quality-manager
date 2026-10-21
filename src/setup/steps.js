@@ -129,7 +129,7 @@ export function Connect( { state, onConnected } ) {
 			) }
 			<p className="pqm-muted">
 				{ __(
-					'A ping answered by an up-to-date workflow proves this site reaches n8n and the webhook credential is right. Your first review confirms the way back.',
+					'A ping answered by an up-to-date workflow proves this site reaches n8n, the webhook credential is right and n8n can call this site back: the whole round trip.',
 					'post-quality-manager'
 				) }
 			</p>

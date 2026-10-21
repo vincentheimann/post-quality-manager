@@ -29,6 +29,7 @@ $GLOBALS['tw'] = [
     'writes'        => [], // option names written, in order
     'pings'         => [], // wp_remote_post() calls: [url, args]
     'ping_response' => ['response' => ['code' => 200]],
+    'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
     'app_passwords' => true,
     'scheduled'     => [], // wp_schedule_event() calls: [recurrence, hook]
 ];
@@ -37,7 +38,7 @@ $GLOBALS['pqm_routes'] = [];
 /* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function apply_filters($tag, $value) { return $value; }
+function apply_filters($tag, $value) { return $tag === 'pqm_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply, nothing to wait for
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
 function restore_previous_locale() {}
@@ -56,7 +57,7 @@ function add_query_arg($args, $url = '', $unused = null) {
     return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args);
 }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
-function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; return $GLOBALS['tw']['ping_response']; }
+function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = [$url, $args]; pqm_harness_ping_callback($args, $GLOBALS['tw']['ping_callback']); return $GLOBALS['tw']['ping_response']; }
 /* The connect step answers the n8n Workflow page's refreshed body (story 67: the whole page under the H1). */
 function wp_nonce_url($url, $action = -1, $name = '_wpnonce') { return $url . '&_wpnonce=stub'; }
 define('MINUTE_IN_SECONDS', 60);
@@ -65,7 +66,12 @@ function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'ed
 function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
 
+const PING_PROVEN = 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.';
+
 /* ─── Load the plugin bootstrap ──────────────────────────────────────── */
+/* Story 2: every read of the pending ping during the wait bypasses the cache with wp_cache_delete(); counted here, so a
+   row can tell whether a branch waited at all (declared before the lib, whose own stub yields). */
+function wp_cache_delete($k, $group = '') { $GLOBALS['tw_cache_deletes'][$k] = ($GLOBALS['tw_cache_deletes'][$k] ?? 0) + 1; return true; }
 require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
@@ -93,7 +99,10 @@ function site(array $options = [], array $review_statuses = []): void {
     $GLOBALS['tw']['pings'] = [];
     $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200]];
     $GLOBALS['tw']['scheduled'] = [];
+    $GLOBALS['tw_cache_deletes'] = [];
 }
+/** Reads of the pending ping since site(): 0 = the branch did not wait for a callback, 1 = it read once (the wait is 0 s here). */
+function ping_reads(): int { return $GLOBALS['tw_cache_deletes'][PQM_Admin::PING_OPTION] ?? 0; }
 
 function setup_state(): array {
     return PQM_REST_API::get_setup_callback()->get_data();
@@ -364,12 +373,21 @@ check('empty URL: refused, nothing stored, the refusal in the body\'s outcome li
     && $GLOBALS['tw']['writes'] === [] && $outcome_of($r['status_html']) === 'is-error: Enter your n8n webhook URL first.');
 
 $prod = 'https://acme.app.n8n.cloud/webhook/pqm-execute';
+/* delete_option() in this harness only records (the uninstall rows' stub, hoisted): a deleted pending ping shows in tw_deleted, not as a gone option. */
+$pings_deleted = static fn(): int => count(array_keys($GLOBALS['tw_deleted'] ?? [], 'pqm_ping', true));
 site($fresh);
+$deleted_before = $pings_deleted();
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}'];
 $r = connect($prod);
-check('production URL, n8n 2xx from a v5 workflow: stored, pinged, says what the ping proved',
-    $r['saved'] === true && $r['ping_ok'] === true && $r['outdated'] === false
-    && str_contains($r['message'], 'this site reaches n8n, the webhook credential is right and your workflow is up to date'));
+check('production URL, n8n 2xx from a current workflow, the callback received: stored, pinged, says what the ping proved — the round trip (story 2)',
+    $r['saved'] === true && $r['ping_ok'] === true && $r['outdated'] === false && $r['message'] === PING_PROVEN);
+$ping_body = json_decode($GLOBALS['tw']['pings'][0][1]['body'], true);
+check('... the ping body carries callback_url = this site\'s /ping/{id} (20 characters) and auth_token = the webhook token, as a review payload does',
+    array_keys($ping_body) === ['command', 'source', 'callback_url', 'auth_token'] && $ping_body['command'] === 'ping'
+    && (bool) preg_match('#^https://example\.com/wp-json/post-quality/v1/ping/[A-Za-z0-9]{20}$#', $ping_body['callback_url']) && $ping_body['auth_token'] === $token);
+check('... the pending ping written after the URL save (autoload off), claimed by the callback, deleted after the request; the branch waited (one cache-bypassed read)',
+    array_slice($GLOBALS['tw']['writes'], 0, 3) === ['pqm_settings', 'pqm_ping', 'pqm_ping'] && $GLOBALS['tw']['autoload']['pqm_ping'] === false && $pings_deleted() === $deleted_before + 1
+    && ping_reads() === 1);
 $report = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
 check('... the replied version is recorded {5, via test, at now} (the URL was just saved)',
     is_array($report) && $report['version'] === PQM_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
@@ -404,10 +422,10 @@ $r = connect($prod);
 check('ping fails: the failure recorded on the report (story 67), the version kept; the body needs attention, the message its outcome line',
     pqm_workflow_report() === $before + ['failed' => ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => pqm_workflow_report()['failed']['at'] ?? 0]]
     && abs(pqm_workflow_report()['failed']['at'] - time()) <= 5 && $state_of($r['status_html']) === 'failing'
-    && $outcome_of($r['status_html']) === 'is-error: ' . $r['message'] && str_contains($r['status_html'], 'The last test just now did not reach your workflow: n8n responded with 404.'));
+    && $outcome_of($r['status_html']) === 'is-error: ' . $r['message'] && str_contains($r['status_html'], 'The last test just now did not pass: n8n responded with 404.'));
 check('production URL, n8n 404: stored, message names the cause and the next step',
     $r['saved'] === true && $r['ping_ok'] === false
-    && $r['message'] === 'URL saved, but the ping did not get through. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
+    && $r['message'] === 'URL saved, but the test did not pass. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === $prod);
 check('... the failed ping recorded, other ticks kept: the URL steps stay open (the dialog offers the paste-URL body again)',
     $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'connect' => false], 'complete' => false]
@@ -421,10 +439,53 @@ check('production URL, n8n 403 (credential refused): stored, message names the c
     && str_ends_with($r['message'], "n8n refused the webhook credential (HTTP 403). In n8n, open the Webhook Trigger's Header Auth credential: its Name must be X-PQM-Token and its Value this site's webhook token. Then try again."));
 
 site($fresh);
+$deleted_before = $pings_deleted();
 $GLOBALS['tw']['ping_response'] = new WP_Error('http_request_failed', 'cURL error 6: Could not resolve host');
 $r = connect($prod);
 check('production URL, n8n unreachable: stored, message carries the connection error',
     $r['saved'] === true && $r['ping_ok'] === false && str_ends_with($r['message'], 'Could not connect to n8n: cURL error 6: Could not resolve host'));
+check('... no pending ping left behind by a failed request', $pings_deleted() === $deleted_before + 1);
+
+/* Story 2: the callback refused (a wrong token) or missing — the connect step stays open as after any failed ping.
+   The callback comes from n8n, not a logged-in user: the manager's own pqm_run_free_agents must not vouch for it. */
+$current = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}'];
+$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+site($fresh);
+$deleted_before = $pings_deleted();
+$GLOBALS['tw']['ping_response'] = $current;
+$GLOBALS['tw']['ping_callback'] = 'refused';
+$r = connect($prod);
+check('current workflow, the callback refused (wrong token): stored, ping_ok false, the message names the token and the node to fix',
+    $r['saved'] === true && $r['ping_ok'] === false && array_keys($r) === ['saved', 'ping_ok', 'message', 'status_html']
+    && $r['message'] === 'URL saved, but the test did not pass. n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.');
+check('... the failure on record, the body needs attention, the step open, no pending ping left', isset(pqm_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
+    && str_contains($r['status_html'], 'The last test just now did not pass: n8n reached this site, but the callback was refused')
+    && $GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
+site($fresh);
+$deleted_before = $pings_deleted();
+$GLOBALS['tw']['ping_response'] = $current;
+$GLOBALS['tw']['ping_callback'] = 'none';
+$r = connect($prod);
+check('current workflow, no callback within the wait: stored, ping_ok false, the message names the wait, this site\'s REST address and the n8n execution',
+    $r['saved'] === true && $r['ping_ok'] === false
+    && $r['message'] === 'URL saved, but the test did not pass. n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.');
+check('... the failure on record, the step open, no pending ping left', isset(pqm_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
+    && $GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
+site($fresh);
+$deleted_before = $pings_deleted();
+$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERSION - 1) . '}'];
+$r = connect($prod);
+check('an older workflow, no callback: the older-version warning as before, ping_ok true, outdated, no wait (zero reads of the pending ping), no pending ping left',
+    $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version') && !str_contains($r['message'], 'call this site back')
+    && ping_reads() === 0 && $pings_deleted() === $deleted_before + 1);
+site($fresh);
+$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}'];
+$r = connect($prod);
+check('a current Free template on the Pro build: the Free-variant warning as before, ping_ok true, outdated — and the branch waited (one read), so the Free callback claims its id instead of meeting a 404',
+    $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is the Free variant') && !str_contains($r['message'], 'call this site back')
+    && ping_reads() === 1);
+$GLOBALS['tw']['ping_callback'] = 'received';
+$GLOBALS['tw']['caps'] = $manager;
 
 /* ─── Story 55: the configuration steps ─────────────────────────────── */
 
@@ -610,5 +671,7 @@ check('uninstall deletes the n8n connection option (PQM_N8n::OPTION: base URL an
     && in_array(PQM_N8n::OPTION, $GLOBALS['tw_deleted'], true));
 check('uninstall deletes the provisioning lock option (PQM_N8n::LOCK_OPTION, bug 72)', PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning'
     && in_array(PQM_N8n::LOCK_OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the pending test ping option (PQM_Admin::PING_OPTION, story 2)', PQM_Admin::PING_OPTION === 'pqm_ping'
+    && in_array(PQM_Admin::PING_OPTION, $GLOBALS['tw_deleted'], true));
 
 harness_exit();

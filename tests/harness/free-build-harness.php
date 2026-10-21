@@ -186,7 +186,7 @@ function is_admin() { return true; }
 function wp_cache_get($k, $group = '') { return false; }
 function wp_cache_set($k, $v, $group = '') { return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function apply_filters($tag, $value) { return $value; }
+function apply_filters($tag, $value) { return $tag === 'pqm_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply
 function esc_textarea($s) { return (string) $s; }
 function wp_print_inline_script_tag($data, $attributes = []) { echo "<script>$data</script>"; }
 function settings_fields($g) {}
@@ -207,7 +207,7 @@ function add_query_arg($args, $url = '') { return $url . '?' . http_build_query(
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$route] = $args; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'admin']; }
 function wp_is_application_passwords_available_for_user($u) { return true; }
-function wp_remote_post($url, $args) { return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
+function wp_remote_post($url, $args) { pqm_harness_ping_callback($args, 'received'); return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
 /* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
 function wp_sprintf($pattern, ...$args) {
     if ($pattern !== '%l') { return vsprintf($pattern, $args); }
@@ -228,9 +228,10 @@ function human_time_diff($from, $to = 0) { return 'a while'; }
 function get_date_from_gmt($gmt, $format = '') { return $gmt; }
 /* Kept local: the rows build a JSON-body request from one array (get_json_params() and get_param() read the same array). */
 class WP_REST_Request {
-    public function __construct(private $json = null) {}
+    public function __construct(private $json = null, $unused = null, private array $headers = []) {}
     public function get_json_params() { return $this->json; }
     public function get_param($k) { return $this->json[$k] ?? null; }
+    public function get_header($k) { return $this->headers[$k] ?? null; } // story 2: the ping callback's X-PQM-Token, as the stub sends it
 }
 $wpdb = new class {
     public $prefix = 'wp_';

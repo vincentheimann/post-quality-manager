@@ -304,12 +304,12 @@ foreach ($tpl['connections'] as $from => $c) {
     }
 }
 check('Update WP Post (Rewrite) reached only through Rewrite Parsed? (true output)', $into_update === ['Rewrite Parsed?#0']);
-preg_match('/workflow_version: (\d+),/', $nodes['Parse Input']['parameters']['jsCode'], $m);
-check('Parse Input stamp === PQM_WORKFLOW_VERSION', isset($m[1]) && (int) $m[1] === PQM_WORKFLOW_VERSION);
+preg_match_all('/workflow_version: (\d+)/', $nodes['Parse Input']['parameters']['jsCode'], $m);
+check('every Parse Input stamp === PQM_WORKFLOW_VERSION (the command item\'s and, story 2, the ping item\'s)', count($m[1]) === 2 && array_unique(array_map('intval', $m[1])) === [PQM_WORKFLOW_VERSION]);
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('PQM_WORKFLOW_VERSION is 6', PQM_WORKFLOW_VERSION === 6);
+check('PQM_WORKFLOW_VERSION is 7', PQM_WORKFLOW_VERSION === 7);
 $trigger = $nodes['Webhook Trigger'];
 check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":PQM_WORKFLOW_VERSION} (the ping handshake)',
     !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData
@@ -322,6 +322,60 @@ check('rewrite PATCHes the payload\'s post_rest_url as-is (no scheme, host or /w
     $rewrite_url === "={{ \$('Parse Input').first().json.post_rest_url }}");
 check('Parse Input passes post_rest_url through',
     str_contains($nodes['Parse Input']['parameters']['jsCode'], "post_rest_url: body.post_rest_url || ''"));
+
+/* ─── Story 2: the test ping's callback — the template's way back and the route it lands on ── */
+echo "Round-trip ping (story 2)\n";
+check('Ping OK is wired to POST Result to WordPress and passes the item through with the result fields a review carries',
+    ($tpl['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress'
+    && str_contains($nodes['Ping OK']['parameters']['jsCode'], "return [{ json: { ...d, overall_score: 0, status: '', result: '{}' } }];"));
+check('Parse Input\'s ping item carries callback_url, auth_token and the stamp (one line)',
+    (bool) preg_match("/^  return \[\{ json: \{ command: 'ping', ping: true, error: false, callback_url: callbackUrl, auth_token: authToken, notification_url: '', workflow_version: " . PQM_WORKFLOW_VERSION . " \} \}\];$/m", $nodes['Parse Input']['parameters']['jsCode']));
+$ping_route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/ping/(?P<id>[A-Za-z0-9]{20})'] ?? null;
+check('POST /ping/{id} registered: a 20-character id, check_ping_token, ping_callback', is_array($ping_route) && $ping_route['methods'] === 'POST'
+    && $ping_route['permission_callback'] === ['PQM_REST_API', 'check_ping_token'] && $ping_route['callback'] === ['PQM_REST_API', 'ping_callback']);
+check('the pending ping lives in PQM_Admin::PING_OPTION = pqm_ping, claimable for PING_LIVE = 60 s, waited for PING_WAIT = 8 s',
+    PQM_Admin::PING_OPTION === 'pqm_ping' && PQM_Admin::PING_LIVE === 60 && PQM_Admin::PING_WAIT === 8);
+$GLOBALS['tw']['options'] = site_options(['pqm_settings' => ['webhook_token' => 'tok-2']]);
+$ping_id   = 'abcdefghij0123456789';
+$pending   = ['id' => $ping_id, 'at' => time()];
+$callback  = static function (string $id, string $token) use ($ping_route) {
+    $request = new WP_REST_Request(['id' => $id], null, ['X-PQM-Token' => $token]);
+    $GLOBALS['tw']['writes'] = [];
+    if (!call_user_func($ping_route['permission_callback'], $request)) { return 'refused'; }
+    return call_user_func($ping_route['callback'], $request);
+};
+$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+$res = $callback($ping_id, 'tok-2');
+check('right token, the pending id: 200 {ok: true}, the pending ping marked received (id and at kept)', $res instanceof WP_REST_Response && $res->get_status() === 200
+    && $res->get_data() === ['ok' => true] && $GLOBALS['tw']['options']['pqm_ping'] === ['state' => 'received'] + $pending && $GLOBALS['tw']['writes'] === ['pqm_ping']);
+$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+$res = $callback($ping_id, 'not-this-sites-token');
+check('wrong token, the pending id: refused, the pending ping marked refused (the waiting test names the token)', $res === 'refused'
+    && $GLOBALS['tw']['options']['pqm_ping'] === ['state' => 'refused'] + $pending && $GLOBALS['tw']['writes'] === ['pqm_ping']);
+$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+$res = $callback('zzzzzzzzzzzzzzzzzzzz', 'not-this-sites-token');
+check('wrong token, another id: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['pqm_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
+$res = $callback('zzzzzzzzzzzzzzzzzzzz', 'tok-2');
+check('right token, an unknown id: 404 pqm_ping_unknown, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown'
+    && $res->get_error_data() === ['status' => 404] && $GLOBALS['tw']['options']['pqm_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
+$stale = ['id' => $ping_id, 'at' => time() - 61];
+$GLOBALS['tw']['options']['pqm_ping'] = $stale;
+$res = $callback($ping_id, 'tok-2');
+check('right token, the id of a ping older than 60 s: 404, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown'
+    && $GLOBALS['tw']['options']['pqm_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
+$res = $callback($ping_id, 'not-this-sites-token');
+check('wrong token, the id of a stale ping: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['pqm_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
+unset($GLOBALS['tw']['options']['pqm_ping']);
+$res = $callback($ping_id, 'tok-2');
+check('no pending ping at all: 404, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown' && $GLOBALS['tw']['writes'] === []);
+$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+$GLOBALS['tw']['caps'][] = 'pqm_run_free_agents';
+$res = $callback($ping_id, '');
+check('a logged-in user who may run agents passes without the header, as on /save-review', $res instanceof WP_REST_Response && $res->get_status() === 200);
+$GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
+check('/ping/{id} ignores workflow_variant and every other field: no args schema', !isset($ping_route['args']));
+check('uninstall removes the pending ping option', str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-activator.php'), "delete_option( 'pqm_ping' );"));
+$GLOBALS['tw']['options'] = site_options();
 
 /* Payload: the post's own REST address, '' when its type is not in REST */
 $payload = pqm_n8n_payload(new WP_Post(7, 'a-page', 'page'), 'rewrite', pqm_get_settings());

@@ -425,13 +425,25 @@ foreach (['a 401' => [resp(401, ['message' => 'Authorization data is wrong!']), 
     connected(PRO_OK);
     $GLOBALS['tw']['ping_response'] = $answer;
     $r = provision();
-    check("$label: one ping, today's sentence (the ping did not get through, its own cause, the editor-address hint); that cause on record", count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false
-        && str_starts_with($r['message'], 'Your workflow is set up and active in n8n, but the ping did not get through. ' . $cause) && !str_contains($r['message'], 'did not answer yet')
+    check("$label: one ping, today's sentence (the test did not pass, its own cause, the editor-address hint); that cause on record", count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false
+        && str_starts_with($r['message'], 'Your workflow is set up and active in n8n, but the test did not pass. ' . $cause) && !str_contains($r['message'], 'did not answer yet')
         && str_ends_with($r['message'], 'paste it as the n8n Webhook URL.') && str_starts_with(pqm_workflow_report()['failed']['message'] ?? '', $cause));
 }
+/* Story 2: the ping got through and its callback failed — the address was right, so the sentence carries no editor-address hint */
+foreach (['refused' => 'n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.',
+    'none' => 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.'] as $callback => $cause) {
+    connected(PRO_OK);
+    $GLOBALS['tw']['ping_callback'] = $callback;
+    $r = provision();
+    check("the callback $callback: one ping, ping_ok false, 'the test did not pass' + the callback's own sentence, no editor-address hint; that cause on record, Set up the workflow open", count($GLOBALS['tw']['pings']) === 1
+        && $r['provisioned'] === true && $r['ping_ok'] === false && $r['message'] === 'Your workflow is set up and active in n8n, but the test did not pass. ' . $cause
+        && (pqm_workflow_report()['failed']['message'] ?? '') === $cause && ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === false
+        && str_contains($r['status_html'], 'data-state="failing"'));
+}
+$GLOBALS['tw']['ping_callback'] = 'received';
 check('the retry wait is the filter pqm_provision_ping_retry_wait, 2 s by default, in the provisioning callback only (the Test button, rotation and update ping once)',
     (bool) preg_match('/sleep\\( max\\( 0, \\(int\\) apply_filters\\( \'pqm_provision_ping_retry_wait\', 2 \\) \\) \\);/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php'))
-    && !preg_match('/pqm_provision_ping_retry_wait|sleep\\(/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php')));
+    && !preg_match('/pqm_provision_ping_retry_wait|(?<!u)sleep\\(/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php'))); // usleep() is the ping's callback wait (story 2), not a retry
 
 echo "Provisioning: the provider key leak scan\n";
 check('after every run (' . count($provision_runs) . '): the provider key and the Application Password are in no option and no ping',

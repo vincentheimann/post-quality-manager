@@ -97,8 +97,26 @@ function parsed_input(string $command): array {
 
 echo "Parse Input\n";
 $base = parsed_input('review');
-check('stamps workflow_version 6', $base['workflow_version'] === 6 && $base['error'] === false);
+check('stamps workflow_version 7', $base['workflow_version'] === 7 && $base['error'] === false);
 check('passes post_rest_url through unchanged (story 35)', $base['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
+
+/* Row (story 2): the test ping — Parse Input → Ping OK → the body POST Result to WordPress sends back */
+echo "Round-trip ping\n";
+$ping_url = 'https://example.test/wp-json/post-quality/v1/ping/abcdefghij0123456789';
+$ping = run_code('Parse Input', ['body' => ['command' => 'ping', 'source' => 'pqm-test-connection', 'callback_url' => $ping_url, 'auth_token' => 'token']]);
+check('Parse Input: the ping item carries the callback address and token, stamps 7, no post, no notification',
+    $ping['command'] === 'ping' && $ping['ping'] === true && $ping['error'] === false && $ping['callback_url'] === $ping_url && $ping['auth_token'] === 'token'
+    && $ping['notification_url'] === '' && $ping['workflow_version'] === 7 && !array_key_exists('post_id', $ping));
+$ok = run_code('Ping OK', $ping);
+check('Ping OK passes the item through with score 0, status \'\', result \'{}\' (no error)', $ok['callback_url'] === $ping_url && $ok['auth_token'] === 'token'
+    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 7);
+check('Ping OK → POST Result to WordPress, the same connection every review takes', if_target('Ping OK', 0) === 'POST Result to WordPress');
+check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 7, error_message \'\'',
+    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 7, 'error_message' => '']);
+$post_node = $NODES['POST Result to WordPress']['parameters'];
+check('the callback node reads its address and X-PQM-Token header from the item: /ping/{id} and the site\'s token', run_expr($post_node['url'], $ok) === $ping_url
+    && run_expr(array_column($post_node['headerParameters']['parameters'], 'value', 'name')['X-PQM-Token'], $ok) === 'token');
+check('the item ends there: notification_url is \'\', so Has Notification URL? sends none', ($ok['notification_url'] ?? null) === '');
 
 $agents = [
     'Review'    => 'Parse Review Result',
@@ -137,7 +155,7 @@ foreach ($agents as $agent => $parse) {
     $body = post_body($item);
     check("$parse: error true, message names the agent and the API text", $item['error'] === true && $item['message'] === $want);
     check("$parse: POST body error_message = message, status '', result {}",
-        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 6);
+        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 7);
 }
 $item = run_code('Parse Review Result', ['error' => ['message' => 'connect ECONNREFUSED']], parse_refs($base, 'Parse Review Result'));
 check('no description → falls back to the error message', $item['message'] === 'Review Agent could not get an answer from the model: connect ECONNREFUSED');

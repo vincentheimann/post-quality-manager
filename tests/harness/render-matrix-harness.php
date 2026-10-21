@@ -23,7 +23,7 @@ function plugin_basename($f) { return basename($f); }
    (the other options, written by update_option()/delete_option() below). */
 function get_option($k, $d = false) { if (isset($GLOBALS['tw_options'][$k])) { return $GLOBALS['tw_options'][$k]; } return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
+function apply_filters($tag, $value) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : ($tag === 'pqm_ping_callback_wait' ? 0 : $value); } // story 2: the stub plays the callback before the reply
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; } // already the site locale
 function restore_previous_locale() { return false; }
@@ -679,8 +679,8 @@ check('4a saved, not checked: "Saved, not checked yet.", info accent, primary Te
 $failed_report = $current;
 $failed_report['pqm_workflow_version_seen']['failed'] = ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => time() - 7200];
 $page = $render_workflow([], $failed_report);
-check('5 ping fails: "The last test {when} did not reach your workflow: {message}", error accent, primary Test again, the last passing version kept under it, the three disclosures',
-    $state_of($page) === 'failing' && $sentence_of($page) === 'The last test 2 hours ago did not reach your workflow: n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
+check('5 ping fails: "The last test {when} did not pass: {message}", error accent, primary Test again, the last passing version kept under it, the three disclosures',
+    $state_of($page) === 'failing' && $sentence_of($page) === 'The last test 2 hours ago did not pass: n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
     && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test again</button></p>') && $primaries($page) === 1
     && str_contains($page, 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.') && $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
 $page = $render_workflow([], ['pqm_workflow_version_seen' => ['failed' => $failed_report['pqm_workflow_version_seen']['failed']]]);
@@ -690,13 +690,16 @@ $page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workf
 check('5 mis-wired: the diagnosis sentence is the status sentence, error accent, primary Test again, no other fix', $state_of($page) === 'failing' && $sentence_of($page) === $sentence
     && str_contains($block_of($page), 'button button-primary pqm-test-connection">Test again</button>') && $primaries($page) === 1 && !str_contains($page, 'pqm-reimport') && !str_contains($page, 'pqm-update-workflow'));
 check('... the sentence is escaped once, where it renders (stored raw)', substr_count($src, "esc_html(\$sentence)") === 1 && str_contains($src, "\$sentence = \$report['miswired']; // raw"));
-$page = $render_workflow([], ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1]);
-check('5 outdated (a legacy int, hand-made): "Your workflow is version N-1; this plugin needs N.", warning accent, the new-production-URL note (pre-v6), primary Re-import the workflow (to #pqm-by-hand), Test again secondary',
-    $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version ' . (PQM_WORKFLOW_VERSION - 1) . '; this plugin needs ' . PQM_WORKFLOW_VERSION . '.'
-    && str_contains($block_of($page), '<p>A re-import gives it a new production URL.</p>') && str_contains($block_of($page), '<p class="description pqm-workflow-version">Version ' . (PQM_WORKFLOW_VERSION - 1) . ' · reported by a command.</p>')
+$page = $render_workflow([], ['pqm_workflow_version_seen' => 5]); // 5: the last version before the per-site webhook path
+check('5 outdated (a legacy int, hand-made): "Your workflow is version 5; this plugin needs N.", warning accent, the new-production-URL note (pre-v6), primary Re-import the workflow (to #pqm-by-hand), Test again secondary',
+    $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version 5; this plugin needs ' . PQM_WORKFLOW_VERSION . '.'
+    && str_contains($block_of($page), '<p>A re-import gives it a new production URL.</p>') && str_contains($block_of($page), '<p class="description pqm-workflow-version">Version 5 · reported by a command.</p>')
     && str_contains($block_of($page), '<p class="pqm-workflow-actions"><a class="button button-primary pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a> <button type="button" class="button pqm-test-connection">Test again</button></p>')
     && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === false);
-// 6 = the first version with a per-site webhook path: a report of version 6 or later keeps its path (not renderable while PQM_WORKFLOW_VERSION is 6), asserted on the source.
+$page = $render_workflow([], ['pqm_workflow_version_seen' => 6]);
+check('... a version 6 workflow (the per-site path already): outdated, no new-production-URL note (a re-import keeps its URL)',
+    $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version 6; this plugin needs ' . PQM_WORKFLOW_VERSION . '.' && !str_contains($block_of($page), 'A re-import gives it a new production URL.'));
+// 6 = the first version with a per-site webhook path: a report of version 6 or later keeps its path, asserted on the source too.
 check('... the new-production-URL note only for a workflow older than version 6 (source)',
     (bool) preg_match("/\\\$state\\['problem'\\] === 'outdated' && \\\$report\\['version'\\] < 6\\) \\{\\s*\\\$details\\[\\] = __\\('A re-import gives it a new production URL\\.'/", $src));
 $page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => 0, 'via' => 'test', 'at' => time()]]);
@@ -814,8 +817,11 @@ function wp_send_json_error($data = null, $status = null) { throw new PQM_Json_E
 function wp_send_json_success($data = null, $status = null) { throw new PQM_Json_Exit(true, $data, $status); }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw_pings'][] = [$url, $args];
+    pqm_harness_ping_callback($args, $GLOBALS['tw_ping_callback'] ?? 'received'); // story 2: n8n calls the site back before the plugin reads the reply
     return $GLOBALS['tw_ping_error'] ?? ['response' => ['code' => $GLOBALS['tw_ping_code'] ?? 200], 'body' => $GLOBALS['tw_ping_body'] ?? ''];
 }
+function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
+PQM_REST_API::register_routes(); // story 2: the stub's callback lands on the registered /ping/{id} route
 function ping(string $url): PQM_Json_Exit {
     $GLOBALS['tw_pings'] = [];
     $_POST = ['webhook_url' => $url];
@@ -889,8 +895,11 @@ $r = ping(''); // the n8n Workflow page sends no URL: the saved one is pinged
 $report = $seen();
 check('v5 reply, saved URL: pinged the saved URL, stored {5, via test, at now}', $GLOBALS['tw_pings'][0][0] === $saved
     && is_array($report) && $report['version'] === PQM_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
-check('v5 reply: message says reachable, credential right, workflow up to date', $r->ok === true
-    && $r->data['message'] === 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.');
+check('v5 reply, the callback received: message says reachable, credential right, workflow up to date, the round trip works (story 2)', $r->ok === true
+    && $r->data['message'] === 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.');
+check('... the ping body carried callback_url = /ping/{id} and auth_token = the webhook token; the pending ping is gone',
+    (bool) preg_match('#^/wp-json/post-quality/v1/ping/[A-Za-z0-9]{20}$#', json_decode($GLOBALS['tw_pings'][0][1]['body'], true)['callback_url'] ?? '')
+    && json_decode($GLOBALS['tw_pings'][0][1]['body'], true)['auth_token'] === pqm_get_settings()['webhook_token'] && !isset($GLOBALS['tw_options']['pqm_ping']));
 check('v5 reply: outdated false (the page shows a success)', ($r->data['outdated'] ?? null) === false);
 check('v5 reply: the shape unchanged by entry 7 (no miswired key; no n8n key stored, so no diagnosis)', array_keys($r->data) === ['message', 'outdated', 'status_html']
     && !isset($seen()['miswired']));
@@ -917,10 +926,35 @@ foreach (['n8n default body' => '{"message":"Workflow was started"}', 'non-JSON 
 }
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERSION - 1) . '}';
 $r = ping('');
-check('reply with an older number: older-version message, needs attention, outdated true', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
-    && str_contains($r->data['message'], 'an older version') && $state_of($r->data['status_html']) === 'outdated' && $r->data['outdated'] === true);
-check('reply with an older number: message and block say the re-import gives a new production URL',
+check('reply with an older number: older-version message, needs attention, outdated true, no callback waited for', ($seen()['version'] ?? null) === PQM_WORKFLOW_VERSION - 1
+    && str_contains($r->data['message'], 'an older version') && !str_contains($r->data['message'], 'call this site back') && $state_of($r->data['status_html']) === 'outdated' && $r->data['outdated'] === true);
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":5}'; // 5: the last version before the per-site webhook path
+$r = ping('');
+check('reply with a pre-v6 number: message and block say the re-import gives a new production URL',
     str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A re-import gives it a new production URL.'));
+
+/* Row (story 2): the callback refused or missing — a failed test, recorded, the page needs attention */
+$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
+$GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}';
+$GLOBALS['tw_ping_callback'] = 'refused';
+$r = ping('');
+check('current reply, the callback refused (wrong token): error, the message names the token and the POST Result to WordPress node', $r->ok === false
+    && $r->data['message'] === 'n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.');
+check('... recorded as the failure, the version kept; the body needs attention with "did not pass", Test again the one primary; no pending ping left',
+    (pqm_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
+    && $state_of($r->data['status_html']) === 'failing' && $outcome_of($r->data['status_html']) === 'is-error: ' . $r->data['message']
+    && $sentence_of($r->data['status_html']) === 'The last test just now did not pass: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1 && !isset($GLOBALS['tw_options']['pqm_ping']));
+$GLOBALS['tw_ping_callback'] = 'none';
+$r = ping('');
+check('current reply, no callback within the wait: error, the message names the wait, this site\'s REST address and the execution log', $r->ok === false
+    && $r->data['message'] === 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach /wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.'
+    && $state_of($r->data['status_html']) === 'failing' && (pqm_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && !isset($GLOBALS['tw_options']['pqm_ping']));
+$GLOBALS['tw_ping_callback'] = 'received';
+$r = ping('');
+check('... the next ping with the callback received clears the failure: set up, the round trip proven', $r->ok === true && !isset(pqm_workflow_report()['failed']) && $state_of($r->data['status_html']) === 'set-up');
+check('the wait is the filter pqm_ping_callback_wait, PING_WAIT = 8 s by default, one read per 500 ms with the options cache bypassed (source)',
+    (bool) preg_match("/apply_filters\('pqm_ping_callback_wait', self::PING_WAIT\)/", $src) && PQM_Admin::PING_WAIT === 8
+    && (bool) preg_match("/wp_cache_delete\(self::PING_OPTION, 'options'\);.*?usleep\(500000\);/s", $src));
 
 /* Row: ping, unsaved URL (a posted URL ≠ saved) — message only */
 $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => PQM_WORKFLOW_VERSION - 1];
@@ -960,7 +994,7 @@ foreach ([401, 403, 404, 500] as $code) {
         && abs((pqm_workflow_report()['failed']['at'] ?? 0) - time()) <= 5);
     check("ping fails (HTTP $code): the body needs attention (failing), the message its outcome line and its sentence, Test again the one primary",
         $state_of($r->data['status_html']) === 'failing' && $outcome_of($r->data['status_html']) === 'is-error: ' . $r->data['message']
-        && $sentence_of($r->data['status_html']) === 'The last test just now did not reach your workflow: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1
+        && $sentence_of($r->data['status_html']) === 'The last test just now did not pass: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1
         && str_contains($r->data['status_html'], 'button button-primary pqm-test-connection">Test again</button>'));
 }
 $GLOBALS['tw_ping_code'] = 200;

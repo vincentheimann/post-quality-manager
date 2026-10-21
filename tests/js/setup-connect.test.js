@@ -128,16 +128,16 @@ describe( 'Setup dialog connect step', () => {
 
 	test( 'a failed ping shows the error notice and swaps the body the reply carries (the page needs attention)', async () => {
 		const FAILING =
-			'<div class="pqm-workflow-status" data-state="failing"><p class="pqm-workflow-sentence">The last test just now did not reach your workflow.</p></div>';
+			'<div class="pqm-workflow-status" data-state="failing"><p class="pqm-workflow-sentence">The last test just now did not pass.</p></div>';
 		const onConnected = await connectWith( {
 			saved: true,
 			ping_ok: false,
-			message: 'URL saved, but the ping did not get through.',
+			message: 'URL saved, but the test did not pass.',
 			status_html: FAILING,
 		} );
 		expect(
 			document.querySelector( '.mock-notice-error' ).textContent
-		).toBe( 'URL saved, but the ping did not get through.' );
+		).toBe( 'URL saved, but the test did not pass.' );
 		expect( block()[ 0 ].outerHTML ).toBe( FAILING );
 		expect( onConnected ).toHaveBeenCalledWith( URL, false );
 	} );

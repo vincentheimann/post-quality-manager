@@ -55,7 +55,7 @@ check('one call: PATCH /credentials/{the map\'s webhook id}, signed with the key
 check('... its body: {data: {name: X-PQM-Token, value: the new token}}, JSON', body(0) === ['data' => ['name' => 'X-PQM-Token', 'value' => ROTATED]]
     && $GLOBALS['tw']['calls'][0][1]['headers']['Content-Type'] === 'application/json');
 check('... PATCH first: the stored token was still the old one when n8n got the new one', $token_at_patch === TOKEN);
-check('... then pqm_settings written once, only webhook_token changed; then the version record', $GLOBALS['tw']['writes'] === ['pqm_settings', 'pqm_workflow_version_seen']
+check('... then pqm_settings written once, only webhook_token changed; then the version record', writes() === ['pqm_settings', 'pqm_workflow_version_seen']
     && $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => ROTATED] + $settings_before);
 check('... then one ping of the saved URL, with the new token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
     && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === ROTATED);
@@ -149,7 +149,7 @@ foreach ([
         && $r['ping_ok'] === false && $r['outdated'] === false && $r['message'] === $message && state_of($r['status_html']) === 'failing'
         && pqm_workflow_report()['version'] === 0 && isset(pqm_workflow_report()['failed']));
     check('... the new token stored: pqm_settings written once, then the failure record', token_now() === ROTATED
-        && $GLOBALS['tw']['writes'] === ['pqm_settings', 'pqm_workflow_version_seen'] && calls() === [PATCH_WEBHOOK]);
+        && writes() === ['pqm_settings', 'pqm_workflow_version_seen'] && calls() === [PATCH_WEBHOOK]);
 }
 
 echo "Rotation: after\n";
@@ -174,9 +174,9 @@ check('... in no stored option but pqm_settings[webhook_token]', !array_filter($
     unset($options['pqm_settings']['webhook_token']);
     return str_contains(json_encode($options), ROTATED);
 }));
-check('... in no outgoing call\'s address or headers (only the PATCH body), and in the ping only as its X-PQM-Token header', !array_filter($rotation_runs, static fn($run) =>
+check('... in no outgoing call\'s address or headers (only the PATCH body), and in the ping only as its X-PQM-Token header and the callback\'s auth_token (story 2: as a review payload carries it)', !array_filter($rotation_runs, static fn($run) =>
     array_filter($run[2], static fn($c) => str_contains(json_encode([$c[0], $c[1]['headers']]), ROTATED))
-    || array_filter($run[3], static fn($p) => str_contains(json_encode([$p[0], $p[1]['body'] ?? '', array_diff_key($p[1]['headers'], ['X-PQM-Token' => 0])]), ROTATED))));
+    || array_filter($run[3], static fn($p) => str_contains(json_encode([$p[0], array_diff_key((array) json_decode($p[1]['body'] ?? '', true), ['auth_token' => 0]), array_diff_key($p[1]['headers'], ['X-PQM-Token' => 0])]), ROTATED))));
 check('... and in no REST reply field of this harness (' . count($replies) . ')', !array_filter($replies, static fn($r) => str_contains(without_body($r), ROTATED)));
 preg_match('/function rotate_token\(.*?\n    }\n.*?function managed_blocked\(.*?\n    }\n/s', $src_n8n, $m);
 check('the rotation code calls n8n once, a PATCH through request(), and never reads /credentials', ($m[0] ?? '') !== ''
@@ -248,7 +248,7 @@ check('... the version recorded by a test; the body is set up with the new versi
     && pqm_workflow_report()['via'] === 'test' && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.')
     && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>')
     && !str_contains($r['status_html'], 'pqm-update-workflow') && one_primary($r['status_html']));
-check('... the version record the one write: the map, the connection and the settings untouched', $GLOBALS['tw']['writes'] === ['pqm_workflow_version_seen']
+check('... the version record the one write: the map, the connection and the settings untouched', writes() === ['pqm_workflow_version_seen']
     && $GLOBALS['tw']['options'][PQM_N8n::SETUP_OPTION] === $setup_map[PQM_N8n::SETUP_OPTION]);
 managed([resp(200, ['name' => 'Reviews for my blog'] + stored_workflow('wf1', wired())), UPDATED, CLEAN_WF], $setup_map + $older_report);
 update();
@@ -355,7 +355,7 @@ foreach ([
     $r = update();
     check("$label: updated, ping_ok false, the message says so; the body needs attention (the failure the one write, the older version kept)", is_array($r)
         && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
-        && str_starts_with($r['message'], $message) && $GLOBALS['tw']['writes'] === ['pqm_workflow_version_seen'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION - 1
+        && str_starts_with($r['message'], $message) && writes() === ['pqm_workflow_version_seen'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION - 1
         && state_of($r['status_html']) === 'failing' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>')
         && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === 1);
 }

@@ -57,11 +57,17 @@ if (!class_exists('WP_REST_Server')) {
 }
 if (!class_exists('WP_REST_Request')) {
     class WP_REST_Request {
-        public function __construct(private array $params = [], private $json = null) {}
+        /* $headers as sent (story 2: the ping callback's X-PQM-Token); get_header() reads them as core does, by any spelling. */
+        public function __construct(private array $params = [], private $json = null, private array $headers = []) {}
         public function get_param($k) { return $this->params[$k] ?? null; }
         public function set_param($k, $v) { $this->params[$k] = $v; }
         public function get_json_params() { return $this->json; }
-        public function get_header($k) { return null; }
+        public function get_header($k) {
+            foreach ($this->headers as $name => $value) {
+                if (strtolower(str_replace('-', '_', $name)) === strtolower(str_replace('-', '_', $k))) { return $value; }
+            }
+            return null;
+        }
     }
 }
 if (!class_exists('WP_REST_Response')) {
@@ -141,5 +147,39 @@ if (!function_exists('delete_option')) {
         unset($GLOBALS['tw']['options'][$k]);
         $GLOBALS['tw']['writes'][] = "-$k";
         return true;
+    }
+}
+
+/* ─── Options cache (none here: every read is the store's), the ping's id ────────────────── */
+if (!function_exists('wp_cache_get')) { function wp_cache_get($k, $group = '') { return false; } }
+if (!function_exists('wp_cache_set')) { function wp_cache_set($k, $v, $group = '') { return true; } }
+if (!function_exists('wp_cache_delete')) { function wp_cache_delete($k, $group = '') { return true; } }
+if (!function_exists('wp_generate_password')) {
+    function wp_generate_password($length = 12, $special_chars = true, $extra_special_chars = false) {
+        return substr(str_shuffle(str_repeat('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 2)), 0, $length);
+    }
+}
+
+/* ─── Story 2: n8n's callback of the test ping, played by a harness's wp_remote_post() stub ──
+   The ping body's callback_url names the /ping/{id} route; it runs as registered (permission, then callback) with the
+   X-PQM-Token header = the body's auth_token ($mode 'received'), another token ('refused') or not at all ('none').
+   Returns the route's answer, a WP_Error 401 for a refused permission as core answers it, null when no call was made. */
+if (!function_exists('pqm_harness_ping_callback')) {
+    function pqm_harness_ping_callback(array $args, string $mode) {
+        if ($mode === 'none') { return null; }
+        $body = json_decode((string) ($args['body'] ?? ''), true);
+        if (!preg_match('#/ping/([A-Za-z0-9]{20})$#', (string) ($body['callback_url'] ?? ''), $m)) {
+            return new WP_Error('harness', 'the ping body carries no /ping/{id} callback_url');
+        }
+        $route = null;
+        foreach ($GLOBALS['pqm_routes'] ?? [] as $key => $def) {
+            if (str_ends_with($key, '/ping/(?P<id>[A-Za-z0-9]{20})')) { $route = $def; }
+        }
+        if ($route === null) { return new WP_Error('harness', 'no /ping/{id} route registered'); }
+        $request = new WP_REST_Request(['id' => $m[1]], null, ['X-PQM-Token' => $mode === 'received' ? (string) ($body['auth_token'] ?? '') : 'not-this-sites-token']);
+        if (!call_user_func($route['permission_callback'], $request)) {
+            return new WP_Error('rest_forbidden', 'Sorry, you are not allowed to do that.', ['status' => 401]);
+        }
+        return call_user_func($route['callback'], $request);
     }
 }

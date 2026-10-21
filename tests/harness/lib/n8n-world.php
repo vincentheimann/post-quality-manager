@@ -46,7 +46,8 @@ $GLOBALS['tw'] = [
     'pings'    => [], // wp_remote_post() calls (the webhook ping): [url, args]
     'ping_response' => null,
     'ping_queue'    => [],   // scripted ping answers, in call order; ping_response once empty (bug 80)
-    'filters'       => ['pqm_provision_ping_retry_wait' => 0], // apply_filters() answers: no wait between the retried pings
+    'filters'       => ['pqm_provision_ping_retry_wait' => 0, 'pqm_ping_callback_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply)
+    'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
     'app_created'   => [],   // Application Passwords created: [user_id, args]
     'app_revoked'   => [],   // Application Passwords deleted: [user_id, uuid]
@@ -79,6 +80,7 @@ function race(string $hook): void {
 /* The Options API cache a raw write brings in line (bug 82); delete_option() leaves it, so a row can read what the claim cached. */
 function wp_cache_get($k, $group = '') { return $GLOBALS['tw']['cache'][$group][$k] ?? false; }
 function wp_cache_set($k, $v, $group = '') { $GLOBALS['tw']['cache'][$group][$k] = $v; return true; }
+function wp_cache_delete($k, $group = '') { unset($GLOBALS['tw']['cache'][$group][$k]); return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
 /* A scripted answer may be a closure: it runs when its call is made, and returns the answer. */
@@ -91,6 +93,7 @@ function wp_remote_request($url, $args) {
 function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['pings'][] = [$url, $args];
+    pqm_harness_ping_callback($args, $GLOBALS['tw']['ping_callback']); // story 2: n8n calls the site back before the plugin reads the reply
     return $GLOBALS['tw']['ping_queue'] !== [] ? array_shift($GLOBALS['tw']['ping_queue']) : $GLOBALS['tw']['ping_response'];
 }
 /* Entry 10 rotates to a distinct token through tw.uuid, which the bootstrap's wp_generate_uuid4() reads. */
@@ -413,6 +416,11 @@ function revoked(): bool {
     return count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']];
 }
 
+/** The options written, without the pending test ping (story 2: PQM_Admin::PING_OPTION, written before every ping and deleted after it). */
+function writes(): array {
+    return array_values(array_diff($GLOBALS['tw']['writes'], [PQM_Admin::PING_OPTION, '-' . PQM_Admin::PING_OPTION]));
+}
+
 /** Nothing of a provisioned site saved, nothing pinged. */
 function nothing_saved(): bool {
     return !array_intersect([PQM_N8n::SETUP_OPTION, 'pqm_settings', PQM_SETUP_OPTION], $GLOBALS['tw']['writes']) && $GLOBALS['tw']['pings'] === [];
@@ -437,7 +445,7 @@ const V5_HOOK   = BASE . '/webhook/pqm-execute';
 const SHARED    = ['id' => 'c-hdr', 'name' => 'Header Auth account']; // n8n's default name for a Header Auth credential
 const SHARED_SENTENCE = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent, Claude - Takeaways Agent, Claude - Sources Agent, Claude - SEO Agent, Claude - Audit Agent, and Claude - Rewrite Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
 const MISSING_SENTENCE = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then test again.';
-const PING_OK  = 'Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.';
+const PING_OK  = 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.';
 $diagnosis_calls = []; // every call the rows below made, for the GET-only check
 $status_blocks   = []; // every status block a connect ping below answered
 $setup_map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => 1]];

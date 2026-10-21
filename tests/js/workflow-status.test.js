@@ -81,8 +81,7 @@ const ADOPTED_NO_APP = ADOPTED_OUTDATED.replace(
 );
 const FAILING = body( {
 	state: 'failing',
-	sentence:
-		'The last test just now did not reach your workflow: n8n responded with 404.',
+	sentence: 'The last test just now did not pass: n8n responded with 404.',
 	actions: TEST_PRIMARY,
 	rest: BY_HAND + CONNECTION + WEBHOOK,
 	outcome:

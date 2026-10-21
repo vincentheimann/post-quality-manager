@@ -1547,7 +1547,7 @@ class PQM_Admin
                     case 'failed':
                         $sentence = sprintf(
                             /* translators: 1: when, e.g. "just now" or "3 hours ago", 2: why the test failed, e.g. "n8n responded with 404…" */
-                            __('The last test %1$s did not reach your workflow: %2$s', 'post-quality-manager'),
+                            __('The last test %1$s did not pass: %2$s', 'post-quality-manager'),
                             self::when($report['failed']['at']),
                             $report['failed']['message']
                         );
@@ -2096,6 +2096,11 @@ class PQM_Admin
      * import a 2xx then proves that this site reaches n8n and that the
      * trigger accepted the X-PQM-Token header (story 35). An older import
      * answers without a version (n8n's default body): reachability only.
+     * Story 2: with an up-to-date import the ping also proves the way
+     * back — the workflow's Ping OK sends the item through POST Result to
+     * WordPress, which calls `/ping/{id}` back with the token, and this
+     * request waits for that call: `ok` only once it landed (a refused or
+     * missing callback is a failed test, with the fix in its message).
      * Shared by the AJAX handler and the setup dialog's connect route
      * (story 36); the callers decide whether to record the version.
      *
@@ -2106,7 +2111,7 @@ class PQM_Admin
      *                         gone workflow (story 71, D4) — the pings right
      *                         after provisioning and after an update, which
      *                         just wrote the workflow; a test ping asks.
-     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool, code?: int}
+     * @return array{ok: bool, message: string, version: ?int, outdated: bool, variant?: string, miswired?: ?string, refused?: bool, code?: int, callback?: string}
      *         `version` is the replied workflow version (0 = an older
      *         workflow that does not report it), null when the ping failed.
      *         `outdated`: a 2xx from a workflow older than the bundled
@@ -2114,7 +2119,9 @@ class PQM_Admin
      *         build also the Free template. `variant` ('free' or 'pro', a
      *         reply without one is the Pro template) and `miswired`
      *         (diagnosed()) come with every 2xx; `refused` (true) with a
-     *         401/403, n8n refusing the token.
+     *         401/403, n8n refusing the token; `callback` ('refused' or
+     *         'none', story 2) when the ping got through but its callback
+     *         did not — the address was right, so no address hint applies.
      */
     public static function ping_webhook(string $url, bool $diagnose = true, bool $check_gone = true): array
     {
@@ -2141,12 +2148,42 @@ class PQM_Admin
         return $ping;
     }
 
-    /** ping_webhook()'s request and its reading of the answer. */
+    /**
+     * The test ping waiting for n8n's callback (story 2): `{id, at}`,
+     * `state` added by PQM_REST_API's /ping/{id} route (`received` with the
+     * right token, `refused` with another); written before the request,
+     * deleted after it on every path. Autoload off.
+     */
+    public const PING_OPTION = 'pqm_ping';
+    /** Seconds the pending ping stays claimable by its callback. */
+    public const PING_LIVE = 60;
+    /** Seconds sent_ping() waits for the callback (filter `pqm_ping_callback_wait`). */
+    public const PING_WAIT = 8;
+
+    /** ping_webhook()'s request and its reading of the answer, around the pending ping its callback may claim. */
     private static function sent_ping(string $url, bool $diagnose = true): array
     {
+        $pending = ['id' => wp_generate_password(20, false), 'at' => time()];
+        update_option(self::PING_OPTION, $pending, false);
+        try {
+            return self::ping_reply($url, $pending, $diagnose);
+        } finally {
+            delete_option(self::PING_OPTION);
+        }
+    }
+
+    /** The ping's request, carrying the callback's address and token as a review payload does, and its reading of the answer. */
+    private static function ping_reply(string $url, array $pending, bool $diagnose): array
+    {
+        $settings = pqm_get_settings();
         $response = wp_remote_post($url, [
-            'headers' => pqm_n8n_headers(pqm_get_settings()),
-            'body'    => wp_json_encode(['command' => 'ping', 'source' => 'pqm-test-connection']),
+            'headers' => pqm_n8n_headers($settings),
+            'body'    => wp_json_encode([
+                'command'      => 'ping',
+                'source'       => 'pqm-test-connection',
+                'callback_url' => rest_url(PQM_REST_NAMESPACE . '/ping/' . $pending['id']),
+                'auth_token'   => $settings['webhook_token'],
+            ]),
             'timeout' => 10,
         ]);
 
@@ -2168,12 +2205,34 @@ class PQM_Admin
             $version = is_array($body) ? absint($body['workflow_version'] ?? 0) : 0;
             $variant = is_array($body) && ($body['workflow_variant'] ?? '') === 'free' ? 'free' : 'pro';
             if ($version >= PQM_WORKFLOW_VERSION) {
+                // Story 2: a current workflow calls this site back; the wait lets the
+                // callback claim the pending id (a v7 Free template calls back too,
+                // so the wait comes before the variant check: its callback must not
+                // meet a deleted id and fail the execution in n8n).
+                $wait     = max(0, (int) apply_filters('pqm_ping_callback_wait', self::PING_WAIT));
+                $callback = self::awaited_callback($pending, $wait);
                 if ( pqm_fs()->is__premium_only() ) {
                     if ($variant === 'free') {
                         return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
                     }
                 }
-                return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right and your workflow is up to date. Your first review confirms the return path.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant]);
+                // What landed decides.
+                if ($callback === 'received') {
+                    return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.', 'post-quality-manager'), 'version' => $version, 'outdated' => false, 'variant' => $variant]);
+                }
+                if ($callback === 'refused') {
+                    return ['ok' => false, 'message' => sprintf(
+                        /* translators: %s: the header name, X-PQM-Token */
+                        __('n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its %s header to {{ $json.auth_token }}, then test again.', 'post-quality-manager'),
+                        PQM_N8n::TOKEN_HEADER
+                    ), 'version' => null, 'outdated' => false, 'callback' => 'refused'];
+                }
+                return ['ok' => false, 'message' => sprintf(
+                    /* translators: 1: seconds waited, 2: this site's REST API address, e.g. "https://example.com/wp-json/" */
+                    __('n8n accepted the ping but did not call this site back within %1$d seconds. n8n must reach %2$s (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.', 'post-quality-manager'),
+                    $wait,
+                    rest_url()
+                ), 'version' => null, 'outdated' => false, 'callback' => 'none'];
             }
             return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is an older version: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping. A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
         }
@@ -2196,6 +2255,36 @@ class PQM_Admin
             __('n8n responded with HTTP %d. Check your workflow configuration.', 'post-quality-manager'),
             $code
         ), 'version' => null, 'outdated' => false, 'code' => $code];
+    }
+
+    /**
+     * What the pending ping's callback did while this request waited
+     * (story 2): `received`, `refused`, or `none` once $wait seconds are
+     * over. One read per 500 ms, the Options cache bypassed as
+     * PQM_N8n::cache_lock() does: the callback writes the option from
+     * n8n's own request, and get_option() would answer this request's
+     * cached copy (a miss stays in `notoptions` for the whole request).
+     */
+    private static function awaited_callback(array $pending, int $wait): string
+    {
+        $deadline = microtime(true) + $wait;
+        while (true) {
+            wp_cache_delete(self::PING_OPTION, 'options');
+            $notoptions = wp_cache_get('notoptions', 'options');
+            if (is_array($notoptions) && isset($notoptions[self::PING_OPTION])) {
+                unset($notoptions[self::PING_OPTION]);
+                wp_cache_set('notoptions', $notoptions, 'options');
+            }
+            $stored = get_option(self::PING_OPTION, null);
+            $state  = is_array($stored) && ($stored['id'] ?? '') === $pending['id'] ? (string) ($stored['state'] ?? '') : '';
+            if ($state === 'received' || $state === 'refused') {
+                return $state;
+            }
+            if (microtime(true) >= $deadline) {
+                return 'none';
+            }
+            usleep(500000);
+        }
     }
 
     /**

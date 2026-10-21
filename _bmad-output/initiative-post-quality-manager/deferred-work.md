@@ -87,3 +87,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: none
   summary: Story 78's second goal, the split of `tests/harness/n8n-api-harness.php` into four files by concern (client; provisioning and rollback; diagnosis and adoption; managed actions) with the constants, HTTP and `$wpdb` stubs and world builders in a shared include, builds second on top of the shared stub bootstrap.
   evidence: Owner decision 2026-10-21 at the story's multi-goal check: two builds, two PRs, the bootstrap first so the split is written against it; the four files each keep their own "key never leaves the server" scan (+3 checks accepted as the one count delta). Resolved by `_bmad-output/backlog/story-harness-stub-bootstrap-and-split-plan-2.md` (built 2026-10-21).
+
+- source_plan: none
+  summary: Story 2's second goal, the bounded wait on the wizard's first review — when nothing lands within a limit, a sentence naming the webhook URL and the site's reachability from n8n — is built after the round-trip ping as its own small build (independent of the template bump).
+  evidence: Owner decision 2026-10-21 at story 2's multi-goal check: build (a) the round-trip ping first (template v7, the callback endpoint, the result copy, the wizard's connect step runs it); (b) the first-review wait is the deferred second goal.

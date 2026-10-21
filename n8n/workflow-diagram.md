@@ -47,16 +47,23 @@ Contract details, by the workflow version that introduced them:
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
 - **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
-  `{"ok":true,"workflow_version":5}` (its Response Data option, no extra node), so the
+  `{"ok":true,"workflow_version":7}` (its Response Data option, no extra node), so the
   plugin's test ping learns which workflow runs. An older import answers n8n's default
   body without a version, and the plugin reports it as an older version.
+- **The test ping proves the way back (v7, story 2).** Parse Input's ping item carries
+  `callback_url` (`…/post-quality/v1/ping/<id>`, a one-time id the plugin wrote before
+  sending) and `auth_token`; `Ping OK` passes it on, and `POST Result to WordPress` calls
+  the site back through the very node, header and timeout a review uses (`command: ping`,
+  no `post_id`, score 0, empty result). The plugin waits up to 8 s for that call: received
+  with the right token = the round trip works; a wrong token or no call = a failed test
+  with the fix in its message. An older workflow still answers the ping without calling back.
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connection into `/save-review`.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 5]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 7]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> CB
@@ -71,7 +78,7 @@ flowchart TD
     RP -->|false| FR
     FR --> CB
 
-    C -->|ping| PO([Ping OK<br>stops, webhook already answered])
+    C -->|ping| PO[Ping OK<br>webhook already answered: the item goes on] --> CB
     C -->|fallback| EF[Error Fallback] --> CB
 
     SC -.->|empty post:<br>error true + message| CB

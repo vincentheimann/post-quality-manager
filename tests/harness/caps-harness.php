@@ -461,7 +461,7 @@ check('uninstall deletes the leftover pqm_view_as meta for all users',
 check('uninstall drops the pqm_reviews table', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_pqm_reviews`']);
 check('uninstall deletes every pqm_ option',
     $GLOBALS['tw_option_deletes'] === ['pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen',
-        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers', 'pqm_n8n_provisioning']);
+        'pqm_cron_nudge_dismissed', 'pqm_caps_version', 'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers', 'pqm_n8n_provisioning', 'pqm_ping']);
 $GLOBALS['tw_option_deletes'] = [];
 $GLOBALS['tw_app_revoked'] = [];
 $GLOBALS['tw_cleared_hooks'] = []; // the cron check below counts this second run's clear

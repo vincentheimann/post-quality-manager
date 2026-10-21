@@ -5,6 +5,7 @@
  * Endpoints:
  *  GET  /post-quality/v1/post-score      — expose post data + Yoast scores
  *  POST /post-quality/v1/save-review      — n8n posts review results here
+ *  POST /post-quality/v1/ping/{id}        — n8n calls the test ping back: the round trip (story 2)
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
  *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
@@ -45,6 +46,13 @@ class PQM_REST_API {
             'callback'            => [ __CLASS__, 'save_review_callback' ],
             'permission_callback' => [ __CLASS__, 'check_webhook_token' ],
             'args'                => self::save_review_args(),
+        ] );
+
+        // Story 2: the test ping's callback — n8n's POST Result to WordPress calls this back with the site's token.
+        register_rest_route( PQM_REST_NAMESPACE, '/ping/(?P<id>[A-Za-z0-9]{20})', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'ping_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_ping_token' ],
         ] );
 
         // Fetch stored reviews for a post.
@@ -318,6 +326,24 @@ class PQM_REST_API {
     }
 
     /**
+     * check_webhook_token() for the test ping's callback (story 2). A
+     * refused call that names the pending ping marks it `refused`, so the
+     * waiting test reports a wrong token, not a missing callback. Anything
+     * else refused writes nothing.
+     */
+    public static function check_ping_token( WP_REST_Request $request ): bool {
+        if ( self::check_webhook_token( $request ) ) {
+            return true;
+        }
+        $pending = self::pending_ping( (string) $request->get_param( 'id' ) );
+        if ( $pending !== null ) {
+            update_option( PQM_Admin::PING_OPTION, [ 'state' => 'refused' ] + $pending, false );
+        }
+
+        return false;
+    }
+
+    /**
      * Token-based auth for the workflow export. n8n's "Import from URL"
      * fetches without WP cookies, so the shared secret travels as a query
      * arg instead of a header. Logged-in admins pass too.
@@ -524,6 +550,33 @@ class PQM_REST_API {
             'id'      => $row_id,
             'message' => sprintf( 'Review saved for post %d (%s).', $post_id, $command ),
         ], 201 );
+    }
+
+    /* ─── POST /ping/{id}: the test ping's callback (story 2) ─────────── */
+
+    /**
+     * The pending test ping (PQM_Admin::sent_ping() wrote it) when it
+     * carries this id and is at most PQM_Admin::PING_LIVE seconds old; null
+     * for an unknown or stale id.
+     */
+    private static function pending_ping( string $id ): ?array {
+        $pending = get_option( PQM_Admin::PING_OPTION, null );
+        if ( ! is_array( $pending ) || ( $pending['id'] ?? '' ) !== $id || time() - absint( $pending['at'] ?? 0 ) > PQM_Admin::PING_LIVE ) {
+            return null;
+        }
+
+        return $pending;
+    }
+
+    /** n8n called the pending ping back with the right token: `received`, which the waiting test reads as the round trip proven. */
+    public static function ping_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $pending = self::pending_ping( (string) $request->get_param( 'id' ) );
+        if ( $pending === null ) {
+            return new WP_Error( 'pqm_ping_unknown', 'No test ping is waiting for this callback.', [ 'status' => 404 ] );
+        }
+        update_option( PQM_Admin::PING_OPTION, [ 'state' => 'received' ] + $pending, false );
+
+        return new WP_REST_Response( [ 'ok' => true ], 200 );
     }
 
     /* ─── 3. GET /reviews/{post_id} ──────────────────────────────────── */
@@ -1263,8 +1316,8 @@ class PQM_REST_API {
         update_option( PQM_SETUP_OPTION, $progress, false );
 
         if ( ! $ping['ok'] ) {
-            /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-            $message = sprintf( __( 'URL saved, but the ping did not get through. %s', 'post-quality-manager' ), $ping['message'] );
+            /* translators: %s: why the test failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+            $message = sprintf( __( 'URL saved, but the test did not pass. %s', 'post-quality-manager' ), $ping['message'] );
 
             return self::finish( [ 'saved' => true, 'ping_ok' => false, 'message' => $message ], $ping );
         }
@@ -1539,16 +1592,22 @@ class PQM_REST_API {
      * What the dialog says when the ping after provisioning did not get
      * through. A 404 that outlasted the retries: the workflow is active, its
      * webhook did not answer yet, so Test again first and the editor-address
-     * hint second (bug 80). Anything else: the ping's own sentence, then the hint.
+     * hint second (bug 80). Anything else: the ping's own sentence, then the
+     * hint — unless the ping got through and its callback failed (story 2,
+     * `callback` refused or none): the address was right, so no hint.
      */
     private static function ping_failed_sentence( array $ping ): string {
         if ( 404 === ( $ping['code'] ?? 0 ) ) {
             return __( 'Your workflow is set up and active in n8n, but its webhook did not answer yet (n8n responded with 404). Give n8n a moment, then press Test again on the n8n Workflow page. If it keeps answering 404, your n8n may serve webhooks on another address than its editor: copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' );
         }
+        if ( isset( $ping['callback'] ) ) {
+            /* translators: %s: why the callback failed and what to fix, e.g. "n8n reached this site, but the callback was refused…" */
+            return sprintf( __( 'Your workflow is set up and active in n8n, but the test did not pass. %s', 'post-quality-manager' ), $ping['message'] );
+        }
 
         return sprintf(
             /* translators: %s: why the ping failed and what to check, e.g. "n8n refused the webhook credential (HTTP 401)…" */
-            __( 'Your workflow is set up and active in n8n, but the ping did not get through. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
+            __( 'Your workflow is set up and active in n8n, but the test did not pass. %s If your n8n serves webhooks on another address than its editor, copy the production URL from the Webhook Trigger in n8n and paste it as the n8n Webhook URL.', 'post-quality-manager' ),
             $ping['message']
         );
     }

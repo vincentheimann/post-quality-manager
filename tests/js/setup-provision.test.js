@@ -434,14 +434,13 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				ping_ok: false,
 				// eslint-disable-next-line camelcase -- REST field name.
 				webhook_url: `${ BASE }/webhook/${ PATH }`,
-				message:
-					'Your workflow is set up, but the ping did not get through.',
+				message: 'Your workflow is set up, but the test did not pass.',
 			},
 		} );
 		await provision();
 		expect(
 			document.querySelector( '.mock-notice-warning' ).textContent
-		).toBe( 'Your workflow is set up, but the ping did not get through.' );
+		).toBe( 'Your workflow is set up, but the test did not pass.' );
 		expect( field( 'Production webhook URL' ).value ).toBe(
 			`${ BASE }/webhook/${ PATH }`
 		);
