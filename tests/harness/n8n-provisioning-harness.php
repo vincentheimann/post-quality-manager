@@ -441,7 +441,7 @@ foreach (['refused' => 'n8n reached this site, but the callback was refused: it 
         && str_contains($r['status_html'], 'data-state="failing"'));
 }
 $GLOBALS['tw']['ping_callback'] = 'received';
-check('the retry wait is the filter pqm_provision_ping_retry_wait, 2 s by default, in the provisioning callback only (the Test button, rotation and update ping once)',
+check('the retry wait is the filter pqm_provision_ping_retry_wait, 2 s by default, in the REST callbacks\' ping_after_activation() only, never in the Test button\'s ping (class-pqm-admin.php); which callbacks retry is n8n-managed\'s rows (bug 84)',
     (bool) preg_match('/sleep\\( max\\( 0, \\(int\\) apply_filters\\( \'pqm_provision_ping_retry_wait\', 2 \\) \\) \\);/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php'))
     && !preg_match('/pqm_provision_ping_retry_wait|(?<!u)sleep\\(/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php'))); // usleep() is the ping's callback wait (story 2), not a retry
 

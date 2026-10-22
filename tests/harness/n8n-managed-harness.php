@@ -346,19 +346,38 @@ check('... the block still offers the update', str_contains(PQM_Admin::render_wo
 
 echo "Update: the ping fails after — updated, no version recorded\n";
 foreach ([
-    'the URL does not answer (404)' => [resp(404, ['message' => 'The requested webhook is not registered.']), 'The workflow was updated in n8n. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'],
-    'the webhook unreachable'       => [timed_out(), 'The workflow was updated in n8n. Could not connect to n8n: cURL error 28: timed out'],
-    'a 401'                         => [resp(401, ''), 'The workflow was updated in n8n. n8n refused the webhook credential (HTTP 401).'],
-] as $label => [$ping, $message]) {
+    'the URL does not answer (404, after the retries)' => [resp(404, ['message' => 'The requested webhook is not registered.']), 'The workflow was updated in n8n. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 3],
+    'the webhook unreachable'       => [timed_out(), 'The workflow was updated in n8n. Could not connect to n8n: cURL error 28: timed out', 1],
+    'a 401'                         => [resp(401, ''), 'The workflow was updated in n8n. n8n refused the webhook credential (HTTP 401).', 1],
+] as $label => [$ping, $message, $pings]) {
     managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
     $GLOBALS['tw']['ping_response'] = $ping;
     $r = update();
-    check("$label: updated, ping_ok false, the message says so; the body needs attention (the failure the one write, the older version kept)", is_array($r)
+    check("$label: updated, ping_ok false, the message says so; the body needs attention (the failure the only option written, once per ping; the older version kept)", is_array($r)
         && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
-        && str_starts_with($r['message'], $message) && writes() === ['pqm_workflow_version_seen'] && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION - 1
+        && str_starts_with($r['message'], $message) && writes() === array_fill(0, $pings, 'pqm_workflow_version_seen') && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION - 1
         && state_of($r['status_html']) === 'failing' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>')
-        && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === 1);
+        && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === $pings);
 }
+
+echo "Update: the ping meets n8n's publication window (bug 84)\n";
+managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [resp(404, ['message' => 'The requested webhook is not registered.'])];
+$r = update();
+check('404 then a pass: 2 pings of the saved URL, with the token; updated, ping_ok, "Workflow updated." + the ping\'s message', is_array($r) && $r['ping_ok'] === true
+    && count($GLOBALS['tw']['pings']) === 2 && array_unique(array_column($GLOBALS['tw']['pings'], 0)) === [HOOK] && $GLOBALS['tw']['pings'][1][1]['headers']['X-PQM-Token'] === TOKEN
+    && str_starts_with($r['message'], 'Workflow updated. Ping OK'));
+check('... the template\'s version recorded, no failure on record; the diagnosis read once, after the passing ping; the block set up',
+    pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION && !isset(pqm_workflow_report()['failed']) && calls() === [READ_WF, PUT_WF, READ_WF]
+    && $GLOBALS['tw']['queue'] === [] && state_of($r['status_html']) === 'set-up');
+managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [resp(404, ['message' => 'not registered']), resp(404, ['message' => 'not registered'])];
+$r = update();
+check('404, 404, then a pass: 3 pings, then as passed', count($GLOBALS['tw']['pings']) === 3 && $r['ping_ok'] === true && !isset(pqm_workflow_report()['failed']));
+managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [resp(401, '')];
+$r = update();
+check('a 401 first: no retry (only a 404 is the window), one ping, the failure', count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false);
 
 echo "Update: after\n";
 managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);

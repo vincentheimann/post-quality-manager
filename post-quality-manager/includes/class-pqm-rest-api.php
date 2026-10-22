@@ -1575,13 +1575,14 @@ class PQM_REST_API {
      * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
      * Only a 404 is retried, up to PROVISION_PINGS pings 2 s apart (filter
      * `pqm_provision_ping_retry_wait`; the harness sets 0); every other
-     * answer, pass or fail, counts the first time. Provisioning is the one
-     * caller that just activated something: the Test button, POST
-     * /setup/connect, the rotation and the update ping once.
+     * answer, pass or fail, counts the first time. Provisioning and the
+     * update (bug 84; memory/n8n-provisioning.md) are the callers that
+     * just published something: the Test button, POST /setup/connect and
+     * the rotation (a credential only) ping once.
      */
     private static function ping_after_activation( string $url ): array {
         for ( $attempt = 1; ; $attempt++ ) {
-            // The workflow was just created: a 404 here is the window, never a gone workflow (story 71, no read).
+            // The workflow was just created or updated: a 404 here is the window, never a gone workflow (story 71, no read).
             $ping = PQM_Admin::ping_webhook( $url, true, false );
             if ( $ping['ok'] || 404 !== ( $ping['code'] ?? 0 ) || $attempt >= self::PROVISION_PINGS ) {
                 return $ping;
@@ -1722,8 +1723,8 @@ class PQM_REST_API {
     /**
      * Update the managed workflow to the bundled template:
      * PQM_N8n::update_workflow() reads it once and PUTs the build's template
-     * onto it (credentials and path kept), then the ordinary ping of the
-     * saved URL, its diagnosis included, proves the new version answers. A
+     * onto it (credentials and path kept), then the ping of the
+     * saved URL (a 404 retried, ping_after_activation()), its diagnosis included, proves the new version answers. A
      * refused update answers its error, nothing written. Answers
      * `{ updated, ping_ok, outdated, message, status_html }`: the page's
      * refreshed body with the message first (story 67; the version recorded
@@ -1737,8 +1738,9 @@ class PQM_REST_API {
             return self::with_body( $setup );
         }
 
-        // The PUT just passed: the workflow is there, so a 404 is never read as a gone workflow (story 71, no read).
-        $ping    = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'], true, false );
+        // The PUT just passed: a 404 is the publication window (bug 84, memory/n8n-provisioning.md),
+        // retried like provisioning's, never a gone workflow (story 71, no read).
+        $ping    = self::ping_after_activation( (string) pqm_get_settings()['n8n_webhook_url'] );
         $message = $ping['ok']
             /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
             ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
