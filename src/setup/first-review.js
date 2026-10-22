@@ -4,9 +4,13 @@
  * through the one trigger path (requestRun(), POST /trigger-review: gate,
  * quota, the `processing` row); the wait polls GET /reviews/{id} at the
  * kit's pace until the post's newest review row leaves `processing`, and
- * gives up after the kit's three minutes. A scored result calls
- * `onComplete` (POST /setup { complete: true }); a failed run says where
- * to look and leaves the step open.
+ * gives up three minutes (the kit's limit) after the run started — counted
+ * from the `processing` row's `reviewed_at`, so a reopened dialog does not
+ * wait afresh for a run that started long ago (story 2, goal b). Giving up
+ * names where the review went and the site address n8n must reach to send
+ * the result back. A scored result calls `onComplete` (POST /setup
+ * { complete: true }); a failed run says where to look and leaves the step
+ * open.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, SelectControl, Spinner } from '@wordpress/components';
@@ -17,7 +21,6 @@ import { addQueryArgs } from '@wordpress/url';
 import { statusLabel } from '../kit/copy';
 import {
 	POSTS_PATH,
-	giveUpMessage,
 	inFlight,
 	isFailedRow,
 	requestRun,
@@ -47,12 +50,69 @@ function failureText( row ) {
 }
 
 /**
+ * When a run started, in ms, from its `processing` row's `reviewed_at`
+ * (GMT `Y-m-d H:i:s`); NaN for a blank or zero date.
+ *
+ * Ceiling: the start comes from the server's clock, the limit from the
+ * browser's; a skew of minutes shortens or lengthens the wait by as much.
+ * Upgrade path: a server-computed age on the row, if a site reports it.
+ *
+ * @param {Object} row Review row.
+ * @return {number} Start time in ms, or NaN.
+ */
+function runStart( row ) {
+	const at = typeof row.reviewed_at === 'string' ? row.reviewed_at : '';
+	return at ? Date.parse( `${ at.replace( ' ', 'T' ) }Z` ) : NaN;
+}
+
+/**
+ * The give-up line: where the review went, where n8n must send the result
+ * back, and the two places to look. Without a webhook URL (the step needs
+ * one, so it should not happen) the first clause is left out.
+ *
+ * @param {string} webhookUrl The n8n Webhook URL the review was sent to.
+ * @param {string} restUrl    The site's REST root n8n sends results to.
+ * @return {string} Translated message.
+ */
+function gaveUpText( webhookUrl, restUrl ) {
+	const way = webhookUrl
+		? sprintf(
+				/* translators: 1: n8n Webhook URL the review was sent to; 2: the site's REST address n8n sends the result back to */
+				__(
+					'No result came back within 3 minutes. The review was sent to %1$s; n8n sends the result back to %2$s, which it must be able to reach — a local, private or password-protected site cannot be called back.',
+					'post-quality-manager'
+				),
+				webhookUrl,
+				restUrl
+		  )
+		: sprintf(
+				/* translators: %s: the site's REST address n8n sends the result back to */
+				__(
+					'No result came back within 3 minutes. n8n sends the result back to %s, which it must be able to reach — a local, private or password-protected site cannot be called back.',
+					'post-quality-manager'
+				),
+				restUrl
+		  );
+	return `${ way } ${ __(
+		'Open Executions in n8n to see where the review stopped, or use Test again on the n8n Workflow page: it checks the way back in a few seconds.',
+		'post-quality-manager'
+	) }`;
+}
+
+/**
  * @param {Object}   props
  * @param {boolean}  props.connected  Whether a webhook URL is stored.
+ * @param {string}   props.webhookUrl The stored n8n Webhook URL.
+ * @param {string}   props.restUrl    The site's REST root (GET /setup).
  * @param {Function} props.onComplete Called once with the scored row.
  * @return {Element} The first-review step body.
  */
-export default function FirstReview( { connected, onComplete } ) {
+export default function FirstReview( {
+	connected,
+	webhookUrl,
+	restUrl,
+	onComplete,
+} ) {
 	const [ posts, setPosts ] = useState( null );
 	const [ loadError, setLoadError ] = useState( '' );
 	const [ postId, setPostId ] = useState( 0 );
@@ -105,13 +165,22 @@ export default function FirstReview( { connected, onComplete } ) {
 		if ( phase !== 'waiting' ) {
 			return undefined;
 		}
-		const startedAt = Date.now();
+		// The mount time until the run's own start is read from its
+		// `processing` row (once, at the first poll that sees it).
+		let startedAt = Date.now();
+		let startRead = false;
 		let stopped = false;
 
+		const expired = () => Date.now() - startedAt > GIVE_UP_AFTER;
+		const giveUp = () => {
+			stopped = true;
+			clearInterval( id );
+			setPhase( 'gaveup' );
+		};
+
 		const id = setInterval( () => {
-			if ( Date.now() - startedAt > GIVE_UP_AFTER ) {
-				clearInterval( id );
-				setPhase( 'gaveup' );
+			if ( expired() ) {
+				giveUp();
 				return;
 			}
 			apiFetch( { path: reviewsPath( postId ) } ).then(
@@ -119,11 +188,19 @@ export default function FirstReview( { connected, onComplete } ) {
 					const latest = ( Array.isArray( rows ) ? rows : [] ).find(
 						( r ) => r.command === 'review'
 					);
-					if (
-						stopped ||
-						! latest ||
-						latest.status === 'processing'
-					) {
+					if ( stopped || ! latest ) {
+						return;
+					}
+					if ( latest.status === 'processing' ) {
+						if ( ! startRead ) {
+							startRead = true;
+							const at = runStart( latest );
+							startedAt = Number.isNaN( at ) ? startedAt : at;
+						}
+						// A run that started long ago gives up at once.
+						if ( expired() ) {
+							giveUp();
+						}
 						return;
 					}
 					stopped = true;
@@ -262,11 +339,7 @@ export default function FirstReview( { connected, onComplete } ) {
 
 			{ phase === 'gaveup' && (
 				<Notice status="warning" isDismissible={ false }>
-					{ giveUpMessage( 'review' ) }{ ' ' }
-					{ __(
-						'If nothing arrives, open Executions in n8n to see where it stopped.',
-						'post-quality-manager'
-					) }
+					{ gaveUpText( webhookUrl, restUrl ) }
 				</Notice>
 			) }
 		</>

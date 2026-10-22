@@ -159,6 +159,7 @@ check('entry 6 fields: the n8n connection (no key), not manual, nothing provisio
     && $s['provisioned'] === false && $s['leftovers'] === false);
 check('not complete, not connected, no result', $s['complete'] === false && $s['connected'] === false && $s['first_result'] === false);
 check('per-site webhook path for the URL field placeholder', $s['webhook_path'] === 'pqm-execute-example-com');
+check('the REST root n8n sends results to, for the first-review give-up line', $s['rest_url'] === 'https://example.com/wp-json/');
 check('no values to copy any more (entry 6): no token, import or download URL, user login, site host or Application Password flag',
     !array_intersect(['token', 'import_url', 'download_url', 'user_login', 'site_host', 'app_passwords'], array_keys($s)));
 check('... the webhook token is in no field of the reply', !str_contains(json_encode($s), $token));

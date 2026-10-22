@@ -90,4 +90,4 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 
 - source_plan: none
   summary: Story 2's second goal, the bounded wait on the wizard's first review — when nothing lands within a limit, a sentence naming the webhook URL and the site's reachability from n8n — is built after the round-trip ping as its own small build (independent of the template bump).
-  evidence: Owner decision 2026-10-21 at story 2's multi-goal check: build (a) the round-trip ping first (template v7, the callback endpoint, the result copy, the wizard's connect step runs it); (b) the first-review wait is the deferred second goal.
+  evidence: Owner decision 2026-10-21 at story 2's multi-goal check: build (a) the round-trip ping first (template v7, the callback endpoint, the result copy, the wizard's connect step runs it); (b) the first-review wait is the deferred second goal. Resolved by `_bmad-output/backlog/story-full-round-trip-connection-test-plan-2.md` (built 2026-10-22).

@@ -1188,6 +1188,8 @@ class PQM_REST_API {
             'connected'     => $connected,
             'first_result'  => PQM_DB::has_result(),
             'webhook_url'   => (string) $settings['n8n_webhook_url'],
+            // Where n8n sends results, for the first review's give-up line.
+            'rest_url'      => rest_url(),
             // The Webhook Trigger's per-site path, for the URL field's placeholder.
             'webhook_path'  => pqm_webhook_path(),
             // n8n provisioning, entry 6: the connection (no key), the path

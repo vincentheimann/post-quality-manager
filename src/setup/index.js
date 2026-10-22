@@ -425,6 +425,8 @@ export default function SetupIsland() {
 									{ step.key === 'review' ? (
 										<FirstReview
 											connected={ !! state.connected }
+											webhookUrl={ state.webhook_url }
+											restUrl={ state.rest_url }
 											onComplete={ () =>
 												save( { complete: true } )
 											}
