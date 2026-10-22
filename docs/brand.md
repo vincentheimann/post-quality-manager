@@ -68,7 +68,7 @@ Owner decision 2026-10-12 (story 51).
 - **Mark:** a geometric Q whose tail continues into a check: "quality, verified".
 - **Construction:** a perfect ring (R = 7, stroke 2.5 on a 20-unit grid). Ring diameter : check long arm : check short arm = φ² : φ : 1 (φ = 1.618). The tail starts just inside the ring's inner edge and descends at 45° to the corner; the long arm rises at 45°. One stroke weight, round terminals, bounding box centred, the whole scaled to a 19-unit width.
 - **Colours:** tile `#1b2a41`, mark `#ffffff`, check `#00a32a` (the dashboard's Ready status green). The admin menu shows the mark in one colour, built from filled shapes only so WordPress can recolour it for every admin color scheme.
-- **Files:** `assets/icon.svg`, `assets/icon-128x128.png`, `assets/icon-256x256.png`, `assets/icon-512x512.png` (favicon and Freemius product image); `post-quality-manager/admin/img/post-quality-manager.png` (Freemius opt-in screens); the menu icon is the base64 SVG constant `PQM_Admin::MENU_ICON`.
+- **Files:** `assets/icon.svg`, `assets/icon-128x128.png`, `assets/icon-256x256.png`, `assets/icon-512x512.png` (Freemius product image); the postquality.com favicon is `icon.svg` with `icon-128x128.png` (story 85); `post-quality-manager/admin/img/post-quality-manager.png` (Freemius opt-in screens); the menu icon is the base64 SVG constant `PQM_Admin::MENU_ICON`.
 - **Rules:** never mirror it (the check must rise to the right), never stretch it, never add a third colour, no wordmark lockup here (story 41), no WordPress, Claude, Anthropic or n8n trademark.
 
 ---

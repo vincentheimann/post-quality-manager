@@ -1,10 +1,12 @@
 # Support policy
 
-_Last updated 2026-10-09. Published at https://postquality.com/support._
+_Last updated 2026-10-22. Published at https://postquality.com/support._
 
 ## Free plugin
 
-Questions and bug reports for the free plugin go to the WordPress.org support forum: https://wordpress.org/support/plugin/post-quality-manager/. The forum is answered on a best-effort basis; bugs confirmed there are fixed in a following release.
+Post Quality Manager is not installable yet; [leave your email](mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available) and you will hear once, when you can install it.
+
+Until the plugin is listed in the WordPress.org plugin directory, questions and bug reports for the free plugin go to hello@postquality.com; once it is listed, they go to its support forum there. They are answered on a best-effort basis; confirmed bugs are fixed in a following release.
 
 ## Pro customers
 
@@ -14,4 +16,4 @@ Support covers the plugin and the n8n workflow template it ships: installing, co
 
 ## Security problems
 
-Report a security problem privately, never on the forum: see https://github.com/vincentheimann/post-quality-manager/security/policy or write to hello@postquality.com.
+Report a security problem privately, never on a public forum: write to hello@postquality.com.

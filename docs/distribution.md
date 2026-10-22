@@ -59,7 +59,7 @@ Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 t
 | File | Status |
 |---|---|
 | icon-128x128.png, icon-256x256.png, icon.svg | done (story 51, 2026-10-12): `assets/icon.svg`, `icon-128x128.png`, `icon-256x256.png` |
-| icon-512x512.png | favicon for postquality.com (story 57 wires it, the site has no custom head yet); uploaded as the Freemius product image 2026-10-12 (owner) |
+| icon-512x512.png | uploaded as the Freemius product image 2026-10-12 (owner); the postquality.com favicon is `icon.svg` with `icon-128x128.png`, wired by story 85 (site PR, 2026-10-22) in the site's `_includes/head.html` |
 | banner-772x250.png, banner-1544x500.png | OWNER: approve story 41's direction, then produced (story 41, after 51) |
 | screenshot-1.png … screenshot-n.png | same; numbers match the readme Screenshots section |
 
@@ -118,13 +118,13 @@ One source, two builds, the same version number in both: the Pro build is the CI
 | Private vulnerability reporting | to enable; only available on a public repository | story 48, applied at entry 4.8; the address is hello@postquality.com (story 46) |
 | Release conventions | release-please on Conventional Commits, rebase merges, `post-quality-manager-<version>.zip` per release, pre-releases until entry 4.8 | memory/delivery-pipeline.md |
 
-## Website: postquality.com (story 45, later story 50)
+## Website: postquality.com (story 45; story 57 improves it)
 
 | Field | Value | Source / owner |
 |---|---|---|
 | Domain | postquality.com, bought 2026-10-09 in the owner's name | ADR 0013 |
 | Mailbox | hello@postquality.com, hosted at Infomaniak (MX, SPF, DKIM, DMARC set); receives mail, confirmed by the owner 2026-10-12 | ADR 0013 D9 |
-| Hosting at launch | GitHub Pages from the public repository github.com/vincentheimann/postquality.com (Jekyll, minima, no build step), custom domain set, Let's Encrypt certificate issued and HTTPS enforced 2026-10-12. Kept as the MVP; the Netlify plan of 2026-10-09 was withdrawn | story 45 (done 2026-10-12); story 57 improves it, tooling chosen then |
+| Hosting at launch | GitHub Pages from the public repository github.com/vincentheimann/postquality.com (Jekyll 3.10 and minima 2.5.1 through `github-pages`, built by GitHub Pages on push, "deploy from a branch"; local build per the site README), custom domain set, Let's Encrypt certificate issued and HTTPS enforced 2026-10-12. Kept as the MVP; the Netlify plan of 2026-10-09 was withdrawn | story 45 (done 2026-10-12); story 57 improves it, tooling chosen then |
 | Pages at launch | /, /pricing/, /docs/, /privacy/, /terms/, /refund/, /support/ — policies copied from `docs/policies/`, which stays the source of truth | stories 45 and 46 |
 | DNS for the site | at Infomaniak, live 2026-10-12: apex `A` 185.199.108.153 / .109.153 / .110.153 / .111.153, `AAAA` 2606:50c0:8000::153 / 8001 / 8002 / 8003, `CNAME www → vincentheimann.github.io`; MX, SPF, DKIM, DMARC, SendGrid and Infomaniak autoconfig records untouched | story 45 |
 | Site improvement | content, design, Freemius checkout buttons, plugin-site best practices; depends on the plugin's success; tooling chosen at refinement | story 57 (story 50 dropped 2026-10-12) |
