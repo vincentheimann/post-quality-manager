@@ -54,3 +54,9 @@ Verify: the refinement starts from the written audit of the current site against
 - Filed 2026-10-12 (owner), the day the GitHub Pages site went live over HTTPS. Supersedes story 50, dropped the same day: Astro and Netlify are off the table, the best-fit tooling is chosen in this story's refinement.
 - If story 44's last step lands first, it adds the plain checkout link to the pricing page; this story turns it into one buy button per site pack.
 - Amended 2026-10-13 (owner): the audit gains a Conversion section and runs through `bmad-ux`; the copy is written with the copywriting skill (story 60) from the messaging of story 53. Related: stories 61 (in-plugin nudges), 62 (Freemius surfaces), 63 (interest capture), spike 64 (measurement).
+- Audit written 2026-10-22: `story-site-content-style-checkout-best-practices-audit.md` beside this ticket (45 items: 8 met, 14 partly, 19 missing, 3 not applicable, Lighthouse not measured; site repository at fc5442c).
+- Decision: owner, 2026-10-22 — scope: a hygiene slice now (story 85: no dead ends, policy links, favicon, 404, sitemap and robots, true texts, contrast); content, visuals, checkout and conversion stay here, still waiting for stories 41, 49 and 53 and the `bmad-ux` pass.
+- Decision: owner, 2026-10-22 — tooling: stay on Jekyll and GitHub Pages, with the site's own layouts and CSS instead of stock `minima` (audit option A).
+- Decision: owner, 2026-10-22 — checkout: plain hosted Freemius links, one per site pack, no checkout script on the site (ADR 0013 D8).
+- Decision: owner, 2026-10-22 — until the plugin is listed or the repository is public, the Free action is interest by email (story 63), not an install link.
+- Open questions still to answer at this story's build (audit § Open questions 5–8): currency display on the pricing page, how the current version is shown, where the documentation lives, social proof at launch.

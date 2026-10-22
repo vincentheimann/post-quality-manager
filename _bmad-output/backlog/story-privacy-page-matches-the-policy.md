@@ -57,3 +57,4 @@ Until the copy is synced, the public page says the plugin never sees the provide
 
 - Filed 2026-10-15 at the owner's request, after #127 merged and 3.9.0 shipped with entry 6.6. Unrefined; ranking is `/prioritize`'s job, with the urgency stated above.
 - The site repository's write access and URL follow the GitHub write rules (explicit repository URL on push, `--repo` on `gh`); the owner's domain never appears in this repository's artifacts beyond the policy's own published address.
+- Decision: owner, 2026-10-22 — folded into story 85 (the site hygiene slice, criterion 4); closes with it.
