@@ -59,7 +59,7 @@ Promotional wording and the KPI figures behind it: story 53 (needs refinement wi
   1. The overall score or status
   2. Actionable takeaways/issues
   3. Action buttons (Review/Rewrite)
-- Logo lockup, WordPress.org banners/screenshots and imagery direction: not decided yet — story 41 extends this section (owner-approved) before story 38 submits to the directory.
+- WordPress.org banners/screenshots and imagery direction: not decided yet — story 41 extends this section (owner-approved) before story 38 submits to the directory. The logo lockup is decided: see Lockup below.
 
 ### Icon
 
@@ -69,7 +69,24 @@ Owner decision 2026-10-12 (story 51).
 - **Construction:** a perfect ring (R = 7, stroke 2.5 on a 20-unit grid). Ring diameter : check long arm : check short arm = φ² : φ : 1 (φ = 1.618). The tail starts just inside the ring's inner edge and descends at 45° to the corner; the long arm rises at 45°. One stroke weight, round terminals, bounding box centred, the whole scaled to a 19-unit width.
 - **Colours:** tile `#1b2a41`, mark `#ffffff`, check `#00a32a` (the dashboard's Ready status green). The admin menu shows the mark in one colour, built from filled shapes only so WordPress can recolour it for every admin color scheme.
 - **Files:** `assets/icon.svg`, `assets/icon-128x128.png`, `assets/icon-256x256.png`, `assets/icon-512x512.png` (Freemius product image); the postquality.com favicon is `icon.svg` with `icon-128x128.png` (story 85); `post-quality-manager/admin/img/post-quality-manager.png` (Freemius opt-in screens); the menu icon is the base64 SVG constant `PQM_Admin::MENU_ICON`.
-- **Rules:** never mirror it (the check must rise to the right), never stretch it, never add a third colour, no wordmark lockup here (story 41), no WordPress, Claude, Anthropic or n8n trademark.
+- **Rules:** never mirror it (the check must rise to the right), never stretch it, never add a third colour, the wordmark lockup is in § Lockup below (story 41 keeps only its outlined-SVG artwork), no WordPress, Claude, Anthropic or n8n trademark.
+
+### Lockup
+
+Owner decisions 2026-10-22/23 (story 57's UX pass, picked on the band; story 86 build brief D2). Specs from the site's design spine (`_bmad-output/initiative-post-quality-manager/ux-postquality-website/DESIGN.md` § Lockup); first applied on postquality.com (story 86).
+
+| Variant | Anatomy | Where |
+|---|---|---|
+| **B** (primary) | Icon + "Post Quality" 600 + "Manager" 400, one line. On light: `#1b2a41` + `#50575e`. On dark: `#ffffff` + `#c3ccd9`, on the band `#33496b` | Every header, the sharing card. It is the full name for the first-mention rule |
+| **C** | Stacked: "Post Quality" 0.46 T over "Manager" 0.31 T, 0.17 T between the lines; tile 40 px or more | Square spots off the site; not used on postquality.com |
+| **D** | Icon + "Post Quality" 600 | Only where the full name is already on the page: the site footer (20 px tile, text `#50575e`), a second mention |
+| **F** | The icon alone | Favicon (16, 32), the 404 page (64), avatars, the 128/256/512 px files, the Freemius product image, anything under a 20 px tile |
+| E | Rejected: B set in a serif | A second wordmark would read as a second brand |
+
+- **Units of T** (the tile's side): wordmark 0.63 T, so its cap height matches the Q's ring; gap icon → text 0.375 T (12 px at a 32 px tile, 10.5 at 28, 7.5 at 20, rounded to whole pixels); clear space 0.5 T on all four sides (F alone 0.25 T where a platform adds no padding).
+- **Sizes in use:** site header 32 px (28 px on phones), footer 20 px, 404 icon 64 px, sharing card 96 px. Minimum tile 20 px for one-line wordmarks (C: 40 px); below that, or where B does not fit (about 210 px wide at a 28 px tile), only F, down to 16 px. A header never drops to F: on a narrow screen it wraps instead.
+- **Live text, not artwork (D2):** on the website the wordmark is HTML text in the system sans next to the icon SVG, sized in T-units, so it is accessible and needs no asset pipeline. The outlined-SVG wordmark (source typeface Inter, SIL OFL 1.1) for places that cannot set text is story 41's; the only rendered lockup asset until then is the sharing card PNG.
+- **Dark surfaces:** the tile never sits directly on `#1b2a41` (1.00:1, it disappears). On any dark surface the lockup sits on the band `#33496b` (tile vs band 1.59:1, white text 9.11:1). A 1 px white keyline outside the tile is the fallback only for a dark surface that cannot be recoloured, and only from a 48 px tile up. The icon file itself stays identical everywhere.
 
 ---
 

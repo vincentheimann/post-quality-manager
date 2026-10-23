@@ -1,6 +1,6 @@
 # Terms of service for Post Quality Manager Pro
 
-_Vincent Heimann, acting as a private person. Last updated 2026-10-22. Published at https://postquality.com/terms; questions to hello@postquality.com._
+_Vincent Heimann, acting as a private person. Last updated 2026-10-23. Published at https://postquality.com/terms; questions to hello@postquality.com._
 
 ## 1. What you buy
 
@@ -18,11 +18,13 @@ Licenses are sold through Freemius, Inc., the seller of record, which handles pa
 
 ## 3. Sites and renewal
 
-A license activates on as many sites as its pack allows (1, 5 or unlimited). You can move an activation from one site to another through the customer portal. Licenses renew yearly at the price you bought at unless you cancel before the renewal date; Freemius sends a reminder beforehand.
+A license activates on as many sites as its pack allows (1, 5 or unlimited). Each production site counts as one site, yours or a client's: you may use your license on sites you run for clients, and the license stays yours. Staging and local copies of a licensed site do not count when Freemius recognises their address as one, such as `localhost`, a `.local` or `.test` address or a `staging.` subdomain; a copy at any other address counts until you deactivate the license there. You can move an activation from one site to another through the customer portal.
+
+Licenses renew yearly at the price you bought at unless you cancel the renewal before the renewal date; Freemius sends a reminder beforehand.
 
 ## 4. When a license ends
 
-When a license expires or is cancelled, the Pro features lock again and the site returns to the free tier. Nothing is deleted: your stored reviews, settings, schedules and role rights remain, and the Review and Key Takeaways features keep working. Renewing unlocks everything again.
+Cancelling the renewal does not end the license: Pro keeps working until the end of the year you paid for. When a license expires, or is cancelled after a refund or under section 6, the Pro features lock again and the site returns to the free tier. Nothing is deleted: your stored reviews, settings, schedules and role rights remain, and the Review and Key Takeaways features keep working. Renewing unlocks everything again.
 
 ## 5. Refunds
 

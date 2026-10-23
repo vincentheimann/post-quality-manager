@@ -1,6 +1,6 @@
 # Privacy policy
 
-_Post Quality Manager, a WordPress plugin by Vincent Heimann. Last updated 2026-10-14. Published at https://postquality.com/privacy; questions to hello@postquality.com._
+_Post Quality Manager, a WordPress plugin by Vincent Heimann. Last updated 2026-10-23. Published at https://postquality.com/privacy; questions to hello@postquality.com._
 
 This policy covers three things: the plugin running on your WordPress site, the Pro licensing service, and the website postquality.com. Short version: the plugin sends your post text to **your own** n8n instance and the AI provider **you** configured; the plugin's author receives nothing from your site unless you opt in to usage data or buy a Pro license.
 
@@ -41,7 +41,7 @@ With a license key entered, the plugin checks the license with Freemius: your si
 
 ## 3. The website postquality.com
 
-The website is static. It sets no cookies and runs no analytics. Writing to hello@postquality.com shares your email address and message, kept as long as needed to answer you.
+The website is static and hosted on GitHub Pages, a service of GitHub, Inc. It sets no cookies and runs no analytics. GitHub logs and stores each visitor's IP address for security purposes, under its own privacy statement (https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement). Writing to hello@postquality.com shares your email address and message, kept as long as needed to answer you. An email asking to hear about the launch is kept until that one message is sent, then deleted.
 
 ## 4. Your rights
 
