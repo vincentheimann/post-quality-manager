@@ -3,7 +3,8 @@ title: 'Build 2: the pricing and documentation pages, both launch states'
 type: 'feature'
 ticket: '86'
 created: '2026-10-23'
-status: 'ready-for-dev'
+status: 'in-progress'
+baseline_revision: 'a9899bcffec1fc667a20a5e2740234889af2c536'
 route: 'full'
 route_source: 'pinned'
 review: ''
@@ -44,6 +45,8 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-postqu
 
 ## Code Map
 
+Where to write (orchestrator, 2026-10-23): build 1 is committed on `feat/site-navy-and-check` in both repositories (site `6900f06`, draft PR #3; plugin worktree `a9899bc`, draft PR #177). Build 2 continues on the same branches: the site in `C:/Git/Post Quality/postquality.com`, the plugin record (`docs/distribution.md`) in the worktree `C:/Users/vhe/AppData/Local/Temp/claude/c--Git-Post-Quality/791539b7-e82f-436f-8344-969669871d84/scratchpad/pqm-feat`; this plan stays in the main plugin tree on `chore/ux-postquality-website`. Reuse build 1's tools in that scratchpad: `build.sh` (both states, `launched.yml` overlay into `scratchpad/site-launched`), `check_site.py` (extend it for this build's rows: the two docs anchors become hard checks, the n8n Cloud WARN becomes a failure, pricing table, radios, FAQ `details`), `harness.py` (overflow and focus), `shots.py`. Type sizes are the `--fs-*` custom properties in `site.css`; use them, no new literals. The interest link takes `{% include interest-href.html from="the pricing page" %}` (and "the documentation page" on `/docs/`). Headless Edge: own `--user-data-dir` under the scratchpad, never stop a process by name. Nothing is committed or pushed by the implementer.
+
 - `postquality.com/pricing.html` -- replaces `pricing.md`; layout default (its own hero-less header block: h1 + lead in the text roles), sections: comparison table (`<caption>Free and Pro compared</caption>`, `<th scope="row">`, `<th scope="col">`, marks via the check symbol or a muted dash + `<span class="vh">`), packs (`{% if site.launched %}` the `<fieldset class="cur">` with three radios `name="cur"` `autocomplete="off"` and the cards inside one ancestor so `:has(#cur-chf:checked) .price[data-cur="chf"]` shows; each card: name, the who-it-is-for line (brief D13), price `data-cur` × 3, "per year" with the muted monthly equivalent, feature line, buy link with `<span class="vh"> in CHF</span>`; `{% else %}` the one-line prices + interest button + note, the `mailto:` body phrase "from the pricing page" if the owner takes D16), the cost line, assurance items (reuse build 1's markup), FAQ (`<details class="faq">`, question in `<summary>`, answers from the copy deck; "What counts as a site?" quotes terms § 3 as merged).
 - `postquality.com/_data/pricing.yml` -- packs (sites, price) and the nine pricing IDs by currency and pack, read by the cards; the checkout base URL from `docs/distribution.md` (plugin 41144, plan 71340).
 - `postquality.com/docs.md` -- front matter `layout: page`; body restructured: a contents list; `## Requirements`; `## Getting n8n {#getting-n8n}` (two sentences, link named "Self-hosting n8n (docs.n8n.io)"); `## Getting started` (`{% if site.launched %}` Install from WordPress.org + version line `{% else %}` the interest sentence; then the three values, `{% include screenshot.html %}` setup.png, the n8n API key sentence shortened, HTTPS line); `## Set up by hand`; `## Using it` (screenshot 4 `review-list.png`, interim: none until build 3a; the include renders only if the file exists via `{% if site.static_files | where: "path", ... %}` or a `screenshots` flag in `_config.yml`); `## Upgrade to Pro` (ADR 0014 steps, starting with "Never delete the free plugin first"); `## FAQ` with the cost item carrying `id="cost"` and, before launch, "A worked cost example is coming."
@@ -70,4 +73,8 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-postqu
 
 ## Implementation Notes
 
+- Baselines: plugin worktree `a9899bcffec1fc667a20a5e2740234889af2c536` (`feat/site-navy-and-check`, build 1's commit, draft PR #177); site repository `6900f0600de0e24fcc7c33985664bfd1c58adf56` (`feat/site-navy-and-check`, build 1's commit, draft PR vincentheimann/postquality.com#3). Started 2026-10-23 on the owner's order ("Approved, go ahead", after build 1's screenshot review); implementer Opus 5.5.
+
 ## Plan Change Log
+
+## Review Triage Log

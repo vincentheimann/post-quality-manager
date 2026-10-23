@@ -91,3 +91,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: none
   summary: Story 2's second goal, the bounded wait on the wizard's first review — when nothing lands within a limit, a sentence naming the webhook URL and the site's reachability from n8n — is built after the round-trip ping as its own small build (independent of the template bump).
   evidence: Owner decision 2026-10-21 at story 2's multi-goal check: build (a) the round-trip ping first (template v7, the callback endpoint, the result copy, the wizard's connect step runs it); (b) the first-review wait is the deferred second goal. Resolved by `_bmad-output/backlog/story-full-round-trip-connection-test-plan-2.md` (built 2026-10-22).
+
+- source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan.md`
+  summary: /docs/ still names n8n Cloud, has no `getting-n8n` or `cost` id for the home page's two links, and the interest links on /docs/ and /support/ carry no body or page phrase (brief D16).
+  evidence: Build 1's quick review, finding 10 (2026-10-23): pre-existing text the Intent leaves to build 2; build 2's plan (`story-site-navy-and-check-plan-2.md`) covers the docs rewrite and anchors; /support/'s link is policy text, changed in `docs/policies/support.md` first if wanted.
