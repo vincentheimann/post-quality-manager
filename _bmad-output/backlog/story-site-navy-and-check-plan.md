@@ -209,6 +209,8 @@ Headless Edge (machine rule, shared with other sessions): start each run with it
 
 - Owner approved the screenshots 2026-10-23 ("Approved, go ahead"). Committed and pushed: site `6900f0600de0e24fcc7c33985664bfd1c58adf56` on `feat/site-navy-and-check`, draft PR vincentheimann/postquality.com#3; plugin `a9899bcffec1fc667a20a5e2740234889af2c536` on `feat/site-navy-and-check`, draft PR #177. Builds 2 and 3 add commits to these two PRs instead of stacking new ones (stacked PRs need a force push after the first merge, which the push rules deny); the docs anchors then land with the home page.
 
+- The owner merged the site PR #3 on 2026-10-23 (merge `00875a18859035dfacd82e7d5081de764f446296`); GitHub Pages built it the same minute, so build 1 is live. Build 2 therefore moved to its own site branch and PR (`feat/site-pricing-docs`, #4) instead of adding commits to #3; the plugin side stays on #177.
+
 ## Plan Change Log
 
 ## Review Triage Log
