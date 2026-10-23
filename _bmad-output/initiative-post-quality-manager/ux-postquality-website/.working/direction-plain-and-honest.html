@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction: Plain and honest (postquality.com home)</title>
+<style>
+/* =====================================================================
+   Direction: "Plain and honest" (the skeptic's page)
+   bmad-ux design-direction render, postquality.com home, 2026-10-22.
+   Self-contained: no JS, no network request, system font stacks only.
+   If a self-hosted font is wanted later, this direction would take
+   IBM Plex Sans + IBM Plex Mono (OFL), served from postquality.com itself.
+
+   HEX VALUES USED
+   Site (the mock)
+     #ffffff  page surface; text on navy buttons
+     #16181d  ink: body text, headings (17.6:1 on white)
+     #4a5160  ink-muted: captions, meta, mono facts (7.9:1 on white, 7.3:1 on #f4f5f7)
+     #1b2a41  navy (brand tile): wordmark, links, nav, header rule, primary button,
+              step numbers, focus ring (14.4:1 on white)
+     #2e4466  navy-hover: primary button hover (white on it 10.4:1)
+     #f4f5f7  surface-alt: "What you need" box, table head, footer
+     #d3d7de  rule: hairlines and table borders (decorative only)
+     #c5cad3  frame-line: capture frame and flow-node borders (decorative only)
+     #00a32a  check green (brand check): "included" ticks only, never text
+              (3.35:1 on white, passes 3:1 for graphics)
+   Brand icon (story 51, unchanged): #1b2a41 tile, #ffffff mark, #00a32a check
+
+   Plugin capture (wp-admin tokens, ux-dashboard-post-reviews/DESIGN.md)
+     #2271b1 primary / meters / links (5.2:1 on white)   #135e96 primary hover
+     #1d2327 ink / admin bar and menu   #50575e ink-muted   #ffffff surface
+     #f0f0f1 canvas   #c3c4c7 line   #dcdcde inner rule   #2c3338 admin submenu
+     #f6f7f7 secondary button fill
+     Status: #00a32a Ready to ship (dark label, 4.75:1)   #dba617 Needs revision
+     (filled, dark label, 7.2:1)   #d63638 Major revision (white label, 4.7:1)
+     #646970 Processing / Not analyzed outline
+
+   Annotation layer (not part of the site)
+     #e7e9ee  canvas around the mocks
+     #fff8e1  note background
+     #6b4400  note accent: labels, pins, fold line (8.1:1 on #fff8e1)
+     #d9c27f  note border (decorative)
+     #dfe2e7  browser chrome   #b9bec7 chrome dots   #1f2329 phone bezel
+   ===================================================================== */
+
+:root {
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --wp: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; padding: 24px 16px 72px;
+  background: #e7e9ee; color: #16181d;
+  font: 15px/1.55 var(--sans);
+}
+.wrap { max-width: 1240px; margin: 0 auto; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+a:focus-visible, .btn:focus-visible { outline: 2px solid #1b2a41; outline-offset: 2px; border-radius: 2px; }
+
+/* ---------- annotation layer ---------- */
+.anno {
+  background: #fff8e1; border: 1px solid #d9c27f; border-left: 6px solid #6b4400;
+  border-radius: 4px; padding: 20px 24px 22px;
+}
+.anno-kicker { font: 600 12px/1.4 var(--mono); color: #6b4400; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 6px; }
+.anno-title { font-size: 28px; line-height: 1.2; font-weight: 700; margin: 0 0 4px; letter-spacing: -.01em; }
+.anno-sub { font-size: 16px; color: #4a5160; margin: 0 0 14px; }
+.anno-why { font-size: 15.5px; max-width: 900px; margin: 0 0 18px; }
+.anno-grid { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 24px; }
+.anno h2 { font: 700 12.5px/1.4 var(--mono); color: #6b4400; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 8px; }
+.anno ol, .anno ul { margin: 0; padding-left: 0; list-style: none; font-size: 14px; }
+.anno li { margin: 0 0 7px; padding-left: 30px; position: relative; }
+.anno ol li .pin { position: absolute; left: 0; top: 0; }
+.anno ul li::before { content: "–"; position: absolute; left: 10px; color: #6b4400; }
+.sw { display: grid; grid-template-columns: 18px 70px 1fr; gap: 8px; align-items: center; font-size: 13px; margin: 0 0 5px; }
+.sw i { width: 18px; height: 18px; border: 1px solid rgba(0,0,0,.25); display: block; }
+.sw code { font: 12.5px var(--mono); }
+.anno p.small { font-size: 13.5px; margin: 0 0 8px; }
+.anno code { font: 12.5px var(--mono); }
+.pin {
+  display: inline-block; width: 24px; height: 24px; border-radius: 50%;
+  background: #fff8e1; border: 1.5px solid #6b4400; color: #6b4400;
+  font: 700 12px/21px var(--mono); text-align: center;
+}
+.stage-label {
+  display: inline-block; margin: 36px 0 10px; padding: 5px 12px;
+  background: #fff8e1; border: 1px solid #d9c27f; border-radius: 3px;
+  font: 600 13px/1.4 var(--mono); color: #6b4400;
+}
+.stage-note { font-size: 14px; color: #4a5160; margin: 0 0 12px; max-width: 900px; }
+.scroller { overflow-x: auto; padding: 0 0 12px; }
+.scroll-hint { display: none; }
+@media (max-width: 1260px) { .scroll-hint { display: block; } }
+
+/* ---------- browser frame ---------- */
+.browser { width: 1200px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 8px 28px rgba(20,30,50,.14); }
+.chrome { height: 38px; background: #dfe2e7; display: flex; align-items: center; gap: 8px; padding: 0 14px; }
+.chrome .dot { width: 11px; height: 11px; border-radius: 50%; background: #b9bec7; }
+.chrome .addr { margin-left: 14px; flex: 0 1 460px; background: #fff; border-radius: 4px; padding: 3px 12px; font: 12.5px var(--mono); color: #4a5160; }
+
+/* =====================================================================
+   THE SITE (desktop first; phone overrides under .site--phone)
+   ===================================================================== */
+.site { background: #fff; color: #16181d; font: 16px/1.6 var(--sans); position: relative; }
+.site a { color: #1b2a41; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.site a:hover { text-decoration-thickness: 2px; }
+.site h2, .site h3, .site p { margin-top: 0; }
+
+.site-header {
+  border-top: 3px solid #1b2a41; border-bottom: 1px solid #d3d7de;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 72px;
+}
+.site .lockup { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: #1b2a41; font-weight: 600; font-size: 17px; letter-spacing: -.005em; line-height: 1; }
+.lockup svg { width: 28px; height: 28px; display: block; flex: none; }
+.site-nav { display: flex; gap: 28px; font-size: 15px; }
+.site .site-nav a { text-decoration: none; font-weight: 500; }
+.site .site-nav a:hover { text-decoration: underline; }
+
+.layout { display: grid; grid-template-columns: 224px 800px; gap: 32px; width: 1056px; margin: 0 auto; padding: 36px 0 64px; }
+
+/* rail */
+.rail { position: sticky; top: 20px; align-self: start; font-size: 14px; }
+.rail-h { font: 600 11.5px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: #4a5160; margin: 0 0 8px; }
+.toc { list-style: none; margin: 0 0 28px; padding: 0; border-left: 1px solid #d3d7de; }
+.toc li { margin: 0; }
+.site .toc a { display: block; padding: 4px 0 4px 12px; margin-left: -1px; border-left: 2px solid transparent; text-decoration: none; color: #16181d; }
+.site .toc a:hover { text-decoration: underline; }
+.site .toc a.on { border-left-color: #1b2a41; color: #1b2a41; font-weight: 600; }
+.facts dl { display: grid; grid-template-columns: 74px 1fr; gap: 3px 6px; margin: 0; font: 12px/1.5 var(--mono); }
+.facts dt { color: #4a5160; }
+.facts dd { margin: 0; color: #16181d; }
+
+/* hero */
+.hero, .need, .actions-wrap, .flow, .steps, .fig, .cmp-wrap, .notes, .faq, .sec, .sec > p, .status, .act-note { position: relative; }
+.pinned > .pin, .hero .pin, .site .pin { position: absolute; right: -44px; top: 0; }
+.status { font: 12.5px/1.4 var(--mono); color: #4a5160; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; }
+.status .tag { border: 1px solid #4a5160; color: #16181d; padding: 1px 7px; border-radius: 3px; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; }
+.site h1, .site .h1 { font-size: 38px; line-height: 1.16; font-weight: 700; letter-spacing: -.015em; margin: 0 0 14px; max-width: 760px; color: #16181d; }
+.lead { font-size: 18px; line-height: 1.55; max-width: 690px; margin: 0 0 22px; }
+
+.need { background: #f4f5f7; border-left: 4px solid #1b2a41; padding: 16px 24px 6px; margin: 0 0 22px; }
+.need h2 { font-size: 16px; line-height: 1.4; margin: 0 0 8px; }
+.need dl { display: grid; grid-template-columns: 210px 1fr; margin: 0; font-size: 15px; line-height: 1.5; }
+.need dt, .need dd { margin: 0; padding: 10px 0; border-top: 1px solid #d3d7de; }
+.need dt { font-weight: 600; padding-right: 16px; }
+.mono { font-family: var(--mono); font-size: .9em; }
+.need .mono { color: #16181d; }
+
+.actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.site .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 22px; border-radius: 4px; font-weight: 600; font-size: 15.5px; text-decoration: none; border: 1.5px solid #1b2a41; line-height: 1.2; }
+.site .btn-primary { background: #1b2a41; color: #fff; }
+.site .btn-primary:hover { background: #2e4466; border-color: #2e4466; }
+.site .btn-secondary { background: #fff; color: #1b2a41; }
+.site .btn-secondary:hover { background: #f4f5f7; }
+.act-note { font-size: 14px; color: #4a5160; margin: 12px 0 0; }
+
+/* sections */
+.sec { margin-top: 52px; padding-top: 26px; border-top: 1px solid #d3d7de; }
+.sec h2 { font-size: 24px; line-height: 1.25; margin: 0 0 12px; letter-spacing: -.01em; }
+.sec > p { max-width: 690px; }
+
+.flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 13px/1.4 var(--mono); margin: 4px 0 18px; }
+.flow .node { border: 1px solid #c5cad3; padding: 6px 10px; border-radius: 3px; background: #fff; }
+.flow .arr { color: #4a5160; }
+.steps { list-style: none; counter-reset: s; padding: 0; margin: 0 0 14px; max-width: 720px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 40px 1fr; padding: 11px 0; border-top: 1px solid #e3e6eb; }
+.steps li::before { content: counter(s); font: 600 13px/1 var(--mono); color: #fff; background: #1b2a41; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; margin-top: 1px; }
+.small { font-size: 14.5px; color: #4a5160; }
+
+/* figures (captures) */
+.fig { margin: 20px 0 0; }
+.cap { border: 1px solid #c5cad3; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); background: #f0f0f1; }
+.cap-bar { height: 28px; background: #eceef1; border-bottom: 1px solid #c5cad3; display: flex; align-items: center; gap: 6px; padding: 0 10px; font: 11.5px var(--mono); color: #4a5160; }
+.cap-bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #b9bec7; }
+.cap-bar span.t { margin-left: 8px; }
+figcaption { font-size: 14px; color: #4a5160; margin-top: 10px; max-width: 720px; }
+figcaption b { color: #16181d; }
+
+/* ---- WP admin look (capture only) ---- */
+.wp { font: 13px/1.5 var(--wp); color: #1d2327; background: #f0f0f1; }
+.wp-bar { height: 32px; background: #1d2327; color: #f0f0f1; display: flex; align-items: center; padding: 0 12px; font-size: 13px; }
+.wp-body { display: grid; grid-template-columns: 150px 1fr; }
+.wp-menu { background: #1d2327; padding: 8px 0 20px; }
+.wp-menu span { display: block; color: #f0f0f1; padding: 6px 12px; font-size: 13px; line-height: 1.3; }
+.wp-menu span.cur { background: #2271b1; color: #fff; font-weight: 600; }
+.wp-menu .sub { background: #2c3338; padding: 4px 0 6px; }
+.wp-menu .sub span { padding: 4px 12px 4px 14px; font-size: 12.5px; color: #f0f0f1; }
+.wp-menu .sub span.cur { background: transparent; color: #fff; font-weight: 600; }
+.wp-main { padding: 14px 16px 20px; }
+.wp-h1 { font-size: 23px; font-weight: 400; line-height: 1.3; margin: 0 0 12px; }
+.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.tile { background: #fff; border: 1px solid #c3c4c7; padding: 8px 8px 7px; }
+.tile .lbl { font-size: 12px; color: #50575e; display: block; min-height: 22px; }
+.tile .num { font-size: 26px; line-height: 1.1; font-weight: 600; margin-top: 4px; display: block; }
+.badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; padding: 1px 6px 1px 4px; border-radius: 2px; white-space: nowrap; line-height: 1.55; }
+.badge svg { width: 11px; height: 11px; flex: none; }
+.b-major { background: #d63638; color: #fff; }
+.b-needs { background: #dba617; color: #1d2327; }
+.b-ready { background: #00a32a; color: #1d2327; }
+.b-none { background: #fff; color: #1d2327; border: 1px solid #646970; padding: 0 5px 0 3px; }
+.wp-card { background: #fff; border: 1px solid #c3c4c7; margin-top: 12px; }
+.wp-card-h { font-size: 14px; font-weight: 600; margin: 0; padding: 9px 12px; border-bottom: 1px solid #dcdcde; display: flex; justify-content: space-between; align-items: baseline; }
+.wp-card-h small { font-weight: 400; color: #50575e; font-size: 12px; }
+.fx { display: grid; grid-template-columns: 34px 1fr auto auto; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid #f0f0f1; }
+.fx:first-of-type { border-top: 0; }
+.fx .sc { font-weight: 600; font-size: 16px; text-align: center; }
+.fx .t { color: #2271b1; font-weight: 600; display: block; line-height: 1.35; }
+.fx .m { color: #50575e; font-size: 12px; display: block; }
+.fx .bt { display: flex; gap: 6px; }
+.wp-btn { display: inline-block; font-size: 12px; line-height: 24px; padding: 0 8px; border: 1px solid #2271b1; color: #2271b1; background: #f6f7f7; border-radius: 3px; white-space: nowrap; }
+.spark { padding: 8px 12px 10px; }
+.spark svg { display: block; width: 100%; height: auto; }
+
+/* review detail capture */
+.rv { background: #fff; border: 1px solid #c3c4c7; font: 13px/1.5 var(--wp); color: #1d2327; display: grid; grid-template-columns: 1fr 1.25fr; }
+.rv-col { padding: 12px 14px 14px; }
+.rv-col + .rv-col { border-left: 1px solid #dcdcde; }
+.rv-h { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+.meter { display: grid; grid-template-columns: 86px 1fr 26px; gap: 10px; align-items: center; margin: 0 0 9px; }
+.meter .tr { height: 8px; background: #f0f0f1; border: 1px solid #c3c4c7; border-radius: 1px; overflow: hidden; }
+.meter .tr i { display: block; height: 100%; background: #2271b1; }
+.meter b { text-align: right; font-weight: 600; }
+.rv ol { margin: 0; padding-left: 18px; }
+.rv ol li { margin: 0 0 7px; }
+.rv ol li small { display: block; color: #50575e; font-size: 12px; }
+
+/* comparison */
+.cmp-wrap { margin-top: 6px; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 15px; line-height: 1.45; }
+.cmp th, .cmp td { padding: 9px 12px; border-bottom: 1px solid #d3d7de; text-align: left; vertical-align: top; }
+.cmp thead th { background: #f4f5f7; border-bottom: 2px solid #1b2a41; vertical-align: bottom; }
+.cmp thead th span { display: block; font: 400 12px/1.45 var(--mono); color: #4a5160; }
+.cmp td.c, .cmp th.c { text-align: center; width: 200px; }
+.cmp tbody th { font-weight: 400; }
+.cmp .grp th { font: 600 11.5px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: #4a5160; padding-top: 14px; }
+.tick { width: 18px; height: 18px; vertical-align: -4px; }
+.no { color: #4a5160; }
+.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0 12px; }
+.note { border: 1px solid #d3d7de; padding: 13px 16px; font-size: 15px; line-height: 1.5; position: relative; }
+.note strong { display: block; font-size: 15.5px; margin-bottom: 3px; }
+.fine { font: 12.5px/1.6 var(--mono); color: #4a5160; margin: 0 0 10px; max-width: 760px; }
+
+/* faq */
+.faq h3 { font-size: 17px; line-height: 1.35; margin: 18px 0 5px; }
+.faq p { margin: 0 0 4px; max-width: 690px; }
+
+/* footer */
+.site-footer { border-top: 1px solid #d3d7de; background: #f4f5f7; padding: 26px 72px 22px; display: grid; grid-template-columns: 1fr auto; gap: 18px 32px; font-size: 14px; }
+.site-footer .lockup { font-size: 14px; gap: 8px; }
+.site-footer .lockup svg { width: 20px; height: 20px; }
+.tagline { margin: 10px 0 0; max-width: 520px; color: #16181d; }
+.foot-links { display: flex; gap: 20px; flex-wrap: wrap; justify-content: flex-end; }
+.foot-mail { text-align: right; margin: 8px 0 0; }
+.foot-meta { grid-column: 1 / -1; font: 12.5px/1.6 var(--mono); color: #4a5160; border-top: 1px solid #d3d7de; padding-top: 12px; margin: 0; }
+
+/* ---------- variant (short frame) ---------- */
+.variant .layout { padding-bottom: 36px; }
+
+/* ---------- phone ---------- */
+.phone-stage { display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }
+.phone {
+  width: 390px; max-width: 100%; flex: none;
+  border-radius: 34px; overflow: hidden; background: #fff;
+  box-shadow: 0 0 0 10px #1f2329, 0 12px 32px rgba(20,30,50,.25);
+  margin: 10px 10px 20px;
+  position: relative;
+}
+.phone .chrome { height: 50px; padding: 14px 16px 0; background: #dfe2e7; }
+.phone .chrome .addr { margin: 0 auto; flex: 0 1 220px; text-align: center; font-size: 12px; }
+.site--phone .site-header { padding: 12px 16px 10px; flex-direction: column; align-items: flex-start; gap: 9px; }
+.site--phone .lockup { font-size: 15.5px; gap: 9px; }
+.site--phone .lockup svg { width: 24px; height: 24px; }
+.site--phone .site-nav { gap: 20px; font-size: 14.5px; }
+.ph-main { padding: 20px 16px 28px; }
+.site--phone .h1 { font-size: 27px; line-height: 1.2; }
+.site--phone .lead { font-size: 16.5px; margin-bottom: 18px; }
+.site--phone .status { font-size: 11.5px; gap: 8px; margin-bottom: 12px; }
+.need-ph { background: #f4f5f7; border-left: 4px solid #1b2a41; padding: 12px 14px 10px; margin: 0 0 18px; }
+.need-ph h2 { font-size: 15px; margin: 0 0 6px; }
+.need-ph ul { list-style: none; margin: 0; padding: 0; font-size: 14.5px; line-height: 1.4; }
+.need-ph li { padding: 5px 0; border-top: 1px solid #d3d7de; }
+.need-ph li b { font-weight: 600; }
+.need-ph .more { font-size: 14px; margin: 8px 0 0; }
+.site--phone .actions { flex-direction: column; align-items: stretch; gap: 10px; }
+.site--phone .btn { width: 100%; }
+.site--phone .sec { margin-top: 36px; padding-top: 20px; }
+.site--phone .sec h2 { font-size: 21px; }
+.site--phone .flow { flex-direction: column; align-items: flex-start; gap: 4px; }
+.site--phone .flow .arr { padding-left: 14px; }
+.site--phone .steps li { grid-template-columns: 36px 1fr; font-size: 15.5px; }
+.phone-wrap { position: relative; flex: none; max-width: 100%; }
+.fold { position: absolute; left: 10px; width: 390px; max-width: calc(100% - 20px); top: 760px; border-top: 2px dashed #6b4400; pointer-events: none; }
+.fold span { position: absolute; left: calc(100% + 16px); top: -11px; white-space: nowrap; background: #fff8e1; border: 1px solid #d9c27f; color: #6b4400; font: 600 11px/1.4 var(--mono); padding: 1px 6px; border-radius: 3px; }
+.phone-notes { flex: 1 1 320px; max-width: 560px; }
+.phone-notes .anno { padding: 16px 18px; }
+
+/* ---------- outer page at small widths ---------- */
+@media (max-width: 900px) {
+  .anno-grid { grid-template-columns: 1fr; gap: 16px; }
+  .anno-title { font-size: 23px; }
+}
+@media (max-width: 460px) {
+  body { padding: 16px 12px 48px; }
+  .anno { padding: 16px 14px 16px; border-left-width: 4px; }
+  .phone { margin: 10px 0 20px; border-radius: 0; box-shadow: 0 0 0 1px #c5cad3; }
+  .phone .chrome { padding-top: 0; height: 38px; }
+  .fold { display: none; } /* the fold only means something at the 390 px frame width */
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- =================================================================
+     1. ANNOTATION BANNER (not part of the page)
+     ================================================================= -->
+<section class="anno" aria-label="Direction notes">
+  <p class="anno-kicker">bmad-ux design direction · annotation, not part of the page</p>
+  <p class="anno-title">Direction: Plain and honest</p>
+  <p class="anno-sub">The skeptic's page: postquality.com home, desktop first.</p>
+  <p class="anno-why">Written for the evaluator who doubts they can run this: user path A2 says the need for an own n8n, an AI key and an unknown AI cost is where many evaluators bounce, so the page answers that in the hero, before it asks for anything. It reads like good documentation (text first, a table of contents, small technical facts in monospace, one navy button) and earns trust through what it admits rather than what it claims.</p>
+
+  <div class="anno-grid">
+    <div>
+      <h2>Honest nudges used (pins in the mock)</h2>
+      <ol>
+        <li><span class="pin">1</span>Prerequisites stated up front: own n8n, an Anthropic key, you pay Anthropic per review, WordPress 6.6+ / PHP 8.0+, all before the first button (A2).</li>
+        <li><span class="pin">2</span>Plain status: "pre-release, not installable yet", and the button says what it does (opens an email, subject filled in).</li>
+        <li><span class="pin">3</span>"The free plugin is the trial."</li>
+        <li><span class="pin">4</span>14-day money-back guarantee, set next to the price.</li>
+        <li><span class="pin">5</span>Nothing is deleted if Pro lapses.</li>
+        <li><span class="pin">6</span>You hold the keys: content goes only to your n8n and, through it, to Anthropic; this site sets no cookies and runs no analytics.</li>
+      </ol>
+      <p class="small" style="margin-top:10px">Left out on purpose: urgency, scarcity, social proof (there is none yet), AI-cost figures (a worked example is coming).</p>
+    </div>
+    <div>
+      <h2>Hex values</h2>
+      <div class="sw"><i style="background:#16181d"></i><code>#16181d</code><span>ink, body text</span></div>
+      <div class="sw"><i style="background:#4a5160"></i><code>#4a5160</code><span>ink-muted, captions, mono facts</span></div>
+      <div class="sw"><i style="background:#1b2a41"></i><code>#1b2a41</code><span>navy: header, links, primary button</span></div>
+      <div class="sw"><i style="background:#2e4466"></i><code>#2e4466</code><span>navy hover</span></div>
+      <div class="sw"><i style="background:#00a32a"></i><code>#00a32a</code><span>check green, "included" ticks only</span></div>
+      <div class="sw"><i style="background:#f4f5f7"></i><code>#f4f5f7</code><span>surface-alt, "What you need" box</span></div>
+      <div class="sw"><i style="background:#d3d7de"></i><code>#d3d7de</code><span>hairlines (decorative)</span></div>
+      <div class="sw"><i style="background:#ffffff"></i><code>#ffffff</code><span>page</span></div>
+      <p class="small" style="margin-top:8px">Capture uses the wp-admin tokens only (<code>#2271b1</code>, <code>#1d2327</code>, <code>#50575e</code>, <code>#f0f0f1</code>, <code>#c3c4c7</code>, status colours). Full list in the <code>&lt;style&gt;</code> comment.</p>
+    </div>
+    <div>
+      <h2>Type and logo lockup</h2>
+      <p class="small">System sans for all text; a system monospace stack for versions, requirements and fine print. No web font (a self-hosted IBM Plex pair is the later option).</p>
+      <p class="small">Lockup: icon tile 28 px, 10 px gap, "Post Quality Manager" in system sans 17 px / 600, navy, centred on the tile. Footer 20 px / 14 px; phone 24 px / 15.5 px. Icon unchanged (story 51).</p>
+      <h2 style="margin-top:12px">Trade-off</h2>
+      <p class="small">Less visual pull: the Dashboard capture is small and mid-page, so the "inside the plugin" feeling arrives later than in a screenshot-led direction.</p>
+      <h2 style="margin-top:12px">Positions taken on open questions</h2>
+      <p class="small">Q5: prerequisites meet the visitor in the hero. OQ 6: version shown, edited by hand (option a). Q11: the three-column comparison holds at phone width.</p>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     2. DESKTOP MOCK, 1200 px, pre-launch state
+     ================================================================= -->
+<p class="stage-label">Mock 1 · Desktop, 1200 px · Home page, today's pre-launch state</p>
+<p class="stage-note scroll-hint">The frame is 1200 px wide: scroll sideways inside it.</p>
+<div class="scroller">
+<div class="browser">
+  <div class="chrome" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="addr">postquality.com</span></div>
+
+  <div class="site">
+    <header class="site-header">
+      <a class="lockup" href="/">
+        <!-- brand icon, story 51, inlined as-is (aria-hidden added: the name sits beside it) -->
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></svg>
+        <span>Post Quality Manager</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/pricing/">Pricing</a>
+        <a href="/docs/">Documentation</a>
+        <a href="/support/">Support</a>
+      </nav>
+    </header>
+
+    <div class="layout">
+      <aside class="rail" aria-label="On this page">
+        <p class="rail-h">On this page</p>
+        <ul class="toc">
+          <li><a class="on" href="#d-need">What you need</a></li>
+          <li><a href="#d-how">How it works</a></li>
+          <li><a href="#d-pillars">Four pillars</a></li>
+          <li><a href="#d-dash">The Dashboard</a></li>
+          <li><a href="#d-plans">Free and Pro</a></li>
+          <li><a href="#d-faq">Questions</a></li>
+        </ul>
+        <div class="facts">
+          <p class="rail-h">Facts</p>
+          <dl>
+            <dt>Version</dt><dd>3.9.0, pre-release</dd>
+            <dt>WordPress</dt><dd>6.6+, tested to 7.1</dd>
+            <dt>PHP</dt><dd>8.0+</dd>
+            <dt>Multisite</dt><dd>not supported</dd>
+            <dt>Licence</dt><dd>GPL-2.0-or-later</dd>
+            <dt>Cookies</dt><dd>none on this site</dd>
+            <dt>Analytics</dt><dd>none on this site</dd>
+          </dl>
+        </div>
+      </aside>
+
+      <main>
+        <!-- HERO -->
+        <section class="hero" aria-labelledby="d-h1">
+          <p class="status"><span class="tag">Pre-release</span> Not installable yet. Pro is not on sale yet.<span class="pin" aria-hidden="true" style="top:-3px">2</span></p>
+          <h1 id="d-h1">A score for every post, what to fix first, and the trend across your blog.</h1>
+          <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin. It runs on your own n8n and your own Anthropic key, so here is everything it needs before you decide.</p>
+
+          <div class="need" id="d-need">
+            <span class="pin" aria-hidden="true">1</span>
+            <h2>What you need</h2>
+            <dl>
+              <dt>Your own n8n</dt>
+              <dd>Self-hosted or n8n Cloud. Your site and n8n must reach each other, so a local or password-protected site cannot use n8n Cloud.</dd>
+              <dt>An Anthropic API key</dt>
+              <dd>Checked once, written into an n8n credential, never stored by the plugin.</dd>
+              <dt>The AI cost</dt>
+              <dd>You pay Anthropic per review, on your own key. A worked example is coming.</dd>
+              <dt>WordPress and PHP</dt>
+              <dd><span class="mono">WordPress 6.6+ · PHP 8.0+ · tested up to 7.1 · no Multisite</span></dd>
+            </dl>
+          </div>
+
+          <div class="actions-wrap">
+            <div class="actions">
+              <a class="btn btn-primary" href="mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available">Tell me when it's available</a>
+              <a class="btn btn-secondary" href="/docs/">Read the documentation</a>
+            </div>
+            <p class="act-note">The button opens an email to hello@postquality.com with the subject filled in. No form, no tracking.</p>
+          </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section class="sec" id="d-how" aria-labelledby="d-how-h">
+          <h2 id="d-how-h">How it works</h2>
+          <div class="flow" aria-label="Where a review travels">
+            <span class="node">your site</span><span class="arr" aria-hidden="true">→</span>
+            <span class="node">your n8n workflow</span><span class="arr" aria-hidden="true">→</span>
+            <span class="node">Anthropic's models</span><span class="arr" aria-hidden="true">→</span>
+            <span class="node">back to WP Admin</span>
+          </div>
+          <ol class="steps">
+            <li><span><b>Install and open the setup guide.</b> It asks for three values: your n8n address, an n8n API key and your Anthropic key.</span></li>
+            <li><span><b>The guide sets the workflow up in your n8n</b> and tests the connection both ways.</span></li>
+            <li><span><b>Review a post.</b> Your site sends it to your own n8n workflow, which asks Anthropic's models for the review.</span></li>
+            <li><span><b>Read the result in WP Admin:</b> a score, the issues, suggested edits and key takeaways.</span></li>
+            <li><span><b>Follow the trend on the Dashboard:</b> the average score over time and the posts to fix next.</span></li>
+          </ol>
+          <p class="small">You bring n8n and the key; the plugin brings the dashboard, the workflow and the agents. Prefer to set it up by hand? The <a href="/docs/">documentation</a> covers that path too.</p>
+        </section>
+
+        <!-- PILLARS -->
+        <section class="sec" id="d-pillars" aria-labelledby="d-pil-h">
+          <h2 id="d-pil-h">Four pillars, one score</h2>
+          <p>Every review scores the same four pillars: Structure, Readability, Engagement and Credibility. You tailor them to your niche through a Blog Profile and Editorial Standards, never code.</p>
+          <figure class="fig">
+            <div class="cap">
+              <div class="cap-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t">WP Admin › Post Reviews › review detail</span></div>
+              <div class="rv">
+                <div class="rv-col">
+                  <p class="rv-h">Pillars</p>
+                  <div class="meter"><span>Structure</span><span class="tr"><i style="width:68%"></i></span><b>68</b></div>
+                  <div class="meter"><span>Readability</span><span class="tr"><i style="width:74%"></i></span><b>74</b></div>
+                  <div class="meter"><span>Engagement</span><span class="tr"><i style="width:59%"></i></span><b>59</b></div>
+                  <div class="meter"><span>Credibility</span><span class="tr"><i style="width:81%"></i></span><b>81</b></div>
+                </div>
+                <div class="rv-col">
+                  <p class="rv-h">Top edits</p>
+                  <ol>
+                    <li>Open with the problem your reader has, then promise the fix in one sentence.<small>Engagement</small></li>
+                    <li>Turn the setup section into numbered steps readers can follow along.<small>Structure</small></li>
+                    <li>Shorten the three longest sentences in the introduction.<small>Readability</small></li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+            <figcaption><b>Figure 1.</b> Part of one review in Post Reviews, demo content. Each pillar gets a score; Top edits lists what to change first.</figcaption>
+          </figure>
+        </section>
+
+        <!-- DASHBOARD CAPTURE -->
+        <section class="sec" id="d-dash" aria-labelledby="d-dash-h">
+          <h2 id="d-dash-h">The Dashboard</h2>
+          <p>One screen in WP Admin for the whole blog: the average score, how many posts sit in each status, the five posts to fix next and the trend over eight weeks.</p>
+          <figure class="fig">
+            <div class="cap">
+              <div class="cap-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="t">WP Admin › Post Quality › Dashboard</span></div>
+              <div class="wp">
+                <div class="wp-bar">Demo blog</div>
+                <div class="wp-body">
+                  <div class="wp-menu" aria-hidden="true">
+                    <span>Dashboard</span><span>Posts</span><span>Media</span><span>Pages</span><span>Comments</span>
+                    <span class="cur">Post Quality</span>
+                    <div class="sub"><span class="cur">Dashboard</span><span>Post Reviews</span><span>n8n Workflow</span><span>Settings</span></div>
+                    <span>Appearance</span><span>Plugins</span><span>Users</span><span>Tools</span><span>Settings</span>
+                  </div>
+                  <div class="wp-main">
+                    <p class="wp-h1">Post Quality</p>
+                    <div class="tiles">
+                      <div class="tile"><span class="lbl">Average score</span><span class="num">71</span></div>
+                      <div class="tile"><span class="lbl"><span class="badge b-major"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4v3.2M6 8.3v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Major revision</span></span><span class="num">3</span></div>
+                      <div class="tile"><span class="lbl"><span class="badge b-needs"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 9.8l.7-2.6 5.2-5.2 1.9 1.9-5.2 5.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Needs revision</span></span><span class="num">9</span></div>
+                      <div class="tile"><span class="lbl"><span class="badge b-none"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2 1.6"/></svg>Not analyzed</span></span><span class="num">14</span></div>
+                      <div class="tile"><span class="lbl"><span class="badge b-ready"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.3l2.3 2.3L9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready to ship</span></span><span class="num">22</span></div>
+                    </div>
+
+                    <div class="wp-card">
+                      <p class="wp-card-h">Fix next <small>Lowest score first</small></p>
+                      <div class="fx"><span class="sc">42</span><span><span class="t">Five backup mistakes I made so you don't have to</span><span class="m">Last reviewed 3 days ago</span></span><span class="badge b-major"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4v3.2M6 8.3v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Major revision</span><span class="bt"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="fx"><span class="sc">48</span><span><span class="t">A calm guide to home network VLANs</span><span class="m">Last reviewed 5 days ago</span></span><span class="badge b-major"><svg viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 3.4v3.2M6 8.3v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Major revision</span><span class="bt"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="fx"><span class="sc">57</span><span><span class="t">Why my static site builds got slow</span><span class="m">Last reviewed 1 week ago</span></span><span class="badge b-needs"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 9.8l.7-2.6 5.2-5.2 1.9 1.9-5.2 5.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Needs revision</span><span class="bt"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="fx"><span class="sc">61</span><span><span class="t">Self-hosting a photo library: one year later</span><span class="m">Last reviewed 2 weeks ago</span></span><span class="badge b-needs"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 9.8l.7-2.6 5.2-5.2 1.9 1.9-5.2 5.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Needs revision</span><span class="bt"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="fx"><span class="sc">64</span><span><span class="t">Choosing a password manager for the whole family</span><span class="m">Last reviewed 2 weeks ago</span></span><span class="badge b-needs"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 9.8l.7-2.6 5.2-5.2 1.9 1.9-5.2 5.2z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>Needs revision</span><span class="bt"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                    </div>
+
+                    <div class="wp-card">
+                      <p class="wp-card-h">Average score — last 8 weeks <small>63 → 71</small></p>
+                      <div class="spark">
+                        <svg viewBox="0 0 600 96" role="img" aria-label="Average score over the last 8 weeks, rising from 63 to 71">
+                          <line x1="20" y1="78" x2="580" y2="78" stroke="#dcdcde" stroke-width="1"/>
+                          <polyline fill="none" stroke="#2271b1" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"
+                            points="24,63 104,58 184,58 264,48 344,43 424,38 504,28 576,23"/>
+                          <circle cx="24" cy="63" r="3.2" fill="#2271b1"/>
+                          <circle cx="576" cy="23" r="4" fill="#2271b1"/>
+                          <text x="24" y="52" font-size="12" fill="#1d2327" font-family="Segoe UI, sans-serif" text-anchor="middle">63</text>
+                          <text x="576" y="12" font-size="12" font-weight="600" fill="#1d2327" font-family="Segoe UI, sans-serif" text-anchor="middle">71</text>
+                          <text x="20" y="93" font-size="11" fill="#50575e" font-family="Segoe UI, sans-serif">8 weeks ago</text>
+                          <text x="580" y="93" font-size="11" fill="#50575e" font-family="Segoe UI, sans-serif" text-anchor="end">This week</text>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <figcaption><b>Figure 2.</b> The Dashboard in WP Admin, demo content. Fix next lists the five lowest scores first; each row opens the review or the editor.</figcaption>
+          </figure>
+        </section>
+
+        <!-- FREE VS PRO -->
+        <section class="sec" id="d-plans" aria-labelledby="d-plans-h">
+          <h2 id="d-plans-h">Free and Pro</h2>
+          <p>The free plugin is the trial: install it, review your posts, and see whether you want the Pro agents.<span class="pin" aria-hidden="true" style="right:-44px;top:0">3</span></p>
+          <div class="cmp-wrap">
+            <table class="cmp">
+              <thead>
+                <tr>
+                  <th scope="col">What you get</th>
+                  <th scope="col" class="c">Free<span>no charge</span></th>
+                  <th scope="col" class="c">Pro<span>49 / 99 / 199 a year<br>1 / 5 / unlimited sites</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Review and Key Takeaways</th><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Dashboard: average, trend, Fix next</th><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Post Reviews and Insert into Post</th><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Updates</th><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Rewrite, Sources, SEO and Audit agents</th><td class="c no"><span aria-hidden="true">–</span><span class="sr">Not included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Model and instructions per agent</th><td class="c no"><span aria-hidden="true">–</span><span class="sr">Not included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Automated Reviews on a schedule</th><td class="c no"><span aria-hidden="true">–</span><span class="sr">Not included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Roles</th><td class="c no"><span aria-hidden="true">–</span><span class="sr">Not included</span></td><td class="c"><svg class="tick" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="#00a32a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sr">Included</span></td></tr>
+                <tr><th scope="row">Email support</th><td class="c">best effort</td><td class="c">within 2 business days</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="notes">
+            <div class="note"><span class="pin" aria-hidden="true" style="right:auto;left:-44px">4</span><strong>14-day money-back guarantee</strong>Changed your mind after buying Pro? Ask within 14 days. The <a href="/refund/">Refund policy</a> has the details.</div>
+            <div class="note"><span class="pin" aria-hidden="true">5</span><strong>Nothing is deleted if Pro lapses</strong>Pro features lock and the site returns to Free. Reviews, settings, schedules and role rights stay; renewing unlocks them again.</div>
+          </div>
+          <p class="fine">One yearly plan, renews at the same price · same figures in USD, EUR or CHF · no lifetime plan, coupon or renewal discount · Freemius is the seller of record · Pro goes on sale with the first public release.</p>
+          <p class="small"><a href="/pricing/">See pricing and site packs</a></p>
+        </section>
+
+        <!-- FAQ -->
+        <section class="sec faq" id="d-faq" aria-labelledby="d-faq-h">
+          <span class="pin" aria-hidden="true" style="top:26px">6</span>
+          <h2 id="d-faq-h">Questions before you start</h2>
+          <h3>What will the AI cost me?</h3>
+          <p>You pay Anthropic per review, on your own key; the Free and Pro prices cover the plugin only. A quota and a token limit cap the spend. A worked example with real figures is coming.</p>
+          <h3>Where does my content go?</h3>
+          <p>Only to your own n8n and, through it, to Anthropic. The author receives nothing from your site unless you opt in or buy Pro; the <a href="/privacy/">Privacy policy</a> lists what that covers. Your Anthropic key is checked once and never stored by the plugin.</p>
+          <h3>What if I stop paying for Pro?</h3>
+          <p>Pro features lock and the site returns to Free. Nothing is deleted: your reviews, settings, schedules and role rights stay, and renewing unlocks them again.</p>
+        </section>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <div>
+        <a class="lockup" href="/">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></svg>
+          <span>Post Quality Manager</span>
+        </a>
+        <p class="tagline">Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.</p>
+      </div>
+      <div>
+        <nav class="foot-links" aria-label="Policies">
+          <a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refund/">Refund</a><a href="/support/">Support</a>
+        </nav>
+        <p class="foot-mail"><a href="mailto:hello@postquality.com">hello@postquality.com</a></p>
+      </div>
+      <p class="foot-meta">Made by Vincent Heimann · GPL-2.0-or-later · This site sets no cookies and runs no analytics.</p>
+    </footer>
+  </div>
+</div>
+</div>
+
+<!-- =================================================================
+     3. STATE VARIANT: hero after launch
+     ================================================================= -->
+<p class="stage-label">State variant · Hero after launch (plugin installable, Pro on sale)</p>
+<p class="stage-note">What changes: the status line, the two actions and the line under them. The "What you need" block stays where it is, above the install button. Below the hero, the page is the same as Mock 1.</p>
+<p class="stage-note scroll-hint">The frame is 1200 px wide: scroll sideways inside it.</p>
+<div class="scroller">
+<div class="browser variant">
+  <div class="chrome" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="addr">postquality.com</span></div>
+  <div class="site">
+    <header class="site-header">
+      <a class="lockup" href="/">
+        <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></svg>
+        <span>Post Quality Manager</span>
+      </a>
+      <nav class="site-nav" aria-label="Main (variant)">
+        <a href="/pricing/">Pricing</a>
+        <a href="/docs/">Documentation</a>
+        <a href="/support/">Support</a>
+      </nav>
+    </header>
+    <div class="layout">
+      <div class="rail">
+        <p class="rail-h">On this page</p>
+        <ul class="toc">
+          <li><a class="on" href="#d-need">What you need</a></li>
+          <li><a href="#d-how">How it works</a></li>
+          <li><a href="#d-pillars">Four pillars</a></li>
+          <li><a href="#d-dash">The Dashboard</a></li>
+          <li><a href="#d-plans">Free and Pro</a></li>
+          <li><a href="#d-faq">Questions</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="hero">
+          <p class="status"><span class="tag">Available</span> Free plugin ready to install. Pro on sale.</p>
+          <!-- an <h1> on the real page; a <p> here so this file keeps one h1 -->
+          <p class="h1">A score for every post, what to fix first, and the trend across your blog.</p>
+          <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin. It runs on your own n8n and your own Anthropic key, so here is everything it needs before you decide.</p>
+          <div class="need">
+            <span class="pin" aria-hidden="true">1</span>
+            <h2>What you need</h2>
+            <dl>
+              <dt>Your own n8n</dt>
+              <dd>Self-hosted or n8n Cloud. Your site and n8n must reach each other, so a local or password-protected site cannot use n8n Cloud.</dd>
+              <dt>An Anthropic API key</dt>
+              <dd>Checked once, written into an n8n credential, never stored by the plugin.</dd>
+              <dt>The AI cost</dt>
+              <dd>You pay Anthropic per review, on your own key. A worked example is coming.</dd>
+              <dt>WordPress and PHP</dt>
+              <dd><span class="mono">WordPress 6.6+ · PHP 8.0+ · tested up to 7.1 · no Multisite</span></dd>
+            </dl>
+          </div>
+          <div class="actions-wrap">
+            <div class="actions">
+              <a class="btn btn-primary" href="/docs/">Install the free plugin</a>
+              <a class="btn btn-secondary" href="/pricing/">See Pro pricing</a>
+            </div>
+            <p class="act-note">The free plugin is the trial. Pro comes with a 14-day money-back guarantee.<span class="pin" aria-hidden="true" style="top:-16px">3</span><span class="pin" aria-hidden="true" style="top:12px">4</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- =================================================================
+     4. PHONE MOCK, 390 px
+     ================================================================= -->
+<p class="stage-label">Mock 2 · Phone, 390 px · Hero and the first screen below it</p>
+<div class="phone-stage">
+  <div class="phone-wrap">
+  <div class="phone">
+    <div class="chrome" aria-hidden="true"><span class="addr">postquality.com</span></div>
+    <div class="site site--phone">
+      <header class="site-header">
+        <a class="lockup" href="/">
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></svg>
+          <span>Post Quality Manager</span>
+        </a>
+        <nav class="site-nav" aria-label="Main (phone)">
+          <a href="/pricing/">Pricing</a>
+          <a href="/docs/">Documentation</a>
+          <a href="/support/">Support</a>
+        </nav>
+      </header>
+      <div class="ph-main">
+        <p class="status"><span class="tag">Pre-release</span> Not installable yet.</p>
+        <!-- an <h1> on the real page; a <p> here so this file keeps one h1 -->
+        <p class="h1">A score for every post, what to fix first, and the trend across your blog.</p>
+        <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin. It runs on your own n8n and your own Anthropic key.</p>
+        <div class="need-ph">
+          <h2>What you need</h2>
+          <ul>
+            <li><b>Your own n8n</b>, self-hosted or n8n Cloud</li>
+            <li><b>An Anthropic API key</b>, not stored by the plugin</li>
+            <li><b>The AI cost:</b> you pay Anthropic per review</li>
+            <li><span class="mono">WordPress 6.6+ · PHP 8.0+</span></li>
+          </ul>
+        </div>
+        <div class="actions">
+          <a class="btn btn-primary" href="mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available">Tell me when it's available</a>
+          <a class="btn btn-secondary" href="/docs/">Read the documentation</a>
+        </div>
+        <p class="act-note">Opens an email to hello@postquality.com with the subject filled in.</p>
+
+        <div class="sec">
+          <h2>How it works</h2>
+          <div class="flow" aria-label="Where a review travels">
+            <span class="node">your site</span><span class="arr" aria-hidden="true">↓</span>
+            <span class="node">your n8n workflow</span><span class="arr" aria-hidden="true">↓</span>
+            <span class="node">Anthropic's models</span><span class="arr" aria-hidden="true">↓</span>
+            <span class="node">back to WP Admin</span>
+          </div>
+          <ol class="steps">
+            <li><span><b>Install and open the setup guide.</b> It asks for three values: your n8n address, an n8n API key and your Anthropic key.</span></li>
+            <li><span><b>The guide sets the workflow up in your n8n</b> and tests the connection both ways.</span></li>
+            <li><span><b>Review a post.</b> Your site sends it to your own n8n workflow, which asks Anthropic's models for the review.</span></li>
+            <li><span><b>Read the result in WP Admin:</b> a score, the issues, suggested edits and key takeaways.</span></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="fold" aria-hidden="true"><span>≈ end of the first screen</span></div>
+  </div>
+
+  <div class="phone-notes">
+    <div class="anno">
+      <h2>Phone notes</h2>
+      <ul>
+        <li>The navigation stays visible as one row of three text links: no menu button, no script.</li>
+        <li>"What you need" shrinks to four one-line facts so the primary button still lands inside the first screen; the full sentences live in the FAQ and the documentation.</li>
+        <li>Buttons stack at full width, 46 px tall; the primary one comes first.</li>
+        <li>The flow line turns vertical; numbered steps keep the same text as desktop.</li>
+        <li>The dashed line marks roughly where a 390 × 844 phone's first screen ends once the browser bars take their share.</li>
+        <li>Holds down to 360 px: no fixed widths inside the page.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

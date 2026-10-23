@@ -1,0 +1,816 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navy and check direction</title>
+<style>
+/* =====================================================================
+   DIRECTION: NAVY AND CHECK (brand-led, confident)
+   postquality.com home page, story 57 UX pass, 2026-10-22. Option to react to.
+
+   COLOUR TOKENS (every hex used in this file)
+   Brand, from the icon (story 51)
+     #1b2a41  navy: hero band, Pro card, headings and links on white,
+              primary-button text on the band / primary-button fill on white
+     #00a32a  check green: the single accent. Check marks, the h1 highlight bar,
+              the focus ring. Never a fill behind site text (white on it = 3.35:1).
+     #ffffff  white: type on navy, primary-button fill on the band, surfaces,
+              the 1.5 px keyline around the icon tile on navy
+   Site neutrals (cool, derived from the navy)
+     #2a3649  body text on white            12.19:1
+     #4f5b6e  muted text on white 6.88:1, on tint 6.30:1
+     #dfe6ef  lead text on navy             11.49:1
+     #c8d2e0  muted text on navy 9.46:1, on #263a59 7.51:1
+     #263a59  lighter navy shade: hover on the band, Pro-card inner rule
+     #e8edf3  primary-button hover fill on the band (navy text 12.27:1)
+     #f3f5f8  tint section background (navy text 13.22:1)
+     #d6dce5  decorative hairlines on cards (non-interactive)
+   Contrast of the actions
+     Primary on the band: navy #1b2a41 text on white #ffffff = 14.44:1 (AA and AAA);
+       button edge vs band 14.44:1.
+     Primary on white: white text on navy fill = 14.44:1.
+     Secondary on the band: white text + 2 px white border on navy = 14.44:1.
+     Focus ring: 3 px #00a32a, 3 px offset: 4.31:1 vs navy, 3.35:1 vs white (>= 3:1 UI).
+     Green checks are graphics: 4.31:1 on navy, 3.35:1 on white, 3.42:1 on #263a59 (>= 3:1).
+   Plugin capture (wp-admin defaults, from ux-dashboard-post-reviews)
+     #2271b1 primary/links/meters (5.17:1 on white) · #135e96 hover · #1d2327 ink
+     #50575e muted (7.33:1 on white) · #ffffff surface · #f0f0f1 canvas · #c3c4c7 line
+     #dcdcde inner rule · #f6f7f7 button face (#2271b1 on it 4.81:1)
+     #2c3338 admin submenu (#c3c4c7 on it 7.35:1) · #a7aaad menu glyph · #f0f0f1 menu text
+     Status: #d63638 Major revision (white label 4.73:1) · #dba617 Needs revision
+     (dark #1d2327 label 7.17:1) · #00a32a Ready to ship (dark label 4.74:1)
+     · #8c8f94 Not analyzed outline (border only) · #646970 Processing (unused here)
+   Document chrome (annotation and frames, not the site)
+     #e4e8ee doc canvas · #4a5466 doc label text (6.21:1 on canvas)
+     #5f6b7a dashed annotation border · #f7f8fa / #cfd5de browser chrome
+     #c3c9d2 window dots · #0b1220 phone bezel · #9aa4b2 swatch outline
+     Shadows use rgba() of the navy (27,42,65) and of #0b1220 (11,18,32) only.
+
+   TYPE
+   System sans stack only, no network request. If the owner later wants a signature face,
+   a self-hosted grotesque (Inter or Public Sans, OFL) served from the site itself; never a font CDN.
+   h1 64/1.05 bold, h2 40/1.15 bold, body 18/1.6; phone: h1 36, h2 29, body 17.
+   ===================================================================== */
+
+:root{
+  --navy:#1b2a41; --green:#00a32a; --white:#ffffff;
+  --body:#2a3649; --muted:#4f5b6e; --lead-on-navy:#dfe6ef; --muted-on-navy:#c8d2e0;
+  --navy-hi:#263a59; --hover-on-navy:#e8edf3; --tint:#f3f5f8; --hair:#d6dce5;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --wp-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:#e4e8ee;color:#1b2a41;font-family:var(--sans);line-height:1.5}
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+
+/* ---------- document chrome ---------- */
+.doc{max-width:1280px;margin:0 auto;padding:32px 40px 72px}
+.doc-label{max-width:1200px;margin:56px auto 14px;font-size:15px;font-weight:700;color:#1b2a41;letter-spacing:.01em}
+.doc-label span{display:block;font-weight:400;color:#4a5466;margin-top:2px}
+
+.annot{max-width:1200px;margin:0 auto;background:#fff;border:2px dashed #5f6b7a;border-radius:12px;padding:28px 32px;color:#1b2a41;font-size:15px}
+.annot-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#4a5466;border:1px solid #5f6b7a;border-radius:3px;padding:2px 8px}
+.annot-title{font-size:30px;font-weight:700;letter-spacing:-.01em;margin:12px 0 2px}
+.annot-sub{margin:0;color:#4a5466}
+.annot-why{font-size:16px;line-height:1.6;max-width:900px;margin:18px 0 0}
+.annot-grid{display:grid;grid-template-columns:1.15fr 1fr 1.1fr;gap:28px;margin-top:24px;border-top:1px solid #d6dce5;padding-top:22px}
+.annot-h{font-weight:700;margin:0 0 10px;font-size:15px}
+.annot ol,.annot ul{margin:0;padding-left:20px}
+.annot li{margin:0 0 7px;line-height:1.45}
+.annot-small{font-size:14px;color:#4a5466;margin:10px 0 0}
+.annot code{font-family:ui-monospace,Consolas,"SF Mono",Menlo,monospace;font-size:13px}
+.icon-demo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.icon-demo figure{margin:0;border-radius:6px;padding:14px 6px 8px;text-align:center;border:1px solid #d6dce5}
+.icon-demo .on-navy{background:#1b2a41;border-color:#1b2a41;color:#fff}
+.icon-demo .on-white{background:#fff;color:#1b2a41}
+.icon-demo svg{width:40px;height:40px;display:block}
+.icon-demo .ic{display:inline-block}
+.icon-demo figcaption{font-size:12px;line-height:1.3;margin-top:8px}
+.swatches{list-style:none;padding:0!important}
+.swatches li{display:grid;grid-template-columns:22px 70px 1fr;gap:8px;align-items:start;font-size:14px}
+.sw{width:22px;height:22px;border-radius:4px;border:1px solid #9aa4b2}
+.sw-navy{background:#1b2a41}.sw-green{background:#00a32a}.sw-white{background:#fff}
+.sw-body{background:#2a3649}.sw-muted{background:#4f5b6e}.sw-lead{background:#dfe6ef}
+.sw-mon{background:#c8d2e0}.sw-hi{background:#263a59}.sw-tint{background:#f3f5f8}
+.ratio{margin-top:12px;padding:10px 12px;background:#f3f5f8;border-left:4px solid #1b2a41;font-size:14px;line-height:1.45}
+
+.browser{max-width:1200px;margin:0 auto;background:#fff;border:1px solid #cfd5de;border-radius:10px;overflow:hidden;box-shadow:0 18px 50px rgba(27,42,65,.18)}
+.chrome{height:42px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#f7f8fa;border-bottom:1px solid #cfd5de}
+.chrome .dot{width:11px;height:11px;border-radius:50%;background:#c3c9d2;flex:none}
+.addr{flex:1;max-width:520px;margin:0 auto;height:26px;border-radius:13px;background:#fff;border:1px solid #cfd5de;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#4a5466;white-space:nowrap;overflow:hidden}
+.addr svg{width:11px;height:11px;flex:none}
+
+.phone-row{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:414px 1fr;gap:40px;align-items:start}
+.phone{width:414px;max-width:100%;background:#0b1220;border-radius:46px;padding:12px;box-shadow:0 18px 50px rgba(27,42,65,.25)}
+.phone-screen{position:relative;height:1700px;border-radius:34px;overflow:hidden;background:#fff}
+.fold{position:absolute;left:0;right:0;top:844px;border-top:2px dashed #5f6b7a;z-index:5;pointer-events:none}
+.fold span{position:absolute;right:10px;top:-46px;background:#fff;color:#1b2a41;border:1px solid #5f6b7a;border-radius:3px;font-size:11px;font-weight:700;padding:2px 6px}
+.phone-notes{background:#fff;border:2px dashed #5f6b7a;border-radius:12px;padding:22px 26px;font-size:15px}
+.phone-notes ul{margin:0;padding-left:20px}.phone-notes li{margin-bottom:9px;line-height:1.45}
+
+@media (max-width:900px){
+  .annot-grid{grid-template-columns:1fr}
+  .phone-row{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:600px){
+  .doc{padding:16px 16px 48px}
+  .annot{padding:20px 16px}
+  .annot-title{font-size:24px}
+  .chrome{padding:0 10px;gap:6px}
+  .phone{border-radius:36px;padding:8px}
+  .phone-screen{border-radius:28px}
+}
+
+/* =====================================================================
+   THE SITE (styles scoped to .site; container queries make the same CSS
+   drive the desktop frame, the variant and the phone frame)
+   ===================================================================== */
+.site{container:site / inline-size;background:#fff;color:var(--body);font-family:var(--sans);font-size:18px;line-height:1.6}
+.site a{color:var(--navy)}
+.site a:focus-visible,.site .btn:focus-visible{outline:3px solid var(--green);outline-offset:3px;border-radius:3px}
+.site h2,.site h3,.site .h1{color:var(--navy);letter-spacing:-.02em}
+.wrap{max-width:1120px;margin:0 auto;padding:0 48px}
+.skip{position:absolute;left:-9999px;top:0}
+.skip:focus{left:16px;top:16px;z-index:10;background:#fff;color:var(--navy);padding:8px 12px}
+
+/* band + header */
+.band{background:var(--navy);color:#fff;position:relative}
+.hdr{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:22px 0}
+.lockup{display:inline-flex;align-items:center;gap:12px;text-decoration:none;color:#fff!important}
+.lockup .tile{display:block;width:36px;height:36px;flex:none}
+.lockup .tile svg{display:block;width:100%;height:100%}
+.band .lockup .tile{box-shadow:0 0 0 1.5px #ffffff} /* the keyline: outside the tile, icon untouched */
+.wordmark{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1;white-space:nowrap}
+.nav{display:flex;gap:30px}
+.nav a{color:#fff;text-decoration:none;font-size:16px;font-weight:600}
+.nav a:hover{text-decoration:underline;text-underline-offset:4px}
+
+/* hero */
+.hero{text-align:center;padding:64px 0 280px}
+.hero.no-shot{padding-bottom:72px}
+.eyebrow{margin:0 0 18px;font-size:14px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted-on-navy)}
+.site h1,.site .h1{font-size:64px;line-height:1.05;font-weight:700;color:#fff;margin:0 auto;max-width:900px;letter-spacing:-.025em}
+.site h1 .l,.site .h1 .l{display:block}
+.hl{background:linear-gradient(var(--green),var(--green)) left 92% / 100% .11em no-repeat;padding-bottom:.06em;white-space:nowrap}
+.lead{max-width:720px;margin:24px auto 0;font-size:21px;line-height:1.55;color:var(--lead-on-navy)}
+.actions{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-top:36px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:54px;padding:14px 26px;border-radius:3px;font-size:17px;font-weight:700;line-height:1.2;text-decoration:none;border:2px solid transparent}
+.btn svg{width:20px;height:20px;flex:none}
+.btn-primary{background:#fff;color:var(--navy)!important;border-color:#fff}
+.btn-primary:hover{background:var(--hover-on-navy);border-color:var(--hover-on-navy)}
+.btn-ghost{background:transparent;color:#fff!important;border-color:#fff}
+.btn-ghost:hover{background:var(--navy-hi)}
+.btn-solid{background:var(--navy);color:#fff!important;border-color:var(--navy)}
+.btn-solid:hover{background:var(--navy-hi);border-color:var(--navy-hi)}
+.micro{margin:16px auto 0;max-width:620px;font-size:15px;line-height:1.5;color:var(--muted-on-navy)}
+.req-line{display:flex;gap:10px;align-items:flex-start;text-align:left;max-width:680px;margin:28px auto 0;padding:12px 16px;border:1px solid var(--navy-hi);background:var(--navy-hi);border-radius:3px;font-size:16px;line-height:1.5;color:#fff}
+.req-line svg{width:20px;height:20px;flex:none;margin-top:2px}
+.req-line a{color:#fff;font-weight:700}
+.ticks{list-style:none;display:flex;justify-content:center;flex-wrap:wrap;gap:10px 30px;margin:30px 0 0;padding:0;font-size:16px;color:#fff}
+.ticks li{display:flex;align-items:center;gap:8px}
+.ck{width:20px;height:20px;flex:none}
+
+/* floating capture */
+.float{position:relative;z-index:1;margin-top:-236px}
+.shot-fig{margin:0}
+.shot{container:shot / inline-size;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 30px 70px rgba(11,18,32,.38),0 0 0 1px rgba(27,42,65,.12)}
+.shot-bar{height:32px;display:flex;align-items:center;gap:7px;padding:0 12px;background:#f7f8fa;border-bottom:1px solid #cfd5de}
+.shot-bar .dot{width:9px;height:9px;border-radius:50%;background:#c3c9d2;flex:none}
+.shot-url{margin-left:10px;font-size:12px;color:#4a5466;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot-cap{margin:14px 0 0;text-align:center;font-size:15px;color:var(--muted)}
+
+/* ---------- wp-admin capture: em-based, 1em = 13px when the capture is 1040px wide ---------- */
+.shot-scale{font-size:1.25cqw}
+.wp{display:grid;grid-template-columns:12.3em 1fr;background:#f0f0f1;color:#1d2327;font-family:var(--wp-sans);line-height:1.4;font-size:1em}
+.wp-side{background:#1d2327;padding:.9em 0 1.4em;display:flex;flex-direction:column}
+.wp-mi{display:flex;align-items:center;gap:.65em;padding:.5em .95em;color:#f0f0f1;font-size:1.077em}
+.wp-mi i{width:1.25em;height:1.25em;border:.14em solid #a7aaad;border-radius:.3em;flex:none;opacity:.8}
+.wp-mi.is-on{background:#2271b1;color:#fff}
+.wp-mi.is-on i{border-color:#fff;opacity:1}
+.wp-subs{background:#2c3338;padding:.45em 0;display:flex;flex-direction:column}
+.wp-sub{padding:.3em .95em .3em 2.85em;color:#c3c4c7}
+.wp-sub.is-cur{color:#fff;font-weight:600}
+.wp-main{padding:1.5em 1.8em 2em;min-width:0}
+.wp-h1{display:block;font-size:1.77em;font-weight:400;line-height:1.3;margin:0 0 .75em}
+.wp-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:1em;margin-bottom:1.3em}
+.wp-tile{display:flex;flex-direction:column;justify-content:space-between;gap:.6em;background:#fff;border:1px solid #c3c4c7;padding:.95em 1.05em}
+.wp-tl{color:#50575e;font-weight:600}
+.wp-tv{font-size:2.3em;line-height:1;font-weight:600;color:#1d2327}
+.wp-badge{display:inline-flex;align-items:center;gap:.35em;align-self:flex-start;font-size:.92em;font-weight:600;line-height:1.2;padding:.22em .55em;border-radius:2px;white-space:nowrap}
+.wp-badge svg{width:1.15em;height:1.15em;flex:none}
+.b-major{background:#d63638;color:#fff}
+.b-needs{background:#dba617;color:#1d2327}
+.b-ready{background:#00a32a;color:#1d2327}
+.b-none{background:#fff;color:#50575e;box-shadow:inset 0 0 0 1px #8c8f94}
+.wp-cols{display:grid;grid-template-columns:1fr 17.5em;gap:1.3em;align-items:start}
+.wp-card{background:#fff;border:1px solid #c3c4c7}
+.wp-card-h{display:flex;align-items:baseline;justify-content:space-between;gap:1em;padding:.8em 1.1em;border-bottom:1px solid #dcdcde;font-weight:600;font-size:1.077em}
+.wp-card-sub{font-weight:400;font-size:.86em;color:#50575e}
+.wp-row{display:grid;grid-template-columns:2.6em 1fr auto;gap:.9em;align-items:center;padding:.75em 1.1em;border-bottom:1px solid #f0f0f1}
+.wp-row:last-child{border-bottom:0}
+.wp-score{font-size:1.54em;font-weight:600;text-align:center;color:#1d2327}
+.wp-info{display:flex;flex-direction:column;gap:.3em;min-width:0}
+.wp-title{color:#2271b1;font-weight:600;text-decoration:underline;text-decoration-color:rgba(34,113,177,.35);text-underline-offset:.15em}
+.wp-meta{display:flex;align-items:center;flex-wrap:wrap;gap:.6em;color:#50575e;font-size:.92em}
+.wp-meta .wp-badge{font-size:1em}
+.wp-acts{display:flex;gap:.45em}
+.wp-btn{display:inline-block;padding:.32em .8em;border:1px solid #2271b1;border-radius:3px;background:#f6f7f7;color:#2271b1;white-space:nowrap;line-height:1.3}
+.wp-trend svg{display:block;width:100%;height:auto;padding:.6em .8em .4em}
+
+/* phone crop of the capture: a narrower second image of the same screen */
+@container shot (max-width: 640px){
+  .shot-scale{font-size:2.826cqw}         /* 1em = 13px at a 460px-wide capture */
+  .wp-tile .wp-badge{font-size:.82em;padding:.2em .4em}
+  .wp{grid-template-columns:1fr}
+  .wp-side{display:none}
+  .wp-main{padding:1.1em 1.2em 1.3em}
+  .wp-h1{margin-bottom:.55em}
+  .wp-tiles{grid-template-columns:repeat(3,1fr);gap:.7em;margin-bottom:1em}
+  .wp-tile{padding:.75em .8em}
+  .wp-cols{grid-template-columns:1fr}
+  .wp-trend{display:none}
+  .wp-row:nth-child(n+5){display:none}
+  .wp-row{grid-template-columns:2.4em 1fr;row-gap:.5em}
+  .wp-acts{grid-column:2}
+  .shot-bar{height:26px}
+  .shot-url{font-size:11px}
+}
+
+/* sections */
+.sec{padding:96px 0}
+.sec-first{padding-top:72px}
+.sec-tint{background:var(--tint)}
+.site h2{font-size:40px;line-height:1.15;font-weight:700;margin:0}
+.sec-lead{font-size:20px;line-height:1.55;color:var(--muted);margin:14px 0 0;max-width:720px}
+.kicker{margin:0 0 10px;font-size:14px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+
+/* what you need */
+.need{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:36px}
+.need-item{background:#fff;border:1px solid var(--hair);border-top:4px solid var(--navy);border-radius:3px;padding:24px 24px 22px}
+.need-item svg{width:34px;height:34px;display:block;margin-bottom:14px}
+.need-item h3{font-size:21px;line-height:1.3;margin:0 0 8px;font-weight:700}
+.need-item p{margin:0;font-size:17px;line-height:1.55;color:var(--body)}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin-top:22px;font-size:16px}
+.chip{display:inline-block;padding:6px 12px;border:1.5px solid var(--navy);border-radius:3px;font-weight:700;color:var(--navy)}
+.chips .note{color:var(--muted)}
+
+/* pillars */
+.pillars{display:grid;grid-template-columns:1fr 1.05fr;gap:56px;align-items:center}
+.pill-list{list-style:none;padding:0;margin:28px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:14px 24px}
+.pill-list li{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:700;color:var(--navy)}
+.pill-list .ck{width:24px;height:24px}
+.pill-note{margin:26px 0 0;font-size:18px;color:var(--body);max-width:520px}
+.detail-fig{margin:0}
+.wpd{background:#fff;border:1px solid #c3c4c7;font-family:var(--wp-sans);color:#1d2327;font-size:13px;line-height:1.45;box-shadow:0 14px 40px rgba(27,42,65,.14)}
+.wpd-h{padding:11px 16px;border-bottom:1px solid #dcdcde;font-size:14px;font-weight:600}
+.wpd-body{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;padding:16px}
+.wpd-sub{font-weight:600;margin:0 0 10px;font-size:13px}
+.meter{display:grid;grid-template-columns:82px 1fr 24px;gap:8px;align-items:center;margin-bottom:9px}
+.meter-track{height:8px;background:#f0f0f1;box-shadow:inset 0 0 0 1px #c3c4c7;border-radius:4px;overflow:hidden}
+.meter-fill{display:block;height:100%;background:#2271b1}
+.meter-v{text-align:right;font-weight:600}
+.wpd ol{margin:0;padding-left:18px}
+.wpd li{margin-bottom:8px}
+.detail-cap{margin:12px 0 0;font-size:15px;color:var(--muted)}
+
+/* how it works */
+.steps{list-style:none;padding:0;margin:40px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+.step-n{display:flex;align-items:center;justify-content:center;width:46px;height:46px;background:var(--navy);color:#fff;font-weight:700;font-size:21px;margin-bottom:18px}
+.steps h3{font-size:22px;line-height:1.3;margin:0 0 8px;font-weight:700}
+.steps p{margin:0;font-size:17px;line-height:1.6}
+.flow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px;margin:48px 0 0;padding:22px;border:1px solid var(--hair);border-radius:3px;background:var(--tint)}
+.flow-node{padding:9px 16px;background:#fff;border:1.5px solid var(--navy);border-radius:3px;font-weight:700;color:var(--navy);font-size:16px;white-space:nowrap}
+.flow-node.you{background:var(--navy);color:#fff}
+.flow-arrow{width:26px;height:14px;flex:none}
+.trust{display:flex;gap:10px;align-items:flex-start;justify-content:center;margin:18px auto 0;max-width:760px;font-size:17px;text-align:left}
+
+/* plans */
+.plans{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px;align-items:start}
+.plan{border-radius:3px;padding:32px;display:flex;flex-direction:column}
+.plan-free{background:#fff;border:1px solid var(--hair)}
+.plan-pro{background:var(--navy);color:#fff}
+.plan h3{font-size:28px;margin:0;font-weight:700}
+.plan-pro h3{color:#fff}
+.plan-sub{margin:6px 0 0;font-size:17px;color:var(--muted)}
+.plan-pro .plan-sub{color:var(--muted-on-navy)}
+.price{display:flex;align-items:flex-end;gap:12px;margin:18px 0 4px}
+.price .big{font-size:56px;line-height:.9;font-weight:700;letter-spacing:-.02em;color:#fff}
+.price .per{font-size:15px;line-height:1.35;color:var(--lead-on-navy)}
+.price-more{margin:8px 0 0;font-size:15px;line-height:1.5;color:var(--muted-on-navy);padding-bottom:18px;border-bottom:1px solid var(--navy-hi)}
+.plan ul{list-style:none;padding:0;margin:22px 0 28px}
+.plan-req{display:flex;gap:10px;align-items:flex-start;margin:-6px 0 24px;padding:12px 14px;background:var(--tint);border-radius:3px;font-size:15px;line-height:1.5;color:var(--body)}
+.plan-req svg{width:18px;height:18px;flex:none;margin-top:2px;color:var(--navy)}
+.plan-req a{font-weight:700}
+.plan li{display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;font-size:17px;line-height:1.45}
+.plan li .ck{margin-top:2px}
+.plan .btn{align-self:flex-start}
+.plan-foot{margin:14px 0 0;font-size:15px;color:var(--muted)}
+.plan-pro .plan-foot{color:var(--muted-on-navy)}
+.assure{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.assure-item{display:flex;gap:14px;align-items:flex-start;background:#fff;border:1px solid var(--hair);border-left:4px solid var(--green);border-radius:3px;padding:18px 20px}
+.assure-item svg{width:28px;height:28px;flex:none}
+.assure-item h3{font-size:19px;margin:0 0 4px;font-weight:700}
+.assure-item p{margin:0;font-size:16px;line-height:1.55}
+
+/* footer */
+.foot{border-top:1px solid var(--hair);padding:48px 0 40px;font-size:16px}
+.foot-top{display:flex;justify-content:space-between;gap:32px;align-items:flex-start;flex-wrap:wrap}
+.foot .lockup{color:var(--navy)!important}
+.foot .wordmark{font-size:18px}
+.foot .lockup .tile{width:32px;height:32px}
+.foot-tag{margin:14px 0 0;max-width:460px;color:var(--muted);font-size:16px;line-height:1.55}
+.foot-nav{display:flex;flex-wrap:wrap;gap:8px 24px}
+.foot-nav a{font-weight:600;text-decoration:none}
+.foot-nav a:hover{text-decoration:underline}
+.foot-mail{margin:12px 0 0;text-align:right}
+.foot-mail a{font-weight:700}
+.foot-legal{margin:32px 0 0;padding-top:18px;border-top:1px solid var(--hair);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 24px;font-size:14px;color:var(--muted)}
+
+/* ---------- medium ---------- */
+@container site (max-width: 1000px){
+  .pillars{grid-template-columns:1fr;gap:40px}
+  .steps{gap:24px}
+}
+/* ---------- phone ---------- */
+@container site (max-width: 760px){
+  .site{font-size:17px}
+  .wrap{padding:0 16px}
+  .hdr{flex-direction:column;align-items:flex-start;gap:14px;padding:18px 0 12px}
+  .lockup .tile{width:32px;height:32px}
+  .wordmark{font-size:18px}
+  .nav{gap:22px;padding-top:12px;border-top:1px solid var(--navy-hi);width:100%}
+  .nav a{font-size:15px}
+  .hero{text-align:left;padding:30px 0 132px}
+  .hero.no-shot{padding-bottom:44px}
+  .eyebrow{font-size:13px;margin-bottom:12px}
+  .site h1,.site .h1{font-size:36px;line-height:1.1}
+  .site h1 .l,.site .h1 .l{display:inline}
+  .lead{font-size:18px;margin-top:16px}
+  .actions{flex-direction:column;gap:10px;margin-top:24px}
+  .btn{width:100%;min-height:52px;padding:13px 18px}
+  .micro{font-size:14px;margin-top:12px}
+  .req-line{margin-top:20px;font-size:15px;padding:10px 12px}
+  .ticks{flex-direction:column;gap:8px;margin-top:22px;font-size:15px}
+  .float{margin-top:-104px}
+  .shot{border-radius:6px}
+  .shot-cap{font-size:14px;margin-top:10px}
+  .sec{padding:56px 0}
+  .sec-first{padding-top:44px}
+  .site h2{font-size:29px}
+  .sec-lead{font-size:17px}
+  .need{grid-template-columns:1fr;gap:14px;margin-top:24px}
+  .need-item{padding:18px}
+  .need-item h3{font-size:19px}
+  .need-item p{font-size:16px}
+  .pill-list li{font-size:19px}
+  .wpd-body{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr;gap:28px;margin-top:28px}
+  .flow{flex-direction:column;align-items:stretch;padding:16px}
+  .flow-node{text-align:center}
+  .flow-arrow{transform:rotate(90deg);align-self:center}
+  .trust{font-size:16px}
+  .plans,.assure{grid-template-columns:1fr}
+  .plan{padding:24px 20px}
+  .plan .btn{align-self:stretch}
+  .foot-mail{text-align:left}
+}
+</style>
+</head>
+<body>
+
+<!-- shared inline SVG symbols (no network; <use> points inside this file) -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 20 20"><path d="M4.2 10.4 8 14.2 15.8 6.4" fill="none" stroke="#00a32a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-major" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6v4.1M8 10.9v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-needs" viewBox="0 0 16 16"><path d="M8 2.2 14.6 13.6H1.4Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.4v3.3M8 11.6v.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-ready" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 8.3l2 2 4-4.3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.4 2.1"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m4 7 8 6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 9v5M10 6.2v.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 12 12"><rect x="2" y="5.2" width="8" height="5.8" rx="1" fill="#4a5466"/><path d="M3.8 5.2V3.8a2.2 2.2 0 0 1 4.4 0v1.4" fill="none" stroke="#4a5466" stroke-width="1.3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 26 14"><path d="M1 7h22M17 1.5 23 7l-6 5.5" fill="none" stroke="#1b2a41" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-flow" viewBox="0 0 32 32"><g fill="none" stroke="#1b2a41" stroke-width="2"><rect x="2.5" y="12" width="8" height="8"/><rect x="21.5" y="3.5" width="8" height="8"/><rect x="21.5" y="20.5" width="8" height="8"/><path d="M10.5 16h5.5V7.5h5.5M16 16v8.5h5.5"/></g></symbol>
+  <symbol id="i-key" viewBox="0 0 32 32"><g fill="none" stroke="#1b2a41" stroke-width="2" stroke-linecap="round"><circle cx="10" cy="16" r="6"/><path d="M16 16h13M24.5 16v5M28.5 16v4"/></g></symbol>
+  <symbol id="i-bill" viewBox="0 0 32 32"><g fill="none" stroke="#1b2a41" stroke-width="2" stroke-linejoin="round"><path d="M7 3.5h18v25l-4.5-2.8-4.5 2.8-4.5-2.8L7 28.5z"/><path d="M11.5 10.5h9M11.5 15.5h9M11.5 20.5h5" stroke-linecap="round"/></g></symbol>
+  <symbol id="i-shield" viewBox="0 0 28 28"><g fill="none" stroke="#1b2a41" stroke-width="2" stroke-linejoin="round"><path d="M14 2.5 24 6v7.5c0 6-4.3 10.3-10 12-5.7-1.7-10-6-10-12V6z"/><path d="m9.5 14 3.3 3.3 6-6.5" stroke="#00a32a" stroke-width="2.4" stroke-linecap="round"/></g></symbol>
+  <symbol id="i-keep" viewBox="0 0 28 28"><g fill="none" stroke="#1b2a41" stroke-width="2" stroke-linejoin="round"><rect x="3.5" y="8" width="21" height="16.5" rx="1"/><path d="M3.5 8 7 3.5h14L24.5 8M10.5 13h7" stroke-linecap="round"/></g></symbol>
+  <!-- the brand icon, verbatim from the brief (story 51) -->
+  <symbol id="brand" viewBox="0 0 20 20"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></symbol>
+</svg>
+
+<div class="doc">
+
+<!-- ================= 1. ANNOTATION BANNER ================= -->
+<section class="annot" aria-label="Direction annotation">
+  <span class="annot-tag">Design direction · annotation, not part of the page</span>
+  <p class="annot-title">Direction: Navy and check</p>
+  <p class="annot-sub">Brand-led, confident. Home page of postquality.com, an option to react to, not a decision (story 57 UX pass, 2026-10-22).</p>
+  <p class="annot-why">The brand icon's own palette carries the page: a full-bleed navy band with large, bold white type, and the green check used only where something is confirmed (ticks, one highlight, the focus ring). It is the direction closest to a SaaS landing page, with one clear action, bigger type and the Dashboard floating over the band so the visitor lands inside the plugin. It stays honest: the pre-launch state says plainly that the plugin is not installable yet, and "What you need" follows the capture straight away.</p>
+  <div class="annot-grid">
+    <div>
+      <p class="annot-h">Honest nudges used (labelled candidates from the brief)</p>
+      <ol>
+        <li><strong>Prerequisites up front.</strong> "What you need" sits directly under the capture. After launch, a one-line version sits above the Install button, so no install action comes before it.</li>
+        <li><strong>You hold the keys.</strong> Hero tick "Your content goes nowhere else", repeated as the trust line under the flow in How it works.</li>
+        <li><strong>The free plugin is the trial.</strong> Hero tick and the Free vs Pro heading.</li>
+        <li><strong>14-day money-back guarantee</strong>, under the plan cards.</li>
+        <li><strong>Nothing deleted if Pro lapses</strong>, beside the guarantee.</li>
+        <li><strong>Plain status.</strong> "Not installable yet" and "you hear once" under the pre-launch action.</li>
+      </ol>
+      <p class="annot-small">Not used: countdowns, scarcity, social proof (none exists yet), any AI-cost figure (the worked example is pending, story 49).</p>
+    </div>
+    <div>
+      <p class="annot-h">The icon on navy</p>
+      <div class="icon-demo">
+        <figure class="on-navy"><span class="ic"><svg aria-hidden="true"><use href="#brand"/></svg></span><figcaption>Bare on navy: the tile disappears</figcaption></figure>
+        <figure class="on-navy"><span class="ic" style="box-shadow:0 0 0 1.5px #ffffff"><svg aria-hidden="true"><use href="#brand"/></svg></span><figcaption>White keyline, 1.5 px (used on the band)</figcaption></figure>
+        <figure class="on-white"><span class="ic"><svg aria-hidden="true"><use href="#brand"/></svg></span><figcaption>Bare on white and tint (footer)</figcaption></figure>
+      </div>
+      <p style="margin:0;line-height:1.5">The icon file stays untouched. Where it sits on the navy band, a 1.5 px white ring is drawn <em>outside</em> the tile (a CSS box-shadow on the wrapper, never inside the SVG), so the square reads as a tile again. White already belongs to the mark, so no third colour enters. On white and tinted surfaces the icon goes bare.</p>
+    </div>
+    <div>
+      <p class="annot-h">Colours and contrast</p>
+      <ul class="swatches">
+        <li><span class="sw sw-navy"></span><code>#1b2a41</code><span>navy: band, Pro card, headings, button text</span></li>
+        <li><span class="sw sw-green"></span><code>#00a32a</code><span>check green: ticks, h1 bar, focus ring only</span></li>
+        <li><span class="sw sw-white"></span><code>#ffffff</code><span>type on navy, primary button, keyline</span></li>
+        <li><span class="sw sw-body"></span><code>#2a3649</code><span>body text on white (12.19:1)</span></li>
+        <li><span class="sw sw-muted"></span><code>#4f5b6e</code><span>muted text on white (6.88:1)</span></li>
+        <li><span class="sw sw-lead"></span><code>#dfe6ef</code><span>lead on navy (11.49:1)</span></li>
+        <li><span class="sw sw-mon"></span><code>#c8d2e0</code><span>muted on navy (9.46:1)</span></li>
+        <li><span class="sw sw-hi"></span><code>#263a59</code><span>lighter navy: hover, inner rules</span></li>
+        <li><span class="sw sw-tint"></span><code>#f3f5f8</code><span>tint sections (navy text 13.22:1)</span></li>
+      </ul>
+      <p class="ratio"><strong>Primary button: 14.44:1.</strong> Navy text on a white fill on the band; the inverse (white on navy) on white sections. Focus ring: 3 px green, 4.31:1 on navy and 3.35:1 on white. Green never fills behind site text: white on <code>#00a32a</code> is only 3.35:1.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 2. DESKTOP MOCK ================= -->
+<p class="doc-label">1 · Desktop, 1200 px: the home page, pre-launch state (today)<span>The plugin is not installable and Pro is not on sale; the only action is the interest email.</span></p>
+
+<div class="browser">
+  <div class="chrome" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="addr"><svg><use href="#i-lock"/></svg>postquality.com</span></div>
+  <div class="site">
+    <a class="skip" href="#main">Skip to content</a>
+
+    <div class="band">
+      <div class="wrap">
+        <header class="hdr">
+          <a class="lockup" href="/" aria-label="Post Quality Manager, home"><span class="tile"><svg aria-hidden="true" focusable="false"><use href="#brand"/></svg></span><span class="wordmark">Post Quality Manager</span></a>
+          <nav class="nav" aria-label="Main"><a href="/pricing/">Pricing</a><a href="/docs/">Documentation</a><a href="/support/">Support</a></nav>
+        </header>
+
+        <div class="hero" id="main">
+          <p class="eyebrow">AI content reviews for WordPress</p>
+          <h1><span class="l">Every post scored.</span> <span class="l">Know what to <span class="hl">fix next</span>.</span></h1>
+          <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin: a score for every post, what to fix first and the trend across your blog.</p>
+          <div class="actions">
+            <a class="btn btn-primary" href="mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available"><svg aria-hidden="true"><use href="#i-mail"/></svg>Tell me when it's available</a>
+            <a class="btn btn-ghost" href="#need">Check what you need</a>
+          </div>
+          <p class="micro">Not installable yet. The button opens your email app; you hear once, when you can install it.</p>
+          <ul class="ticks">
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Runs on your own n8n and Anthropic key</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Your content goes nowhere else</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>The free plugin is the trial</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- the Dashboard capture, floating over the lower edge of the band -->
+    <div class="float">
+      <div class="wrap">
+        <figure class="shot-fig">
+          <div class="shot">
+            <div class="shot-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="shot-url">yourblog.example/wp-admin/</span></div>
+            <div class="shot-scale">
+              <div class="wp" role="img" aria-label="The Post Quality Dashboard in WP Admin: average score 71; 3 posts in Major revision, 9 in Needs revision, 14 not analyzed, 22 ready to ship; a Fix next list led by a post scored 42; the average score rising from 63 to 71 over 8 weeks.">
+                <div class="wp-side">
+                  <span class="wp-mi"><i></i>Dashboard</span>
+                  <span class="wp-mi"><i></i>Posts</span>
+                  <span class="wp-mi"><i></i>Media</span>
+                  <span class="wp-mi"><i></i>Pages</span>
+                  <span class="wp-mi"><i></i>Comments</span>
+                  <span class="wp-mi is-on"><i></i>Post Quality</span>
+                  <span class="wp-subs"><span class="wp-sub is-cur">Dashboard</span><span class="wp-sub">Post Reviews</span><span class="wp-sub">Settings</span></span>
+                  <span class="wp-mi"><i></i>Appearance</span>
+                  <span class="wp-mi"><i></i>Plugins</span>
+                  <span class="wp-mi"><i></i>Users</span>
+                  <span class="wp-mi"><i></i>Tools</span>
+                  <span class="wp-mi"><i></i>Settings</span>
+                </div>
+                <div class="wp-main">
+                  <span class="wp-h1">Post Quality</span>
+                  <div class="wp-tiles">
+                    <span class="wp-tile"><span class="wp-tl">Average score</span><span class="wp-tv">71</span></span>
+                    <span class="wp-tile"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span><span class="wp-tv">3</span></span>
+                    <span class="wp-tile"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span><span class="wp-tv">9</span></span>
+                    <span class="wp-tile"><span class="wp-badge b-none"><svg><use href="#i-none"/></svg>Not analyzed</span><span class="wp-tv">14</span></span>
+                    <span class="wp-tile"><span class="wp-badge b-ready"><svg><use href="#i-ready"/></svg>Ready to ship</span><span class="wp-tv">22</span></span>
+                  </div>
+                  <div class="wp-cols">
+                    <div class="wp-card wp-fix">
+                      <span class="wp-card-h">Fix next <span class="wp-card-sub">Lowest score first</span></span>
+                      <div class="wp-row"><span class="wp-score">42</span><span class="wp-info"><span class="wp-title">Five backup mistakes I made so you don't have to</span><span class="wp-meta"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span>Last reviewed 3 days ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="wp-row"><span class="wp-score">48</span><span class="wp-info"><span class="wp-title">A calm guide to home network VLANs</span><span class="wp-meta"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span>Last reviewed 5 days ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="wp-row"><span class="wp-score">57</span><span class="wp-info"><span class="wp-title">Why my static site builds got slow</span><span class="wp-meta"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span>Last reviewed 1 week ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="wp-row"><span class="wp-score">61</span><span class="wp-info"><span class="wp-title">Self-hosting a photo library: one year later</span><span class="wp-meta"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span>Last reviewed 2 weeks ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                      <div class="wp-row"><span class="wp-score">64</span><span class="wp-info"><span class="wp-title">Choosing a password manager for the whole family</span><span class="wp-meta"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span>Last reviewed 3 weeks ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                    </div>
+                    <div class="wp-card wp-trend">
+                      <span class="wp-card-h">Average score — last 8 weeks</span>
+                      <svg viewBox="0 0 220 160" aria-hidden="true">
+                        <line x1="10" y1="128" x2="210" y2="128" stroke="#dcdcde" stroke-width="1"/>
+                        <polygon points="12,103 40,96 68,96 96,82 124,75 152,68 180,54 208,47 208,128 12,128" fill="#2271b1" fill-opacity=".08"/>
+                        <polyline points="12,103 40,96 68,96 96,82 124,75 152,68 180,54 208,47" fill="none" stroke="#2271b1" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+                        <circle cx="12" cy="103" r="3.6" fill="#fff" stroke="#2271b1" stroke-width="2"/>
+                        <circle cx="208" cy="47" r="4.2" fill="#2271b1"/>
+                        <text x="10" y="88" font-size="15" font-weight="600" fill="#1d2327" font-family="Segoe UI, sans-serif">63</text>
+                        <text x="210" y="32" font-size="15" font-weight="600" fill="#1d2327" text-anchor="end" font-family="Segoe UI, sans-serif">71</text>
+                        <text x="10" y="150" font-size="12" fill="#50575e" font-family="Segoe UI, sans-serif">8 weeks ago</text>
+                        <text x="210" y="150" font-size="12" fill="#50575e" text-anchor="end" font-family="Segoe UI, sans-serif">This week</text>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="shot-cap">The Dashboard in WP Admin. Demo posts, fictional.</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <!-- What you need: before any install-like action -->
+    <section class="sec sec-first" id="need" aria-labelledby="need-h">
+      <div class="wrap">
+        <p class="kicker">Before you install</p>
+        <h2 id="need-h">What you need</h2>
+        <p class="sec-lead">Post Quality runs on your own accounts, so you hold the keys. Check these three first.</p>
+        <div class="need">
+          <div class="need-item"><svg aria-hidden="true"><use href="#i-flow"/></svg><h3>Your own n8n</h3><p>Self-hosted or n8n Cloud. Your site and your n8n must be able to reach each other.</p></div>
+          <div class="need-item"><svg aria-hidden="true"><use href="#i-key"/></svg><h3>An Anthropic API key</h3><p>Checked once by the setup guide, written into an n8n credential, never stored by the plugin.</p></div>
+          <div class="need-item"><svg aria-hidden="true"><use href="#i-bill"/></svg><h3>You pay Anthropic per review</h3><p>On your own key. A quota and a token limit cap the spend. A worked cost example is coming.</p></div>
+        </div>
+        <div class="chips"><span class="chip">WordPress 6.6+</span><span class="chip">PHP 8.0+</span><span class="note">Single sites; Multisite is not supported.</span></div>
+      </div>
+    </section>
+
+    <!-- Four pillars -->
+    <section class="sec sec-tint" aria-labelledby="pillars-h">
+      <div class="wrap pillars">
+        <div>
+          <p class="kicker">What a review looks at</p>
+          <h2 id="pillars-h">Four pillars, any niche</h2>
+          <ul class="pill-list">
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Structure</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Readability</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Engagement</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Credibility</li>
+          </ul>
+          <p class="pill-note">Every post is scored on the same four pillars, then you get the edits that matter most. Tailored to your niche through a Blog Profile and Editorial Standards, never code.</p>
+        </div>
+        <figure class="detail-fig">
+          <div class="wpd" role="img" aria-label="A review detail in Post Reviews: Structure 68, Readability 74, Engagement 59, Credibility 81, with three top edits.">
+            <div class="wpd-h">Review detail</div>
+            <div class="wpd-body">
+              <div>
+                <p class="wpd-sub">Pillars</p>
+                <div class="meter"><span>Structure</span><span class="meter-track"><span class="meter-fill" style="width:68%"></span></span><span class="meter-v">68</span></div>
+                <div class="meter"><span>Readability</span><span class="meter-track"><span class="meter-fill" style="width:74%"></span></span><span class="meter-v">74</span></div>
+                <div class="meter"><span>Engagement</span><span class="meter-track"><span class="meter-fill" style="width:59%"></span></span><span class="meter-v">59</span></div>
+                <div class="meter"><span>Credibility</span><span class="meter-track"><span class="meter-fill" style="width:81%"></span></span><span class="meter-v">81</span></div>
+              </div>
+              <div>
+                <p class="wpd-sub">Top edits</p>
+                <ol>
+                  <li>Open with the reader's problem; the backstory can follow in the second paragraph.</li>
+                  <li>Split the long setup section under two subheadings, one per step.</li>
+                  <li>Link the official documentation where you quote default settings.</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+          <figcaption class="detail-cap">A review in Post Reviews. Fictional post.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="sec" aria-labelledby="how-h">
+      <div class="wrap">
+        <p class="kicker">How it works</p>
+        <h2 id="how-h">Three steps from install to your first score</h2>
+        <ol class="steps">
+          <li><span class="step-n" aria-hidden="true">1</span><h3>Connect your own accounts</h3><p>A setup guide asks three values: your n8n address, your n8n API key and your Anthropic key. It sets the workflow up for you and tests the connection both ways.</p></li>
+          <li><span class="step-n" aria-hidden="true">2</span><h3>Review a post</h3><p>Click Review. Your site sends the post to your own n8n workflow, which asks Anthropic's models.</p></li>
+          <li><span class="step-n" aria-hidden="true">3</span><h3>Fix what matters first</h3><p>The result comes back into WP Admin: a score, issues, suggested edits and takeaways. The Dashboard ranks what to fix next.</p></li>
+        </ol>
+        <div class="flow" role="group" aria-label="Where your content goes">
+          <span class="flow-node you">Your site</span><svg class="flow-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          <span class="flow-node">Your n8n workflow</span><svg class="flow-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          <span class="flow-node">Anthropic's models</span><svg class="flow-arrow" aria-hidden="true"><use href="#i-arrow"/></svg>
+          <span class="flow-node you">Back in WP Admin</span>
+        </div>
+        <p class="trust"><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg><span>Your content goes only to your own n8n and, through it, to Anthropic. The author receives nothing from your site.</span></p>
+      </div>
+    </section>
+
+    <!-- Free vs Pro teaser -->
+    <section class="sec sec-tint" aria-labelledby="plans-h">
+      <div class="wrap">
+        <p class="kicker">Free and Pro</p>
+        <h2 id="plans-h">The free plugin is the trial</h2>
+        <p class="sec-lead">Review and Key Takeaways work on every post, for every author, with no license. Pro adds the agents and the automation.</p>
+        <div class="plans">
+          <article class="plan plan-free" aria-labelledby="free-h">
+            <h3 id="free-h">Free</h3>
+            <p class="plan-sub">No license needed.</p>
+            <ul>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Review and Key Takeaways on every post</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Dashboard: average, trend and Fix next</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Post Reviews</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Insert into Post</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Updates</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Email support, best effort</li>
+            </ul>
+            <p class="plan-req"><svg aria-hidden="true"><use href="#i-info"/></svg><span>Runs on your own n8n and Anthropic key; you pay Anthropic per review. <a href="#need">What you need</a></span></p>
+            <a class="btn btn-solid" href="mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available"><svg aria-hidden="true"><use href="#i-mail"/></svg>Tell me when it's available</a>
+            <p class="plan-foot">Not installable yet.</p>
+          </article>
+          <article class="plan plan-pro" aria-labelledby="pro-h">
+            <h3 id="pro-h">Pro</h3>
+            <p class="plan-sub">One yearly plan, renews at the same price.</p>
+            <div class="price"><span class="big">49</span><span class="per">USD, EUR or CHF<br>per year, 1 site</span></div>
+            <p class="price-more">99 for 5 sites · 199 for unlimited sites. Same figures in all three currencies.</p>
+            <ul>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Everything in Free</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Rewrite, Sources, SEO and Audit agents</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Per-agent model and instructions</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Automated Reviews on a schedule</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Roles</li>
+              <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Email support within 2 business days</li>
+            </ul>
+            <a class="btn btn-ghost" href="/pricing/">See Pro pricing</a>
+            <p class="plan-foot">Pro goes on sale with the first public release.</p>
+          </article>
+        </div>
+        <div class="assure">
+          <div class="assure-item"><svg aria-hidden="true"><use href="#i-shield"/></svg><div><h3>14-day money-back guarantee</h3><p>On Pro. Freemius handles checkout, invoices, VAT and refunds.</p></div></div>
+          <div class="assure-item"><svg aria-hidden="true"><use href="#i-keep"/></svg><div><h3>Nothing deleted if Pro lapses</h3><p>Your site returns to Free. Reviews, settings, schedules and role rights stay; renewing unlocks Pro again.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="foot">
+      <div class="wrap">
+        <div class="foot-top">
+          <div>
+            <a class="lockup" href="/" aria-label="Post Quality Manager, home"><span class="tile"><svg aria-hidden="true" focusable="false"><use href="#brand"/></svg></span><span class="wordmark">Post Quality Manager</span></a>
+            <p class="foot-tag">Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.</p>
+          </div>
+          <div>
+            <nav class="foot-nav" aria-label="Policies"><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/refund/">Refund</a><a href="/support/">Support</a></nav>
+            <p class="foot-mail"><a href="mailto:hello@postquality.com">hello@postquality.com</a></p>
+          </div>
+        </div>
+        <div class="foot-legal"><span>The website sets no cookies and runs no analytics.</span><span>© 2026 Vincent Heimann · GPL-2.0-or-later</span></div>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- ================= 3. STATE VARIANT: AFTER LAUNCH ================= -->
+<p class="doc-label">2 · State variant: the hero after launch<span>Primary becomes "Install the free plugin", secondary "See Pro pricing". The prerequisite line moves above the buttons, so no install action appears before what you need.</span></p>
+
+<div class="browser">
+  <div class="chrome" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="addr"><svg><use href="#i-lock"/></svg>postquality.com</span></div>
+  <div class="site">
+    <div class="band">
+      <div class="wrap">
+        <header class="hdr">
+          <a class="lockup" href="/" aria-label="Post Quality Manager, home"><span class="tile"><svg aria-hidden="true" focusable="false"><use href="#brand"/></svg></span><span class="wordmark">Post Quality Manager</span></a>
+          <nav class="nav" aria-label="Main (variant)"><a href="/pricing/">Pricing</a><a href="/docs/">Documentation</a><a href="/support/">Support</a></nav>
+        </header>
+        <div class="hero no-shot">
+          <p class="eyebrow">AI content reviews for WordPress</p>
+          <p class="h1"><span class="l">Every post scored.</span> <span class="l">Know what to <span class="hl">fix next</span>.</span></p>
+          <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin: a score for every post, what to fix first and the trend across your blog.</p>
+          <p class="req-line"><svg aria-hidden="true"><use href="#i-info"/></svg><span>You need your own n8n and an Anthropic API key; you pay Anthropic per review. WordPress 6.6+, PHP 8.0+. <a href="#need">What you need</a></span></p>
+          <div class="actions">
+            <a class="btn btn-primary" href="#install"><svg aria-hidden="true"><use href="#i-down"/></svg>Install the free plugin</a>
+            <a class="btn btn-ghost" href="/pricing/">See Pro pricing</a>
+          </div>
+          <p class="micro">The free plugin is the trial. Pro comes with a 14-day money-back guarantee.</p>
+          <ul class="ticks">
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Runs on your own n8n and Anthropic key</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Your content goes nowhere else</li>
+            <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Nothing deleted if Pro lapses</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 4. PHONE MOCK ================= -->
+<p class="doc-label">3 · Phone, 390 px: the hero and the first screen below it<span>Same CSS as the desktop frame (container queries). The dashed line marks the end of the first screen on a 390 × 844 phone.</span></p>
+
+<div class="phone-row">
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="fold" aria-hidden="true"><span>first screen ends · 844 px</span></div>
+      <div class="site">
+        <div class="band">
+          <div class="wrap">
+            <header class="hdr">
+              <a class="lockup" href="/" aria-label="Post Quality Manager, home"><span class="tile"><svg aria-hidden="true" focusable="false"><use href="#brand"/></svg></span><span class="wordmark">Post Quality Manager</span></a>
+              <nav class="nav" aria-label="Main (phone)"><a href="/pricing/">Pricing</a><a href="/docs/">Documentation</a><a href="/support/">Support</a></nav>
+            </header>
+            <div class="hero">
+              <p class="eyebrow">AI content reviews for WordPress</p>
+              <p class="h1"><span class="l">Every post scored.</span> <span class="l">Know what to <span class="hl">fix next</span>.</span></p>
+              <p class="lead">Post Quality Manager reviews your posts with AI and keeps the results in WP Admin: a score for every post, what to fix first and the trend across your blog.</p>
+              <div class="actions">
+                <a class="btn btn-primary" href="mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available"><svg aria-hidden="true"><use href="#i-mail"/></svg>Tell me when it's available</a>
+                <a class="btn btn-ghost" href="#need">Check what you need</a>
+              </div>
+              <p class="micro">Not installable yet. The button opens your email app; you hear once, when you can install it.</p>
+              <ul class="ticks">
+                <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Runs on your own n8n and Anthropic key</li>
+                <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>Your content goes nowhere else</li>
+                <li><svg class="ck" aria-hidden="true"><use href="#i-check"/></svg>The free plugin is the trial</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="float">
+          <div class="wrap">
+            <figure class="shot-fig">
+              <div class="shot">
+                <div class="shot-bar" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="shot-url">yourblog.example/wp-admin/</span></div>
+                <div class="shot-scale">
+                  <div class="wp" role="img" aria-label="The Post Quality Dashboard in WP Admin, cropped: average score 71, the status tiles and the top of the Fix next list.">
+                    <div class="wp-side"></div>
+                    <div class="wp-main">
+                      <span class="wp-h1">Post Quality</span>
+                      <div class="wp-tiles">
+                        <span class="wp-tile"><span class="wp-tl">Average score</span><span class="wp-tv">71</span></span>
+                        <span class="wp-tile"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span><span class="wp-tv">3</span></span>
+                        <span class="wp-tile"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span><span class="wp-tv">9</span></span>
+                        <span class="wp-tile"><span class="wp-badge b-none"><svg><use href="#i-none"/></svg>Not analyzed</span><span class="wp-tv">14</span></span>
+                        <span class="wp-tile"><span class="wp-badge b-ready"><svg><use href="#i-ready"/></svg>Ready to ship</span><span class="wp-tv">22</span></span>
+                      </div>
+                      <div class="wp-cols">
+                        <div class="wp-card wp-fix">
+                          <span class="wp-card-h">Fix next <span class="wp-card-sub">Lowest score first</span></span>
+                          <div class="wp-row"><span class="wp-score">42</span><span class="wp-info"><span class="wp-title">Five backup mistakes I made so you don't have to</span><span class="wp-meta"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span>Last reviewed 3 days ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                          <div class="wp-row"><span class="wp-score">48</span><span class="wp-info"><span class="wp-title">A calm guide to home network VLANs</span><span class="wp-meta"><span class="wp-badge b-major"><svg><use href="#i-major"/></svg>Major revision</span>Last reviewed 5 days ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                          <div class="wp-row"><span class="wp-score">57</span><span class="wp-info"><span class="wp-title">Why my static site builds got slow</span><span class="wp-meta"><span class="wp-badge b-needs"><svg><use href="#i-needs"/></svg>Needs revision</span>Last reviewed 1 week ago</span></span><span class="wp-acts"><span class="wp-btn">Review</span><span class="wp-btn">Open in Editor</span></span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <figcaption class="shot-cap">The Dashboard in WP Admin. Demo posts, fictional.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <section class="sec sec-first" aria-label="What you need (phone)">
+          <div class="wrap">
+            <p class="kicker">Before you install</p>
+            <p class="h2-like" style="font-size:29px;line-height:1.15;font-weight:700;color:#1b2a41;letter-spacing:-.02em;margin:0">What you need</p>
+            <p class="sec-lead">Post Quality runs on your own accounts, so you hold the keys. Check these three first.</p>
+            <div class="need">
+              <div class="need-item"><svg aria-hidden="true"><use href="#i-flow"/></svg><h3>Your own n8n</h3><p>Self-hosted or n8n Cloud. Your site and your n8n must be able to reach each other.</p></div>
+              <div class="need-item"><svg aria-hidden="true"><use href="#i-key"/></svg><h3>An Anthropic API key</h3><p>Checked once by the setup guide, written into an n8n credential, never stored by the plugin.</p></div>
+              <div class="need-item"><svg aria-hidden="true"><use href="#i-bill"/></svg><h3>You pay Anthropic per review</h3><p>On your own key. A quota and a token limit cap the spend. A worked cost example is coming.</p></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <div class="phone-notes">
+    <p class="annot-h">Phone decisions in this direction</p>
+    <ul>
+      <li><strong>Header:</strong> the lockup keeps the full name; the three links wrap to their own row under a hairline. No menu button, no script.</li>
+      <li><strong>Hero:</strong> left-aligned, h1 36 px, both actions full width with the primary first; the ticks stack.</li>
+      <li><strong>Capture:</strong> a second, narrower image of the same Dashboard (tiles and the top of Fix next, no admin menu). The full screen shrunk to phone width would be unreadable.</li>
+      <li><strong>Icon:</strong> the white keyline stays on the band at 32 px.</li>
+      <li><strong>First screen (844 px):</strong> header, hero, both actions, the ticks and the top of the capture, which still floats over the band's edge.</li>
+      <li><strong>What you need</strong> starts right under the capture caption, before any install action.</li>
+    </ul>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

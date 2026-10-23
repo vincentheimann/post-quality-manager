@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logo lockup options</title>
+<!-- The page's own favicon is the brand icon as a data URI (no network request). -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Crect width='20' height='20' fill='%231b2a41'/%3E%3Cg transform='translate(3 3) scale(0.7)'%3E%3Cpath fill='%23ffffff' fill-rule='evenodd' d='M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z'/%3E%3Crect fill='%2300a32a' x='0' y='-1.12' width='4.81' height='2.24' transform='translate(9.47 12.22) rotate(45)'/%3E%3Crect fill='%2300a32a' x='0' y='-1.12' width='7.78' height='2.24' transform='translate(12.87 15.62) rotate(-45)'/%3E%3Ccircle fill='%2300a32a' cx='9.47' cy='12.22' r='1.12'/%3E%3Ccircle fill='%2300a32a' cx='12.87' cy='15.62' r='1.12'/%3E%3Ccircle fill='%2300a32a' cx='18.38' cy='10.12' r='1.12'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+/*
+  Logo lockup options for postquality.com (bmad-ux pass, story 57; icon = story 51).
+  Self-contained: no JS, no network request, system fonts, inline SVG.
+
+  Every hex value on this page:
+    #1b2a41  brand navy: the icon tile; the wordmark colour on light backgrounds
+    #ffffff  brand white: the icon's Q; page surface; the wordmark on dark backgrounds
+    #00a32a  brand green: the icon's check only. Never used as text (3.35:1 on white)
+    #f0f0f1  WP-admin canvas grey (second test background; light footer)
+    #1d2327  WP ink: body text of this page and of the mocks
+    #50575e  WP ink-muted: "Manager" in B and C, the muted footer lockup, captions (7.33:1 on white, 6.43:1 on #f0f0f1)
+    #c3c4c7  WP line: borders of mocks
+    #dcdcde  light line: card borders on this page
+    #2271b1  WP primary blue: links and the illustrative button in mocks, spec guide lines (5.17:1 on white)
+    #135e96  WP primary hover
+    #33496b  "lighter navy band": the recommended surface for the lockup on dark sections (tile vs band 1.59:1, white text 9.11:1)
+    #c3ccd9  muted text on dark: "Manager" on navy/band (8.91:1 on #1b2a41, 5.62:1 on #33496b)
+    #dee1e6  generic light browser tab strip (mock only)
+    #202124  generic dark browser tab strip (mock only; tile vs strip 1.11:1)
+    #35363a  generic dark active tab (mock only)
+    #e8eaed  text on the dark tab strip (mock only)
+    #f6f7f7  WP light background: callouts on this page
+    #00753a  dark green for passing ratios in the contrast table (5.82:1 on white); page chrome only, not a brand colour
+    rgba(34,113,177,.07) / rgba(34,113,177,.55)  #2271b1 at 7 % and 55 %: the clear-space hatch in the spec figure and
+             the og:image safe-margin line. Annotations only, never part of any artwork.
+    Tab-mock text #e8eaed: 10.01:1 on #35363a, 13.36:1 on #202124.
+
+  Wordmark type. Rendered here with system stacks only (no web font):
+    sans  = the WP-admin stack (-apple-system, Segoe UI, Roboto, ...), weight 600 / 400
+    serif = Charter, Sitka Text, Cambria, Georgia (variant E only)
+  The final wordmark must be converted to SVG outlines (paths), so it does not depend on
+  the visitor's fonts and its cap alignment is exact on every OS (system fonts differ:
+  Segoe UI caps 0.70 em, SF 0.705, Roboto 0.711). Open-licence sources (SIL OFL 1.1, which
+  allows outlining a font into a logo): Inter for the sans variants A-D, Source Serif 4 for E.
+  Self-hosting the font as a web font is not needed for the logo once it is outlined.
+*/
+:root {
+  color-scheme: light;
+  --navy: #1b2a41;
+  --white: #ffffff;
+  --green: #00a32a;
+  --canvas: #f0f0f1;
+  --ink: #1d2327;
+  --muted: #50575e;
+  --line: #c3c4c7;
+  --line-soft: #dcdcde;
+  --blue: #2271b1;
+  --blue-hover: #135e96;
+  --band: #33496b;
+  --dark-muted: #c3ccd9;
+  --soft: #f6f7f7;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--white);
+  color: var(--ink);
+  font: 16px/1.55 var(--sans);
+  padding: 0 16px 64px;
+}
+main { max-width: 1120px; margin: 0 auto; }
+a { color: var(--blue); }
+a:hover { color: var(--blue-hover); }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 2px; }
+h1 { font-size: 32px; line-height: 1.2; margin: 40px 0 8px; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 24px; line-height: 1.25; margin: 56px 0 8px; font-weight: 600; padding-top: 24px; border-top: 1px solid var(--line-soft); }
+h3 { font-size: 18px; line-height: 1.3; margin: 0; font-weight: 600; }
+p { margin: 0 0 12px; }
+.lede { font-size: 18px; color: var(--ink); max-width: 760px; }
+.small { font-size: 14px; color: var(--muted); }
+.toc { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 16px 0 0; padding: 0; list-style: none; font-size: 15px; }
+.rules { margin: 20px 0 0; padding: 14px 16px; background: var(--soft); border-left: 4px solid var(--navy); font-size: 15px; max-width: 760px; }
+.rules p:last-child { margin: 0; }
+
+/* ---------- The lockup component. T = tile size; everything else is a multiple of T. ---------- */
+.lk {
+  --T: 32px;
+  --lk-ink: var(--navy);
+  --lk-muted: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--T) * 0.375);          /* gap icon -> text = 0.375 T */
+  color: var(--lk-ink);
+  font-family: var(--sans);
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.lk-ic { width: var(--T); height: var(--T); flex: none; display: block; }
+.lk-w {
+  font-size: calc(var(--T) * 0.63);     /* cap height ~0.44 T = the ring's outer diameter */
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+@supports (text-box: trim-both cap alphabetic) {
+  .lk-w, .lk-c .w1, .lk-c .w2 { text-box: trim-both cap alphabetic; }   /* caps centred on the tile */
+}
+.lk-b .w2, .lk-e .w2 { font-weight: 400; color: var(--lk-muted); }
+.lk-c .lk-w { display: flex; flex-direction: column; gap: calc(var(--T) * 0.17); font-size: inherit; }
+.lk-c .w1 { font-size: calc(var(--T) * 0.46); font-weight: 600; }
+.lk-c .w2 { font-size: calc(var(--T) * 0.31); font-weight: 400; color: var(--lk-muted); }
+.lk-e .lk-w { font-family: var(--serif); font-size: calc(var(--T) * 0.66); letter-spacing: 0; }
+.lk.on-dark { --lk-ink: var(--white); --lk-muted: var(--dark-muted); }
+.lk.muted { --lk-ink: var(--muted); }
+.lk.on-dark.muted { --lk-ink: var(--dark-muted); }
+.keyline .lk-ic, .lk-ic.keyline { outline: 1px solid var(--white); }
+.keyline-2 .lk-ic { outline: 2px solid var(--white); }
+
+/* ---------- Variant cards ---------- */
+.variant { margin: 28px 0 0; border: 1px solid var(--line-soft); }
+.variant-head { display: flex; gap: 16px; align-items: flex-start; padding: 18px 20px 6px; }
+.letter {
+  flex: none; width: 36px; height: 36px; display: grid; place-items: center;
+  font-weight: 700; font-size: 18px; color: var(--white); background: var(--ink);
+}
+.fit { margin: 4px 0 0; color: var(--ink); font-size: 15px; }
+.fit b { font-weight: 600; }
+.hero { padding: 28px 20px 30px; display: flex; flex-wrap: wrap; align-items: center; gap: 28px 48px; }
+.hero .lk { --T: 56px; }
+.hero .lk.lk-c { --T: 72px; }
+.bg3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line-soft); }
+.cell { margin: 0; display: flex; flex-direction: column; min-width: 0; }
+.cell + .cell { border-left: 1px solid var(--line-soft); }
+.stage { flex: 1; min-height: 120px; display: flex; align-items: center; justify-content: center; padding: 24px 12px; }
+.stage.white { background: var(--white); }
+.stage.grey { background: var(--canvas); }
+.stage.navy { background: var(--navy); padding: 14px 0; flex-direction: column; align-items: stretch; justify-content: center; }
+.band { background: var(--band); display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 16px 24px; }
+.stage .lk { --T: 32px; }
+.stage .lk.lk-c { --T: 44px; }
+.stage.navy .band { padding: 16px 12px; }  /* 0.5 T clear space above and below a 32 px tile */
+.cell figcaption { font-size: 13px; line-height: 1.4; color: var(--muted); padding: 8px 12px 10px; border-top: 1px solid var(--line-soft); background: var(--white); }
+.sizes { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px 18px; }
+.sizes figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.sizes .ic128 { width: 128px; height: 128px; display: block; }
+.sizes .ic64 { width: 64px; height: 64px; display: block; }
+.sizes .ic32 { width: 32px; height: 32px; display: block; }
+.sizes .ic20 { width: 20px; height: 20px; display: block; }
+.sizes .ic16 { width: 16px; height: 16px; display: block; }
+.stage .sizes { gap: 10px 14px; justify-content: center; }
+.stage.navy .sizes figure, .band .sizes figure { color: var(--dark-muted); }
+
+/* ---------- Navy problem and fixes ---------- */
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.case { margin: 0; border: 1px solid var(--line-soft); display: flex; flex-direction: column; }
+.case .navy-field { background: var(--navy); padding: 28px 16px; display: flex; flex-direction: column; align-items: center; gap: 24px; flex: 1; }
+.case .navy-field.has-band { padding: 20px 0; }
+.case .navy-field.has-band .band { flex-direction: column; padding: 24px 16px; gap: 24px; align-self: stretch; }
+.case .lk.big { --T: 64px; }
+.case figcaption { padding: 12px 14px 14px; font-size: 14px; line-height: 1.45; }
+.case figcaption b { display: block; font-size: 15px; margin-bottom: 2px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; border: 1px solid currentColor; }
+.tag.rec { color: var(--white); background: var(--navy); border-color: var(--navy); }
+.callout { margin: 20px 0 0; padding: 14px 16px; background: var(--soft); border-left: 4px solid var(--navy); max-width: 860px; }
+.callout p:last-child { margin: 0; }
+
+/* ---------- Specs ---------- */
+.spec-fig { --T: 96px; margin: 24px 0 0; padding: 40px 24px 56px; background: var(--soft); border: 1px solid var(--line-soft); overflow: hidden; }
+.clear-zone {
+  position: relative; display: inline-block; margin-left: 40px;
+  padding: calc(var(--T) * 0.5);
+  outline: 1px dashed var(--blue);
+  background: repeating-linear-gradient(45deg, rgba(34,113,177,.07) 0 6px, transparent 6px 12px);
+}
+.clear-zone .inner { position: relative; background: var(--white); }
+.clear-zone .lk { --T: inherit; }   /* take the figure's T, not the component default */
+.guide { position: absolute; left: 0; right: calc(var(--T) * -0.25); border-top: 1px solid var(--blue); pointer-events: none; }
+.guide.g-top { top: calc(var(--T) * 0.264); }
+.guide.g-bot { top: calc(var(--T) * 0.705); }
+.dim-label { position: absolute; font-size: 12px; line-height: 1.2; color: var(--blue); white-space: nowrap; font-weight: 600; }
+.dim-T { position: absolute; left: -26px; top: 0; height: var(--T); border-left: 1px solid var(--blue); }
+.dim-T::before, .dim-T::after { content: ""; position: absolute; left: -4px; width: 7px; border-top: 1px solid var(--blue); }
+.dim-T::before { top: 0; } .dim-T::after { bottom: 0; }
+.dim-T .dim-label { left: -14px; top: 50%; transform: translateY(-50%); }
+.dim-gap { position: absolute; top: calc(var(--T) * 1.5 + 10px); left: var(--T); width: calc(var(--T) * 0.375); border-top: 1px solid var(--blue); }
+.dim-gap::before, .dim-gap::after { content: ""; position: absolute; top: -4px; height: 7px; border-left: 1px solid var(--blue); }
+.dim-gap::before { left: 0; } .dim-gap::after { right: 0; }
+.dim-gap .dim-label { top: 6px; left: 50%; transform: translateX(-50%); }
+.cap-label { position: absolute; top: calc(var(--T) * 0.264 - 18px); right: calc(var(--T) * -0.25); }
+.clear-label { position: absolute; top: -22px; left: 0; }
+.ring-label { position: absolute; top: calc(var(--T) * 0.705 + 4px); right: calc(var(--T) * -0.25); }
+
+.spec-list { margin: 24px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; max-width: 1000px; }
+.spec-list li { padding: 12px 0; border-bottom: 1px solid var(--line-soft); font-size: 15px; }
+.spec-list b { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+.table-wrap { overflow-x: auto; margin-top: 16px; max-width: 1000px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+th { font-weight: 600; font-size: 13px; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sw { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 6px; border: 1px solid var(--line); }
+.pass { color: #00753a; font-weight: 600; }
+.min-row { display: flex; flex-wrap: wrap; gap: 24px 40px; align-items: flex-end; margin-top: 18px; padding: 20px; border: 1px solid var(--line-soft); }
+.min-row figure { margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--muted); }
+
+/* ---------- Where it appears: mocks ---------- */
+.mock-block { margin: 32px 0 0; }
+.mock-block > p.small { margin-top: 8px; max-width: 860px; }
+.frame { border: 1px solid var(--line); background: var(--white); overflow: hidden; }
+.desk { width: 1040px; }
+.site-head { display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 32px; border-bottom: 1px solid var(--line-soft); background: var(--white); }
+.site-nav { display: flex; align-items: center; gap: 28px; font-size: 15px; }
+.site-nav span { color: var(--ink); }
+.btn { display: inline-block; background: var(--blue); color: var(--white); font-size: 14px; font-weight: 600; padding: 9px 14px; border-radius: 3px; line-height: 1.2; white-space: nowrap; }
+.btn-menu { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--line); color: var(--ink); font-size: 15px; background: var(--white); border-radius: 3px; }
+.btn-menu i { display: block; width: 16px; height: 2px; background: var(--ink); box-shadow: 0 -5px 0 var(--ink), 0 5px 0 var(--ink); }
+.desk-hero { padding: 56px 32px 64px; background: var(--white); }
+.desk-hero .ph-h { font-size: 40px; line-height: 1.15; font-weight: 600; max-width: 720px; margin: 0 0 14px; color: var(--ink); letter-spacing: -0.01em; }
+.desk-hero .ph-p { font-size: 18px; color: var(--muted); max-width: 640px; margin: 0; }
+.phones { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 12px; align-items: flex-start; }
+.phone { width: 100%; max-width: 390px; }
+.phone.w360 { max-width: 360px; }
+.phone .frame { border-radius: 0; }
+.phone-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); min-height: 64px; }
+.phone-head .lk { --T: 28px; }
+.phone-body { padding: 24px 16px 28px; }
+.phone-body .ph-h { font-size: 26px; line-height: 1.2; font-weight: 600; margin: 0 0 10px; }
+.phone-body .ph-p { font-size: 16px; color: var(--muted); margin: 0; }
+.phone-label { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.foot { padding: 28px 32px; display: flex; flex-wrap: wrap; gap: 16px 40px; align-items: center; justify-content: space-between; font-size: 14px; }
+.foot .lk { --T: 20px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.foot-light { background: var(--canvas); color: var(--muted); border-top: 1px solid var(--line-soft); }
+.foot-light .foot-links span { color: var(--blue); text-decoration: underline; }
+.foot-dark { background: var(--band); color: var(--dark-muted); }
+.foot-dark .foot-links span { color: var(--white); text-decoration: underline; }
+.foot-note { flex-basis: 100%; font-size: 13px; }
+.e404 { display: grid; grid-template-columns: minmax(0, 1fr); }
+.e404-head { display: flex; align-items: center; height: 64px; padding: 0 24px; border-bottom: 1px solid var(--line-soft); }
+.e404-body { padding: 48px 24px 56px; text-align: center; }
+.e404-body .ic64 { width: 64px; height: 64px; display: block; margin: 0 auto 24px; }
+.e404-body .ph-h { font-size: 28px; font-weight: 600; margin: 0 0 8px; }
+.e404-body .ph-p { color: var(--muted); margin: 0 0 16px; }
+.e404-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 20px; }
+.e404-links span { color: var(--blue); text-decoration: underline; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 12px; }
+
+/* browser tab mock (generic chrome, no browser logo) */
+.tabs { display: grid; gap: 12px; margin-top: 12px; max-width: 760px; }
+.strip { display: flex; align-items: flex-end; height: 44px; padding: 0 8px; overflow: hidden; min-width: 0; }
+.strip.light { background: #dee1e6; }
+.strip.dark { background: #202124; }
+.tab { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; flex: 0 1 240px; min-width: 0; border-radius: 8px 8px 0 0; font-size: 12px; }
+.strip.light .tab { background: var(--white); color: var(--ink); }
+.strip.dark .tab { background: #35363a; color: #e8eaed; }
+.tab .fav { width: 16px; height: 16px; flex: none; display: block; }
+.tab .t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .x { flex: none; font-size: 14px; opacity: .8; }
+.tab.inactive { background: transparent !important; }
+.strip.light .tab.inactive { color: var(--ink); }
+.strip.dark .tab.inactive { color: #e8eaed; }
+.px-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 16px; max-width: 760px; border: 1px solid var(--line-soft); }
+.px-cell { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 20px 8px; }
+.px-cell figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; }
+.px-cell.white { background: var(--white); color: var(--muted); }
+.px-cell.grey { background: var(--canvas); color: var(--muted); }
+.px-cell.dark { background: #202124; color: #e8eaed; }
+.px-cell .ic16 { width: 16px; height: 16px; display: block; }
+.px-cell .ic20 { width: 20px; height: 20px; display: block; }
+.px-cell .ic32 { width: 32px; height: 32px; display: block; }
+
+/* og:image at its true 1200 x 630 size, scaled with zoom for display */
+.og-row { display: grid; grid-template-columns: repeat(2, min-content); gap: 24px; margin-top: 12px; }
+.og-row figure { margin: 0; }
+.og-row figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.og { width: 1200px; height: 630px; zoom: 0.45; position: relative; overflow: hidden; border: 2px solid var(--line); font-family: var(--sans); }
+.og .lk { --T: 96px; }
+.og-light { background: var(--white); padding: 88px 96px; }
+.og-light .og-tag { font-size: 40px; line-height: 1.32; color: var(--ink); margin: 64px 0 0; max-width: 980px; }
+.og-light .og-url { position: absolute; left: 96px; bottom: 72px; font-size: 28px; color: var(--muted); }
+.og-light .og-rule { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; background: var(--navy); }
+.og-dark { background: var(--navy); }
+.og-dark .og-band { background: var(--band); padding: 56px 96px; }
+.og-dark .og-tag { font-size: 40px; line-height: 1.32; color: var(--white); margin: 64px 96px 0; max-width: 980px; }
+.og-dark .og-url { position: absolute; left: 96px; bottom: 72px; font-size: 28px; color: var(--dark-muted); }
+.safe { position: absolute; inset: 60px; outline: 2px dashed rgba(34,113,177,.55); pointer-events: none; }
+
+.picks { margin: 16px 0 0; padding-left: 22px; max-width: 860px; }
+.picks li { margin: 0 0 8px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1140px) {
+  .og-row { grid-template-columns: min-content; }
+  .og { zoom: 0.7; }
+}
+@media (max-width: 1080px) { .desk { zoom: 0.85; } }
+@media (max-width: 960px) {
+  .desk { zoom: 0.66; }
+  .og { zoom: 0.55; }
+  .trio { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .bg3 { grid-template-columns: minmax(0, 1fr); }
+  .cell + .cell { border-left: 0; border-top: 1px solid var(--line-soft); }
+  .spec-list { grid-template-columns: minmax(0, 1fr); }
+  .two { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) { .desk { zoom: 0.5; } .og { zoom: 0.45; } }
+@media (max-width: 600px) {
+  h1 { font-size: 26px; margin-top: 28px; }
+  h2 { font-size: 21px; margin-top: 44px; }
+  .lede { font-size: 16px; }
+  .desk { zoom: 0.34; }
+  .og { zoom: 0.29; }
+  .hero { padding: 20px 16px 24px; gap: 20px 32px; }
+  .hero .lk { --T: 36px; }
+  .hero .lk.lk-c { --T: 52px; }
+  .variant-head { padding: 16px 16px 4px; }
+  .spec-fig { --T: 32px; padding: 36px 12px 48px; }
+  .clear-zone { margin-left: 26px; }
+  .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
+  .table-wrap thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .table-wrap tr { border-bottom: 1px solid var(--line-soft); padding: 10px 0; }
+  .table-wrap td { border: 0; padding: 2px 0; display: flex; align-items: center; gap: 0; }
+  .table-wrap td::before { content: attr(data-label); color: var(--muted); font-size: 13px; margin-right: auto; padding-right: 12px; }
+  .cap-label { top: calc(var(--T) * 1.5 + 16px); }
+  .table-wrap td:first-child { font-weight: 600; }
+  .table-wrap td:first-child::before { content: none; }
+  .table-wrap td.na { display: none; }
+  .px-grid { grid-template-columns: minmax(0, 1fr); }
+  .foot { padding: 24px 16px; }
+  .sizes .ic128 { width: 96px; height: 96px; }
+}
+@media (max-width: 380px) { .desk { zoom: 0.31; } .og { zoom: 0.26; } }
+</style>
+</head>
+<body>
+
+<!-- The brand icon (story 51), inlined once as a symbol and reused with <use>; markup unchanged from assets/icon.svg. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="brand-icon" viewBox="0 0 20 20"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></symbol>
+</svg>
+
+<main>
+<h1>Logo lockup options</h1>
+<p class="lede">Six ways to set the Post Quality Manager icon beside its name, for postquality.com and the files around it. These are options to react to: nothing here is decided, and the picks go into <code>docs/brand.md</code> once you have made them.</p>
+<div class="rules">
+  <p><b>Fixed, not up for choice:</b> the icon from story 51. Square navy tile, white Q, green check rising to the right. It is never mirrored, stretched, recoloured or given rounded corners, and it never gets a third colour. Every option below uses the same icon artwork without changes.</p>
+</div>
+<ul class="toc">
+  <li><a href="#variants">1. Variants A–F</a></li>
+  <li><a href="#navy">2. The icon on navy</a></li>
+  <li><a href="#specs">3. Specs</a></li>
+  <li><a href="#where">4. Where it appears</a></li>
+  <li><a href="#picks">5. Your picks</a></li>
+</ul>
+
+<!-- =================================================================== -->
+<h2 id="variants">1. Variants</h2>
+<p class="small">The large preview uses a 56 px tile (36 px on a phone). The three cells below each preview use the header size, a 32 px tile, on white, on the WP-admin grey and on navy. On navy the lockup sits on the lighter band that section 2 recommends.</p>
+
+<!-- A -->
+<article class="variant" id="var-a">
+  <div class="variant-head"><span class="letter" aria-hidden="true">A</span><div>
+    <h3>Full name, one line</h3>
+    <p class="fit"><b>When it fits:</b> anywhere the lockup is the first mention of the product: the site header, the social sharing card, the checkout header.</p>
+  </div></div>
+  <div class="hero"><span class="lk lk-a"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span></div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><span class="lk lk-a"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span></div><figcaption>White #ffffff · name #1b2a41</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><span class="lk lk-a"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span></div><figcaption>WP grey #f0f0f1 · name #1b2a41</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><span class="lk lk-a on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span></div></div><figcaption>Navy #1b2a41, lockup on band #33496b · name #ffffff</figcaption></figure>
+  </div>
+</article>
+
+<!-- B -->
+<article class="variant" id="var-b">
+  <div class="variant-head"><span class="letter" aria-hidden="true">B</span><div>
+    <h3>Full name, short form stressed</h3>
+    <p class="fit"><b>When it fits:</b> the same places as A, when you want "Post Quality", which is also the domain, to be the part people remember. "Manager" stays readable, so the logo still counts as the full name.</p>
+  </div></div>
+  <div class="hero"><span class="lk lk-b"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><span class="lk lk-b"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div><figcaption>White · 600 #1b2a41 + 400 #50575e</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><span class="lk lk-b"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div><figcaption>WP grey · 600 #1b2a41 + 400 #50575e</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><span class="lk lk-b on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div></div><figcaption>Navy + band · 600 #ffffff + 400 #c3ccd9</figcaption></figure>
+  </div>
+</article>
+
+<!-- C -->
+<article class="variant" id="var-c">
+  <div class="variant-head"><span class="letter" aria-hidden="true">C</span><div>
+    <h3>Stacked</h3>
+    <p class="fit"><b>When it fits:</b> square or narrow spots where one line is too wide: the 404 page, a sidebar block, the middle of a card cropped to a square. It needs a 40 px tile or larger, because "Manager" would otherwise drop below 12 px.</p>
+  </div></div>
+  <div class="hero"><span class="lk lk-c"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span><span class="w2">Manager</span></span></span></div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><span class="lk lk-c"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span><span class="w2">Manager</span></span></span></div><figcaption>White · 44 px tile (C's minimum is 40 px)</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><span class="lk lk-c"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span><span class="w2">Manager</span></span></span></div><figcaption>WP grey · 44 px tile</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><span class="lk lk-c on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span><span class="w2">Manager</span></span></span></div></div><figcaption>Navy + band · #ffffff over #c3ccd9</figcaption></figure>
+  </div>
+</article>
+
+<!-- D -->
+<article class="variant" id="var-d">
+  <div class="variant-head"><span class="letter" aria-hidden="true">D</span><div>
+    <h3>Short form</h3>
+    <p class="fit"><b>When it fits:</b> only where the full name is already on the page nearby: the footer, a phone header that also carries a button, a second appearance further down a page. It is never the first mention.</p>
+  </div></div>
+  <div class="hero"><span class="lk lk-d"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span></div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><span class="lk lk-d"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span></div><figcaption>White · name #1b2a41</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><span class="lk lk-d"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span></div><figcaption>WP grey · name #1b2a41</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><span class="lk lk-d on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span></div></div><figcaption>Navy + band · name #ffffff</figcaption></figure>
+  </div>
+</article>
+
+<!-- E -->
+<article class="variant" id="var-e">
+  <div class="variant-head"><span class="letter" aria-hidden="true">E</span><div>
+    <h3>Serif wordmark (B, set in a serif)</h3>
+    <p class="fit"><b>When it fits:</b> only if the site takes an editorial direction with serif headings. Beside a sans-serif site and the sans-serif plugin screens it would read as a second brand.</p>
+  </div></div>
+  <div class="hero"><span class="lk lk-e"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><span class="lk lk-e"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div><figcaption>White · serif 600 #1b2a41 + 400 #50575e</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><span class="lk lk-e"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div><figcaption>WP grey · serif</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><span class="lk lk-e on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div></div><figcaption>Navy + band · serif #ffffff + #c3ccd9</figcaption></figure>
+  </div>
+</article>
+
+<!-- F -->
+<article class="variant" id="var-f">
+  <div class="variant-head"><span class="letter" aria-hidden="true">F</span><div>
+    <h3>Icon alone</h3>
+    <p class="fit"><b>When it fits:</b> the favicon, social avatars, the plugin icon files (128, 256 and 512 px), the Freemius product image, and any spot too small for a wordmark (tile under 20 px, or too narrow for the name).</p>
+  </div></div>
+  <div class="hero">
+    <div class="sizes">
+      <figure><svg class="ic128" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 128 px"><use href="#brand-icon"/></svg>128 (512, 256 files)</figure>
+      <figure><svg class="ic64" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 64 px"><use href="#brand-icon"/></svg>64</figure>
+      <figure><svg class="ic32" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 32 px"><use href="#brand-icon"/></svg>32</figure>
+      <figure><svg class="ic20" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 20 px"><use href="#brand-icon"/></svg>20</figure>
+      <figure><svg class="ic16" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 16 px"><use href="#brand-icon"/></svg>16</figure>
+    </div>
+  </div>
+  <div class="bg3">
+    <figure class="cell"><div class="stage white"><div class="sizes"><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure></div></div><figcaption>White · tile 14.4:1 against the page</figcaption></figure>
+    <figure class="cell"><div class="stage grey"><div class="sizes"><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure></div></div><figcaption>WP grey · tile 12.7:1</figcaption></figure>
+    <figure class="cell"><div class="stage navy"><div class="band"><div class="sizes"><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure></div></div></div><figcaption>Navy + band · tile 1.59:1 against the band</figcaption></figure>
+  </div>
+</article>
+
+<!-- =================================================================== -->
+<h2 id="navy">2. The icon on navy</h2>
+<p class="small">The tile is navy #1b2a41. Put it on a #1b2a41 surface and the square disappears. The fixes below leave the icon's colours alone.</p>
+<div class="trio">
+  <figure class="case">
+    <div class="navy-field">
+      <span class="lk lk-b on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>
+      <span class="lk lk-d on-dark big"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+    </div>
+    <figcaption><b>The problem: tile on #1b2a41 <span class="tag">avoid</span></b>The square merges into the background (1.00:1). The Q and the check float without their frame, and the tile's empty margin reads as a stray gap before the name.</figcaption>
+  </figure>
+  <figure class="case">
+    <div class="navy-field keyline">
+      <span class="lk lk-b on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>
+      <span class="lk lk-d on-dark big keyline-2"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+    </div>
+    <figcaption><b>S1: white keyline, 1 px (2 px from a 64 px tile)</b>The keyline sits outside the tile, so the tile keeps its size. It works on any dark surface. At 32 px and below, though, the keyline is as heavy as the Q's own stroke (about 1.3 px at 16 px), and the icon starts to look like a framed badge.</figcaption>
+  </figure>
+  <figure class="case">
+    <div class="navy-field has-band">
+      <div class="band">
+        <span class="lk lk-b on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>
+        <span class="lk lk-d on-dark big"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+      </div>
+    </div>
+    <figcaption><b>S2: lighter navy band #33496b <span class="tag rec">recommended</span></b>On dark sections, the lockup sits on a band one step lighter than the tile (1.59:1). The tile reads as a deeper square inset into the band, and white text on the band stays at 9.1:1.</figcaption>
+  </figure>
+</div>
+<div class="callout">
+  <p><b>Recommendation: S2, the lighter navy band.</b> The icon artwork stays identical everywhere: site, favicon, plugin files, Freemius. No keyline has to be redrawn for each size, and the square still holds at 16 to 20 px, where a 1 px keyline weighs as much as the Q itself. The cost is one extra site colour, #33496b, used only behind the lockup on dark sections. The rule: <i>the tile never sits directly on #1b2a41</i>. Keep S1 as the fallback for a dark surface you cannot recolour, and use it only from a 48 px tile upward.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="specs">3. Specs</h2>
+<p class="small">T is the tile's side, and every measurement is a multiple of it. The figure shows A with a 96 px tile (32 px on a phone).</p>
+<div class="spec-fig" aria-label="Lockup A with its proportions marked">
+  <div class="clear-zone">
+    <span class="dim-label clear-label">clear space 0.5 T on every side</span>
+    <div class="inner">
+      <span class="dim-T"><span class="dim-label">T</span></span>
+      <span class="lk lk-a"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span>
+      <span class="guide g-top"></span><span class="guide g-bot"></span>
+      <span class="dim-label cap-label">cap height = ring Ø = 0.44 T</span>
+      <span class="dim-gap"><span class="dim-label">0.375 T</span></span>
+    </div>
+  </div>
+</div>
+
+<ul class="spec-list">
+  <li><b>Proportion</b>Wordmark size 0.63 T (sans) or 0.66 T (serif), which puts its cap height at about 0.44 T, the outer diameter of the Q's ring. The caps line up with the top and bottom of the ring and are centred on the tile. Weights: A and D 600; B and E 600 + 400.</li>
+  <li><b>Gap icon → text</b>0.375 T: 12 px at a 32 px tile, 10.5 px at 28, 7.5 px at 20 (round to whole pixels). C keeps the same gap, sets the name at 0.46 T and "Manager" at 0.31 T, with 0.17 T between the lines.</li>
+  <li><b>Clear space</b>0.5 T on all four sides of the lockup's outer box: no text, edge or other mark inside it. In practice, a 32 px tile in a header 64 px tall (2 T) fills the bar exactly. The icon alone (F) keeps 0.25 T where a platform does not add its own padding.</li>
+  <li><b>Sizes in use</b>Header 32 px (desktop), 28 px (phone). Footer 20 px. 404 page icon 64 px. Sharing card 96 px. Favicon 16 and 32 px (icon.svg). Plugin and Freemius files 128, 256 and 512 px.</li>
+  <li><b>Minimum sizes</b>One-line wordmarks (A, B, D, E): 20 px tile, which puts the text at 12.6 px. Stacked C: 40 px tile. Below a 20 px tile, or where the lockup does not fit the width (A needs about 240 px at a 32 px tile), the wordmark drops and only F remains, down to 16 px.</li>
+  <li><b>Final artwork</b>Convert the wordmark to SVG outlines, so it no longer depends on the visitor's fonts and the cap alignment holds on every system. Source typefaces under the open SIL OFL 1.1 licence: <i>Inter</i> for A to D, <i>Source Serif 4</i> for E. The live text on this page uses system fonts only.</li>
+</ul>
+
+<h3 style="margin-top:32px">Colours and contrast</h3>
+<div class="table-wrap">
+<table>
+  <thead><tr><th scope="col">Element</th><th scope="col">Colour</th><th scope="col">on White #ffffff</th><th scope="col">on WP grey #f0f0f1</th><th scope="col">on Navy #1b2a41</th><th scope="col">on Band #33496b</th></tr></thead>
+  <tbody>
+    <tr><td>Name (light backgrounds)</td><td data-label="Colour"><span class="sw" style="background:#1b2a41"></span>#1b2a41</td><td class="num" data-label="on White"><span class="pass">14.44:1</span></td><td class="num" data-label="on WP grey"><span class="pass">12.68:1</span></td><td class="num na">—</td><td class="num na">—</td></tr>
+    <tr><td>"Manager" in B, C, E; muted footer lockup</td><td data-label="Colour"><span class="sw" style="background:#50575e"></span>#50575e</td><td class="num" data-label="on White"><span class="pass">7.33:1</span></td><td class="num" data-label="on WP grey"><span class="pass">6.43:1</span></td><td class="num na">—</td><td class="num na">—</td></tr>
+    <tr><td>Name (dark backgrounds)</td><td data-label="Colour"><span class="sw" style="background:#ffffff"></span>#ffffff</td><td class="num na">—</td><td class="num na">—</td><td class="num" data-label="on Navy"><span class="pass">14.44:1</span></td><td class="num" data-label="on Band"><span class="pass">9.11:1</span></td></tr>
+    <tr><td>"Manager" on dark; dark footer text</td><td data-label="Colour"><span class="sw" style="background:#c3ccd9"></span>#c3ccd9</td><td class="num na">—</td><td class="num na">—</td><td class="num" data-label="on Navy"><span class="pass">8.91:1</span></td><td class="num" data-label="on Band"><span class="pass">5.62:1</span></td></tr>
+    <tr><td>Tile edge (non-text, logo)</td><td data-label="Colour"><span class="sw" style="background:#1b2a41"></span>#1b2a41</td><td class="num" data-label="on White">14.44:1</td><td class="num" data-label="on WP grey">12.68:1</td><td class="num" data-label="on Navy">1.00:1, merges</td><td class="num" data-label="on Band">1.59:1, visible</td></tr>
+    <tr><td>Check green, never as text</td><td data-label="Colour"><span class="sw" style="background:#00a32a"></span>#00a32a</td><td class="num" data-label="on White">3.35:1</td><td class="num na">—</td><td class="num na">—</td><td class="num na">—</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small" style="margin-top:10px">Every text pairing passes WCAG AA for normal text (4.5:1). Logos are exempt from the non-text contrast rule; the tile ratios are listed to show where the square stays visible. The green stays inside the icon only.</p>
+
+<h3 style="margin-top:32px">Where the wordmark drops</h3>
+<div class="min-row">
+  <figure><span class="lk lk-b" style="--T:32px"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>32 px tile: header</figure>
+  <figure><span class="lk lk-b" style="--T:24px"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>24 px</figure>
+  <figure><span class="lk lk-b" style="--T:20px"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>20 px: smallest with a wordmark</figure>
+  <figure><svg class="lk-ic" style="width:16px;height:16px" viewBox="0 0 20 20" role="img" aria-label="Post Quality Manager icon, 16 px"><use href="#brand-icon"/></svg>16 px: icon only (F)</figure>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="where">4. Where it appears</h2>
+<p class="small">Small mocks of the real placements. They use B for the full name and D for the short form; A or E would sit in the same spots. Page copy is placeholder text in the brand voice. The page layout is a separate choice in this pass.</p>
+
+<div class="mock-block">
+  <h3>Site header, desktop (32 px tile)</h3>
+  <div class="frame" style="width:max-content;max-width:100%">
+    <div class="desk">
+      <div class="site-head">
+        <span class="lk lk-b"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>
+        <div class="site-nav"><span>Pricing</span><span>Documentation</span><span>Support policy</span><span class="btn">Get notified at launch</span></div>
+      </div>
+      <div class="desk-hero">
+        <p class="ph-h">Score every post, see what to fix next and keep your back-catalog sharp.</p>
+        <p class="ph-p">AI content reviews, stored and tracked in WP Admin.</p>
+      </div>
+    </div>
+  </div>
+  <p class="small">The bar is 64 px tall, which is 2 T: the 32 px tile plus 16 px of clear space above and below. The lockup links to <code>/</code>. Its text is real text in the link, or the outlined SVG with <code>aria-label="Post Quality Manager"</code>, so the header is the first mention of the full name. The button is only there to show spacing; the actions are chosen elsewhere in this pass.</p>
+</div>
+
+<div class="mock-block">
+  <h3>Site header, phone</h3>
+  <div class="phones">
+    <div class="phone">
+      <div class="frame">
+        <div class="phone-head">
+          <span class="lk lk-b"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span>
+          <span class="btn-menu"><i></i>Menu</span>
+        </div>
+        <div class="phone-body"><p class="ph-h">Score every post, see what to fix next and keep your back-catalog sharp.</p><p class="ph-p">AI content reviews, stored and tracked in WP Admin.</p></div>
+      </div>
+      <p class="phone-label">390 px: B at a 28 px tile and a Menu button. Fits down to 360 px.</p>
+    </div>
+    <div class="phone w360">
+      <div class="frame">
+        <div class="phone-head">
+          <span class="lk lk-d"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+          <span style="display:flex;gap:8px;align-items:center"><span class="btn">Get notified</span><span class="btn-menu" aria-label="Menu"><i></i></span></span>
+        </div>
+        <div class="phone-body"><p class="ph-h">Post Quality Manager reviews your posts with AI.</p><p class="ph-p">A score for every post, what to fix first, and the trend across your blog.</p></div>
+      </div>
+      <p class="phone-label">360 px with a header button: shortens to D, and the full name moves into the first heading.</p>
+    </div>
+  </div>
+  <p class="small"><b>Does it shorten at 390 px?</b> No. B (or A) with a 28 px tile is about 210 px wide, so with 16 px gutters it fits beside a 44 px tall Menu button down to 360 px (about 340 px used). It shortens to D only if the header must also carry a button. It never drops to F in the header: on this site, the name is what the visitor needs to learn.</p>
+</div>
+
+<div class="mock-block">
+  <h3>Footer (20 px tile, muted)</h3>
+  <div class="two">
+    <div>
+      <div class="frame">
+        <div class="foot foot-light">
+          <span class="lk lk-d muted"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+          <div class="foot-links"><span>Privacy</span><span>Terms</span><span>Refund</span><span>Support</span></div>
+          <div class="foot-note">hello@postquality.com · This website sets no cookies and runs no analytics.</div>
+        </div>
+      </div>
+      <p class="phone-label">Light footer on #f0f0f1: D with its text in #50575e (6.4:1); the icon keeps its colours.</p>
+    </div>
+    <div>
+      <div class="frame">
+        <div class="foot foot-dark">
+          <span class="lk lk-d on-dark muted"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality</span></span>
+          <div class="foot-links"><span>Privacy</span><span>Terms</span><span>Refund</span><span>Support</span></div>
+          <div class="foot-note">hello@postquality.com · This website sets no cookies and runs no analytics.</div>
+        </div>
+      </div>
+      <p class="phone-label">If the footer goes dark, the footer itself is the band (#33496b), never #1b2a41. Text #c3ccd9 (5.6:1).</p>
+    </div>
+  </div>
+</div>
+
+<div class="mock-block">
+  <h3>404 page</h3>
+  <div class="frame" style="max-width:760px">
+    <div class="e404">
+      <div class="e404-head"><span class="lk lk-b" style="--T:28px"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w"><span class="w1">Post Quality</span> <span class="w2">Manager</span></span></span></div>
+      <div class="e404-body">
+        <svg class="ic64" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg>
+        <p class="ph-h">Page not found</p>
+        <p class="ph-p">There is no page at this address. These links lead back:</p>
+        <div class="e404-links"><span>Home</span><span>Pricing</span><span>Documentation</span></div>
+      </div>
+    </div>
+  </div>
+  <p class="small">The usual header stays. A 64 px icon (F) stands in for an illustration, so the 404 needs no new artwork. C, the stacked lockup, also fits in place of the icon if you would rather show the name there too.</p>
+</div>
+
+<div class="mock-block">
+  <h3>Browser tab (favicon 16 and 32 px)</h3>
+  <div class="tabs">
+    <div class="strip light"><div class="tab"><svg class="fav" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="t">Post Quality Manager</span><span class="x" aria-hidden="true">×</span></div><div class="tab inactive"><span class="t">New tab</span></div></div>
+    <div class="strip dark"><div class="tab"><svg class="fav" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="t">Post Quality Manager</span><span class="x" aria-hidden="true">×</span></div><div class="tab inactive"><span class="t">New tab</span></div></div>
+  </div>
+  <div class="px-grid">
+    <div class="px-cell white"><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure></div>
+    <div class="px-cell grey"><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure></div>
+    <div class="px-cell dark"><figure><svg class="ic16" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>16</figure><figure><svg class="ic20" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>20</figure><figure><svg class="ic32" viewBox="0 0 20 20" aria-hidden="true"><use href="#brand-icon"/></svg>32</figure></div>
+  </div>
+  <p class="small">The favicon is <code>icon.svg</code> with <code>icon-128x128.png</code> as fallback (story 85), so the browser draws it at 16 px (32 device pixels on a high-density screen). On a dark tab strip the tile edge fades (1.11:1 on #202124), but the white Q and green check stay clear. The favicon file cannot carry the band, and adding a keyline would change the artwork, so that edge is accepted. Checked at 12× enlargement: the tile edges stay sharp at 16, 20 and 32 px. At 16 px on a standard-density screen the Q's ring (about 1.3 px wide) is soft but still reads as a Q with a check; at 20 px and up, and at any size on a high-density screen, it is clean. A pixel-fitted 16 px PNG would sharpen the low-density case, but it is optional and would be a new file, not a change to the icon.</p>
+</div>
+
+<div class="mock-block">
+  <h3>Social sharing card, og:image 1200 × 630</h3>
+  <div class="og-row">
+    <figure>
+      <div class="og og-light" role="img" aria-label="Sharing card, light: lockup A, the tagline and postquality.com">
+        <span class="lk lk-a"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span>
+        <p class="og-tag">Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.</p>
+        <span class="og-url">postquality.com</span>
+        <span class="og-rule"></span>
+        <span class="safe"></span>
+      </div>
+      <figcaption><b>Light (suggested default).</b> A with a 96 px tile, the tagline verbatim at 40 px, the domain, and a 16 px navy rule along the bottom edge. The dashed line marks a 60 px safe margin; it is not part of the image.</figcaption>
+    </figure>
+    <figure>
+      <div class="og og-dark" role="img" aria-label="Sharing card, dark: lockup A on the lighter band, the tagline and postquality.com">
+        <div class="og-band"><span class="lk lk-a on-dark"><svg class="lk-ic" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><use href="#brand-icon"/></svg><span class="lk-w">Post Quality Manager</span></span></div>
+        <p class="og-tag">Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.</p>
+        <span class="og-url">postquality.com</span>
+      </div>
+      <figcaption><b>Dark.</b> A navy card with the lockup on the #33496b band (solution S2), the tagline in white and the domain in #c3ccd9. Use it if the site itself goes dark.</figcaption>
+    </figure>
+  </div>
+  <p class="small">The card has no screenshot and no third-party mark. Build it once as a static PNG (GitHub Pages does no image processing) and point every page's <code>og:image</code> at it. Once the real plugin captures exist, a second version could show the Dashboard on the right.</p>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="picks">5. Your picks</h2>
+<ol class="picks">
+  <li><b>Wordmark:</b> A (plain full name) or B (short form stressed). E only if the site goes serif.</li>
+  <li><b>Phone header:</b> keep the full name down to 360 px, or switch to D whenever a button joins the header.</li>
+  <li><b>Is C needed?</b> Only if a square spot comes up (the 404 page, a sidebar). Otherwise drop it and keep four variants.</li>
+  <li><b>Icon on navy:</b> S2, the band #33496b (recommended), or S1, the keyline.</li>
+  <li><b>Sharing card:</b> light or dark.</li>
+  <li><b>Outline source:</b> Inter for the sans wordmark (Source Serif 4 if E). The chosen lockup then goes into <code>docs/brand.md</code> as SVG files plus the specs from section 3.</li>
+</ol>
+</main>
+</body>
+</html>

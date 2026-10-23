@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UX Design Validation: postquality.com (Post Quality Manager website)</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: #f5f5f4; border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; }
+  .counts { color: var(--muted); font-size: 13px; margin: -12px 0 24px; }
+  .sev-group { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 14px 0 0; padding: 0 20px; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <header class="report-header">
+      <div class="title">
+        <h1>postquality.com (Post Quality Manager website) — UX Design Validation Report</h1>
+        <div class="subtitle">post-quality-manager/_bmad-output/initiative-post-quality-manager/ux-postquality-website/DESIGN.md · EXPERIENCE.md</div>
+      </div>
+    </header>
+    <div class="synthesis">
+      <p>A strong contract for the home page. Every colour token has a hex value and a contrast ratio, and the rubric walker recomputed all of them. Every <code>{path}</code> reference resolves. All four journeys and story 57's eleven audit questions map to flows and components. Five of the six <code>[NOTE FOR UX]</code> markers are genuinely settled by the planned mocks.</p>
+      <p>It is not yet a complete build contract for the other pages. The "standard page layout" that the policy pages, <code>/support/</code> and 404 rely on is defined nowhere, and no mock will draw it. <code>/pricing/</code>'s Free vs Pro comparison has no spec in either spine. Fix those two, decide the Version line and define the mixed launch states before the site build story starts.</p>
+      <p>The two extra lenses shift the picture from "nearly buildable" to "not shippable as written". The honesty and conversion review found four critical strings that are false today or hide a cost: "VAT included", "a quota and a token limit cap the spend", "n8n Cloud or self-hosted, either works", and cost lines that never mention n8n's own bill. All four sit where Lena decides at A2 and where Tom reaches checkout. Renewal, cancellation and the Pro upgrade path are also missing. The accessibility review found no critical issue and a sound palette, but four high gaps that would fail WCAG 2.2 AA if built as drawn: inline links told apart by colour alone, a header that cannot reflow at 320 px or fit between 760 and about 965 px, a currency-switch mechanism whose usual recipe drops keyboard access, and a Menu panel that can hide the focused element. No reviewer questions the chosen direction. Every finding resolves as a spine line, a CSS rule, an owner decision or a build check.</p>
+      <p>Since the reviews ran, the live site's cost FAQ, which carried the same false spend-cap claim, has been fixed in postquality.com draft PR #2. "VAT included" was the facilitator's drafting error in the journeys draft and never appeared on the live site (memlog, Reviewer Gate entry). The three reviews hold 84 findings: 4 critical, 12 high, 27 medium and 41 low. After deduplication, <code>triage.md</code> classifies 70 of them.</p>
+    </div>
+    <p class="counts">Findings across the three reviews: 4 critical · 12 high · 27 medium · 41 low (84 in all; 70 after deduplication in <code>triage.md</code>).</p>
+    <div class="dimension-summary">
+      <div class="dim-card">
+        <div class="dim-name">Flow coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Token completeness</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Component coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">State coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Visual reference coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Bloat &amp; overspecification</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Inheritance discipline</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Shape fit</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+    </div>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Flow coverage</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>All four journeys are Key Flows with a named protagonist, numbered steps and a bold climax. Flows 1–3 have failure paths (no email app plus an honest exit; no listing yet; Pro not on sale, with USD back on reload). "Story 57 questions answered" maps every audit question and OQ5–8 to a section.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Getting started promises "one screenshot per step", but § Screenshots gives it only screenshot 3</h3>
+              <span class="finding-location">rubric M1 · EXPERIENCE § Page map, § State Patterns, § Key Flows Flow 2, § Screenshots</span>
+            </header>
+            <div class="finding-note">The promise appears in three places, but § Screenshots fixes four screenshots (owner decision, Q8; memlog 27). The capture session on the Local sandbox and the <code>/docs/</code> build will disagree on how many images exist.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Say Getting started shows screenshot 3 once and drop "per step", or add per-step captures (3a–3c) with the owner's agreement, since the four-screenshot list is an owner decision.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Flow 4 has no failure path; <code>/support/</code> after launch ignores the forum rule</h3>
+              <span class="finding-location">rubric L1 · EXPERIENCE § Page map <code>/support/</code> row; § Key Flows Flow 4</span>
+            </header>
+            <div class="finding-note">The support policy sends free-plugin questions to the WordPress.org forum once the plugin is listed, yet the page map gives <code>/support/</code> the same email action after launch.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "Failure: no email app, so Tom copies the address from the footer." Make the after-launch cell "Email for Pro; the forum for Free once listed (policy text)".</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><code>Tested up to</code> is neither placed nor dropped</h3>
+              <span class="finding-location">rubric L2 · EXPERIENCE § Component Patterns: What you need block, Version line</span>
+            </header>
+            <div class="finding-note">Story 57's front-page list asks for a compatibility line with <code>Tested up to</code>. The spines show WordPress 6.6+ and PHP 8.0+ but never decide on <code>Tested up to</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add it to the after-launch Version line ("Version X, updated &lt;date&gt;, tested up to WordPress 7.1"), or record that it is dropped.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Token completeness</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>16 colours, 23 typography roles, 4 radii, 19 spacing tokens and 27 component token groups checked, plus 53 <code>{path}</code> references in DESIGN.md and 6 in EXPERIENCE.md. Every colour is a hex value; light-only is a recorded decision (memlog 39), so no dark pairs are owed. Every ratio recomputes to two decimals, including the green-on-band 2.72:1 failure that changed the focus ring. Every load-bearing pair carries a stated ratio.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Six phone sizes exist only as numbers in the Typography table</h3>
+              <span class="finding-location">rubric L3 · DESIGN § Typography; frontmatter <code>components.need-item.title-size: 21px</code></span>
+            </header>
+            <div class="finding-note">Ticks and requirement line 15, caption 14, eyebrow 13, What you need card text 16, pillar names 19, What you need title 21 → 19. Other roles have <code>-mobile</code> tokens, so a builder who mirrors the frontmatter into CSS custom properties will miss these sizes.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add <code>caption-mobile</code>, <code>body-sm-mobile</code>, <code>label-caps-mobile</code>, <code>body-card-mobile</code> and <code>title-mobile</code>, plus a role for the 21 px item title. Or say once that phone sizes outside the tokens come from the table.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Several component values cannot be flattened by a resolver</h3>
+              <span class="finding-location">rubric L4 · DESIGN frontmatter <code>components</code></span>
+            </header>
+            <div class="finding-note">These values are neither dimensions nor references: T-unit values in <code>lockup-b</code> / <code>lockup-c</code> / <code>icon-f</code> (<code>0.63 T</code>, <code>0.375 T</code>, <code>0.5 T</code>), <code>wordmark-weights: &#x27;600 + 400&#x27;</code>, <code>sharing-card.size: 1200 x 630 px</code> and the padding shorthands.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Fine for a human or agent builder. If the frontmatter is to feed CSS generation, leave the T-unit specs in prose only and keep px values in the frontmatter.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Component coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Each of the 24 named components (Lockup plus 23 page components) has a DESIGN.md row and an EXPERIENCE.md row with real rules. Frontmatter tokens exist for 20 of them. Of the six <code>[NOTE FOR UX]</code> markers, five are settled by the <code>/pricing/</code>, <code>/docs/</code> and phone Menu mocks; one, the Version line, is a missing decision. Coverage is complete for <code>/</code> and thin for the pages no mock will draw.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">"The standard page layout" is cited but defined nowhere</h3>
+              <span class="finding-location">rubric H1 · EXPERIENCE § Page map; memlog 41</span>
+            </header>
+            <div class="finding-note"><code>/privacy/</code>, <code>/terms/</code> and <code>/refund/</code> cite it, and <code>/support/</code> and 404 rely on it implicitly. The memlog keeps these pages out of every mock. Missing: the page title off the home page (the Typography table maps every h1 to <code>display</code> 64 px, with no band and no surface named), an h3 role (<code>privacy.md</code> has three h3s), list spacing, the prose measure and the 404 heading.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a "Text page" row to DESIGN § Components and EXPERIENCE § Component Patterns: header; page title (role, size, surface); body <code>{typography.body}</code> at a maximum measure; h2 <code>headline</code>; h3 <code>title</code>; lists; footer. Or say these pages reuse the <code>/docs/</code> mock's layout and name the parts they take.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title"><code>/pricing/</code> opens with a Free vs Pro comparison that no spine specifies</h3>
+              <span class="finding-location">rubric H2 · EXPERIENCE § Page map; § Responsive &amp; Platform</span>
+            </header>
+            <div class="finding-note">It is the first block on the main conversion page and lies outside the <code>/pricing/</code> mock's listed scope (memlog 41: currency switch, pack cards, FAQ). Its checks carry meaning, which collides with the Accessibility Floor rule that checks are decorative and hidden from assistive technology.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a "Comparison table" component: visual spec (header row, <code>{colors.hairline}</code> row rules, included and not-included marks), the phone card form, and a behaviour rule (real <code>&lt;th scope&gt;</code> headers, a text equivalent for every mark: "Included" / "Not in Free"). Add it to the <code>/pricing/</code> mock's scope.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">In-text links have no spec, and colour alone cannot mark them</h3>
+              <span class="finding-location">rubric M2 · DESIGN § Colors, <code>navy</code> row; § Components (no text-link row)</span>
+            </header>
+            <div class="finding-note">Navy against <code>ink-body</code> is 1.18:1 and against <code>ink-muted</code> 1.97:1. That fails WCAG 1.4.1, and Lighthouse's link-in-text-block audit would flag it under the story's "no accessibility error on <code>/</code> and <code>/pricing/</code>" criterion. Affected: "No n8n yet?", the plan note link, the Requirement line link, and every link in the docs and policy text.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a Text link row: links in running text are always underlined (give offset and thickness), with a hover rule. Name the places that drop the underline: header nav, footer nav, buttons.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The Version line needs a decision now, not a mock</h3>
+              <span class="finding-location">rubric M3 · DESIGN § Components → Version line; EXPERIENCE § Open Questions 1; § State Patterns first row; § Component Patterns → Hero</span>
+            </header>
+            <div class="finding-note">Its before-launch form, "Pre-release, not installable yet", ships in today's state on <code>/</code> but is missing from the hero order. With the action note and the Free card footnote, <code>/</code> would say "not installable yet" three times.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Decide the position (for example directly under the actions, before the action note), the type and colour (<code>{typography.caption}</code> in <code>{colors.ink-muted-on-dark}</code> on the band), and whether the action note keeps its "Not installable yet." opening.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The header's "small" primary button collides with the 52 px button floor</h3>
+              <span class="finding-location">rubric L5 · DESIGN § Components → Header; EXPERIENCE § Accessibility Floor → Targets</span>
+            </header>
+            <div class="finding-note">The Accessibility Floor says buttons are at least 52 px tall; the header button is "small".</div>
+            <div class="finding-fix"><strong>Fix:</strong> When the mock sets the size, give the header button its own floor in the Targets line, for example 44 px like the Menu.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Line icons have no named set; the <code>/docs/</code> interest email has no element</h3>
+              <span class="finding-location">rubric L6 · DESIGN § Components: What you need block, Assurance item, Primary button, Requirement line; EXPERIENCE § Page map <code>/docs/</code>, § State Patterns</span>
+            </header>
+            <div class="finding-note">The line icons (n8n flow, key, bill, shield, archive box, info, mail, download, arrows) have sizes and colours but no named set, stroke width or source. The interest email in the <code>/docs/</code> install section is specified as neither a button nor a text link.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Name the inline SVGs in <code>direction-navy-and-check.html</code> as the source (stroke width, caps). Say the install section uses the primary button on light.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>State coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked launch states for <code>/</code>, <code>/pricing/</code>, <code>/docs/</code> and the header; repository public; currency chosen; Menu open and closed; hover and focus; 404; no email app; interest tool replaced. The claim that static pages have no loading, empty, offline or error states of their own holds. Mixed launch states, reload behaviour and action notes beyond <code>/</code> are not fully covered.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The two mixed launch states are undefined</h3>
+              <span class="finding-location">rubric M4 · EXPERIENCE § State Patterns intro and rows</span>
+            </header>
+            <div class="finding-note">The spine says the free install and the buy buttons switch on independent triggers, yet the rows cover only "neither", "Free installable" and "Pro on sale". With Pro on sale and the free plugin not installable, the home Pro card's footnote "Pro goes on sale with the first public release" becomes false and the hero still asks for the interest email. With the free plugin installable and Pro not on sale, the <code>/pricing/</code> interest button still sends "Tell me when Post Quality Manager is available" about a plugin that already is.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a 2 × 2 table (free × Pro). For each cell give the header action, hero actions, card footnotes, <code>/pricing/</code> action and the interest subject.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"A reload shows USD again" is not guaranteed</h3>
+              <span class="finding-location">rubric L7 · EXPERIENCE § Component Patterns → Currency switch; State "Currency chosen"; Flow 3 failure</span>
+            </header>
+            <div class="finding-note">Firefox restores radio-button state on reload, and browsers restore it on back navigation, unless the inputs carry <code>autocomplete=&quot;off&quot;</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Require <code>autocomplete=&quot;off&quot;</code> on the radio group, or soften the claim to "nothing is stored by the site".</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"A reason beside each action" and "links say where they go" hold only on <code>/</code></h3>
+              <span class="finding-location">rubric L8 · EXPERIENCE § Voice and Tone; § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">The header's mailto button on every page and the <code>/pricing/</code> before-launch interest button have no action note.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Give the <code>/pricing/</code> interest button its own note (the hero's wording). Decide whether the header button may rely on its label alone, and record that.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Visual reference coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p><code>mockups/</code> and <code>wireframes/</code> do not exist and <code>imports/</code> is empty, so there are no orphans. Both spines link their composition references inline, say what each shows, and state the spine-wins rule once. The pending markers name the mock that will settle them. The weak points are where the references live, and one source whose mocks contradict the spine.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Every composition reference lives in the facilitator's scratch folder</h3>
+              <span class="finding-location">rubric M5 · DESIGN and EXPERIENCE preambles; EXPERIENCE § Component Patterns → Plan card</span>
+            </header>
+            <div class="finding-note">All references sit in <code>.working/</code>, and so does the Plan card's content pointer ("per sources extract § Product facts"). If <code>.working/</code> is pruned at Finalize or not handed to the build story, those links break.</div>
+            <div class="finding-fix"><strong>Fix:</strong> At Finalize, copy <code>direction-navy-and-check.html</code> and <code>logo-lockups.html</code> into <code>imports/</code> (or <code>mockups/</code>) and relink. Write the Free and Pro feature lists into the Plan card row instead of pointing at the extract.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title"><code>logo-lockups.html</code> contradicts the spine for the 404 page and the footer</h3>
+              <span class="finding-location">rubric M6 · DESIGN and EXPERIENCE preambles; EXPERIENCE § Inspiration &amp; Anti-patterns</span>
+            </header>
+            <div class="finding-note">The 404 mock draws a white header with a grey rule, WP-blue (#2271b1) links and a 28 px / 600 heading, and the sheet tests a light footer on #f0f0f1. The "Overridden in the chosen direction" list covers only the direction file, and DESIGN gives the 404 nothing visual beyond icon F at 64 px. A builder will copy the sheet.</div>
+            <div class="finding-fix"><strong>Fix:</strong> List the sheet's overrides next to its link (header = band strip, links navy, footer white) and specify the 404 inside the Text page row.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Bloat &amp; overspecification</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked for source restatement, duplicated prose, pixel specs where tokens exist, and sections no consumer would read. DESIGN's prose carries decisions; EXPERIENCE stays mostly terse and free of editorial voice.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Draft copy is written out several times, and story 60 will replace all of it</h3>
+              <span class="finding-location">rubric L9 · EXPERIENCE § Voice and Tone; § Component Patterns → Action note; § State Patterns</span>
+            </header>
+            <div class="finding-note">The before-launch action note appears in Voice and Tone and again under Action note. The Pro footnote appears in Component Patterns and State Patterns. "not installable yet" appears nine times across the two spines.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep each string once (a copy table in Voice and Tone, or the Action note row) and refer to it by name elsewhere.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The Typography table restates every desktop value in the frontmatter</h3>
+              <span class="finding-location">rubric L10 · DESIGN § Typography</span>
+            </header>
+            <div class="finding-note">The desktop column duplicates the frontmatter.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep the role, token and Phone columns and drop the desktop numbers.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Honest nudges" re-indexes components; "Success signals" is one assumption line</h3>
+              <span class="finding-location">rubric L11 · EXPERIENCE § Honest nudges; § Success signals</span>
+            </header>
+            <div class="finding-note">Both sections add little a downstream consumer would read.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Fold Success signals into Foundation or Open Questions. Keep Honest nudges only if the owner wants the vision traceable inside the spine.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Inheritance discipline</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Both <code>sources:</code> lists resolve (6 paths in EXPERIENCE, 5 in DESIGN). Flow titles match the journeys draft verbatim. Glossary terms match the extract and <code>docs/brand.md</code>. Later memlog entries override earlier ones correctly (navy or white focus ring; the header repeats the site-wide action; the assurance item's green edge stays). Component names match across sections and spines, and all 6 EXPERIENCE token references resolve.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Frontmatter component keys do not map one-to-one onto prose names</h3>
+              <span class="finding-location">rubric L12 · DESIGN frontmatter <code>components</code> vs § Components</span>
+            </header>
+            <div class="finding-note"><code>need-item</code> ↔ What you need block, <code>step-number</code> ↔ Steps, <code>flow-node</code> ↔ Flow diagram, <code>plan-card-free</code> / <code>plan-card-pro</code> / <code>plan-note</code> ↔ Plan card, <code>lockup-b/c/d</code> and <code>icon-f</code> ↔ Lockup.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Rename the keys, or add one line under § Components mapping each key to its row.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Plan footnotes have two owners</h3>
+              <span class="finding-location">rubric L13 · EXPERIENCE § Component Patterns → Action note; DESIGN § Components → Plan card</span>
+            </header>
+            <div class="finding-note">EXPERIENCE gives the footnotes to the Action note; DESIGN gives them to the Plan card ("a muted footnote").</div>
+            <div class="finding-fix"><strong>Fix:</strong> Pick one owner in both spines.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Two <code>[ASSUMPTION]</code>s could be resolved from the record</h3>
+              <span class="finding-location">rubric L14 · EXPERIENCE § Key Flows Flow 3 step 1; § Foundation; memlog 11–12</span>
+            </header>
+            <div class="finding-note">Bug 59 already says Settings → "Get Pro" reaches the public pricing page while the Freemius Upgrade links lead nowhere. The two Foundation assumptions (form factor, stakes) are still "to confirm", although later owner decisions (phone Menu, 360 px floor) imply them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Cite bug 59 as Flow 3's dependency. Have the owner confirm the two Foundation assumptions at Finalize, or turn them into decisions.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Shape fit</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>All eight DESIGN.md sections are present in canonical order, and all eight EXPERIENCE.md defaults are present. Both required-when-applicable sections are triggered and present (Inspiration &amp; Anti-patterns; Responsive &amp; Platform). The invented sections (Screenshots, Content sources and drift checks, Story 57 questions answered, Open Questions) earn their place, apart from the two noted under Bloat. The extra DESIGN frontmatter keys are harmless. No findings beyond § 6.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding"><div class="finding-note">No findings.</div></article>
+        </div>
+      </details>
+    </section>
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Accessibility review</h2>
+          <span class="reviewer-source">review-accessibility.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Ad-hoc lens: accessibility, with WCAG 2.2 AA as the floor. Contrast was recomputed with WCAG relative luminance; every stated ratio recomputes exactly.</p>
+            <p>"The spines are close, but not yet safe to build to AA from. The palette is sound… The navy/white focus ring was the right call, and native <code>&lt;details&gt;</code>, radios and links are the right base without JavaScript. Four high gaps would fail WCAG 2.2 AA if built as drawn or with the usual CSS-only recipes." There are no critical findings: every fix is a spine line plus CSS.</p>
+            <p>Verified OK by the reviewer: all contrast pairs (stated and unstated); green never text and never behind text; the focus ring (3 px, 2 px offset, survives forced colours); status badges with icon, label and colour; native elements with no custom ARIA widget; landmarks, one h1, <code>lang</code>, skip link first; DOM order matching visual order; the hero overlap; the labelled 44 px Menu; no disabled-looking controls; consistent header, footer and action label; decorative icons hidden; no motion, timing, embeds or forms.</p>
+          </div>
+        </div>
+        <p class="sev-group">high (4)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Inline links are told apart by colour alone (1.4.1 Use of Color)</h3>
+              <span class="finding-location">a11y H1 · DESIGN § Colors <code>navy</code>; § Components Requirement line, Footer; EXPERIENCE § State Patterns "Hover and focus"</span>
+            </header>
+            <div class="finding-note">Navy #1b2a41 link text against ink-body #2a3649 body text is 1.18:1; against ink-muted it is 1.97:1. A colour-only cue needs 3:1 to the surrounding text plus a non-colour cue on hover and focus (G183). In the requirement line and the Pro card, the link is white in white text, so it differs only by weight. No rule says links in running text are underlined at rest.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Links inside text blocks are always underlined, on light and dark surfaces and in the Markdown output of <code>main</code> (<code>text-decoration: underline; text-underline-offset: .15em</code>). Only the header nav, the footer policy list and links styled as buttons may drop the underline.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The header does not fit at 320 px, nor in its desktop form between 760 and ~965 px (1.4.10, 1.4.4, 1.4.12)</h3>
+              <span class="finding-location">a11y H2 · DESIGN § Layout &amp; Spacing, § Lockup, § Header; EXPERIENCE § Responsive <code>min-viewport</code>; tokens <code>header-height</code>, <code>min-viewport</code>, <code>bp-phone</code></span>
+            </header>
+            <div class="finding-note">1.4.10 is tested at 320 CSS px. The phone row needs lockup B (~210 px), the labelled 44 px Menu (~85 px) and a gap: ~300–310 px against 288 px available. The spine's own figure is 340 px, and the rules close every way out (no F in the header, D only as a second mention, a fixed 64 px height). The desktop row needs ~865 px of content, so a ~965 px viewport, yet the Menu takes over only below 760 px. From 760 to ~965 px the header overflows or wraps inside a fixed 64 px strip and overlaps the hero: that is 200 % zoom on 1536–1920 px screens.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make 64 px a <code>min-height</code> and give the row <code>flex-wrap: wrap</code>. Move the switch to the Menu up to the width the desktop row really needs (probably <code>bp-medium</code>, checked with the after-launch label). Below 360 px the header wraps: lockup B on the first line, Menu on the second. Floor: "320 px with no horizontal scroll; 360 px is the design target". Test at 320 px, at 400 % on 1280 px, and at 200 % on 1600 and 1920 px.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Currency switch: the mechanism is unspecified, and the usual CSS-only recipe breaks keyboard and screen-reader use</h3>
+              <span class="finding-location">a11y H3 · EXPERIENCE § Component Patterns "Currency switch", § Accessibility Floor; DESIGN § Currency switch</span>
+            </header>
+            <div class="finding-note">"CSS tabs" recipes usually put <code>display:none</code> on the inputs, so the switch then works with a mouse only. "Hidden currencies use <code>display: none</code>" is easy to apply to the inputs by mistake. With the <code>~</code> selector, a fieldset around the radios alone is impossible. Nine buy links share three names. The Pro figures are identical in every currency, so "49" without its code is ambiguous. A tint fill for the selected tab would be 1.09:1. Target size is not set.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>&lt;fieldset&gt;&lt;legend&gt;Show prices in&lt;/legend&gt;</code> with one labelled radio per currency (<code>checked autocomplete=&quot;off&quot;</code> on USD), before the plans. Keep every input focusable (<code>appearance:none</code>, or the clip pattern with <code>input:focus-visible + span</code>); never <code>display:none</code>, <code>visibility:hidden</code>, <code>hidden</code> or a zero-size box. Drive the swap with <code>:has()</code> from a shared ancestor, guarded by <code>@supports selector(:has(a))</code> (fallback: all three currencies shown, labelled, switch hidden). <code>display:none</code> on both the price and the buy link of each hidden currency. Currency in every price's text and every buy link's name. Selected tab: navy fill, white text, plus bold or a check; unselected: white with a 1.5 px navy border. No <code>role=&quot;tablist&quot;</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The open phone Menu can cover the element that takes focus next (2.4.11 Focus Not Obscured)</h3>
+              <span class="finding-location">a11y H4 · DESIGN § Menu disclosure; EXPERIENCE § Component Patterns "Menu disclosure"</span>
+            </header>
+            <div class="finding-note">The usual dropdown positions the panel over the page, and nothing can close it when focus leaves: no script, and <code>&lt;details&gt;</code> does not close on Escape or blur. Tabbing past the last item moves focus into <code>main</code>, under the panel; on <code>/docs/</code>, <code>/pricing/</code> and the policy pages the first focusable element sits right under the header and is hidden completely. "Closed on every page load" also fails after Back: the back/forward cache restores it open.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Specify the panel in normal flow: the open <code>&lt;details&gt;</code> pushes the page down, no absolute or fixed position, no overlay. Add: "the open panel sits in flow, full width under the header row, never as an overlay".</div>
+          </article>
+        </div>
+        <p class="sev-group">medium (8)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Interest buttons do not say they open the email app (2.4.4 Link Purpose)</h3>
+              <span class="finding-location">a11y M1 · EXPERIENCE § IA "Where the actions lead", Component Patterns Header, Primary button, Action note; § Accessibility Floor; DESIGN § Primary button</span>
+            </header>
+            <div class="finding-note">The explanation sits in its own paragraph after both hero buttons, outside the link's context as 2.4.4 defines it; the mail icon is <code>aria-hidden</code>. The header copy (every page), the Free card copy and the <code>/pricing/</code> copy have no note at all. A keyboard or screen-reader user lands in a mail client, or in nothing.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Append visually hidden text after the visible label ("Tell me when it's available&lt;span class="vh"&gt; (opens your email app)&lt;/span&gt;"), or use <code>aria-describedby</code> to the action note in the hero. The Free card's footnote becomes "Not installable yet. Opens your email app."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The focus-ring colour must follow the surface, including dark blocks inside light sections</h3>
+              <span class="finding-location">a11y M2 · DESIGN § Focus ring; EXPERIENCE § Component Patterns "Focus ring"</span>
+            </header>
+            <div class="finding-note">The navy Pro card, the navy-hi requirement line and a dark Menu panel sit inside light sections. A rule set per section draws a navy ring around "See Pro pricing" on the navy card: 1.00:1, invisible.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Each surface sets a custom property: <code>:root { --ring:#1b2a41 } .on-dark { --ring:#fff }</code>, then <code>:focus-visible { outline:3px solid var(--ring); outline-offset:2px }</code>. Put <code>.on-dark</code> on the header strip, hero, Pro card, requirement line and any dark panel, and list them in DESIGN.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">One alt for two different crops (1.1.1)</h3>
+              <span class="finding-location">a11y M3 · EXPERIENCE § Screenshots row 1, § Component Patterns "Screenshot frame"; DESIGN § Screenshot frame</span>
+            </header>
+            <div class="finding-note">A responsive <code>&lt;picture&gt;</code> carries one <code>alt</code>. The desktop image shows the 8-week trend and five Fix next rows; the phone crop shows neither. An alt written for the desktop image describes content the phone image does not have.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Write the alt for what both crops show (average 71; 3 Major revision, 9 Needs revision, 14 Not analyzed, 22 Ready to ship; Fix next led by a post scored 42) and put the trend in the caption if it matters, or use two <code>&lt;img&gt;</code> elements switched by media query, each with its own alt.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Tables that "become cards on phones" lose their semantics (1.3.1)</h3>
+              <span class="finding-location">a11y M4 · EXPERIENCE § Page map <code>/pricing/</code>; § Responsive &amp; Platform last bullet</span>
+            </header>
+            <div class="finding-note">Restyling a <code>&lt;table&gt;</code> with <code>display:block</code>, <code>grid</code> or <code>flex</code> removes table semantics in Safari/VoiceOver and some Chromium versions; <code>data-label</code> headers are announced inconsistently. Phone users hear a run of "Yes", "No", "49" with no header.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Either build the comparison as plan cards at every width, or keep a real <code>&lt;table&gt;</code> with <code>&lt;th scope&gt;</code> at every width, scrolling sideways on phones inside <code>&lt;div role=&quot;region&quot; aria-labelledby=&quot;…&quot; tabindex=&quot;0&quot;&gt;</code>. Never reflow a table into cards with CSS alone.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No target size for the header button, the currency tabs or the FAQ summaries (2.5.8)</h3>
+              <span class="finding-location">a11y M5 · EXPERIENCE § Accessibility Floor "Targets"; DESIGN § Header, § Currency switch, § FAQ</span>
+            </header>
+            <div class="finding-note">Only buttons (52 px) and the Menu (44 px) have a size.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "every target at least 24 × 24 CSS px; design target 44 px". Header small button 40–44 px; currency tabs at least 44 × 44; FAQ summaries full width, min-height 44 px; header nav links padded to 44 px. Keep the footer links' 8 px row gap.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"No n8n yet?" does not say where it goes (2.4.4)</h3>
+              <span class="finding-location">a11y M6 · EXPERIENCE § What you need block; memlog (Getting n8n); Flow 1 step 4</span>
+            </header>
+            <div class="finding-note">A question as link text names neither the action nor the destination; in a links list it reads "No n8n yet?", and a visitor could expect n8n's own site. It sits at the A2 drop-off point, where being clear matters most.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "No n8n yet? &lt;a href="/docs/#getting-n8n"&gt;How to get n8n&lt;/a&gt;". On <code>/docs/</code>, outbound links name their destination: "n8n Cloud (n8n.io)", "Self-hosting n8n (docs.n8n.io)".</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Long strings on <code>/docs/</code> and the policy pages at 320 px (1.4.10, 1.4.12)</h3>
+              <span class="finding-location">a11y M7 · EXPERIENCE § Page map <code>/docs/</code>; § Content sources and drift checks</span>
+            </header>
+            <div class="finding-note">n8n and webhook URLs, inline <code>code</code> and <code>pre</code> blocks do not wrap, so the whole page scrolls sideways at 320 px. "Documentation" at 36 px takes ~250 px of the 288 px column once text spacing is raised.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>main { overflow-wrap: anywhere }</code>; <code>pre { white-space: pre-wrap }</code> or a <code>pre</code> scrolling in its box with <code>tabindex=&quot;0&quot;</code> and a name; <code>h1, h2 { overflow-wrap: break-word; hyphens: auto }</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Lighthouse-only acceptance misses most of this review</h3>
+              <span class="finding-location">a11y M8 · EXPERIENCE § Accessibility Floor, first bullet</span>
+            </header>
+            <div class="finding-note">Lighthouse runs a subset of axe on two pages. It does not test keyboard use of the currency switch, focus hidden under the Menu, reflow at 320 px, text spacing, mailto link purpose or alt quality.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Lighthouse/axe without error on every page (404 included), with the Menu open and each currency selected; plus a manual pass: keyboard only, 320 px and 400 % at 1280 px, 200 % at 1600 px, a text-spacing bookmarklet, NVDA + Firefox and VoiceOver iOS, Windows forced colours.</div>
+          </article>
+        </div>
+        <p class="sev-group">low (18)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Styled lists lose their semantics in Safari (1.3.1)</h3>
+              <span class="finding-location">a11y L1 · DESIGN § Components (ticks, pillar list, steps, plan features); mock <code>.ticks</code>, <code>.steps</code></span>
+            </header>
+            <div class="finding-note">With <code>list-style:none</code>, VoiceOver drops list semantics, and the steps lose their numbering entirely.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>role=&quot;list&quot;</code> on every styled <code>ul</code>/<code>ol</code>; keep the step order exposed from the <code>ol</code> or as text in the numeral.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Flow diagram order lives only in decorative arrows (1.3.1)</h3>
+              <span class="finding-location">a11y L2 · EXPERIENCE "Flow diagram"; the mock</span>
+            </header>
+            <div class="finding-note">The four nodes are spans in a <code>role=&quot;group&quot;</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> An <code>&lt;ol aria-label=&quot;Where your content goes&quot;&gt;</code> with one node per item; arrows stay <code>aria-hidden</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Page titles (2.4.2) are left to the build</h3>
+              <span class="finding-location">a11y L3 · EXPERIENCE § Open Questions (Discoverability); memlog</span>
+            </header>
+            <div class="finding-note">No title pattern is stated.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>&lt;title&gt;</code> = "&lt;Page&gt; · Post Quality Manager"; home "Post Quality Manager · AI content reviews for WordPress"; 404 "Page not found · Post Quality Manager".</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">One h1 per page, copied pages included (1.3.1, 2.4.6)</h3>
+              <span class="finding-location">a11y L4 · EXPERIENCE § Accessibility Floor; § Content sources</span>
+            </header>
+            <div class="finding-note">The policy sources start with <code># Title</code> and the layout prints <code>page.title</code> as the h1. On the 404 the lockup sheet draws "Page not found" as a <code>&lt;p&gt;</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> The copy keeps removing the Markdown h1 (add it to the drift check); "Page not found" is the 404's h1.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Headings that are slogans (2.4.6)</h3>
+              <span class="finding-location">a11y L5 · DESIGN § Components (kickers)</span>
+            </header>
+            <div class="finding-note">"The free plugin is the trial" and "Four pillars, any niche" carry their topic in the kicker <code>&lt;p&gt;</code>, which heading navigation skips.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Move the kicker into the heading: <code>&lt;h2&gt;&lt;span class=&quot;kicker&quot;&gt;Free and Pro&lt;/span&gt; The free plugin is the trial&lt;/h2&gt;</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Lockup names (1.1.1, 2.5.3, 2.5.8)</h3>
+              <span class="finding-location">a11y L6 · EXPERIENCE "Lockup"</span>
+            </header>
+            <div class="finding-note">A name on the link and on the SVG is read twice. The footer lockup D tile is 20 px and passes only through the spacing exception. The 404 icon needs no name.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Link <code>aria-label=&quot;Post Quality Manager, home&quot;</code> with the SVG <code>aria-hidden</code>, or the SVG named with <code>role=&quot;img&quot;</code>, never both. Footer D not a link, or at least 24 px tall. 404 icon <code>alt=&quot;&quot;</code> or <code>aria-hidden</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Sharing card alt (1.1.1)</h3>
+              <span class="finding-location">a11y L7 · DESIGN § Sharing card</span>
+            </header>
+            <div class="finding-note">No alt for the og:image.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add <code>og:image:alt</code> and <code>twitter:image:alt</code> with the tagline.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Screenshot frame bar read as content</h3>
+              <span class="finding-location">a11y L8 · DESIGN § Screenshot frame</span>
+            </header>
+            <div class="finding-note">If built in HTML, "yourblog.example/wp-admin/" is read as content.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Give the bar <code>aria-hidden=&quot;true&quot;</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">External destinations unstated (2.4.4)</h3>
+              <span class="finding-location">a11y L9 · EXPERIENCE buy and install actions; the mock's download icon</span>
+            </header>
+            <div class="finding-note">Buy and install buttons do not say where they lead; the download icon on "Install the free plugin" promises a file, but the link opens a listing page.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "Checkout opens on Freemius, the seller of record" beside the buy buttons; "Opens the plugin's WordPress.org page" after launch. Same-tab external links (say "opens in a new tab" if ever otherwise). An arrow, not a download icon.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Sticky header (2.4.11)</h3>
+              <span class="finding-location">a11y L10 · DESIGN § Header</span>
+            </header>
+            <div class="finding-note">A sticky 64 px strip would cover anchor targets (<code>#need</code>, FAQ items) and focused elements.</div>
+            <div class="finding-fix"><strong>Fix:</strong> State that the header is neither sticky nor fixed.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">FAQ and Menu state indicators (1.4.1, 1.4.11, 4.1.2)</h3>
+              <span class="finding-location">a11y L11 · DESIGN § FAQ, § Menu disclosure</span>
+            </header>
+            <div class="finding-note">A colour change alone would not show open or closed; a heading inside <code>&lt;summary&gt;</code> loses its semantics.</div>
+            <div class="finding-fix"><strong>Fix:</strong> A chevron or +/− that changes shape, or the native marker; no heading inside <code>&lt;summary&gt;</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Skip link and landmarks (2.4.1, 1.3.1)</h3>
+              <span class="finding-location">a11y L12 · EXPERIENCE "Skip link"; the mock</span>
+            </header>
+            <div class="finding-note">The mock puts <code>id=&quot;main&quot;</code> on a div inside the same band as the header.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Target <code>&lt;main id=&quot;main&quot; tabindex=&quot;-1&quot;&gt;</code>; <code>&lt;header&gt;</code> holds only lockup, nav and action; the hero starts <code>main</code>; the skip link moves off-screen, never <code>display:none</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Forced colours (not a WCAG criterion)</h3>
+              <span class="finding-location">a11y L13 · DESIGN § Primary button, § Currency switch</span>
+            </header>
+            <div class="finding-note">States drawn by background alone vanish in Windows contrast themes.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep the 2 px border on every button, the primary on light included; give the selected currency tab a border or underline.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Reduced motion (2.3.3)</h3>
+              <span class="finding-location">a11y L14 · EXPERIENCE § Interaction Primitives</span>
+            </header>
+            <div class="finding-note">Nothing animates today.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Wrap any future <code>scroll-behavior: smooth</code> or details transition in <code>@media (prefers-reduced-motion: no-preference)</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">User font size (best practice)</h3>
+              <span class="finding-location">a11y L15 · DESIGN § Typography</span>
+            </header>
+            <div class="finding-note">px type ignores the reader's default browser font size.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Set type in <code>rem</code>; token values stay px figures against a 16 px root.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Multiple Ways (2.4.5)</h3>
+              <span class="finding-location">a11y L16 · EXPERIENCE § On every page; <code>/docs/</code></span>
+            </header>
+            <div class="finding-note">Today the header and footer together list every page; <code>/docs/</code> has seven sections and no contents.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep it so; if Pricing or Documentation leaves the header, add it to the footer. A short contents list at the top of <code>/docs/</code>.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The direction mock is not a markup reference</h3>
+              <span class="finding-location">a11y L17 · <code>.working/direction-navy-and-check.html</code></span>
+            </header>
+            <div class="finding-note">It uses <code>&lt;p class=&quot;h1&quot;&gt;</code>, <code>role=&quot;img&quot;</code> on divs, the green 3 px ring with a 3 px offset, the white keyline, wrapped phone links and <code>id=&quot;main&quot;</code> on a non-landmark. The spines override all of these.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Say so in the build ticket, so nobody copies the mock's HTML.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Text inside the phone crop</h3>
+              <span class="finding-location">a11y L18 · EXPERIENCE § Screenshots row 1; the mock</span>
+            </header>
+            <div class="finding-note">The crop is laid out for 460 px but shown at 288–358 px, shrinking the plugin's 13 px text to 8–10 px. Exempt, and the alt covers it, but illegible.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Export the crop for the 328 px column.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Honesty and conversion review</h2>
+          <span class="reviewer-source">review-honesty-conversion.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Ad-hoc lens: honesty and conversion, checked against the policies, <code>docs/brand.md</code>, <code>docs/distribution.md</code>, ADR 0009, 0013, 0014 and the plugin code where a claim depends on it.</p>
+            <p>"The structure and the posture hold up: the page map has one action per page, the prerequisites come before any install, nothing creates urgency, and the spines ban invented proof. The spines cannot ship as written, though. Four committed strings are false today or leave a cost out… All four sit where Lena decides at A2 and where Tom reaches checkout." Fix those, add the renewal, cancellation and Pro-upgrade paths, and the site meets the owner's no-dark-pattern bar and the EU/FTC disclosure baseline.</p>
+            <p>Keep, per the reviewer: What you need straight under the hero; plain status lines; the exact-fact data line; the ban list; guarantee and lapse beside the buy buttons; no buttons on the packs before checkout; a currency choice with no cookie or geolocation; framed, captioned demo screenshots; policies and docs copied from one source; Flow 1's honest exit; naming discipline.</p>
+          </div>
+        </div>
+        <p class="sev-group">critical (4)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">"VAT included" is false; Freemius adds tax on top</h3>
+              <span class="finding-location">honesty C1 · EXPERIENCE § FAQ row; Flow 3 step 5; Plan card prices; the direction file's Pro card</span>
+            </header>
+            <div class="finding-note">Freemius shows net prices and adds EU/UK VAT for consumers and US sales tax at checkout (a $100 plan becomes $120 for a French consumer). A price page with buy buttons is an "invitation to purchase" (UCPD Art. 7(4)(c)): it must show the price with taxes or how tax is calculated. "VAT included" while 49 becomes about 58.8 at checkout is a misleading omission plus a false statement. Nothing near the buy buttons says the visitor leaves for Freemius or that tax is added there.</div>
+            <div class="finding-fix"><strong>Fix:</strong> FAQ "Is tax included?": prices are before tax, Freemius adds VAT or sales tax at checkout and shows the total before payment; an EU VAT number removes VAT. An after-launch note under the buy buttons. "per year, before tax" on the Pro card. Run the sandbox checkout once per currency first; Swiss VAT on CHF sales is not documented anywhere on record.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">"A quota and a token limit cap the spend" is not true today</h3>
+              <span class="finding-location">honesty C2 · EXPERIENCE What you need (third item); Voice and Tone; Flow 1 step 4; the direction file</span>
+            </header>
+            <div class="finding-note">No token limit exists: ADR 0009's site-wide limit is "decided, not built". The Monthly Quota covers only Authors on Free ("Editors and Administrators have no limit"). Lena is a solo Administrator, so nothing in the plugin caps her spend. The spine answers the A2 cost objection with a feature that does not exist.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "You pay Anthropic per review, on your own key. To cap the bill, set a monthly spend limit in your Anthropic account. In the plugin, a monthly quota limits how many reviews each Author can run." Mention the token limit only once stories 25/29 ship it; add that string to the drift table.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">n8n's own cost is left out: a hidden cost at the A2 moment</h3>
+              <span class="finding-location">honesty C3 · EXPERIENCE What you need, Requirement line, Plan card, pricing FAQ; Flow 1 step 4; Flow 3 step 5</span>
+            </header>
+            <div class="finding-note">Terms § 2: "the price covers the plugin only. You pay your own n8n hosting and your own AI provider separately". The spines name only the Anthropic bill. Lena has no n8n; whichever route she takes, she pays for it, and that bill can be larger per month than Pro is per year. Leaving it out of every cost line is the hidden-cost pattern the owner ruled out.</div>
+            <div class="finding-fix"><strong>Fix:</strong> What you need: "n8n is a cost of its own: an n8n Cloud plan, or the server you run self-hosted n8n on." Requirement line: "…each paid separately." Terms § 2 word for word directly under the pack cards. FAQ "What else will I pay for?" names both bills. Never quote n8n's prices; link n8n's pricing page from Getting n8n.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">"n8n Cloud or self-hosted, either works" is untested, and the setup guide cannot run on an n8n Cloud trial</h3>
+              <span class="finding-location">honesty C4 · EXPERIENCE What you need; Flow 1 step 4; the direction file; memlog 24</span>
+            </header>
+            <div class="finding-note"><code>docs/user-paths.md</code> says the n8n Cloud path is untested (no Cloud instance). The setup guide's first value is an n8n API key, and n8n Cloud does not offer its public API during the free trial. Lena will pick the Cloud trial as the easy start, install, and bounce at the guide's first step: the exact A2 failure the page exists to prevent.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Walk the Cloud path on a paid plan before launch. Until then: "Tested with self-hosted n8n. On n8n Cloud, the setup guide needs n8n's API, which Cloud includes on paid plans but not during its free trial." Restore "either works" only after the Cloud walk passes.</div>
+          </article>
+        </div>
+        <p class="sev-group">high (6)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The trust line overclaims what reaches the author</h3>
+              <span class="finding-location">honesty H1 · EXPERIENCE Trust line; Honest nudges</span>
+            </header>
+            <div class="finding-note">Privacy (short version, § 2) adds "unless you opt in to usage data or buy a Pro license". With a license, Freemius gets the site address, version and key, and the author gets the buyer's name, email and license details. Dropping the condition turns a true statement into a false one, on the page that sells Pro.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "Your content goes only to your own n8n and, through it, to Anthropic. The author receives nothing from your site unless you opt in to usage data or buy Pro."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Renewal and cancellation are not disclosed enough to meet auto-renewal rules</h3>
+              <span class="finding-location">honesty H2 · EXPERIENCE Plan card row; the direction file's Pro card; Flow 3 step 4</span>
+            </header>
+            <div class="finding-note">"Renews at the same price" never says automatically, never mentions the reminder, never says how to cancel. ROSCA and state auto-renewal laws want automatic renewal, its price and the cancellation method stated before purchase; EU dark-pattern guidance flags easy-to-start, opaque-to-stop subscriptions. Terms § 4 does not say whether cancelling the renewal keeps Pro until the paid year ends.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Beside the buy buttons: "Renews automatically every year at the price you paid. Freemius emails you before each renewal. Cancel the renewal any time in the customer portal." A FAQ "How do I cancel?". The owner first settles terms § 3/§ 4.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">After launch, the header's install button comes before the prerequisites on every page</h3>
+              <span class="finding-location">honesty H3 · EXPERIENCE § On every page, Header, Menu disclosure, What you need; memlog 31</span>
+            </header>
+            <div class="finding-note">The header sits above the hero in reading and tab order, so its "Install the free plugin" is the first install action on <code>/</code> and the only one on every other page, with no prerequisite near it. The spine's central A2 rule ends up false for the most visible button on the site.</div>
+            <div class="finding-fix"><strong>Fix:</strong> After launch the header button reads "Get the free plugin" and leads to <code>/#need</code>; the block ends with "Install from WordPress.org" and the version line. Direct install links stay only where prerequisites precede them.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Upgrading to Pro means replacing the plugin, and deleting it destroys the reviews</h3>
+              <span class="finding-location">honesty H4 · EXPERIENCE Flow 3 step 7; <code>/docs/</code> blocks; Assurance item and ticks</span>
+            </header>
+            <div class="finding-note">ADR 0014: the customer downloads the Pro build from Freemius and replaces the plugin. Privacy § 1: deleting the plugin removes the table and the settings. Tom used Free for three weeks; if he deletes it before uploading Pro, which many people do, he loses every review, and the site never warned him. The same trap applies on lapse.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Flow 3 step 7: upload the Pro build and choose "Replace current with uploaded", then enter the key. A <code>/docs/</code> section "Upgrade to Pro and manage your license" whose first line is "Don't delete the free plugin first: deleting removes your stored reviews and settings." Verify the real flow on the Local sandbox.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">"What counts as a site" is promised but has no source of truth</h3>
+              <span class="finding-location">honesty H5 · EXPERIENCE FAQ row; Flow 3 step 5; Story 57 table</span>
+            </header>
+            <div class="finding-note">Terms § 3 says only 1, 5 or unlimited activations, movable in the customer portal. Staging and local copies, client sites and changed addresses are not covered. Tom buys on this answer; the FAQ would be written from nothing, against the "policies first" rule.</div>
+            <div class="finding-fix"><strong>Fix:</strong> The owner decides, terms § 3 states it, the FAQ copies it. Add the staging/local rule only after checking how Freemius counts those activations.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Launch would leave "A worked cost example is coming" at the drop-off point</h3>
+              <span class="finding-location">honesty H6 · EXPERIENCE What you need, Voice and Tone, Content sources, State Patterns</span>
+            </header>
+            <div class="finding-note">User-paths A2 names missing cost guidance as the reason "many evaluators bounce". After launch the placeholder sits beside a live install button, so the biggest known objection stays unanswered at the moment of action. No state row makes story 49 a condition of the switch.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make story 49 a condition of "Free installable". Until then, a figure-free line: cost depends on length, model and agents; Anthropic lists its prices on its own page.</div>
+          </article>
+        </div>
+        <p class="sev-group">medium (13)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The ticks claim things that are not yet true, or that do not fit the visitor</h3>
+              <span class="finding-location">honesty M1 · EXPERIENCE Ticks, Action note; direction file hero</span>
+            </header>
+            <div class="finding-note">Before launch, "The free plugin is the trial" is a promise shown with a check mark, the site's sign for "confirmed". After launch, "Nothing deleted if Pro lapses" is a Pro reassurance shown to someone deciding whether to install Free. "The free plugin is the trial" also overstates: Free does not include Rewrite or Automated Reviews.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Before launch: "A free plugin to try it first". After launch: "Free: Review and Key Takeaways, no license". Keep "Nothing deleted if your license ends" on <code>/pricing/</code> and the Pro card. After-launch note: "Start free with Review and Key Takeaways. Pro comes with a 14-day money-back guarantee."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The demo Dashboard implies a result</h3>
+              <span class="finding-location">honesty M2 · Direction file screenshot 1 ("63 → 71"); EXPERIENCE § Screenshots row 1</span>
+            </header>
+            <div class="finding-note">A fictional trend climbing eight points in eight weeks, captioned only "Demo posts, fictional", reads as "use it and your scores rise": an outcome claim with no owner-verified evidence. The FTC treats demonstrations as implied typical results.</div>
+            <div class="finding-fix"><strong>Fix:</strong> A flat or uneven line, or crop it out. Caption: "The Dashboard in WP Admin. Demo posts and scores, fictional; not a measured result."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The h1 "Every post scored." implies automatic, free, whole-catalog scoring</h3>
+              <span class="finding-location">honesty M3 · Direction file h1; EXPERIENCE Flow 1 step 2</span>
+            </header>
+            <div class="finding-note">On Free a review runs on click; scheduled reviews are Pro; each review is paid to Anthropic. The passive claim hides both the effort and the cost.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "Score every post. Know what to fix next." Carry the note to story 60.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No "who it's for / not for"</h3>
+              <span class="finding-location">honesty M4 · EXPERIENCE What you need; Page map <code>/</code>; Flow 1's honest exit</span>
+            </header>
+            <div class="finding-note">The honest exit relies on the visitor working out the fit from three requirement cards.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Two lines at the end of What you need: a good fit if…; not a fit if you want a hosted service with no setup, run Multisite, or your site can't be reached from the internet.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The reachability and HTTPS requirements are buried or missing</h3>
+              <span class="finding-location">honesty M5 · EXPERIENCE What you need; Plan card and pricing rows</span>
+            </header>
+            <div class="finding-note">The site's docs say a local or password-protected site cannot be reached from n8n Cloud, and Rewrite needs HTTPS. The spine keeps only the jargon half and drops HTTPS, though Rewrite is Tom's reason to buy and client staging sites are often HTTP or password-protected.</div>
+            <div class="finding-fix"><strong>Fix:</strong> What you need: "n8n must be able to reach your site: a local or password-protected site can't be reached from n8n Cloud." Pro card and the Rewrite row: "Rewrite needs HTTPS on your site."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The CHF payment restriction is not disclosed</h3>
+              <span class="finding-location">honesty M6 · EXPERIENCE Currency switch; Flow 3 steps 2 and 6</span>
+            </header>
+            <div class="finding-note"><code>docs/distribution.md</code>: "PayPal is not offered in CHF, card only." Tom picks CHF and finds out only at checkout.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Under the CHF packs: "In CHF, pay by card. PayPal is available in USD and EUR." Verify in the sandbox.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The interest-email promise does not fit the pricing visitor or the privacy policy</h3>
+              <span class="finding-location">honesty M7 · EXPERIENCE Page map <code>/pricing/</code>; Where the actions lead; State Patterns intro; Action note</span>
+            </header>
+            <div class="finding-note">A <code>/pricing/</code> visitor wants to know when Pro is on sale, but the note promises "you hear once, when you can install it". If Free and Pro launch apart, the one message is early for the buyer or followed by a second one. Privacy § 3 keeps an email "as long as needed to answer you", which says nothing about holding it until launch.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>/pricing/</code> note: "…you hear once, when the first public release is out." Send one message only when both are available, or say which one it announces. Privacy § 3: kept until that message is sent, then deleted.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The only pre-launch action fails silently for webmail users</h3>
+              <span class="finding-location">honesty M8 · EXPERIENCE State Patterns "No email app"; Action note</span>
+            </header>
+            <div class="finding-note">With no default mail client, a <code>mailto:</code> does nothing. The address is printed only in the footer, so the site's one conversion leaks without anyone noticing, and no analytics would show it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Action note: "Not installable yet. The button opens your email app, or write to hello@postquality.com. You hear once, when you can install it." Prefill a body as well as the subject.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"You hold the keys" leaves out the n8n API key the plugin stores</h3>
+              <span class="finding-location">honesty M9 · EXPERIENCE What you need lead; Steps row 1; the direction file</span>
+            </header>
+            <div class="finding-note">Privacy § 1 keeps the n8n API key in the site's database and warns it "opens your whole n8n instance". The site highlights the Anthropic key that is never stored and says nothing about the key that is.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "The setup guide also asks for an n8n API key. The plugin keeps it in your site's database…, so create one for this site alone, with an expiry date. Prefer not to? Set the workflow up by hand."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The Free card's support line becomes false once the plugin is listed</h3>
+              <span class="finding-location">honesty M10 · Direction file Free card; EXPERIENCE Plan card; State Patterns</span>
+            </header>
+            <div class="finding-note">Support policy and ADR 0013 D9: once listed, Free questions go to the WordPress.org forum. The card would still promise email.</div>
+            <div class="finding-fix"><strong>Fix:</strong> A "Listed" state: the Free card reads "Support forum on WordPress.org, best effort", linked.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"No cookies, no analytics" is true but leaves out the host's logs</h3>
+              <span class="finding-location">honesty M11 · EXPERIENCE Foundation, Footer; privacy § 3</span>
+            </header>
+            <div class="finding-note">GitHub Pages logs visitors' IP addresses for security, and the privacy text names no host: incomplete under GDPR Art. 13.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Privacy § 3 (source first): "The site is hosted on GitHub Pages; GitHub logs visitors' IP addresses for security, under GitHub's privacy statement."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The guarantee wording drifts from refund.md and risks reading as a statutory right</h3>
+              <span class="finding-location">honesty M12 · EXPERIENCE Assurance item; the direction file</span>
+            </header>
+            <div class="finding-note">Refund.md promises more (no questions asked, full amount, renewals too, how to ask). Presenting the EU 14-day withdrawal right as a special feature is blacklisted (UCPD Annex I No. 10); the guarantee is safe because it goes further, so the copy should say so.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "14-day money-back guarantee. Ask within 14 days of buying or of a renewal and get the full amount back, no questions asked. Freemius processes it to your original payment method."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Trader identity on a commercial site (verify)</h3>
+              <span class="finding-location">honesty M13 · EXPERIENCE Footer</span>
+            </header>
+            <div class="finding-note">UCPD Art. 7(4)(b) and Swiss UWG Art. 3(1)(s) expect the trader's identity and address. Freemius shows its own at checkout, which may be enough; nobody has checked.</div>
+            <div class="finding-fix"><strong>Fix:</strong> The owner checks once and records it; if an address is required, a business or PO-box address, not a home address.</div>
+          </article>
+        </div>
+        <p class="sev-group">low (9)</p>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Provider facts need one source, because ADR 0009 will change them</h3>
+              <span class="finding-location">honesty L1 · Every "Anthropic" string</span>
+            </header>
+            <div class="finding-note">When ADR 0009's providers ship, a dozen strings go stale at once.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "provider list and spend-cap wording" to the Content sources table, triggered by ADR 0009 / stories 25, 29, 30.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The author line has to be literally true</h3>
+              <span class="finding-location">honesty L2 · EXPERIENCE Trust line</span>
+            </header>
+            <div class="finding-note">Both "blogs" (plural) and "own" must hold. If one is an employer's blog, "own" overclaims.</div>
+            <div class="finding-fix"><strong>Fix:</strong> The owner confirms; otherwise "Built and used on the author's own blog."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The lapse wording should match terms § 4</h3>
+              <span class="finding-location">honesty L3 · EXPERIENCE Assurance item</span>
+            </header>
+            <div class="finding-note">"Lapses" does not obviously cover cancellation or refund; "schedules stay" can read as "keep running"; terms also promise that Review and Key Takeaways keep working.</div>
+            <div class="finding-fix"><strong>Fix:</strong> "Nothing deleted if your license ends. The site returns to Free: reviews, settings, schedules and role rights are kept, and Review and Key Takeaways keep working."</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">The header interest button has no reason beside it</h3>
+              <span class="finding-location">honesty L4 · EXPERIENCE Header; Accessibility Floor</span>
+            </header>
+            <div class="finding-note">Only the hero's action note says that the button opens the email app.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Mail icon on the small button; accessible name "Tell me when it's available (opens your email app)".</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">A freshness signal should not wait for the public repository</h3>
+              <span class="finding-location">honesty L5 · EXPERIENCE Trust line</span>
+            </header>
+            <div class="finding-note">A changelog is the cheapest honest signal at zero users, and the release notes exist whatever the repository's visibility.</div>
+            <div class="finding-fix"><strong>Fix:</strong> At launch, link "What's new" beside the version line to the WordPress.org listing's changelog.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Overbuilt for a site with zero users</h3>
+              <span class="finding-location">honesty L6 · EXPERIENCE Currency switch (before launch); DESIGN Lockup C</span>
+            </header>
+            <div class="finding-note">Before any checkout link exists, the switch only swaps a currency code over identical figures. Lockup C has no spot on the site.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Before sale: "49 / 99 / 199 a year, in USD, EUR or CHF"; ship the switch with the buy buttons. Keep C in brand.md only.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Tom's and Lena's smaller questions</h3>
+              <span class="finding-location">honesty L7 · EXPERIENCE Pricing FAQ; What you need</span>
+            </header>
+            <div class="finding-note">Does three sites mean three n8n instances (no: workflow v6 gives each site its own webhook path)? How long does setup take?</div>
+            <div class="finding-fix"><strong>Fix:</strong> FAQ: "One n8n can serve several sites…". Time the setup in the end-of-project agentic walk, then state it.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Third-party marks in imagery</h3>
+              <span class="finding-location">honesty L8 · DESIGN What you need block ("n8n flow" icon)</span>
+            </header>
+            <div class="finding-note">A glyph that echoes n8n's node-chain logo would break brand.md's no-third-party-mark rule.</div>
+            <div class="finding-fix"><strong>Fix:</strong> A generic workflow glyph (boxes and arrows), named "workflow" in the spec.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Text-only first mention on pages without a hero</h3>
+              <span class="finding-location">honesty L9 · EXPERIENCE Voice and Tone, Naming</span>
+            </header>
+            <div class="finding-note">The lockup is an SVG, so search snippets, reader modes and copy-paste see <code>/pricing/</code> and <code>/docs/</code> with no textual "Post Quality Manager".</div>
+            <div class="finding-fix"><strong>Fix:</strong> Each page's h1 or lead names Post Quality Manager in text once.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <div class="mechanical">
+      <h3>Mechanical notes</h3>
+      <ul>
+        <li>All 53 <code>{path}</code> references in DESIGN.md and all 6 in EXPERIENCE.md resolve. Both <code>sources:</code> lists resolve, including <code>../../backlog/story-site-content-style-checkout-best-practices.md</code>.</li>
+        <li>The frontmatter parses as YAML, <code>&amp;sans</code> / <code>*sans</code> anchors included. A DESIGN.md tool that does not expand anchors would read <code>*sans</code> as the font family.</li>
+        <li><code>spacing.gap-xs</code> (10 px) is defined and never used. <code>bp-medium</code>, <code>bp-phone</code>, <code>min-viewport</code> and <code>header-height</code> are breakpoints and a height filed under <code>spacing</code>.</li>
+        <li><code>typography.title-lg</code>, <code>label-caps</code> and <code>nav</code> have no <code>lineHeight</code>.</li>
+        <li>No frontmatter component group exists for Menu disclosure, Version line, Currency switch or FAQ (the <code>[NOTE FOR UX]</code> set). Add them when the mocks land.</li>
+        <li>Markers: six <code>[NOTE FOR UX]</code>, all in DESIGN.md (five wait on the mocks, one is the Version line); six <code>[ASSUMPTION]</code> in EXPERIENCE.md (Foundation ×2, Flow 1 step 1, Flow 3 step 1, Success signals, the Q10 row).</li>
+        <li>Stale wording: EXPERIENCE § Responsive &amp; Platform says "Comparison and price tables become cards on phones", but the price table was replaced by the pack plan cards and the currency switch.</li>
+        <li>DESIGN § Colors cites <code>ink-muted</code> 6.43:1 on #f0f0f1, a WP canvas grey outside the site palette (left over from the lockup sheet's light-footer test).</li>
+        <li>EXPERIENCE § Responsive &amp; Platform, "about 340 px used" at the 360 px floor: say whether this includes the two 16 px gutters. If it does not, 340 px exceeds the 328 px content width and the header overflows.</li>
+        <li>No Mermaid in either spine. Both spines are <code>status: draft</code>, <code>updated: 2026-10-22</code>; memlog decisions up to the green assurance edge are reflected.</li>
+      </ul>
+    </div>
+    <footer class="report-footer">
+      <div class="meta">
+        <span>Rubric: post-quality-manager/_bmad-output/initiative-post-quality-manager/ux-postquality-website/review-rubric.md</span>
+        <span>Reviewers: review-accessibility.md · review-honesty-conversion.md</span>
+        <span>Spines: post-quality-manager/_bmad-output/initiative-post-quality-manager/ux-postquality-website/DESIGN.md · EXPERIENCE.md</span>
+        <span>Triage: post-quality-manager/_bmad-output/initiative-post-quality-manager/ux-postquality-website/triage.md</span>
+        <span>Generated: 2026-10-22T17:21+02:00</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
