@@ -267,7 +267,7 @@ check('non-2xx: message names the n8n status and says the run did not start (edi
 /* ─── Ticket 32: not configured — role-aware copy, nothing spent ─────── */
 echo "Extra — webhook URL unset: 400 pqm_not_configured, copy names the next step per role\n";
 foreach ([
-    'admin'  => [editor_caps() + ['pqm_manage_settings' => true], 'n8n is not connected yet. Set up the workflow on the Content Quality → n8n Workflow page, then try again.'],
+    'admin'  => [editor_caps() + ['pqm_manage_settings' => true], 'n8n is not connected yet. Set up the workflow on the Post Quality → n8n Workflow page, then try again.'],
     'author' => [author_caps(), 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.'],
 ] as $who => [$caps, $copy]) {
     reset_world($caps, ['month' => '2026-10', 'count' => 5], ['n8n_webhook_url' => '']);

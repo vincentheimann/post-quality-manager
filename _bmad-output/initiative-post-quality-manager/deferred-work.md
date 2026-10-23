@@ -95,3 +95,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan.md`
   summary: /docs/ still names n8n Cloud, has no `getting-n8n` or `cost` id for the home page's two links, and the interest links on /docs/ and /support/ carry no body or page phrase (brief D16).
   evidence: Build 1's quick review, finding 10 (2026-10-23): pre-existing text the Intent leaves to build 2; build 2's plan (`story-site-navy-and-check-plan-2.md`) covers the docs rewrite and anchors; /support/'s link is policy text, changed in `docs/policies/support.md` first if wanted.
+
+- source_plan: `_bmad-output/initiative-post-quality-manager/plan-admin-copy-post-quality-name.md`
+  summary: Bug 59's reproduction step still says "Open Content Quality → Account"; after the rename the menu is "Post Quality → Account".
+  evidence: The admin menu label changed on 2026-10-23 (`admin/class-pqm-admin.php`); the build workflow does not write ticket files, so the bug's text is corrected at its next refinement or by bmad-ticket.

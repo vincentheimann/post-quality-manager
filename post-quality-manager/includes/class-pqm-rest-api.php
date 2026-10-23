@@ -653,7 +653,7 @@ class PQM_REST_API {
             return new WP_Error(
                 'pqm_not_configured',
                 $can_manage
-                    ? __( 'n8n is not connected yet. Set up the workflow on the Content Quality → n8n Workflow page, then try again.', 'post-quality-manager' )
+                    ? __( 'n8n is not connected yet. Set up the workflow on the Post Quality → n8n Workflow page, then try again.', 'post-quality-manager' )
                     : __( 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.', 'post-quality-manager' ),
                 [ 'status' => 400 ]
             );

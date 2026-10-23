@@ -2,6 +2,8 @@
 
 These changes reach a site that ran an earlier version of Post Quality Manager without any prompt in WP Admin.
 
+**The admin menu is now Post Quality.** It used to read "Content Quality". Its pages are the same: Dashboard, Post Reviews, n8n Workflow, Settings and Account. The Dashboard and Settings headings now read "Dashboard" and "Settings".
+
 **Authors have a monthly limit.** Users without the "Run paid agents" right get 20 AI actions a month; 0 means no limit. Change it under Settings → Usage & Limits → Monthly Quota → AI Actions per User.
 
 **Role rights stay as you set them.** Each right goes to its default roles once; what you change afterwards survives deactivation, reactivation and updates. Set them under Settings → Roles (Pro) or with a role editor plugin. The "View as" toolbar switch of the 3.0 and 3.1 test builds is gone; the Roles tab replaces it.

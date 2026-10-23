@@ -92,7 +92,7 @@ Owner decisions 2026-10-22/23 (story 57's UX pass, picked on the band; story 86 
 
 ## Naming
 
-_Owner decision 2026-10-08 (backlog story 10). The WordPress.org slug is a one-way door: it is derived from the Plugin Name header at submission, it becomes the plugin folder, the text domain and the directory URL, and it can never change once the listing is approved. The display name can change later; the slug cannot. These rules are applied by story 41 (copy sweep); until that lands, the "Content Quality" menu label and page headings in the code are known drift, not a decision._
+_Owner decision 2026-10-08 (backlog story 10). The WordPress.org slug is a one-way door: it is derived from the Plugin Name header at submission, it becomes the plugin folder, the text domain and the directory URL, and it can never change once the listing is approved. The display name can change later; the slug cannot. These rules are applied by story 41 (copy sweep). The admin menu label, the Dashboard and Settings headings and the not-connected message were brought in line on 2026-10-23, ahead of the website screenshots (story 86); story 41 keeps the rest of the sweep._
 
 | Surface | Use | Example |
 |---|---|---|

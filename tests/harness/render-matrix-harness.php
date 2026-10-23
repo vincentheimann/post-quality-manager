@@ -1093,7 +1093,7 @@ $GLOBALS['tw_settings'] = [];
 /* The Workflow hook loads both the app bundle (island) and pqm-admin.js (ping, copy) */
 $GLOBALS['tw_enqueued'] = [];
 function add_menu_page($pt, $mt, $cap, $slug, $cb = null, $icon = '', $pos = null) { return 'toplevel_page_' . $slug; }
-function add_submenu_page($parent, $pt, $mt, $cap, $slug, $cb = null) { return 'content-quality_page_' . $slug; }
+function add_submenu_page($parent, $pt, $mt, $cap, $slug, $cb = null) { return 'post-quality_page_' . $slug; }
 function wp_enqueue_script($handle, ...$a) { $GLOBALS['tw_enqueued'][] = $handle; }
 function wp_enqueue_style($handle, ...$a) {}
 function wp_localize_script($handle, $name, $data) { $GLOBALS['tw_localized'][$handle] = $data; }
@@ -1101,7 +1101,7 @@ function wp_set_script_translations(...$a) {}
 function wp_add_inline_script(...$a) {}
 function wp_style_add_data(...$a) {}
 PQM_Admin::register_pages();
-PQM_Admin::enqueue_assets('content-quality_page_pqm-workflow');
+PQM_Admin::enqueue_assets('post-quality_page_pqm-workflow');
 check('Workflow page enqueues pqm-admin.js' . ($built ? ' and the app bundle' : ' (app bundle skipped: unbuilt)'),
     in_array('pqm-admin', $GLOBALS['tw_enqueued'], true) && ($built ? in_array('pqm-app', $GLOBALS['tw_enqueued'], true) : true));
 check('Copy feedback: the import URL\'s own line, a generic "Copied." for every other row, a "value is selected" fallback',
@@ -1117,7 +1117,7 @@ check('the REST actions (story 67): the REST root and a wp_rest nonce are locali
     && ($GLOBALS['tw_localized']['pqm-admin']['i18n']['networkError'] ?? null) === 'The request did not go through. Check your connection and try again.'
     && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['updating']) && !isset($GLOBALS['tw_localized']['pqm-admin']['i18n']['enterWebhookUrl']));
 $GLOBALS['tw_enqueued'] = [];
-PQM_Admin::enqueue_assets('content-quality_page_pqm-settings');
+PQM_Admin::enqueue_assets('post-quality_page_pqm-settings');
 check('Settings page: pqm-admin.js only, no app bundle', $GLOBALS['tw_enqueued'] === ['pqm-admin']);
 
 /* Welcome notice: until setup is complete, managers only, links to the auto-opening dialog */
@@ -1149,7 +1149,7 @@ $wpdb->has_result = null;
 check('version handshake seen (a ping\'s report) but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]), $link));
 check('progress complete (the dialog\'s first review): no notice', $notice_for($manager, ['n8n_webhook_url' => ''], [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]) === '');
 check('non-manager: no notice', $notice_for(['pqm_manage_agents', 'pqm_view_reviews'], ['n8n_webhook_url' => ''], []) === '');
-$GLOBALS['tw_screen'] = 'content-quality_page_pqm-workflow';
+$GLOBALS['tw_screen'] = 'post-quality_page_pqm-workflow';
 check('n8n Workflow page itself: no notice (the button is there)', $notice_for($manager, ['n8n_webhook_url' => ''], []) === '');
 $GLOBALS['tw']['caps'] = [];
 

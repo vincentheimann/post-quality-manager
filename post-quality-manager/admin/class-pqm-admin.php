@@ -2,7 +2,7 @@
 /**
  * Admin pages for the Post Quality Manager plugin.
  *
- * Registers four sub-pages under a "Content Quality" top-level menu:
+ * Registers four sub-pages under a "Post Quality" top-level menu:
  * 1. Dashboard — React app: Fix-next queue, stat tiles, score sparkline, nudges
  * 2. Post Reviews — React app: post table with scores, filters, per-post actions
  * 3. n8n Workflow — one body rendered from the site's state (story 67):
@@ -27,7 +27,7 @@ class PQM_Admin
     /**
      * Hook suffix of the Post Reviews submenu page, captured at registration
      * so the enqueue gate never depends on the translated menu title
-     * (e.g. 'content-quality_page_pqm-posts' on an English site).
+     * (e.g. 'post-quality_page_pqm-posts' on an English site).
      */
     private static ?string $posts_hook = null;
 
@@ -53,8 +53,8 @@ class PQM_Admin
     {
         // Story 5.6: the React shell renders the Dashboard.
         self::$dashboard_hook = add_menu_page(
-            __('Content Quality', 'post-quality-manager'),
-            __('Content Quality', 'post-quality-manager'),
+            __('Post Quality', 'post-quality-manager'),
+            __('Post Quality', 'post-quality-manager'),
             'pqm_view_reviews',
             'pqm-dashboard',
         [__CLASS__, 'render_dashboard_app'],
@@ -605,7 +605,7 @@ class PQM_Admin
             }
         }
 
-        self::render_app_shell(__('Content Quality Dashboard', 'post-quality-manager'), 'pqm-dashboard-root');
+        self::render_app_shell(__('Dashboard', 'post-quality-manager'), 'pqm-dashboard-root');
     }
 
     public static function render_posts_app(): void
@@ -707,7 +707,7 @@ class PQM_Admin
         };
 ?>
         <div class="wrap pqm-wrap">
-            <h1><?php esc_html_e('Content Quality Settings', 'post-quality-manager'); ?></h1>
+            <h1><?php esc_html_e('Settings', 'post-quality-manager'); ?></h1>
 
             <?php if (!empty($_GET['settings-updated'])): // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- core's redirect flag after options.php saves; it only shows a notice. ?>
             <!-- Custom save notice: settings ride the webhook payload, so no n8n re-import is ever needed. -->
