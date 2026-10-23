@@ -21,7 +21,7 @@ metadata:
 
 **Ranked by `/prioritize` 2026-10-09 (owner):** spike 43 next, then story 48, then entry 4.8; story 47 beside them. Real licensing (44) gates story 38 (now `after: [10, 15, 41, 9, 44, 46, 47]`), not entry 4.8: a GitHub-only release reaches almost nobody (A1), the directory is the exposure. Spike 43's D1 can still pull 44 ahead of 4.8. Commercial lane 44 → 46 → 45 is owner-paced and runs beside the agent lane (22 + 40, telemetry epic, 37 → 39, 25 → 29 → 30 → 28, 4, Yoast); 49 last.
 
-**All inputs given 2026-10-09 (ADR 0013):** seller = Vincent Heimann as a private person; prices 49 / 99 / 199 a year for 1 / 5 / unlimited sites, USD and EUR; support hello@postquality.com within 2 business days; domain postquality.com (bought; brand.md § Naming has the row). Home: static pages on GitHub Pages at launch (story 45), Astro landing page after real buyers (story 50). Still open: the wordpress.org username (story 47 marker).
+**All inputs given 2026-10-09 (ADR 0013):** seller = Vincent Heimann as a private person; prices 49 / 99 / 199 a year for 1 / 5 / unlimited sites, USD and EUR; support hello@postquality.com within 2 business days (5 business days since 2026-10-23, owner); domain postquality.com (bought; brand.md § Naming has the row). Home: static pages on GitHub Pages at launch (story 45), Astro landing page after real buyers (story 50). Still open: the wordpress.org username (story 47 marker).
 
 Related: [[freemium-and-roles]] (the gate and the stub), [[delivery-pipeline]] (entry 4.8, release notes), [[naming]] (brand canon the data sheet points at).
 
