@@ -99,3 +99,12 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/initiative-post-quality-manager/plan-admin-copy-post-quality-name.md`
   summary: Bug 59's reproduction step still says "Open Content Quality → Account"; after the rename the menu is "Post Quality → Account".
   evidence: The admin menu label changed on 2026-10-23 (`admin/class-pqm-admin.php`); the build workflow does not write ticket files, so the bug's text is corrected at its next refinement or by bmad-ticket.
+- source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
+  summary: Post Reviews detail tabs render "✓Review" and "✓Takeaways" with no space, because the '✓ ' span is a flex item of an inline-flex tab button and its trailing space collapses.
+  evidence: Seen in story 86's capture `review.png` (2026-10-23); `src/post-reviews/detail-panel.js` L482–486. A margin on `.pqm-tab-done` (or a non-breaking space) fixes it.
+- source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
+  summary: At a 1024 px window the Post Reviews table rows stop short of the table's right border, likely the hidden "Last reviewed" column in a fixed-layout table.
+  evidence: Seen during story 86's captures on the showcase site (2026-10-23), capture `<session scratchpad>/capture/raw/review-page-1024.png`; not in any published frame.
+- source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
+  summary: The setup guide's step 1 tells new users "Sign up for n8n Cloud at n8n.io", while the n8n Cloud path is untested and n8n Cloud's free trial has no public API, which the guide needs.
+  evidence: `src/setup/steps.js` L162–166; docs/user-paths.md A4 ("The n8n Cloud path … is untested"); the site's honesty review C4 (2026-10-22) and the owner's launch gate (Cloud walk before Cloud is named). The site no longer names Cloud; the plugin still does.
