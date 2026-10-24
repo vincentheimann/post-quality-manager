@@ -48,3 +48,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0013 — Pro is sold through Freemius, per site and yearly, before the first public release](0013-pro-sold-through-freemius-before-public-release.md)
 - [0014 — Two builds from one source: a Free build for the directory, a Pro build served by Freemius](0014-two-builds-from-one-source.md)
 - [0015 — The plugin provisions n8n itself through the n8n public API](0015-plugin-provisions-n8n-via-public-api.md)
+- [0016 — The funnel is read from WordPress.org, Freemius and GitHub; postquality.com stays unmeasured](0016-funnel-read-from-existing-sources-site-unmeasured.md)

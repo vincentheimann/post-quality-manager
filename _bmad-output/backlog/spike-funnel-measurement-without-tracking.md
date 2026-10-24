@@ -50,3 +50,6 @@ ADR 0013 D8 and `docs/policies/privacy.md` promise a site with no cookies and no
 - Filed 2026-10-13 (agent proposal, owner agreed): a decision several tickets adopt, so an ADR, not a choice inside one of them.
 - Assumption: Freemius's dashboard figures are enough for everything after install; the open part is the site.
 - Open question: whether the owner wants figures at all before the first public release, or only after.
+- Decision (owner, 2026-10-24): site visits stay unmeasured and the promise stays as worded; the funnel is read from WordPress.org, Freemius and GitHub, weekly; attribution only through the page the interest email names (already built in story 86), no coupon per entry point. Recorded in ADR 0016; findings in `spike-funnel-measurement-without-tracking-findings.md`. This answers the open question above: GitHub release downloads and interest emails before the release, the rest after.
+- Assumption confirmed by the research: Freemius covers everything after install, for opted-in sites only. The open part was the site, and it stays open by choice.
+- Found on the way: bug 90 (deactivation feedback from a site that skipped the opt-in).

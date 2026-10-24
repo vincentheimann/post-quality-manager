@@ -54,7 +54,7 @@ Account and submission:
 | Screenshots | `assets/screenshot-1.png`, `-2.png`, `-3.png` (story 41, 2026-10-24: the postquality.com captures), one caption each in the readme's order |
 | Changelog | docs/release-notes/<version>.md and the release-please CHANGELOG (story 15) |
 
-Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 the banners and screenshots on 2026-10-24; story 38 uploads the six files below and nothing else from the repository's `assets/`):
+Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 the banners and screenshots on 2026-10-24; story 38 uploads the eight directory files below (all but `icon-512x512.png`) from a `.wordpress-org/` folder, and nothing else from the repository's `assets/`):
 
 | File | Status |
 |---|---|

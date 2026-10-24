@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65]
+after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89]
 assignee: ""
 refined: false
 hitl: true
@@ -23,14 +23,16 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
    **Given** the release zip
    **When** the official Plugin Check (PCP) runs on it, in CI and in WP Admin
    **Then** it reports no errors (escaping, sanitizing, `$wpdb->prepare`, i18n, enqueueing, direct file access guards, prefixing)
+   **And** the only warnings left are the accepted ones, each with its reason in the plan: the direct queries on the custom table (entry 5's triage) and `AIProvider.DirectIntegration` on the one-time key check (D3); the `Domain Path` header and the textdomain loader are gone (D2); one WP Admin run on the Free zip includes `vendor/` and its result is recorded
 2. **readme.txt in the directory format**
    **Given** `post-quality-manager/readme.txt`
    **When** validated with the WordPress.org readme validator
-   **Then** it passes: short description ≤ 150 chars, `Stable tag` = the release version (never `trunk`), `Tested up to` = the current WordPress major, `Requires at least` 6.6, `Requires PHP` 8.0, Description, Installation, FAQ, Screenshots, Changelog (fed from the release notes), and the version appears in one more place CI keeps in step (epic 4 CAP-3)
+   **Then** it passes: short description ≤ 150 chars, `Stable tag` = the release version (never `trunk`), `Tested up to` = the current WordPress major, `Requires at least` 6.6, `Requires PHP` 8.0, `Contributors` = `postquality` only (D6), Description, Installation, FAQ, Screenshots, Changelog, and the version appears in one more place CI keeps in step (epic 4 CAP-3)
+   **And** the Changelog holds the current release only, in two or three lines, with a link to GitHub Releases for the rest, and there is no Upgrade Notice (D8); the file stays under 10 KB, which a harness asserts
 3. **External services are disclosed**
    **Given** the readme
    **When** the review team reads it
-   **Then** an "External services" section names n8n (the user's own instance) and the AI provider(s) the workflow calls, says exactly what is sent (post title, content, excerpt, Yoast meta, settings text), when, and links each service's terms and privacy policy; the plugin suggests privacy-policy text via `wp_add_privacy_policy_content()`
+   **Then** an "External services" section names every service the plugin or its workflow contacts: n8n (the user's own instance), the AI provider(s) the workflow calls, the plugin's own one-time key check to the Anthropic API, and Freemius; it says exactly what is sent (post title, content, excerpt, Yoast meta, settings text, the notification address), when, and links each service's terms and privacy policy, starting from `docs/policies/readme-external-services.md`; the plugin suggests privacy-policy text via `wp_add_privacy_policy_content()`
 4. **GPL and human-readable code**
    **Given** the zip
    **When** audited
@@ -38,7 +40,7 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 5. **Identity and trademarks**
    **Given** story 10's identity
    **When** the slug, name and assets are submitted
-   **Then** the slug is `post-quality-manager`, the name contains no third-party trademark (no "WordPress", "Claude", "n8n" in the name), the copy claims no affiliation, and `assets/` holds `icon-128x128.png`, `icon-256x256.png`, `banner-772x250.png`, `banner-1544x500.png` and numbered screenshots matching the readme
+   **Then** the slug is `post-quality-manager`, the name contains no third-party trademark (no "WordPress", "Claude", "n8n" in the name), the copy claims no affiliation, and the SVN `assets/` is fed from a `.wordpress-org/` folder in the repository holding exactly the eight directory files (`icon-128x128.png`, `icon-256x256.png`, `icon.svg`, `banner-772x250.png`, `banner-1544x500.png`, `screenshot-1..3.png`, numbered to match the readme); nothing else from the repository's `assets/` is published
 6. **Freemium rules**
    **Given** the Free build (story 54)
    **When** the review team installs it
@@ -47,11 +49,12 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
    **Given** an approved listing
    **When** a GitHub Release is published
    **Then** a workflow deploys the zip contents to the SVN `trunk` + `tags/<version>` and the `assets/` folder, and installed sites see the update in Dashboard → Updates (this retires the parked "update channel" question)
+   **And** the deploy step names its version and its folder: `VERSION` from the release run, since the action's default reads a tag ref and `release.yml` runs on a push to `main`; `BUILD_DIR` = the unzipped Free build's `post-quality-manager/` folder, since with it set the action ignores `.distignore` and `.gitattributes`; the action is pinned by SHA and its first run on the fresh public repository (chore 87) is a dry run
 
 ## Boundaries
 
-- Must not change: the feature gate (ADR 0003), the stored settings keys.
-- Out of scope: translations content (language packs come from translate.wordpress.org once listed — bundled `languages/` becomes unnecessary for directory installs); Freemius SDK integration (deferred-work) unless the review requires the license flow to be visible.
+- Must not change: the feature gate (ADR 0003), the stored settings keys (story 88 renames them before this story; this story keeps the names it finds).
+- Out of scope: translations content (language packs come from translate.wordpress.org once listed — bundled `languages/` becomes unnecessary for directory installs); Freemius SDK integration (deferred-work) unless the review requires the license flow to be visible; a workflow that updates the readme or assets between releases (D4); a Live Preview blueprint (D5).
 
 ## References
 
@@ -63,6 +66,8 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 - external — https://developer.wordpress.org/plugins/wordpress-org/plugin-developer-faq/ and the readme validator https://wordpress.org/plugins/developers/readme-validator/
 - external — Plugin Check: https://wordpress.org/plugins/plugin-check/ and the CI action https://github.com/WordPress/plugin-check-action
 - external — SVN deploy action: https://github.com/10up/action-wordpress-plugin-deploy
+- audit — _bmad-output/backlog/story-wordpress-org-directory-listing-audit.md (the repository against the directory's practices, 2026-10-24: 43 rows, D1–D8)
+- external — https://developer.wordpress.org/plugins/wordpress-org/common-issues/ (prefixes, libraries, readme)
 
 ## Notes
 
@@ -79,3 +84,11 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 - Hand-off (2026-10-12, story 58 filed by the owner): the Freemius upload and the fetch of the generated Free and Pro builds move to story 58, which leaves them as artifacts `post-quality-manager-<version>-free.zip` / `-pro.zip` of the release run; this story keeps the SVN deploy (AC7, reading that artifact from the same run, since a `GITHUB_TOKEN` run starts no other workflow) and the switch of the GitHub Release asset to the Free build at the first directory release (ADR 0014). This supersedes the bearer-token fetch named in the story 54 inputs line above; story 58 is added to `after` at refinement. Added 2026-10-13 when story 58 was built: the SVN job runs in `release.yml` after the `package` job's step "Upload the Freemius Free build" (or as a job that `needs: package` and downloads that artifact).
 - Input (2026-10-13): `post-quality-manager/readme.txt` exists as a minimal file (headers, tagline, a short Description), because Freemius refuses any zip without it. This story completes it (External services, Installation, FAQ, Screenshots, Changelog, `fs_premium_only` blocks) and keeps `release-header-harness.php` Row 7 green; the `no_plugin_readme` ignore is already gone from CI.
 - Input (2026-10-16, story 70 filed by the owner): the Add Plugins card and its More Details view are previewed on Local from the real readme, header and assets and approved by the owner before this story submits; story 70 also rewrites the plugin header `Description` to the tagline rules. `/prioritize` decides whether 70 joins `after`.
+- Decision (owner, 2026-10-24, the directory-practices audit beside this file): the audit's gaps that belong here are in AC1, AC2, AC3, AC5 and AC7 above; story 88 (prefix rename) and chore 89 (Freemius SDK 2.13.5) join `after`. The owner took the audit's recommendations:
+  - D2: the `Domain Path` header and the `load_plugin_textdomain()` loader go in this story. Directory installs get language packs from translate.wordpress.org. This reverses the PHP half of epic-delivery-pipeline entry 6.
+  - D3: the one-time key check to the Anthropic API stays, as an accepted Plugin Check warning. The suggested `wp_ai_client_prompt()` needs WordPress 7.0, above the 6.6 floor, and the call checks a key; it sends no prompt.
+  - D4: no workflow that updates the readme or assets between releases at launch. A new WordPress major gets a patch release.
+  - D5: no Live Preview at launch. A Playground preview cannot reach an n8n instance.
+  - D6: `Contributors` is `postquality` only; the API upload is the SVN source, so Freemius adds nothing.
+  - D8: the first listing's Changelog is one short entry with a link to GitHub Releases; no Upgrade Notice. Story 15's upgrade notes speak to 3.x upgraders, who do not exist in the directory.
+- Assumption (audit, unverified): the Pro build also receives the language packs through the Freemius SDK's WordPress.org translation fetch, which only org-compliant freemium plugins get. Verify it when D2 is built; if it does not hold, the Pro build's translations need another path.

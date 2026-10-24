@@ -62,3 +62,4 @@ Candidate moments, to keep or drop at refinement: the welcome notice and the end
 - Risk medium: notices and dismissal state are shared code across screens and roles, and a wrong notice on the Free build can fail WordPress.org review (story 38). Check outside the criteria: the Plugin Check run in CI and story 38's submission review.
 - Assumption: dismissal is stored per user in user meta, like WordPress's own pointers; no new option in `pqm_settings`.
 - Open question: whether the first-review moment nudges toward Pro at all, or only toward the next review; the owner decides from the persona.
+- Input (2026-10-24, spike 64, ADR 0016): the moments are read as total upgrades per period in Freemius, before and after; no per-moment figure (no coupon per entry point, nothing sent from the plugin).

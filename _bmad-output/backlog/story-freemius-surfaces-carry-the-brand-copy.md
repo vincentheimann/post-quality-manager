@@ -60,3 +60,4 @@ Between "Get Pro" and a working license, a buyer reads text that Freemius render
 - Assumption: Freemius lets the seller edit the email templates and the plan feature list from its dashboard; which strings the SDK exposes through filters is checked at refinement against the SDK source in `vendor/freemius`.
 - Open question: whether the opt-in screen keeps Freemius's standard wording with the plugin name only (story 44's decision) or gets a custom message; the owner decides, and the privacy text follows.
 - Risk low: dashboard text and filtered strings, visible at once.
+- Input (2026-10-24, spike 64, ADR 0016): the effect is read as Freemius opt-ins against WordPress.org active installs, and abandoned against completed checkout carts, before and after the copy change.
