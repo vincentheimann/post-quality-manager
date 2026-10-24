@@ -3,7 +3,7 @@ title: 'The repository records name the owner''s site, hosts and accounts only g
 type: 'chore'
 ticket: '66'
 created: '2026-10-24'
-status: 'built'
+status: 'done'
 baseline_revision: '7c16646000dcb10f4ef70677a8f1e3ae8b01e4ee'
 route: 'full'
 route_source: 'auto'
