@@ -768,7 +768,7 @@ class PQM_Admin
                         $license_line = sprintf(
                             /* translators: %s: link to the pricing page */
                             esc_html__('Current plan: Free — Review and Key Takeaways are included. %s', 'post-quality-manager'),
-                            '<a href="' . esc_url('https://postquality.com/pricing') . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
+                            '<a href="' . esc_url(PQM_PRICING_URL) . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
                         );
                     }
                     if ( pqm_fs()->is__premium_only() ) {

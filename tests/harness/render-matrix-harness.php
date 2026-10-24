@@ -150,7 +150,7 @@ check('no locked fieldset', strpos($html, $locked_fieldset) === false);
 
 /* Row (story 44): License section — plan from the SDK, no key field, one upsell */
 echo "License section (story 44)\n";
-$get_pro = '<a href="https://postquality.com/pricing">Get Pro</a>';
+$get_pro = '<a href="' . PQM_PRICING_URL . '">Get Pro</a>';
 $html = render_for($admin_caps, true);
 check('Pro: plan line says Pro, no Get Pro, no lapse copy',
     strpos($html, 'Current plan: Pro') !== false && strpos($html, $get_pro) === false && strpos($html, 'has lapsed') === false);
@@ -169,6 +169,23 @@ check('Lapsed: lapse copy + renew link to the SDK Account page, no Get Pro',
 pqm_fs()->has_license = false;
 check('Editor: no License section', strpos(render_for($editor_caps, true), '>License</h2>') === false
     && strpos(render_for($editor_caps, false), $get_pro) === false);
+
+/* Row (bug 59): every Upgrade link the SDK renders reaches the public pricing page */
+echo "Upgrade links (bug 59)\n";
+$pricing_cbs = pqm_fs()->filters['pricing_url'] ?? [];
+// How the SDK calls this filter (a real URL, or null as a probe): memory/freemium-and-roles.md.
+$through_pricing = static fn($url) => array_reduce($pricing_cbs, static fn($u, $cb) => $cb($u), $url);
+check('the SDK pricing_url filter is hooked', $pricing_cbs !== []);
+$upgrade_url = $through_pricing(pqm_fs()->get_upgrade_url());
+check('an Upgrade URL becomes the public pricing page, never an admin page',
+    $upgrade_url === PQM_PRICING_URL && !str_contains($upgrade_url, '/wp-admin/'));
+check("the SDK's null probe stays null: its hidden pricing page and the renewal checkout stay registered",
+    $through_pricing(null) === null);
+check('Settings Get Pro and the SDK Upgrade links share one address',
+    str_contains(render_for($admin_caps, false), 'href="' . PQM_PRICING_URL . '"'));
+check("the setup dialog's Get Pro link uses the same address (src/setup/config-steps.js)",
+    str_contains((string) file_get_contents(dirname(__DIR__, 2) . '/src/setup/config-steps.js'),
+        "const PRICING_URL = '" . PQM_PRICING_URL . "';"));
 
 /* Row (ticket 16): settings-only role — the agent sections need
  * pqm_manage_agents: no heading, no fieldset, no field; admin sections stay */

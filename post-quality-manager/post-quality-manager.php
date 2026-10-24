@@ -46,8 +46,8 @@ if (!function_exists('pqm_fs')) {
                 'has_addons'          => false,
                 'has_paid_plans'      => true,
                 'is_org_compliant'    => true,
-                // Account only: no pricing, contact, support or affiliation
-                // submenu; the one upsell is the Settings → License section.
+                // Account only in the menu: no pricing, contact, support or
+                // affiliation entry. Upsell links open PQM_PRICING_URL (bug 59).
                 'menu'                => [
                     'slug'        => 'pqm-dashboard',
                     'account'     => true,
@@ -87,6 +87,8 @@ define('PQM_PLUGIN_FILE', __FILE__);
 define('PQM_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PQM_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('PQM_REST_NAMESPACE', 'post-quality/v1');
+// The public pricing page, the one place Pro is sold (ADR 0013): every upsell link opens it (bug 59).
+define('PQM_PRICING_URL', 'https://postquality.com/pricing/');
 // Bumped whenever templates/n8n-workflow.json changes in a way that requires
 // a re-import, together with the template's Parse Input stamp and its Webhook
 // Trigger reply. The workflow reports its version on a test ping (v5+) and in
@@ -115,6 +117,11 @@ pqm_fs()->add_action('after_uninstall', ['PQM_Activator', 'uninstall']);
 // The plugin's own icon (story 51) for the SDK's screens, so it never fetches
 // one from Freemius (before the opt-in choice) nor writes one into vendor/.
 pqm_fs()->add_filter('plugin_icon', static fn() => PQM_PLUGIN_DIR . 'admin/img/post-quality-manager.png');
+// Every Upgrade link the SDK renders (the Account page's Upgrade tab and plan buttons, the lapse
+// notices) opens the public pricing page, not the SDK's hidden in-admin one (bug 59). The SDK also
+// asks this filter with null whether a custom URL replaces its page: answering null keeps that page,
+// and the license-aware renewal checkout built on it, registered. See memory/freemium-and-roles.md.
+pqm_fs()->add_filter('pricing_url', static fn($url) => null === $url ? null : PQM_PRICING_URL);
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 

@@ -6,7 +6,7 @@ parent: none
 covers: [O9]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: false
 risk: low
 severity: P2
@@ -68,3 +68,6 @@ The plugin's Freemius init turns the pricing submenu off, which also removes the
 - Assumption: the report concerns the Free build; the Pro build without a license shows the same links.
 - Path for the builder: the Freemius init lives in the main plugin file (`menu.pricing` false); the SDK's `pricing_url` and `is_pricing_page_visible` filters are the hooks.
 - Related: story 61 (in-plugin nudges) starts from this link working; story 44's owner pass walks the lapse copy whose link this fixes.
+- Refined 2026-10-24 (Opus 5.5, by hand from the workspace root; the owner delegated the choices: "make choices based on best practices"). Reproduction confirmed from SDK 2.13.4 source instead of a walk: the Account page's Upgrade tab and plan buttons (`templates/account.php`), the expired-license and expired-trial notices, the updater's renewal line and the version-upgrade notice all call `get_upgrade_url()` / `pricing_url()`, which build `admin.php?page=pqm-dashboard-pricing`. Corrected by the build's review (same day, SDK source): `menu.pricing` false only hides the menu entry; once the SDK adds its submenu items it still registers that page hidden, so outside activation mode the links opened Freemius's in-admin pricing page, empty until story 44 releases the plans. The "not allowed" screen appears in activation mode (Pro waiting for its key, Free before the opt-in choice), where the SDK registers no page. The open question (which Upgrade the owner clicked) no longer changes the fix: every one of them routes through the same URL builder. Details in `memory/freemium-and-roles.md`.
+- Decision (owner delegation, 2026-10-24): option (a). The SDK's `pricing_url` filter returns the public pricing page, the one place prices live (ADR 0013) and the target of the Settings "Get Pro" link; both now read one constant. Option (b) would put Freemius's plan table inside WP Admin, which shows nothing until story 44 releases the plans and gives the site and the plugin two pricing pages to keep in step. Before launch the pricing page carries the interest email instead of Buy links; that is the honest state of a product not yet on sale, and the same page the Settings link opens today.
+- Story 65 (the opt-in notice after Free → Pro) is not part of this build: its criteria need the owner's Local walks with the Freemius sandbox; bundle them with story 44's open owner pass.
