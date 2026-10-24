@@ -15,7 +15,7 @@ The path the setup wizard must eventually orchestrate. The critical moment is **
 ### A1. Problem recognition
 The blogger notices the back-catalog is aging — older posts drift out of date, quality varies — and realizes SEO plugins score keywords, not editorial quality.
 
-- **CV:** the README articulates this gap well ("which posts need editorial attention, and why"); since story 86 (2026-10-23) postquality.com says it in the site's own design with four real captures of the plugin, lean copy and both launch states ready behind one flag (owner-approved page by page).
+- **CV:** the README articulates this gap well ("which posts need editorial attention, and why"); since story 86 (2026-10-23) postquality.com says it in the site's own design with four real captures of the plugin, lean copy and both launch states ready behind one flag (owner-approved page by page). Since story 41 (2026-10-24) the WordPress.org listing's banners, screenshots and header description are ready for story 38's upload.
 - **UV:** discoverability is near zero — GitHub Releases only, WordPress.org deferred. Since story 86 (2026-10-23) postquality.com presents the plugin in its own design with four real captures, and since story 49 (2026-10-24) the launch plan (`docs/distribution.md` § Launch plan) names each channel and day; but nothing leads a blogger there yet: no directory listing, no public repository, no announcement until entry 4.8. A blogger with this problem will not find this plugin.
 - **Signal:** WordPress.org downloads and active installs on the listing; Freemius opt-in installs (its dashboard, ADR 0013 D8); interest emails received at hello@postquality.com before launch. No site analytics: postquality.com sets no cookies and runs no tracker.
 

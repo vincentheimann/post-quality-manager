@@ -3,7 +3,7 @@ title: 'The WordPress.org banners and screenshots, the outlined lockup, the imag
 type: 'feature'
 ticket: '41'
 created: '2026-10-24'
-status: 'built'
+status: 'done'
 baseline_revision: '40b9d4d9d37670d772fa11e7b7024d225c8f53db'
 route: 'full'
 route_source: 'auto'

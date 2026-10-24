@@ -99,6 +99,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/initiative-post-quality-manager/plan-admin-copy-post-quality-name.md`
   summary: Bug 59's reproduction step still says "Open Content Quality → Account"; after the rename the menu is "Post Quality → Account".
   evidence: The admin menu label changed on 2026-10-23 (`admin/class-pqm-admin.php`); the build workflow does not write ticket files, so the bug's text is corrected at its next refinement or by bmad-ticket.
+  resolved: 2026-10-24, bug 59 records PR — reproduction step 2 reads "Post Quality → Account".
 - source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
   summary: Post Reviews detail tabs render "✓Review" and "✓Takeaways" with no space, because the '✓ ' span is a flex item of an inline-flex tab button and its trailing space collapses.
   evidence: Seen in story 86's capture `review.png` (2026-10-23); `src/post-reviews/detail-panel.js` L482–486. A margin on `.pqm-tab-done` (or a non-breaking space) fixes it.

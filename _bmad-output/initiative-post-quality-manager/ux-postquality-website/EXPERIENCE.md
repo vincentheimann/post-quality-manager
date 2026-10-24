@@ -277,7 +277,7 @@ Failure: neither the listing nor a public release exists yet, so the free action
 
 *Tom, freelance marketer: their own blog plus two client blogs. Has used the free plugin for three weeks and wants Automated Reviews and Rewrite on all three sites.*
 
-1. In WP Admin, Tom clicks a locked Pro button ("Available with Pro") or the plugin's upgrade link, and lands on `/pricing/`. Depends on bug 59 (`_bmad-output/backlog/bug-upgrade-links-lead-nowhere.md`): Settings → "Get Pro" reaches the pricing page; Freemius's Upgrade links lead nowhere.
+1. In WP Admin, Tom clicks a locked Pro button ("Available with Pro") or the plugin's upgrade link, and lands on `/pricing/`. Depends on bug 59 (`_bmad-output/backlog/bug-upgrade-links-lead-nowhere.md`): Settings → "Get Pro" reached the pricing page while Freemius's Upgrade links led nowhere; fixed 2026-10-24 (PR #185): every Upgrade link opens `/pricing/`.
 2. Tom works in Switzerland and selects **CHF** in the currency switch; the three packs show 49 / 99 / 199 CHF, with the *CHF line*.
 3. Three sites: the **5 sites** pack.
 4. Beside the buy buttons: the *guarantee*, the *renewal line*, the *lapse line* and the *buy note*.

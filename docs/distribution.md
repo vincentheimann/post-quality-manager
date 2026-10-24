@@ -60,7 +60,7 @@ Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 t
 |---|---|
 | icon-128x128.png, icon-256x256.png, icon.svg | done (story 51, 2026-10-12): `assets/icon.svg`, `icon-128x128.png`, `icon-256x256.png` |
 | icon-512x512.png | uploaded as the Freemius product image 2026-10-12 (owner); the postquality.com favicon is `icon.svg` with `icon-128x128.png`, wired by story 85 (site PR, 2026-10-22) in the site's `_includes/head.html` |
-| banner-772x250.png, banner-1544x500.png | produced (story 41, 2026-10-24): `assets/banner-772x250.png`, `assets/banner-1544x500.png`, rendered from `assets/src/banner.html` (docs/brand.md § Imagery); OWNER: approval pending at the story 41 PR (hitl) |
+| banner-772x250.png, banner-1544x500.png | produced (story 41, 2026-10-24): `assets/banner-772x250.png`, `assets/banner-1544x500.png`, rendered from `assets/src/banner.html` (docs/brand.md § Imagery); approved by the owner at the story 41 PR (#186, merged 2026-10-24) |
 | screenshot-1.png, screenshot-2.png, screenshot-3.png | produced (story 41, 2026-10-24): `assets/screenshot-1.png` … `-3.png`, the postquality.com captures; numbers match the readme Screenshots section |
 
 ## Licensing provider: Freemius (story 44)

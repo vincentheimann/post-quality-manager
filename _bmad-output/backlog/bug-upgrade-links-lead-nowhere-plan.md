@@ -3,7 +3,7 @@ title: 'Every Upgrade link the Freemius SDK renders opens the public pricing pag
 type: 'bugfix'
 ticket: '59'
 created: '2026-10-24'
-status: 'built'
+status: 'done'
 baseline_revision: '29f8104416c533f6e8a80c228e0026f6f2683904'
 route: 'oneshot'
 route_source: 'auto'
