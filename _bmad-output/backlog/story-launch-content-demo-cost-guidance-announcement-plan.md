@@ -3,7 +3,7 @@ title: 'Launch content: the measured cost example, the loop in three frames, the
 type: 'feature'
 ticket: '49'
 created: '2026-10-24'
-status: 'built'
+status: 'done'
 baseline_revision: '896a13832da332821bf4b3e96bd74f0c99dbd024'
 site_baseline_revision: 'dba2ce6ab637c043c19dcc54b95884635ad5809c'
 route: 'full'
