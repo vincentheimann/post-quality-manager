@@ -10,7 +10,8 @@
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
  *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
- *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags (Dashboard app)
+ *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags, the feedback card's lines (Dashboard app)
+ *  POST /post-quality/v1/dashboard/feedback — hide or reopen the feedback card for the current user (story 79)
  *  POST /post-quality/v1/insert-block     — write the latest Takeaways / Sources into the post (story 23)
  *  GET  /post-quality/v1/setup            — setup dialog state: progress, the n8n connection and path (story 36, n8n provisioning entry 6)
  *  POST /post-quality/v1/setup            — tick a configuration step, mark the setup complete (story 36), or store the manual-path choice (n8n provisioning, entry 6)
@@ -27,6 +28,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class PQM_REST_API {
+
+    /** User meta: the Dashboard's feedback card hidden by this user (story 79). The uninstall deletes it for every user. */
+    const FEEDBACK_META = 'pqm_feedback_dismissed';
 
     /* ─── Route Registration ─────────────────────────────────────────── */
 
@@ -98,6 +102,18 @@ class PQM_REST_API {
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'dashboard_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
+        ] );
+
+        // Story 79: the Dashboard's feedback card hides or reopens itself per
+        // user — the one request the card makes; the email leaves by mailto:.
+        register_rest_route( PQM_REST_NAMESPACE, '/dashboard/feedback', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ __CLASS__, 'dashboard_feedback_callback' ],
+            'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
+            'args'                => [
+                // The schema type alone coerces "true"/"1"/1 to a bool, like the setup route's flags.
+                'dismissed' => [ 'required' => true, 'type' => 'boolean' ],
+            ],
         ] );
 
         // Story 23: Insert into Post — plugin-side, no n8n call, no quota.
@@ -1067,7 +1083,66 @@ class PQM_REST_API {
             }
         }
 
+        // Story 79: the feedback card — whether this user hid it, and the
+        // lines its email ends with.
+        $data['feedback'] = [
+            'dismissed'   => (bool) get_user_meta( get_current_user_id(), self::FEEDBACK_META, true ),
+            'environment' => self::feedback_environment(),
+        ];
+
         return new WP_REST_Response( $data, 200 );
+    }
+
+    /**
+     * The lines the feedback card appends to its email (story 79): what the
+     * support policy asks for in a report, nothing that names the site, the
+     * user or a setting. Not translated: they are read by the maintainer.
+     * The build word starts as Free and the premium block says Pro, so the
+     * Free strip (bin/build-free.php) leaves Free.
+     *
+     * @return string[]
+     */
+    private static function feedback_environment(): array {
+        $build = 'Free';
+        if ( pqm_fs()->is__premium_only() ) {
+            $build = 'Pro';
+        }
+        // The n8n Workflow page's reading of the report: seen when it has a
+        // version or a time; version 0 with a time is a v1–v4 workflow that
+        // answered without its number (pqm_workflow_report()).
+        $report = pqm_workflow_report();
+        if ( null === $report || ( $report['version'] <= 0 && $report['at'] <= 0 ) ) {
+            $workflow = 'Workflow version: not seen yet';
+        } elseif ( $report['version'] > 0 ) {
+            $workflow = sprintf( 'Workflow version %d', $report['version'] );
+        } else {
+            $workflow = 'Workflow version: an older one that does not report its number';
+        }
+
+        return [
+            sprintf( 'Post Quality Manager %s (%s)', PQM_VERSION, $build ),
+            'WordPress ' . get_bloginfo( 'version' ),
+            'PHP ' . PHP_VERSION,
+            $workflow,
+            'Theme: ' . wp_get_theme()->get( 'Name' ),
+        ];
+    }
+
+    /**
+     * POST /dashboard/feedback (story 79): the viewer hides the feedback card
+     * or brings it back. One flag in the user's meta, nothing else stored,
+     * nothing sent anywhere.
+     */
+    public static function dashboard_feedback_callback( WP_REST_Request $request ): WP_REST_Response {
+        $dismissed = (bool) $request->get_param( 'dismissed' );
+        $user_id   = get_current_user_id();
+        if ( $dismissed ) {
+            update_user_meta( $user_id, self::FEEDBACK_META, 1 );
+        } else {
+            delete_user_meta( $user_id, self::FEEDBACK_META );
+        }
+
+        return new WP_REST_Response( [ 'dismissed' => $dismissed ], 200 );
     }
 
     /* ─── 9. Setup dialog (story 36) ─────────────────────────────────── */

@@ -62,6 +62,11 @@ function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . 
 /* Viewer-block stubs (story 5.2): quota_state() reads user meta + site clock. */
 function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
 function get_user_meta($uid, $key, $single) { return $GLOBALS['tw']['user_meta'][$uid][$key] ?? ''; }
+/* Feedback card stubs (story 79): the per-user flag and the environment lines. */
+function update_user_meta($uid, $key, $value) { $GLOBALS['tw']['user_meta'][$uid][$key] = $value; return true; }
+function delete_user_meta($uid, $key) { unset($GLOBALS['tw']['user_meta'][$uid][$key]); return true; }
+function get_bloginfo($show = '') { return $show === 'version' ? '6.8' : ''; }
+function wp_get_theme() { return new class { public function get($header) { return $header === 'Name' ? 'Twenty Twenty-Five' : ''; } }; }
 function wp_date($format, $ts = null) {
     if ($format === 'Y-m' && $ts === null) { return '2026-10'; } // pinned current month
     return gmdate($format, $ts ?? time());
@@ -566,8 +571,8 @@ $rows = [
 $r = dashboard_with($admin, $connected_pro, $rows);
 $d = $r['data'];
 check('200 response', $r['status'] === 200);
-check('shape: average_score, trend, connected, can_manage_settings, cron_nudge (+ dismiss url when the nudge shows)',
-    array_keys($d) === ['average_score', 'trend', 'connected', 'can_manage_settings', 'cron_nudge', 'cron_nudge_dismiss_url']);
+check('shape: average_score, trend, connected, can_manage_settings, cron_nudge (+ dismiss url when the nudge shows), feedback (story 79)',
+    array_keys($d) === ['average_score', 'trend', 'connected', 'can_manage_settings', 'cron_nudge', 'cron_nudge_dismiss_url', 'feedback']);
 check('8 points, each {label, average}', count($d['trend']) === 8 && array_keys($d['trend'][0]) === ['label', 'average']);
 check('as-of walk: 40, 40, 60, 60, 70, 70, 60, 60 (supersede, failed-latest exclusion)',
     array_column($d['trend'], 'average') === [40, 40, 60, 60, 70, 70, 60, 60]);
@@ -636,6 +641,78 @@ foreach ($cases as $label => $r) {
 }
 $GLOBALS['tw']['options'] = site_options();
 pqm_fs()->pro = false;
+
+/* ─── Feedback card (story 79) ───────────────────────────────────────── */
+
+/* Row: GET /dashboard carries `feedback` — the viewer's flag and the five environment lines */
+echo "Feedback card: the feedback key\n";
+$r  = dashboard_with($admin, $connected_pro, $one_scored);
+$fb = $r['data']['feedback'] ?? null;
+check('feedback is the last key: {dismissed, environment}',
+    array_key_last($r['data']) === 'feedback' && is_array($fb) && array_keys($fb) === ['dismissed', 'environment']);
+check('not dismissed by default', $fb['dismissed'] === false);
+check('environment: plugin + build (Pro here), WordPress, PHP, workflow not seen yet, theme — five lines, nothing else',
+    $fb['environment'] === [
+        'Post Quality Manager ' . PQM_VERSION . ' (Pro)',
+        'WordPress 6.8',
+        'PHP ' . PHP_VERSION,
+        'Workflow version: not seen yet',
+        'Theme: Twenty Twenty-Five',
+    ]);
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => 7, 'via' => 'test', 'at' => 1760000000];
+fresh_wpdb([$one_scored], []);
+$env = PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'];
+check('a workflow seen → "Workflow version 7"', $env[3] === 'Workflow version 7');
+check('no URL, host, email, token or setting in any line', !preg_grep('~https?:|example\.com|@|webhook|token|key~i', $env));
+// A failure alone, as pqm_record_workflow_failure() stores it on an empty report: no version, no time.
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['failed' => ['message' => 'n8n responded with 404.', 'at' => 1760000000]];
+fresh_wpdb([$one_scored], []);
+check('a failed test, no version → "not seen yet"',
+    PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: not seen yet');
+// Version 0 with a time: a v1–v4 workflow answered without its number (the n8n Workflow page's "older version").
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => 0, 'via' => 'test', 'at' => 1760000000];
+fresh_wpdb([$one_scored], []);
+check('an older workflow that answered without its number → said so, never "not seen yet"',
+    PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: an older one that does not report its number');
+$GLOBALS['tw']['options'] = site_options(['pqm_settings' => $connected_pro]);
+
+/* Row: Other user — the flag is per user */
+echo "Feedback card: per-user dismissal\n";
+$GLOBALS['tw']['user_meta'] = [42 => ['pqm_feedback_dismissed' => 1]];
+fresh_wpdb([$one_scored], []);
+check('user 42 dismissed → dismissed true', PQM_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === true);
+$GLOBALS['tw']['user_id'] = 43;
+fresh_wpdb([$one_scored], []);
+check('user 43 still sees the card → dismissed false', PQM_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === false);
+$GLOBALS['tw']['user_id'] = 42;
+
+/* Row: POST /dashboard/feedback — registration, the one boolean arg, true stores, false deletes, the gate */
+echo "Feedback card: POST /dashboard/feedback\n";
+$route = $routes[$ns . '/dashboard/feedback'] ?? [];
+check('registered as POST, gated by check_view_reviews (the Dashboard\'s own gate)',
+    ($route['methods'] ?? '') === WP_REST_Server::CREATABLE
+    && ($route['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+check('dismissed: a required boolean coerced by the schema type, no sanitize_callback (never intval, lessons 2026-10-05)',
+    ($route['args']['dismissed'] ?? null) === ['required' => true, 'type' => 'boolean']);
+$GLOBALS['tw']['user_meta'] = [];
+$res = PQM_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => true]));
+check('true → 200 {dismissed: true}, the meta set for user 42 only',
+    $res instanceof WP_REST_Response && $res->get_status() === 200 && $res->get_data() === ['dismissed' => true]
+    && $GLOBALS['tw']['user_meta'] === [42 => ['pqm_feedback_dismissed' => 1]]);
+$res = PQM_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => false]));
+check('false → 200 {dismissed: false}, the meta deleted',
+    $res->get_status() === 200 && $res->get_data() === ['dismissed' => false]
+    && !isset($GLOBALS['tw']['user_meta'][42]['pqm_feedback_dismissed']));
+$GLOBALS['tw']['caps'] = ['edit_posts'];
+check('without pqm_view_reviews the gate refuses (WP answers 403)', PQM_REST_API::check_view_reviews() === false);
+$GLOBALS['tw']['caps'] = [];
+$GLOBALS['tw']['user_meta'] = [];
+$GLOBALS['tw']['options'] = site_options();
+
+/* Row: Uninstall — the meta goes for every user */
+$activator = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-activator.php');
+check('uninstall deletes pqm_feedback_dismissed for all users (static)',
+    str_contains($activator, "delete_metadata( 'user', 0, 'pqm_feedback_dismissed', '', true );"));
 
 /* ─── Yoast column and Pending marker (story 5.10) ───────────────────── */
 

@@ -5,7 +5,8 @@
  *
  * Data: the queue is GET /posts?orderby=priority&per_page=5 (its items,
  * `in_flight`, `viewer` and `counts` — the tiles' numbers); GET /dashboard
- * adds the average, the 8-week trend and the nudge flags. A queue Review
+ * adds the average, the 8-week trend, the nudge flags and the feedback
+ * card's data (story 79, src/dashboard/feedback.js). A queue Review
  * runs through the same trigger + polling + toast path as Post Reviews
  * (src/kit/use-single-run.js); a failed start shows inline in its queue
  * row (ticket 32).
@@ -23,6 +24,7 @@ import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs } from '@wordpress/url';
 
+import FeedbackCard from './dashboard/feedback';
 import FixNextQueue from './dashboard/fix-next-queue';
 import Sparkline from './dashboard/sparkline';
 import StatTiles from './dashboard/stat-tiles';
@@ -176,8 +178,15 @@ export default function Dashboard() {
 		return <Loading />;
 	}
 
+	// The feedback card (story 79) is on every Dashboard a viewer can open,
+	// the not-yet-connected one included.
 	if ( ! dash.connected ) {
-		return <ConnectCard canManage={ !! dash.can_manage_settings } />;
+		return (
+			<>
+				<ConnectCard canManage={ !! dash.can_manage_settings } />
+				<FeedbackCard feedback={ dash.feedback } />
+			</>
+		);
 	}
 
 	if ( ! list ) {
@@ -306,6 +315,8 @@ export default function Dashboard() {
 					) }
 				</Notice>
 			) }
+
+			<FeedbackCard feedback={ dash.feedback } />
 
 			<Toasts toasts={ toasts } onRemove={ removeToast } />
 		</div>

@@ -206,6 +206,11 @@ function wp_nonce_url($url, $action = -1) { return $url . '&_wpnonce=nonce'; }
 function add_query_arg($args, $url = '') { return $url . '?' . http_build_query((array) $args); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$route] = $args; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'admin']; }
+/* Story 79: the Dashboard's feedback card reads the viewer's flag and the environment lines. */
+function get_current_user_id() { return 1; }
+function get_user_meta($uid, $key, $single) { return ''; }
+function get_bloginfo($show = '') { return $show === 'version' ? '6.8' : ''; }
+function wp_get_theme() { return new class { public function get($header) { return $header === 'Name' ? 'Twenty Twenty-Five' : ''; } }; }
 function wp_is_application_passwords_available_for_user($u) { return true; }
 function wp_remote_post($url, $args) { pqm_harness_ping_callback($args, 'received'); return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
 /* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
@@ -318,6 +323,13 @@ check('the setup guide cannot switch scheduled reviews on (400, unknown setting)
     && $refused->code === 'pqm_setup_bad_setting' && ($refused->data['status'] ?? null) === 400);
 $dash = PQM_REST_API::dashboard_callback()->get_data();
 check('dashboard has no cron_nudge key', !array_key_exists('cron_nudge', $dash) && !array_key_exists('cron_nudge_dismiss_url', $dash));
+/* Story 79: the feedback card is whole on the Free build; only the build word changes. */
+$stripped_rest = (string) file_get_contents($free . '/includes/class-pqm-rest-api.php');
+check('the feedback card: feedback_environment() and the /dashboard/feedback route survive the strip, the build word reads Free',
+    str_contains($stripped_rest, 'function feedback_environment') && !str_contains($stripped_rest, "\$build = 'Pro'")
+    && isset($GLOBALS['pqm_routes']['/dashboard/feedback'])
+    && ($dash['feedback']['environment'][0] ?? '') === 'Post Quality Manager ' . PQM_VERSION . ' (Free)'
+    && count($dash['feedback']['environment']) === 5 && $dash['feedback']['dismissed'] === false);
 
 /* ─── Row: the handshake on the Free build ───────────────────────────── */
 echo "Row — the Free build takes either template variant as current\n";

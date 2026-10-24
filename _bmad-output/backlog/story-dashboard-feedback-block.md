@@ -6,7 +6,7 @@ parent: none
 covers: [O9]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: false
 risk: low
 ---
@@ -15,7 +15,7 @@ risk: low
 
 ## Description
 
-Owner request (2026-10-19): the plugin has no way for a user to tell us what works, what does not, or what broke, and the support promise of ADR 0013 (hello@postquality.com, an answer within two business days) is written on the site only. This story adds a feedback block to the Dashboard page: the user picks feedback or a bug, writes their message, and one button opens their mail client with the address, a subject and the message prefilled, followed by an environment block the user sees and can edit before sending (plugin version and build, WordPress and PHP versions, the workflow version last seen). Nothing leaves the site without the user's own send: no tracking, no request to an external service, no mail sent by the server. The block is quiet, dismissible per user and never shown as an admin notice, within the WordPress.org guidelines and `docs/brand.md`.
+Owner request (2026-10-19): the plugin has no way for a user to tell us what works, what does not, or what broke, and the support address of ADR 0013 (hello@postquality.com) is written on the site only. This story adds a feedback block to the Dashboard page: the user picks feedback or a bug, writes their message, and one button opens their mail client with the address, a subject and the message prefilled, followed by an environment block the user sees and can edit before sending (plugin version and build, WordPress and PHP versions, the workflow version last seen). Nothing leaves the site without the user's own send: no tracking, no request to an external service, no mail sent by the server. The block is quiet, dismissible per user and never shown as an admin notice, within the WordPress.org guidelines and `docs/brand.md`.
 
 ## Acceptance Criteria
 
@@ -38,7 +38,7 @@ Owner request (2026-10-19): the plugin has no way for a user to tell us what wor
 5. **A bug knows its other channels**
    **Given** the bug kind chosen
    **When** the block is read
-   **Then** it links to the public issue tracker for bugs that may be shared, and says a security problem goes by email only, never in a public issue
+   **Then** it says a security problem goes by email only, never in a public issue; the link to the public issue tracker joins this sentence at entry 4.8, when the repository turns public (a launch-plan row), and is absent until then
 6. **Dismiss means dismissed**
    **Given** a user who dismisses the block
    **When** they return to the Dashboard
@@ -72,3 +72,7 @@ Owner request (2026-10-19): the plugin has no way for a user to tell us what wor
 - Assumption: visible to every role that can open the Dashboard (`pqm_view_reviews`); a non-administrator's bug report is as welcome as an administrator's.
 - Open question (owner, at refinement): should the Pro build also link the Freemius account page's support, or stay on the one mailbox? Draft: one mailbox, so every report lands in the same place.
 - Open question (owner, at refinement): the public issue tracker link exists only once the repository is public (entry 4.8); until then AC5 shows the email path alone.
+- Refined 2026-10-24 (Opus 5.5, by hand from the workspace root; the owner delegated the choices: "make choices based on best practices"). Ranked third in the agent lane by `/prioritize` 2026-10-24. The support promise is 5 business days since 2026-10-23 and holds for Pro only (`docs/policies/support.md`), so the block quotes no answer time. The facts the block prefills are the ones the support policy already asks a Pro customer to include.
+- Decision (owner delegation, 2026-10-24): one mailbox on both builds, no Freemius support link; every report lands in the same place, and the Freemius contact form stays off (story 44).
+- Decision (owner delegation, 2026-10-24): no issue-tracker link until entry 4.8 (a private repository would answer 404); the launch plan's day-0 GitHub row adds it. AC5 reworded accordingly.
+- Decision (owner delegation, 2026-10-24): the four assumptions above stand: `mailto:` with a Copy fallback; the environment lines (plugin version and build, WordPress, PHP, the workflow version last seen, the active theme's name) and nothing else; the dismissal as a per-user meta key written through the plugin's REST namespace, reopened from a one-line link; visible to every role holding `pqm_view_reviews`.

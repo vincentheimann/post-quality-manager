@@ -57,6 +57,8 @@ class PQM_Activator {
 
         // Per-user monthly usage counters (author quota, CAP-4) — all users.
         delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );
+        // The Dashboard feedback card hidden per user (story 79; PQM_REST_API::FEEDBACK_META, named literally for the same reason) — all users.
+        delete_metadata( 'user', 0, 'pqm_feedback_dismissed', '', true );
         // Leftover from the retired View as (story 34, removed by story 42): kept one release.
         delete_metadata( 'user', 0, 'pqm_view_as', '', true );
 

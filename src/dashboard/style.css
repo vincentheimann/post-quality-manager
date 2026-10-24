@@ -148,3 +148,53 @@
 .pqm-spark-empty {
 	margin: 0;
 }
+
+/* ─── Feedback card (story 79) ───────────────────────────────────────── */
+.pqm-feedback-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+}
+
+.pqm-feedback-row > .pqm-dash-heading {
+	flex: 1;
+	min-width: 200px;
+}
+
+.pqm-feedback .components-base-control,
+.pqm-feedback-security {
+	margin: 0 0 12px;
+}
+
+.pqm-feedback-env-heading {
+	margin: 0 0 4px;
+	font-size: 12px;
+}
+
+/* The lines the email ends with: read-only, muted, wrapping on a phone. */
+.pqm-feedback-env {
+	margin: 0 0 12px;
+	padding: 8px 10px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	color: #646970;
+	font-size: 12px;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.pqm-feedback-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.pqm-feedback-outcome {
+	margin: 12px 0 0;
+}
+
+.pqm-feedback-reopen {
+	margin: 0 0 16px;
+}
