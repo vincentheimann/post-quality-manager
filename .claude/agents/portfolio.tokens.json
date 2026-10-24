@@ -10,5 +10,6 @@
   "line": "#475569",
   "assetsDir": "assets/portfolio",
   "pageSize": "A4",
+  "heroHeight": 290,
   "pdfFile": "Portfolio - Post Quality"
 }

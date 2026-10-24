@@ -1,11 +1,11 @@
 ---
 name: pivot-agnostic
-description: Strategic pivot (2026-07-22) — from blog-specific to a niche-agnostic plugin with an n8n workflow generator; MVP decisions locked
+description: Strategic pivot (2026-07-22) — from owner-blog-specific to a niche-agnostic plugin with an n8n workflow generator; MVP decisions locked
 metadata:
   type: project
 ---
 
-As of 2026-07-22 the project goal is a **niche-agnostic** WordPress plugin + n8n workflow generator, usable for any blog niche (canonical example: technical IT blog). Previously it was tailored to <owner-site>.
+As of 2026-07-22 the project goal is a **niche-agnostic** WordPress plugin + n8n workflow generator, usable for any blog niche (canonical example: technical IT blog). Previously it was tailored to the owner's own blog.
 
 Locked MVP decisions (user-validated):
 - **Generator** = config-injected export: bundled workflow template with `{{PLACEHOLDERS}}`, filled from plugin settings, downloaded from the admin. No wizard builder.

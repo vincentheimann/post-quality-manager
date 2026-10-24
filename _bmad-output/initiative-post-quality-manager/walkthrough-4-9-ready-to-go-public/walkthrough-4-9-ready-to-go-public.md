@@ -11,7 +11,7 @@ Pasted verbatim from the plan's frozen `## Intent` section.
 
 **Approach:** Add the verbatim GPL-2.0 text as `LICENSE` at the repository root; delete `_archives/turbo-drill/` and every note that tells agents to ignore it; record the history scan (gitleaks 8.30.1, all refs, run from a scratchpad download, nothing installed) and settle each finding with the owner. The owner switches visibility only in 4.8.
 
-**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`1b3ba98`, `e06713d`, `6e0265c`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`…<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
+**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`1b3ba98`, `e06713d`, `6e0265c`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`https://<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
 
 **Decisions (owner, 2026-10-08):** both findings are rotated and accepted, history is not rewritten. The owner deletes or regenerates the old kChat slash command and incoming webhook (or confirms they are gone); the personal data in the same exports (own public blog URLs, kChat ids, username, request IPs) is accepted as is.
 
