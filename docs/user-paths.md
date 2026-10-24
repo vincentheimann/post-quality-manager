@@ -16,14 +16,14 @@ The path the setup wizard must eventually orchestrate. The critical moment is **
 The blogger notices the back-catalog is aging — older posts drift out of date, quality varies — and realizes SEO plugins score keywords, not editorial quality.
 
 - **CV:** the README articulates this gap well ("which posts need editorial attention, and why").
-- **UV:** discoverability is near zero — GitHub Releases only, WordPress.org deferred, no content presence. A blogger with this problem will not find this plugin.
+- **UV:** discoverability is near zero — GitHub Releases only, WordPress.org deferred. Since story 86 (2026-10-23) postquality.com presents the plugin in its own design with four real captures, but nothing leads a blogger there yet: no directory listing, no public repository, no announcement (story 49). A blogger with this problem will not find this plugin.
 - **Signal:** repo traffic, stars, release downloads.
 
 ### A2. Evaluation
 They read the README and weigh the requirements: an n8n instance **and** a Claude API key.
 
 - **CV:** honest requirements list; niche-agnostic pitch widens the audience.
-- **UV:** the n8n + API-key prerequisite is the single biggest adoption filter — no demo, no screenshots, no "what will this cost me in API spend" guidance. Many evaluators bounce here without the plugin ever getting a chance.
+- **UV:** the n8n + API-key prerequisite is the single biggest adoption filter — no demo and no "what will this cost me in API spend" guidance yet (story 49, an owner launch gate since 2026-10-22); the screenshots exist since story 86 (2026-10-23, on postquality.com). Many evaluators bounce here without the plugin ever getting a chance.
 - **Signal:** README views vs. release downloads (drop-off ratio).
 
 ### A3. Install & activate
@@ -111,9 +111,9 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 | 2 | Perceived no-re-import (validate the pivot, say it in the UI) | B5 | *(2026-10-07: converted — owner-verified, backlog stories 1 and 6)* |
 | 3 | Pull-back mechanism (digest / notifications) | A6, B1 | Retention; silent results are unrealized value by definition |
 | 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | Converts evaluators into activated users *(2026-10-07: converted — the guided setup dialog, story 36, owner-verified)* |
-| 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users (backlog item exists) |
+| 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users *(2026-10-22: converted — template v7, story 2, owner-verified on the production site)* |
 | 6 | Cron for seo/audit commands | B1 | Owner ask *(2026-10-06: converted — one command per schedule, ticket 3; several commands per schedule remain open)* |
-| 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP |
+| 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP *(2026-10-24: in progress — the launch pack toward entry 4.8, `/prioritize` pick A; postquality.com live with real captures since story 86)* |
 
 **Current Value in one line:** an installed, configured system that continuously scores the back-catalog and shows where to look — verified by the owner in development; no real users yet, so none of it is observed in use.
 
