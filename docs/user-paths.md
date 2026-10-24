@@ -17,14 +17,14 @@ The blogger notices the back-catalog is aging — older posts drift out of date,
 
 - **CV:** the README articulates this gap well ("which posts need editorial attention, and why"); since story 86 (2026-10-23) postquality.com says it in the site's own design with four real captures of the plugin, lean copy and both launch states ready behind one flag (owner-approved page by page).
 - **UV:** discoverability is near zero — GitHub Releases only, WordPress.org deferred. Since story 86 (2026-10-23) postquality.com presents the plugin in its own design with four real captures, but nothing leads a blogger there yet: no directory listing, no public repository, no announcement (story 49). A blogger with this problem will not find this plugin.
-- **Signal:** repo traffic, stars, release downloads.
+- **Signal:** WordPress.org downloads and active installs on the listing; Freemius opt-in installs (its dashboard, ADR 0013 D8); interest emails received at hello@postquality.com before launch. No site analytics: postquality.com sets no cookies and runs no tracker.
 
 ### A2. Evaluation
 They read the README and weigh the requirements: an n8n instance **and** a Claude API key.
 
 - **CV:** honest requirements list; niche-agnostic pitch widens the audience.
-- **UV:** the n8n + API-key prerequisite is the single biggest adoption filter — no demo and no "what will this cost me in API spend" guidance yet (story 49, an owner launch gate since 2026-10-22); the screenshots exist since story 86 (2026-10-23, on postquality.com). Many evaluators bounce here without the plugin ever getting a chance.
-- **Signal:** README views vs. release downloads (drop-off ratio).
+- **UV:** the n8n + API-key prerequisite is the single biggest adoption filter. The cost guidance exists since story 49 (2026-10-24): the measured example on the site FAQ (`/docs/#cost`), the readme FAQ and `docs/cost-example.md`; the loop (trigger → review → fix next) is told in three captures (story 86, postquality.com; the readme's Screenshots order). What stays unrealized: no evaluator has been observed yet, so whether the guidance stops the bounce is unknown.
+- **Signal:** WordPress.org downloads vs. active installs, and Freemius opt-in installs vs. Pro sales (the drop-off from evaluating to installing, then to buying); interest emails vs. installs after launch. No site analytics (ADR 0013 D8).
 
 ### A3. Install & activate
 Copy the plugin folder from a GitHub release into `wp-content/plugins/`, activate.

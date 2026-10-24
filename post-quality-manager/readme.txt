@@ -21,3 +21,17 @@ Post Quality Manager reviews your posts with AI and keeps the results in WP Admi
 * Dashboard: your average score, its trend and the posts to fix next.
 
 The reviews run in your own n8n workflow with your own AI provider key. The plugin generates the workflow for your site, and a setup guide walks you through connecting it.
+
+== Frequently Asked Questions ==
+
+= What does it cost me in AI calls? =
+
+You pay Anthropic per call, on your own API key, and your n8n hosting separately. A review sends the post text plus your settings text once. Measured 24 October 2026 on claude-sonnet-4-6, the default model, at Anthropic's list prices ($3 per million input tokens, $15 per million output tokens): one review costs at most $0.05 for a 600-word, a 1,300-word or a 2,500-word post, about 4 to 5 cents. One review per post per month: 20 posts cost $0.84 to $0.99, 80 posts $3.34 to $3.95. Prices change; check Anthropic's pricing page. The posts measured are fictional.
+
+To cap what you spend, set a spend limit in your Anthropic account: the plugin's Monthly Quota only limits how many AI actions each Author runs (Editors and Administrators have no limit).
+
+== Screenshots ==
+
+1. Post Reviews: every post with its latest score. Click Review on a post to send it to your workflow. Demo posts, fictional scores.
+2. The review: the score on four pillars, the issues and the top edits, back in WP Admin. Fictional post.
+3. The Dashboard: Fix next ranks the posts to work on first. Demo posts, fictional scores.
