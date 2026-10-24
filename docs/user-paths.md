@@ -15,7 +15,7 @@ The path the setup wizard must eventually orchestrate. The critical moment is **
 ### A1. Problem recognition
 The blogger notices the back-catalog is aging — older posts drift out of date, quality varies — and realizes SEO plugins score keywords, not editorial quality.
 
-- **CV:** the README articulates this gap well ("which posts need editorial attention, and why").
+- **CV:** the README articulates this gap well ("which posts need editorial attention, and why"); since story 86 (2026-10-23) postquality.com says it in the site's own design with four real captures of the plugin, lean copy and both launch states ready behind one flag (owner-approved page by page).
 - **UV:** discoverability is near zero — GitHub Releases only, WordPress.org deferred. Since story 86 (2026-10-23) postquality.com presents the plugin in its own design with four real captures, but nothing leads a blogger there yet: no directory listing, no public repository, no announcement (story 49). A blogger with this problem will not find this plugin.
 - **Signal:** repo traffic, stars, release downloads.
 

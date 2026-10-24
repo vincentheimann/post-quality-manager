@@ -19,7 +19,7 @@ risk: low
 
 ## Acceptance Criteria
 
-Verify: a demo GIF or video exists and is embedded on the front page of postquality.com (story 45, or story 50 once it exists) and in the readme's Description; the cost guidance is a FAQ entry in the readme and a section on the website, with a worked example per supported provider and a date, and names the Monthly Quota and the token limit as the caps; the announcement plan lists each channel with its date and owner, and the n8n template library submission is either done or recorded as declined with the reason; `docs/user-paths.md` A1 and A2 record the new Signal values to watch (listing views, downloads, website visits).
+Verify: a demo GIF or video exists and is embedded on the front page of postquality.com (story 45, or story 50 once it exists) and in the readme's Description; the cost guidance is a FAQ entry in the readme and a section on the website, with a worked example per supported provider and a date, and names the Monthly Quota as the only limit that exists today (a count of manual runs per user, not a spending cap: no setting bounds the provider's bill; the site-wide token limit of ADR 0009 is decided, not built, and is named only once it ships); the announcement plan lists each channel with its date and owner, and the n8n template library submission is either done or recorded as declined with the reason; `docs/user-paths.md` A1 and A2 record the new Signal values to watch (listing views, downloads, website visits).
 
 ## Boundaries
 
@@ -37,3 +37,4 @@ Verify: a demo GIF or video exists and is embedded on the front page of postqual
 
 - Filed 2026-10-09 (release-readiness pack, see story 43). Last of the pack; worth doing only once the listing (story 38) is live or imminent.
 - Linked (owner, 2026-10-09): the promotional claims and KPI figures come from story 53 (`docs/messaging.md`); the demo script and the announcement reuse its pitch and benefit lines.
+- Corrected 2026-10-24: the acceptance text called the token limit a cap. The site's docs FAQ had made the same promise and was fixed live on 2026-10-22 (postquality.com PR #2): the plugin bounds run counts, never spend. Ranked first in the agent lane by `/prioritize` 2026-10-24 (the cost example and the demo are the owner's launch gates since 2026-10-22); refine before building.

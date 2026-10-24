@@ -3,7 +3,7 @@ title: 'Build 3: real screenshots from a demo site, the sharing card, discoverab
 type: 'feature'
 ticket: '86'
 created: '2026-10-23'
-status: 'built'
+status: 'done'
 baseline_revision: '68ebb918ef8eccff6f8c069ba51fc5895e9b83a0'
 route: 'full'
 route_source: 'pinned'
