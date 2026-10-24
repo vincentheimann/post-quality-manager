@@ -1,0 +1,50 @@
+<!doctype html>
+<!--
+  The WordPress.org listing banners, source of assets/banner-772x250.png and assets/banner-1544x500.png (story 41).
+  Derived from the site's sharing card (postquality.com/_tools/og-card.html): the band #33496b full-bleed, lockup B at
+  a 64 px tile, the tagline verbatim from docs/brand.md in white, a 40 px safe margin, no screenshot, no third-party
+  mark, no domain line (the listing names the plugin). The icon is a copy of assets/icon.svg; the wordmark is Inter
+  (installed locally, SIL OFL 1.1), the same face as the outlined lockup SVGs. Never a web font.
+
+  Render (docs/brand.md § Imagery and the WordPress.org assets), with a fresh throwaway profile folder each time:
+    msedge --headless=new --hide-scrollbars --disable-lcd-text --force-color-profile=srgb
+           --disable-features=msEdgeSidebarV2,msUndersideButton,EdgeCollections
+           --user-data-dir=<new folder> --window-size=772,250 --screenshot=assets/banner-772x250.png <file URL of this page>
+    the same with --force-device-scale-factor=2 --screenshot=assets/banner-1544x500.png (the window size stays 772,250).
+  --disable-lcd-text keeps the text greyscale-antialiased: without it the PNG carries ClearType colour fringes.
+  Font check (a missing Inter falls back to system-ui silently): render a copy of this page once more with
+  font-family: Inter, monospace; identical PNG bytes mean Edge resolved the installed Inter, a different file means
+  it did not.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WordPress.org banner</title>
+<style>
+  html, body { margin: 0; }
+  body {
+    width: 772px;
+    height: 250px;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 40px; /* safe margin */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: #33496b; /* the band: the tile never sits on navy */
+    font-family: Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .lockup { display: flex; align-items: center; gap: 24px; font-size: 40px; line-height: 1; white-space: nowrap; } /* 0.375 T, 0.63 T */
+  .tile { display: block; width: 64px; height: 64px; flex: none; }
+  .name { font-weight: 600; color: #ffffff; }
+  .manager { font-weight: 400; color: #c3ccd9; }
+  .tagline { margin: 20px 0 0; max-width: 620px; font-size: 22px; line-height: 1.25; color: #ffffff; text-wrap: balance; }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+  <div class="lockup"><svg class="tile" viewBox="0 0 20 20" aria-hidden="true"><rect width="20" height="20" fill="#1b2a41"/><g transform="translate(3 3) scale(0.7)"><path fill="#ffffff" fill-rule="evenodd" d="M 13.1 9.55 A 6.3 6.3 0 1 1 0.5 9.55 A 6.3 6.3 0 1 1 13.1 9.55 Z M 10.85 9.55 A 4.05 4.05 0 1 0 2.75 9.55 A 4.05 4.05 0 1 0 10.85 9.55 Z"/><rect fill="#00a32a" x="0" y="-1.12" width="4.81" height="2.24" transform="translate(9.47 12.22) rotate(45)"/><rect fill="#00a32a" x="0" y="-1.12" width="7.78" height="2.24" transform="translate(12.87 15.62) rotate(-45)"/><circle fill="#00a32a" cx="9.47" cy="12.22" r="1.12"/><circle fill="#00a32a" cx="12.87" cy="15.62" r="1.12"/><circle fill="#00a32a" cx="18.38" cy="10.12" r="1.12"/></g></svg><span><span class="name">Post Quality</span> <span class="manager">Manager</span></span></div>
+  <p class="tagline">Score every post, see what to fix next and keep your <span class="nowrap">back-catalog</span> sharp. AI content reviews, stored and tracked in WP Admin.</p>
+</body>
+</html>

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Post Quality Manager
  * Plugin URI:        https://postquality.com
- * Description:       Content quality dashboard — store review results from n8n workflows, schedule automated reviews, and get a global overview of your blog content quality.
+ * Description:       Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.
  * x-release-please-start-version
  * Version:           3.9.0
  * x-release-please-end

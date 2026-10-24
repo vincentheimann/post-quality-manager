@@ -17,7 +17,7 @@ class PQM_Cron {
     public static function add_custom_schedules( array $schedules ): array {
         $schedules['pqm_weekly'] = [
             'interval' => WEEK_IN_SECONDS,
-            'display'  => __( 'Once Weekly (PQM)', 'post-quality-manager' ),
+            'display'  => __( 'Once Weekly (Post Quality)', 'post-quality-manager' ),
         ];
         return $schedules;
     }

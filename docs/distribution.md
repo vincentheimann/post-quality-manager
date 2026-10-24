@@ -8,7 +8,7 @@ _Every field a platform asks for before the plugin can be listed, sold or found,
 |---|---|---|
 | Plugin Name | Post Quality Manager | docs/brand.md § Naming |
 | Plugin URI | https://postquality.com (set by story 45, 2026-10-09) | ADR 0013 |
-| Description | The tagline in docs/brand.md (124 chars) | story 41 replaces the current header text with it |
+| Description | The tagline in docs/brand.md (124 chars) | done (story 41, 2026-10-24): the header carries the tagline verbatim |
 | Version | release-please owns it | AGENTS.md Policy |
 | Requires at least | 6.6 | memory/admin-ui-rebuild.md (WordPress floor) |
 | Requires PHP | 8.0 | epic-delivery-pipeline entry 4.2 |
@@ -47,21 +47,21 @@ Account and submission:
 
 | Section | Source |
 |---|---|
-| Description | README.md "Why this exists" and "Features", rewritten for site owners by story 41's copy sweep; demo and cost FAQ from story 49 |
+| Description | README.md "Why this exists" and "Features", to be rewritten for site owners by story 60 (the copywriting skill; handed over from story 41's copy sweep 2026-10-24, which checked the wording rules only); demo and cost FAQ from story 49 |
 | Installation | README.md installation steps; the n8n Workflow page's ordered steps (story 40) |
 | FAQ | README requirements (your own n8n, an AI provider key), single-site only, what Free includes, what the AI calls cost (story 49) |
 | External services | story 46: the user's own n8n instance and the AI provider the workflow calls (what is sent, when, their terms and privacy links); Freemius opt-in and license check |
-| Screenshots | numbered files from story 41, one caption each |
+| Screenshots | `assets/screenshot-1.png`, `-2.png`, `-3.png` (story 41, 2026-10-24: the postquality.com captures), one caption each in the readme's order |
 | Changelog | docs/release-notes/<version>.md and the release-please CHANGELOG (story 15) |
 
-Assets (`assets/` in SVN, not in the zip; story 51 produces the icon, story 41 the banners and screenshots):
+Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 the banners and screenshots on 2026-10-24; story 38 uploads the six files below and nothing else from the repository's `assets/`):
 
 | File | Status |
 |---|---|
 | icon-128x128.png, icon-256x256.png, icon.svg | done (story 51, 2026-10-12): `assets/icon.svg`, `icon-128x128.png`, `icon-256x256.png` |
 | icon-512x512.png | uploaded as the Freemius product image 2026-10-12 (owner); the postquality.com favicon is `icon.svg` with `icon-128x128.png`, wired by story 85 (site PR, 2026-10-22) in the site's `_includes/head.html` |
-| banner-772x250.png, banner-1544x500.png | OWNER: approve story 41's direction, then produced (story 41, after 51) |
-| screenshot-1.png … screenshot-n.png | same; numbers match the readme Screenshots section |
+| banner-772x250.png, banner-1544x500.png | produced (story 41, 2026-10-24): `assets/banner-772x250.png`, `assets/banner-1544x500.png`, rendered from `assets/src/banner.html` (docs/brand.md § Imagery); OWNER: approval pending at the story 41 PR (hitl) |
+| screenshot-1.png, screenshot-2.png, screenshot-3.png | produced (story 41, 2026-10-24): `assets/screenshot-1.png` … `-3.png`, the postquality.com captures; numbers match the readme Screenshots section |
 
 ## Licensing provider: Freemius (story 44)
 
@@ -147,6 +147,6 @@ _Written 2026-10-24. Days are relative to day 0 = entry 4.8, the first public re
 
 ## Open markers on 2026-10-09
 
-- OWNER: approve story 41's banner and screenshots; confirm the CHF figures (story 52).
+- OWNER: approve story 41's banners (`assets/banner-772x250.png`, `assets/banner-1544x500.png`) and screenshots (`assets/screenshot-1..3.png`), produced 2026-10-24, at the story 41 PR; story 38 uploads them. Confirm the CHF figures (story 52).
 - OWNER: Freemius account; Discussions on or off. (Mail at hello@postquality.com confirmed 2026-10-12.)
 - CHECK at use: `Tested up to`, readme tags, Freemius SDK version and sandbox, Freemius fees.
