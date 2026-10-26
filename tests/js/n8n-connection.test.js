@@ -542,7 +542,7 @@ describe( 'Story 74: the connection state tells the truth', () => {
 		`Checked ${ new Date( at * 1000 ).toLocaleString() }.`;
 
 	/**
-	 * Count pqm:workflow-refresh events while `run` runs.
+	 * Count postquality:workflow-refresh events while `run` runs.
 	 *
 	 * @param {Function} run Async steps.
 	 * @return {Promise<Array>} Each event's detail.
@@ -550,9 +550,12 @@ describe( 'Story 74: the connection state tells the truth', () => {
 	async function refreshesDuring( run ) {
 		const details = [];
 		const listener = ( e ) => details.push( e.detail );
-		document.addEventListener( 'pqm:workflow-refresh', listener );
+		document.addEventListener( 'postquality:workflow-refresh', listener );
 		await run();
-		document.removeEventListener( 'pqm:workflow-refresh', listener );
+		document.removeEventListener(
+			'postquality:workflow-refresh',
+			listener
+		);
 		return details;
 	}
 
@@ -1028,9 +1031,9 @@ describe( 'After an adoption (story 67): the page re-reads its body', () => {
 		setup: { wizard_created: false, at: 1760000000 }, // eslint-disable-line camelcase -- REST field name.
 	};
 
-	test( 'a confirmed adoption dispatches pqm:workflow-refresh once (its reply carries no body); a refused one does not', async () => {
+	test( 'a confirmed adoption dispatches postquality:workflow-refresh once (its reply carries no body); a refused one does not', async () => {
 		const refreshed = jest.fn();
-		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		document.addEventListener( 'postquality:workflow-refresh', refreshed );
 		await mount( HAND_MADE );
 		apiFetch.mockResolvedValueOnce( PROPOSAL );
 		await click( '.pqm-n8n-adopt' );
@@ -1045,7 +1048,10 @@ describe( 'After an adoption (story 67): the page re-reads its body', () => {
 		await click( '.pqm-n8n-adopt' );
 		apiFetch.mockResolvedValueOnce( ADOPTED );
 		await click( '.pqm-n8n-adopt-confirm' );
-		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		document.removeEventListener(
+			'postquality:workflow-refresh',
+			refreshed
+		);
 		expect( refreshed ).toHaveBeenCalledTimes( 1 );
 		expect( $( '.pqm-n8n-managed' ) ).not.toBeNull();
 	} );
@@ -1196,11 +1202,11 @@ describe( 'Start over (story 71)', () => {
 		);
 	} );
 
-	test( 'confirm: DELETE /n8n/setup with the checkbox value; one pqm:workflow-refresh focusing the n8n connection disclosure, no swap from the island; the managed line is gone', async () => {
+	test( 'confirm: DELETE /n8n/setup with the checkbox value; one postquality:workflow-refresh focusing the n8n connection disclosure, no swap from the island; the managed line is gone', async () => {
 		const swapped = jest.fn();
 		const refreshed = jest.fn();
-		document.addEventListener( 'pqm:workflow-status', swapped );
-		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		document.addEventListener( 'postquality:workflow-status', swapped );
+		document.addEventListener( 'postquality:workflow-refresh', refreshed );
 		await mountOnPage( WIZARD );
 		await click( '.pqm-n8n-start-over' );
 		await act( async () => {
@@ -1212,8 +1218,11 @@ describe( 'Start over (story 71)', () => {
 		} );
 		apiFetch.mockResolvedValueOnce( STARTED_OVER );
 		await click( '.pqm-n8n-start-over-confirm' );
-		document.removeEventListener( 'pqm:workflow-status', swapped );
-		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		document.removeEventListener( 'postquality:workflow-status', swapped );
+		document.removeEventListener(
+			'postquality:workflow-refresh',
+			refreshed
+		);
 		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: SETUP_PATH,
@@ -1234,7 +1243,7 @@ describe( 'Start over (story 71)', () => {
 
 	test( "a refused call: the Modal closes, the cause in the adoption block's Notice, the managed line stays, no refresh", async () => {
 		const swapped = jest.fn();
-		document.addEventListener( 'pqm:workflow-refresh', swapped );
+		document.addEventListener( 'postquality:workflow-refresh', swapped );
 		await mountOnPage( ELSEWHERE );
 		await click( '.pqm-n8n-start-over' );
 		apiFetch.mockRejectedValueOnce( {
@@ -1243,7 +1252,7 @@ describe( 'Start over (story 71)', () => {
 				'The plugin set this workflow up on old.example.com, not on the n8n you are connected to now.',
 		} );
 		await click( '.pqm-n8n-start-over-confirm' );
-		document.removeEventListener( 'pqm:workflow-refresh', swapped );
+		document.removeEventListener( 'postquality:workflow-refresh', swapped );
 		expect( modal() ).toBeNull();
 		expect( $( '.pqm-n8n-adoption .mock-notice-error' ).textContent ).toBe(
 			'The plugin set this workflow up on old.example.com, not on the n8n you are connected to now.'
@@ -1261,7 +1270,7 @@ describe( 'Start over (story 71)', () => {
 
 		/**
 		 * The page's Update workflow button (pqm-admin.js) dispatching
-		 * pqm:confirm-action, as a [data-pqm-confirm] click does.
+		 * postquality:confirm-action, as a [data-pqm-confirm] click does.
 		 *
 		 * @return {Promise<boolean>} dispatchEvent()'s answer: false = prevented.
 		 */
@@ -1275,7 +1284,7 @@ describe( 'Start over (story 71)', () => {
 			let heard;
 			await act( async () => {
 				heard = document.dispatchEvent(
-					new window.CustomEvent( 'pqm:confirm-action', {
+					new window.CustomEvent( 'postquality:confirm-action', {
 						cancelable: true,
 						detail: {
 							action: 'update',
@@ -1319,9 +1328,9 @@ describe( 'Start over (story 71)', () => {
 			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		test( "confirm: one POST /n8n/workflow with an empty body; the reply's status_html swapped in, pqm:workflow-status once", async () => {
+		test( "confirm: one POST /n8n/workflow with an empty body; the reply's status_html swapped in, postquality:workflow-status once", async () => {
 			const swapped = jest.fn();
-			document.addEventListener( 'pqm:workflow-status', swapped );
+			document.addEventListener( 'postquality:workflow-status', swapped );
 			await mountOnPage( ADOPTED );
 			await pressUpdate();
 			apiFetch.mockResolvedValueOnce( {
@@ -1334,7 +1343,10 @@ describe( 'Start over (story 71)', () => {
 				status_html: UPDATED_BODY,
 			} );
 			await click( '.pqm-n8n-update-confirm' );
-			document.removeEventListener( 'pqm:workflow-status', swapped );
+			document.removeEventListener(
+				'postquality:workflow-status',
+				swapped
+			);
 			expect( apiFetch ).toHaveBeenCalledTimes( 2 );
 			expect( apiFetch ).toHaveBeenLastCalledWith( {
 				path: WORKFLOW_PATH,
@@ -1369,7 +1381,7 @@ describe( 'Start over (story 71)', () => {
 
 		test( 'a refusal whose data carries the body (story 74): swapped in the same way', async () => {
 			const swapped = jest.fn();
-			document.addEventListener( 'pqm:workflow-status', swapped );
+			document.addEventListener( 'postquality:workflow-status', swapped );
 			await mountOnPage( ADOPTED );
 			await pressUpdate();
 			const refused =
@@ -1382,7 +1394,10 @@ describe( 'Start over (story 71)', () => {
 				data: { status: 502, status_html: refused },
 			} );
 			await click( '.pqm-n8n-update-confirm' );
-			document.removeEventListener( 'pqm:workflow-status', swapped );
+			document.removeEventListener(
+				'postquality:workflow-status',
+				swapped
+			);
 			// No primary in that body: focus on the status block, made focusable.
 			expect( $( '#pqm-workflow-body' ).innerHTML ).toBe(
 				refused.replace(
@@ -1398,7 +1413,7 @@ describe( 'Start over (story 71)', () => {
 
 		test( "a refusal without a body (network): the Modal closes, the cause in the adoption block's Notice, the managed line stays", async () => {
 			const swapped = jest.fn();
-			document.addEventListener( 'pqm:workflow-status', swapped );
+			document.addEventListener( 'postquality:workflow-status', swapped );
 			await mountOnPage( ADOPTED );
 			await pressUpdate();
 			apiFetch.mockRejectedValueOnce( {
@@ -1406,7 +1421,10 @@ describe( 'Start over (story 71)', () => {
 				message: 'You are probably offline.',
 			} );
 			await click( '.pqm-n8n-update-confirm' );
-			document.removeEventListener( 'pqm:workflow-status', swapped );
+			document.removeEventListener(
+				'postquality:workflow-status',
+				swapped
+			);
 			expect( updateModal() ).toBeNull();
 			expect(
 				$( '.pqm-n8n-adoption .mock-notice-error' ).textContent

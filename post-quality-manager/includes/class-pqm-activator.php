@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_Activator {
+class PostQuality_Activator {
 
     /**
      * Run on plugin activation.
@@ -45,24 +45,24 @@ class PQM_Activator {
         delete_option( 'pqm_workflow_version_seen' );
         delete_option( 'pqm_cron_nudge_dismissed' );
         delete_option( 'pqm_caps_version' );
-        delete_option( 'pqm_setup_progress' ); // PQM_SETUP_OPTION (story 36), named literally: the harnesses load this class without the main plugin file.
-        delete_option( 'pqm_n8n_api' ); // PQM_N8n::OPTION, named literally for the same reason: the n8n base URL and API key.
-        if ( pqm_fs()->is__premium_only() ) {
-            PQM_N8n::revoke_setup_password__premium_only(); // The Application Password provisioning made for n8n (bug 73): revoked before its map goes.
+        delete_option( 'pqm_setup_progress' ); // POSTQUALITY_SETUP_OPTION (story 36), named literally: the harnesses load this class without the main plugin file.
+        delete_option( 'pqm_n8n_api' ); // PostQuality_N8n::OPTION, named literally for the same reason: the n8n base URL and API key.
+        if ( postquality_fs()->is__premium_only() ) {
+            PostQuality_N8n::revoke_setup_password__premium_only(); // The Application Password provisioning made for n8n (bug 73): revoked before its map goes.
         }
-        delete_option( 'pqm_n8n_setup' ); // PQM_N8n::SETUP_OPTION, named literally for the same reason: what provisioning created in n8n.
-        delete_option( 'pqm_n8n_leftovers' ); // PQM_N8n::LEFTOVERS_OPTION, named literally for the same reason: what a failed provisioning left in n8n.
-        delete_option( 'pqm_n8n_provisioning' ); // PQM_N8n::LOCK_OPTION, named literally for the same reason: the lock of a provisioning run.
-        delete_option( 'pqm_ping' ); // PQM_Admin::PING_OPTION, named literally for the same reason: a test ping waiting for n8n's callback (story 2).
+        delete_option( 'pqm_n8n_setup' ); // PostQuality_N8n::SETUP_OPTION, named literally for the same reason: what provisioning created in n8n.
+        delete_option( 'pqm_n8n_leftovers' ); // PostQuality_N8n::LEFTOVERS_OPTION, named literally for the same reason: what a failed provisioning left in n8n.
+        delete_option( 'pqm_n8n_provisioning' ); // PostQuality_N8n::LOCK_OPTION, named literally for the same reason: the lock of a provisioning run.
+        delete_option( 'pqm_ping' ); // PostQuality_Admin::PING_OPTION, named literally for the same reason: a test ping waiting for n8n's callback (story 2).
 
         // Per-user monthly usage counters (author quota, CAP-4) — all users.
         delete_metadata( 'user', 0, 'pqm_monthly_usage', '', true );
-        // The Dashboard feedback card hidden per user (story 79; PQM_REST_API::FEEDBACK_META, named literally for the same reason) — all users.
+        // The Dashboard feedback card hidden per user (story 79; PostQuality_REST_API::FEEDBACK_META, named literally for the same reason) — all users.
         delete_metadata( 'user', 0, 'pqm_feedback_dismissed', '', true );
         // Leftover from the retired View as (story 34, removed by story 42): kept one release.
         delete_metadata( 'user', 0, 'pqm_view_as', '', true );
 
-        PQM_Features::remove_capabilities();
+        PostQuality_Features::remove_capabilities();
 
         // Clear any scheduled cron events.
         wp_clear_scheduled_hook( 'pqm_cron_review_posts' );
@@ -74,7 +74,7 @@ class PQM_Activator {
      * capability the stored version is behind on — Admins are never locked out.
      */
     public static function maybe_upgrade(): void {
-        if ( (int) get_option( 'pqm_caps_version', 0 ) < PQM_Features::CAPS_VERSION ) {
+        if ( (int) get_option( 'pqm_caps_version', 0 ) < PostQuality_Features::CAPS_VERSION ) {
             self::register_capabilities();
         }
     }
@@ -85,8 +85,8 @@ class PQM_Activator {
      * new in this version) — and remember which version of it ran.
      */
     private static function register_capabilities(): void {
-        PQM_Features::register_capabilities();
-        update_option( 'pqm_caps_version', PQM_Features::CAPS_VERSION );
+        PostQuality_Features::register_capabilities();
+        update_option( 'pqm_caps_version', PostQuality_Features::CAPS_VERSION );
     }
 
     /**
@@ -116,6 +116,6 @@ class PQM_Activator {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta( $sql );
 
-        update_option( 'pqm_db_version', PQM_VERSION );
+        update_option( 'pqm_db_version', POSTQUALITY_VERSION );
     }
 }

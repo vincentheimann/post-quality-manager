@@ -68,7 +68,7 @@ Owner decision 2026-10-12 (story 51).
 - **Mark:** a geometric Q whose tail continues into a check: "quality, verified".
 - **Construction:** a perfect ring (R = 7, stroke 2.5 on a 20-unit grid). Ring diameter : check long arm : check short arm = φ² : φ : 1 (φ = 1.618). The tail starts just inside the ring's inner edge and descends at 45° to the corner; the long arm rises at 45°. One stroke weight, round terminals, bounding box centred, the whole scaled to a 19-unit width.
 - **Colours:** tile `#1b2a41`, mark `#ffffff`, check `#00a32a` (the dashboard's Ready status green). The admin menu shows the mark in one colour, built from filled shapes only so WordPress can recolour it for every admin color scheme.
-- **Files:** `assets/icon.svg`, `assets/icon-128x128.png`, `assets/icon-256x256.png`, `assets/icon-512x512.png` (Freemius product image); the postquality.com favicon is `icon.svg` with `icon-128x128.png` (story 85); `post-quality-manager/admin/img/post-quality-manager.png` (Freemius opt-in screens); the menu icon is the base64 SVG constant `PQM_Admin::MENU_ICON`.
+- **Files:** `assets/icon.svg`, `assets/icon-128x128.png`, `assets/icon-256x256.png`, `assets/icon-512x512.png` (Freemius product image); the postquality.com favicon is `icon.svg` with `icon-128x128.png` (story 85); `post-quality-manager/admin/img/post-quality-manager.png` (Freemius opt-in screens); the menu icon is the base64 SVG constant `PostQuality_Admin::MENU_ICON`.
 - **Rules:** never mirror it (the check must rise to the right), never stretch it, never add a third colour, the wordmark lockup is in § Lockup below (its outlined-SVG artwork: `assets/lockup-b.svg`, `assets/lockup-b-dark.svg`), no WordPress, Claude, Anthropic or n8n trademark.
 
 ### Lockup
@@ -125,7 +125,9 @@ _Owner decision 2026-10-08 (backlog story 10). The WordPress.org slug is a one-w
 | Page headings (`<h1>`, React app shells) | Screen name only, never the product | "Dashboard", not "Content Quality Dashboard" |
 | Slug, plugin folder, text domain, zip root, release asset | `post-quality-manager` | `post-quality-manager-3.1.0.zip` |
 | `readme.txt` short description | The tagline above, verbatim (124 chars, limit 150) | — |
-| Prefixes, constants, option keys, capabilities, CSS/JS handles, the `X-PQM-Token` header | `pqm` / `PQM` | code-only |
+| Code names: classes, functions, hooks, nonces, AJAX and admin-post actions, the option group, query args, constants, admin page slugs, script and style handles, JS globals (story 88, 2026-10-26; `tests/harness/prefix-harness.php` enumerates them) | `PostQuality_` / `postquality_` / `POSTQUALITY_` / `postquality-` / `postquality…` camel case | code-only: `PostQuality_Admin`, `postquality_fs()`, `POSTQUALITY_VERSION`, `admin.php?page=postquality-dashboard`, `postqualityAdmin` |
+| Stored names: options, user meta keys, capabilities, the cron hook and schedule, the `pqm_reviews` table, the `pqm_settings[…]` form fields | `pqm` / `PQM` until story 91 moves them with a one-time upgrade | code-only |
+| Kept as they are (owner, 2026-10-26): the `X-PQM-Token` header, the REST namespace `post-quality/v1`, the `WP_Error` codes in REST responses (`pqm_forbidden`, `pqm_feature_gated`…), CSS classes, DOM ids and `data-pqm-*`, element expandos (`el.pqmBusy`…), the per-site webhook path prefix `pqm-execute-`, the template's `__PQM_*__` placeholders and node ids, the `metadata.pqmInsert` block marker, file names | `pqm` / `PQM` | code-only |
 | Domain, support mailbox, `Plugin URI` / `Author URI` | `postquality.com` (owner, 2026-10-09, ADR 0013) | https://postquality.com, hello@postquality.com |
 
 ### Rules

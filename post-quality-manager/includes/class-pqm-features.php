@@ -3,21 +3,21 @@
  * Feature gate for agent commands (spec CAP-1 / CAP-3 / CAP-5).
  *
  * One registry declares each agent's tier (free/paid) and the plugin
- * capability it requires; one call — PQM_Features::can( $command ) — at
+ * capability it requires; one call — PostQuality_Features::can( $command ) — at
  * the trigger chokepoint decides whether the current user on this site may
  * run it. The five pqm_* capabilities and their default role map live here
  * too, so activation, the versioned upgrade and uninstall share one list.
- * Licensing lives in PQM_License; is_pro() only delegates to it.
+ * Licensing lives in PostQuality_License; is_pro() only delegates to it.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_Features {
+class PostQuality_Features {
 
     /**
-     * Bump when capabilities() changes; PQM_Activator::maybe_upgrade()
+     * Bump when capabilities() changes; PostQuality_Activator::maybe_upgrade()
      * then registers any capability new in it on the first init of an
      * upgraded install (register_capabilities() leaves registered ones alone).
      */
@@ -95,7 +95,7 @@ class PQM_Features {
     /**
      * Command registry: tier, required capability and display label per
      * command — the one command whitelist and the one label source (REST
-     * copy, and the React pages via window.pqmCommandLabels). The REST
+     * copy, and the React pages via window.postqualityCommandLabels). The REST
      * `command` enums are its keys, and a command missing here is refused
      * (fail closed). score and apply are free-tier entries on
      * pqm_run_free_agents, the 1:1 successor of the old edit_posts check.
@@ -107,7 +107,7 @@ class PQM_Features {
             'review'    => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Review', 'post-quality-manager' ) ],
             'takeaways' => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Takeaways', 'post-quality-manager' ) ],
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $registry += self::paid_registry__premium_only();
         }
 
@@ -137,12 +137,12 @@ class PQM_Features {
 
     /**
      * Whether this site is on a paid plan. Delegates to the confined
-     * license provider (PQM_License, spec CAP-2); the `pqm_is_pro`
+     * license provider (PostQuality_License, spec CAP-2); the `postquality_is_pro`
      * filter wraps it so a dev override (e.g. a mu-plugin returning
      * true) always wins — same contract as the pre-licensing stub.
      */
     public static function is_pro(): bool {
-        return (bool) apply_filters( 'pqm_is_pro', PQM_License::is_pro() );
+        return (bool) apply_filters( 'postquality_is_pro', PostQuality_License::is_pro() );
     }
 
     /**
@@ -217,7 +217,7 @@ class PQM_Features {
             return null;
         }
 
-        $limit = (int) ( pqm_get_settings()['author_quota'] ?? 0 );
+        $limit = (int) ( postquality_get_settings()['author_quota'] ?? 0 );
         if ( $limit < 1 ) {
             return null;
         }

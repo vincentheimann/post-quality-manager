@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_REST_API {
+class PostQuality_REST_API {
 
     /** User meta: the Dashboard's feedback card hidden by this user (story 79). The uninstall deletes it for every user. */
     const FEEDBACK_META = 'pqm_feedback_dismissed';
@@ -37,7 +37,7 @@ class PQM_REST_API {
     public static function register_routes(): void {
 
         // GET post data + Yoast scores.
-        register_rest_route( PQM_REST_NAMESPACE, '/post-score', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/post-score', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'post_score_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
@@ -45,7 +45,7 @@ class PQM_REST_API {
         ] );
 
         // n8n POSTs review results.
-        register_rest_route( PQM_REST_NAMESPACE, '/save-review', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/save-review', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'save_review_callback' ],
             'permission_callback' => [ __CLASS__, 'check_webhook_token' ],
@@ -53,21 +53,21 @@ class PQM_REST_API {
         ] );
 
         // Story 2: the test ping's callback — n8n's POST Result to WordPress calls this back with the site's token.
-        register_rest_route( PQM_REST_NAMESPACE, '/ping/(?P<id>[A-Za-z0-9]{20})', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/ping/(?P<id>[A-Za-z0-9]{20})', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'ping_callback' ],
             'permission_callback' => [ __CLASS__, 'check_ping_token' ],
         ] );
 
         // Fetch stored reviews for a post.
-        register_rest_route( PQM_REST_NAMESPACE, '/reviews/(?P<post_id>\d+)', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/reviews/(?P<post_id>\d+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'get_reviews_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
         ] );
 
         // Trigger a review via n8n.
-        register_rest_route( PQM_REST_NAMESPACE, '/trigger-review', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/trigger-review', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'trigger_review_callback' ],
             'permission_callback' => [ __CLASS__, 'check_can_trigger' ],
@@ -75,7 +75,7 @@ class PQM_REST_API {
         ] );
 
         // Serve the site-configured workflow for n8n "Import from URL".
-        register_rest_route( PQM_REST_NAMESPACE, '/workflow', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/workflow', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'workflow_callback' ],
             'permission_callback' => [ __CLASS__, 'check_workflow_token' ],
@@ -90,7 +90,7 @@ class PQM_REST_API {
         ] );
 
         // New (story 5.1): read-only post list for the React Post Reviews app.
-        register_rest_route( PQM_REST_NAMESPACE, '/posts', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/posts', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'list_posts_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
@@ -98,7 +98,7 @@ class PQM_REST_API {
         ] );
 
         // Story 5.6: Dashboard read model — average, trend, nudge flags.
-        register_rest_route( PQM_REST_NAMESPACE, '/dashboard', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/dashboard', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'dashboard_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
@@ -106,7 +106,7 @@ class PQM_REST_API {
 
         // Story 79: the Dashboard's feedback card hides or reopens itself per
         // user — the one request the card makes; the email leaves by mailto:.
-        register_rest_route( PQM_REST_NAMESPACE, '/dashboard/feedback', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/dashboard/feedback', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'dashboard_feedback_callback' ],
             'permission_callback' => [ __CLASS__, 'check_view_reviews' ],
@@ -117,7 +117,7 @@ class PQM_REST_API {
         ] );
 
         // Story 23: Insert into Post — plugin-side, no n8n call, no quota.
-        register_rest_route( PQM_REST_NAMESPACE, '/insert-block', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/insert-block', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'insert_block_callback' ],
             'permission_callback' => [ __CLASS__, 'check_can_insert' ],
@@ -129,13 +129,13 @@ class PQM_REST_API {
                 'command' => [
                     'required' => true,
                     'type'     => 'string',
-                    'enum'     => array_keys( PQM_Blocks::item_keys() ),
+                    'enum'     => array_keys( PostQuality_Blocks::item_keys() ),
                 ],
             ],
         ] );
 
         // Story 36: the setup dialog's state, progress and connect step.
-        register_rest_route( PQM_REST_NAMESPACE, '/setup', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/setup', [
             [
                 'methods'             => WP_REST_Server::READABLE,
                 'callback'            => [ __CLASS__, 'get_setup_callback' ],
@@ -154,7 +154,7 @@ class PQM_REST_API {
             ],
         ] );
 
-        register_rest_route( PQM_REST_NAMESPACE, '/setup/connect', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/setup/connect', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'setup_connect_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
@@ -164,14 +164,14 @@ class PQM_REST_API {
         ] );
 
         // Story 55: the wizard's configuration steps (profile, standards, schedule).
-        register_rest_route( PQM_REST_NAMESPACE, '/setup/settings', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/setup/settings', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'setup_settings_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
         ] );
 
         // n8n provisioning, entry 1: the n8n instance connection (base URL + API key).
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/connection', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/connection', [
             [
                 'methods'             => WP_REST_Server::READABLE,
                 'callback'            => [ __CLASS__, 'get_n8n_connection_callback' ],
@@ -194,7 +194,7 @@ class PQM_REST_API {
         ] );
 
         // n8n provisioning, entry 4: credentials, workflow, activation, webhook URL — server-side.
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/provision', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/provision', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'provision_n8n_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
@@ -204,7 +204,7 @@ class PQM_REST_API {
         ] );
 
         // n8n provisioning, entry 8: take over a hand-made workflow — the proposal (GET), the owner's confirm (POST).
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/adoption', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/adoption', [
             [
                 'methods'             => WP_REST_Server::READABLE,
                 'callback'            => [ __CLASS__, 'get_n8n_adoption_callback' ],
@@ -221,21 +221,21 @@ class PQM_REST_API {
         ] );
 
         // n8n provisioning, entry 10: rotate the webhook token — n8n's credential first, then the setting, then a ping.
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/token', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/token', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'rotate_n8n_token_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
         ] );
 
         // n8n provisioning, entry 9: update the managed workflow to the bundled template in place, then a ping.
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/workflow', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/workflow', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ __CLASS__, 'update_n8n_workflow_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
         ] );
 
         // Story 71: start over — forget the setup here and, when asked, remove the map's objects from n8n.
-        register_rest_route( PQM_REST_NAMESPACE, '/n8n/setup', [
+        register_rest_route( POSTQUALITY_REST_NAMESPACE, '/n8n/setup', [
             'methods'             => WP_REST_Server::DELETABLE,
             'callback'            => [ __CLASS__, 'start_over_n8n_callback' ],
             'permission_callback' => [ __CLASS__, 'check_manage_settings' ],
@@ -265,11 +265,11 @@ class PQM_REST_API {
     /**
      * May the current user trigger any agent at all? Holding any registry
      * capability gets past the route; the per-command decision (tier and
-     * exact capability) is PQM_Features::can() inside the callback of
+     * exact capability) is PostQuality_Features::can() inside the callback of
      * POST /trigger-review.
      */
     public static function check_can_trigger(): bool {
-        $caps = array_unique( array_column( PQM_Features::registry(), 'capability' ) );
+        $caps = array_unique( array_column( PostQuality_Features::registry(), 'capability' ) );
 
         foreach ( $caps as $cap ) {
             if ( current_user_can( $cap ) ) {
@@ -291,7 +291,7 @@ class PQM_REST_API {
         }
 
         $command = (string) $request->get_param( 'command' );
-        $refusal = PQM_Features::why_not( $command );
+        $refusal = PostQuality_Features::why_not( $command );
 
         return null === $refusal ? true : self::gate_error( $command, $refusal );
     }
@@ -301,7 +301,7 @@ class PQM_REST_API {
      * the upgrade copy for 'plan'; 403 either way.
      */
     private static function gate_error( string $command, string $refusal ): WP_Error {
-        $label = PQM_Features::label( $command );
+        $label = PostQuality_Features::label( $command );
 
         return new WP_Error(
             'pqm_feature_gated',
@@ -330,9 +330,9 @@ class PQM_REST_API {
             return true;
         }
 
-        $settings       = pqm_get_settings();
+        $settings       = postquality_get_settings();
         $expected_token  = $settings['webhook_token'];
-        $provided_token  = $request->get_header( PQM_N8n::TOKEN_HEADER ) ?? '';
+        $provided_token  = $request->get_header( PostQuality_N8n::TOKEN_HEADER ) ?? '';
 
         if ( empty( $expected_token ) || empty( $provided_token ) ) {
             return false;
@@ -353,7 +353,7 @@ class PQM_REST_API {
         }
         $pending = self::pending_ping( (string) $request->get_param( 'id' ) );
         if ( $pending !== null ) {
-            update_option( PQM_Admin::PING_OPTION, [ 'state' => 'refused' ] + $pending, false );
+            update_option( PostQuality_Admin::PING_OPTION, [ 'state' => 'refused' ] + $pending, false );
         }
 
         return false;
@@ -369,7 +369,7 @@ class PQM_REST_API {
             return true;
         }
 
-        $expected = pqm_get_settings()['webhook_token'];
+        $expected = postquality_get_settings()['webhook_token'];
         $provided = (string) $request->get_param( 'token' );
 
         if ( empty( $expected ) || empty( $provided ) ) {
@@ -491,7 +491,7 @@ class PQM_REST_API {
             'command' => [
                 'required' => true,
                 'type'     => 'string',
-                'enum'     => array_keys( PQM_Features::registry() ), // the one command whitelist
+                'enum'     => array_keys( PostQuality_Features::registry() ), // the one command whitelist
             ],
             'overall_score' => [
                 'required' => false,
@@ -548,14 +548,14 @@ class PQM_REST_API {
         }
 
         // Remember which template version the running workflow was imported
-        // from — the n8n Workflow page compares it against PQM_WORKFLOW_VERSION.
+        // from — the n8n Workflow page compares it against POSTQUALITY_WORKFLOW_VERSION.
         // 0 (a v1 import sends none) leaves the last report as it is.
         $wf_version = absint( $request->get_param( 'workflow_version' ) );
         if ( $wf_version > 0 ) {
-            pqm_record_workflow_version( $wf_version, 'command', (string) $request->get_param( 'workflow_variant' ) );
+            postquality_record_workflow_version( $wf_version, 'command', (string) $request->get_param( 'workflow_variant' ) );
         }
 
-        $row_id = PQM_DB::save_review( $post_id, $command, $score, $status, $result );
+        $row_id = PostQuality_DB::save_review( $post_id, $command, $score, $status, $result );
 
         if ( ! $row_id ) {
             return new WP_Error( 'pqm_db_error', 'Failed to save review.', [ 'status' => 500 ] );
@@ -571,13 +571,13 @@ class PQM_REST_API {
     /* ─── POST /ping/{id}: the test ping's callback (story 2) ─────────── */
 
     /**
-     * The pending test ping (PQM_Admin::sent_ping() wrote it) when it
-     * carries this id and is at most PQM_Admin::PING_LIVE seconds old; null
+     * The pending test ping (PostQuality_Admin::sent_ping() wrote it) when it
+     * carries this id and is at most PostQuality_Admin::PING_LIVE seconds old; null
      * for an unknown or stale id.
      */
     private static function pending_ping( string $id ): ?array {
-        $pending = get_option( PQM_Admin::PING_OPTION, null );
-        if ( ! is_array( $pending ) || ( $pending['id'] ?? '' ) !== $id || time() - absint( $pending['at'] ?? 0 ) > PQM_Admin::PING_LIVE ) {
+        $pending = get_option( PostQuality_Admin::PING_OPTION, null );
+        if ( ! is_array( $pending ) || ( $pending['id'] ?? '' ) !== $id || time() - absint( $pending['at'] ?? 0 ) > PostQuality_Admin::PING_LIVE ) {
             return null;
         }
 
@@ -590,7 +590,7 @@ class PQM_REST_API {
         if ( $pending === null ) {
             return new WP_Error( 'pqm_ping_unknown', 'No test ping is waiting for this callback.', [ 'status' => 404 ] );
         }
-        update_option( PQM_Admin::PING_OPTION, [ 'state' => 'received' ] + $pending, false );
+        update_option( PostQuality_Admin::PING_OPTION, [ 'state' => 'received' ] + $pending, false );
 
         return new WP_REST_Response( [ 'ok' => true ], 200 );
     }
@@ -623,7 +623,7 @@ class PQM_REST_API {
      */
     public static function get_reviews_callback( WP_REST_Request $request ): WP_REST_Response {
         $post_id = (int) $request->get_param( 'post_id' );
-        $reviews = PQM_DB::get_reviews_for_post( $post_id, self::REVIEWS_LIMIT );
+        $reviews = PostQuality_DB::get_reviews_for_post( $post_id, self::REVIEWS_LIMIT );
 
         foreach ( $reviews as &$review ) {
             // Decode result_data JSON; on failure it stays the raw string as saved by n8n.
@@ -652,13 +652,13 @@ class PQM_REST_API {
                 'required' => false,
                 'type'     => 'string',
                 'default'  => 'review',
-                'enum'     => array_keys( PQM_Features::registry() ), // the one command whitelist
+                'enum'     => array_keys( PostQuality_Features::registry() ), // the one command whitelist
             ],
         ];
     }
 
     public static function trigger_review_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
 
         // Every failed-start message names a step the clicker can take:
         // only pqm_manage_settings holders can fix the n8n connection.
@@ -681,7 +681,7 @@ class PQM_REST_API {
         // Feature gate (CAP-1 / CAP-3): one check on POST /trigger-review —
         // gated commands are refused here, before any webhook.
         // A role refusal gets role copy, a plan refusal the upgrade copy.
-        $refusal = PQM_Features::why_not( $command );
+        $refusal = PostQuality_Features::why_not( $command );
         if ( $refusal !== null ) {
             return self::gate_error( $command, $refusal );
         }
@@ -689,7 +689,7 @@ class PQM_REST_API {
         // Author quota (CAP-4): checked after the gate — role/plan refusals
         // keep priority — and before any webhook call. Cron posts to n8n
         // directly and never enters this callback, so it stays quota-free.
-        $quota = PQM_Features::quota_state();
+        $quota = PostQuality_Features::quota_state();
         if ( $quota !== null && $quota['remaining'] < 1 ) {
             return new WP_Error(
                 'pqm_quota_exceeded',
@@ -714,11 +714,11 @@ class PQM_REST_API {
         }
 
         // Build payload for n8n (shared with the cron batch).
-        $payload = pqm_n8n_payload( $post, $command, $settings );
+        $payload = postquality_n8n_payload( $post, $command, $settings );
 
         // Fire-and-forget request to n8n, authenticated with the token header.
         $response = wp_remote_post( $settings['n8n_webhook_url'], [
-            'headers' => pqm_n8n_headers( $settings ),
+            'headers' => postquality_n8n_headers( $settings ),
             'body'    => wp_json_encode( $payload ),
             'timeout' => 5,
         ] );
@@ -739,19 +739,19 @@ class PQM_REST_API {
         }
 
         $status_code = wp_remote_retrieve_response_code( $response );
-        $accepted    = PQM_N8n::is_2xx( (int) $status_code );
+        $accepted    = PostQuality_N8n::is_2xx( (int) $status_code );
 
         // Quota is spent only on success: n8n answered 2xx, so API money
         // is being spent. A failed webhook never costs the user an action.
         if ( $accepted ) {
-            PQM_Features::consume_quota();
-            $quota = PQM_Features::quota_state();
+            PostQuality_Features::consume_quota();
+            $quota = PostQuality_Features::quota_state();
 
             // The `processing` placeholder is written once, here, on the
             // POST /trigger-review route: the Post Reviews polling
             // reads it back as `in_flight` and the n8n callback's result
             // row supersedes it. A refused or failed trigger writes nothing.
-            PQM_DB::save_review(
+            PostQuality_DB::save_review(
                 $post_id,
                 $command,
                 0,
@@ -766,7 +766,7 @@ class PQM_REST_API {
                 ? sprintf(
                     /* translators: 1: agent command label, e.g. "Review", 2: post title */
                     __( '%1$s started for "%2$s".', 'post-quality-manager' ),
-                    PQM_Features::label( $command ),
+                    PostQuality_Features::label( $command ),
                     $post->post_title
                 )
                 : sprintf(
@@ -775,7 +775,7 @@ class PQM_REST_API {
                         ? __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' )
                         /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
                         : __( '%1$s could not start — n8n answered HTTP %2$d. Ask an administrator to check the workflow in n8n, then try again.', 'post-quality-manager' ),
-                    PQM_Features::label( $command ),
+                    PostQuality_Features::label( $command ),
                     $status_code
                 ),
             'n8n_status'      => $status_code,
@@ -787,7 +787,7 @@ class PQM_REST_API {
     /* ─── 5. GET /workflow (n8n "Import from URL") ───────────────────── */
 
     public static function workflow_callback() {
-        $json = pqm_workflow_json();
+        $json = postquality_workflow_json();
 
         if ( $json === null ) {
             return new WP_Error(
@@ -862,7 +862,7 @@ class PQM_REST_API {
     }
 
     /** Stored review statuses plus the "never reviewed" sentinel accepted by `status=`. */
-    private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', PQM_DB::STATUS_NONE ];
+    private const LIST_STATUSES = [ 'ship', 'needs_revision', 'major_revision', PostQuality_DB::STATUS_NONE ];
 
     /**
      * The score args carry no sanitize_callback on purpose: WP's schema
@@ -892,12 +892,12 @@ class PQM_REST_API {
 
     /**
      * Read-only list of posts with their latest review, for the React
-     * Post Reviews table. Wraps PQM_DB::get_all_posts_with_scores(); bad
+     * Post Reviews table. Wraps PostQuality_DB::get_all_posts_with_scores(); bad
      * params are clamped to the DB method's accepted set, never an error.
      *
      * The additive `viewer` block (story 5.2) reports the current user's
      * trigger eligibility, quota snapshot and gated/hidden command
-     * partition — read-only reporting of PQM_Features state, no
+     * partition — read-only reporting of PostQuality_Features state, no
      * semantics change.
      *
      * Story 5.3 adds server-side filters (`status` incl. `none`,
@@ -905,7 +905,7 @@ class PQM_REST_API {
      * `counts` block the status chips display. Story 5.4 adds the per-item
      * `in_flight` command list the detail panel's polling watches. Story
      * 5.6 adds `orderby=priority` (the Dashboard Fix-next queue, fixed
-     * direction — see PQM_DB::priority_order_sql()).
+     * direction — see PostQuality_DB::priority_order_sql()).
      *
      * Story 5.10 appends the item fields `wp_post_status` (the "— Pending"
      * marker) and `yoast` ({seo, readability}, each int or null when Yoast
@@ -934,7 +934,7 @@ class PQM_REST_API {
             $status = '';
         }
 
-        $result = PQM_DB::get_all_posts_with_scores( [
+        $result = PostQuality_DB::get_all_posts_with_scores( [
             'per_page'  => $per_page,
             'page'      => $page,
             'orderby'   => $orderby,
@@ -946,8 +946,8 @@ class PQM_REST_API {
         ] );
 
         $post_ids  = array_map( 'intval', array_column( $result['items'], 'post_id' ) );
-        $commands  = PQM_DB::get_commands_for_posts( $post_ids );
-        $in_flight = PQM_DB::get_in_flight_for_posts( $post_ids );
+        $commands  = PostQuality_DB::get_commands_for_posts( $post_ids );
+        $in_flight = PostQuality_DB::get_in_flight_for_posts( $post_ids );
 
         $yoast_active = defined( 'WPSEO_VERSION' );
         if ( $yoast_active && ! empty( $post_ids ) ) {
@@ -980,7 +980,7 @@ class PQM_REST_API {
         }
 
         $can_trigger = self::check_can_trigger();
-        $settings    = pqm_get_settings();
+        $settings    = postquality_get_settings();
 
         return new WP_REST_Response( [
             'items'  => $items,
@@ -988,15 +988,15 @@ class PQM_REST_API {
             'pages'  => (int) $result['pages'],
             // Facet counts over all listable posts, independent of the active
             // filters, so a chip's number equals a Dashboard tile's.
-            'counts' => PQM_DB::count_posts_by_status(),
+            'counts' => PostQuality_DB::count_posts_by_status(),
             'viewer' => [
                 'can_trigger'         => $can_trigger,
                 // Quota is meaningless for a user who cannot trigger at
                 // all; exempt users and limit 0 (unlimited) are already
                 // null from quota_state().
-                'quota'               => $can_trigger ? PQM_Features::quota_state() : null,
-                'gated_commands'      => PQM_Features::gated_commands(),
-                'hidden_commands'     => PQM_Features::hidden_commands(),
+                'quota'               => $can_trigger ? PostQuality_Features::quota_state() : null,
+                'gated_commands'      => PostQuality_Features::gated_commands(),
+                'hidden_commands'     => PostQuality_Features::hidden_commands(),
                 // Ticket 32: the not-connected notice and disabled Run
                 // buttons — the same two flags as GET /dashboard.
                 'connected'           => ! empty( $settings['n8n_webhook_url'] ),
@@ -1010,12 +1010,12 @@ class PQM_REST_API {
 
     /**
      * Write the latest Takeaways / Sources items into the post
-     * (PQM_Blocks::insert). Gate and edit rights are the permission
+     * (PostQuality_Blocks::insert). Gate and edit rights are the permission
      * callback's; 409 when there is nothing to insert yet.
      */
     public static function insert_block_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $command = (string) $request->get_param( 'command' );
-        $result  = PQM_Blocks::insert( (int) $request->get_param( 'post_id' ), $command );
+        $result  = PostQuality_Blocks::insert( (int) $request->get_param( 'post_id' ), $command );
 
         if ( is_wp_error( $result ) ) {
             return $result;
@@ -1026,7 +1026,7 @@ class PQM_REST_API {
             'message' => sprintf(
                 /* translators: %s: agent command label, e.g. "Takeaways" */
                 __( '%s inserted into the post. The previous version is in Revisions.', 'post-quality-manager' ),
-                PQM_Features::label( $command )
+                PostQuality_Features::label( $command )
             ),
         ], 200 );
     }
@@ -1042,8 +1042,8 @@ class PQM_REST_API {
      * the PHP shell.
      */
     public static function dashboard_callback(): WP_REST_Response {
-        $settings  = pqm_get_settings();
-        $trend     = PQM_DB::get_score_trend();
+        $settings  = postquality_get_settings();
+        $trend     = PostQuality_DB::get_score_trend();
         $average   = $trend ? $trend[ count( $trend ) - 1 ]['average'] : null;
         $can_admin = current_user_can( 'pqm_manage_settings' );
 
@@ -1064,21 +1064,21 @@ class PQM_REST_API {
         // only (ADR 0014), and only on a licensed site — on an unlicensed one
         // the Automated Reviews section is locked. Shown to whoever can see
         // that section (pqm_manage_agents, ticket 16).
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $data['cron_nudge'] = null !== $average
                 && empty( $settings['cron_enabled'] )
                 && ! get_option( 'pqm_cron_nudge_dismissed' )
                 && current_user_can( 'pqm_manage_agents' )
-                && PQM_Features::is_pro();
+                && PostQuality_Features::is_pro();
 
             if ( $data['cron_nudge'] ) {
                 // Raw URL (no &amp;): it travels as JSON into an href.
                 $data['cron_nudge_dismiss_url'] = add_query_arg(
                     [
-                        'pqm_dismiss_cron_nudge' => '1',
-                        '_wpnonce'               => wp_create_nonce( 'pqm_dismiss_cron_nudge' ),
+                        'postquality_dismiss_cron_nudge' => '1',
+                        '_wpnonce'               => wp_create_nonce( 'postquality_dismiss_cron_nudge' ),
                     ],
-                    admin_url( 'admin.php?page=pqm-dashboard' )
+                    admin_url( 'admin.php?page=postquality-dashboard' )
                 );
             }
         }
@@ -1104,13 +1104,13 @@ class PQM_REST_API {
      */
     private static function feedback_environment(): array {
         $build = 'Free';
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $build = 'Pro';
         }
         // The n8n Workflow page's reading of the report: seen when it has a
         // version or a time; version 0 with a time is a v1–v4 workflow that
-        // answered without its number (pqm_workflow_report()).
-        $report = pqm_workflow_report();
+        // answered without its number (postquality_workflow_report()).
+        $report = postquality_workflow_report();
         if ( null === $report || ( $report['version'] <= 0 && $report['at'] <= 0 ) ) {
             $workflow = 'Workflow version: not seen yet';
         } elseif ( $report['version'] > 0 ) {
@@ -1120,7 +1120,7 @@ class PQM_REST_API {
         }
 
         return [
-            sprintf( 'Post Quality Manager %s (%s)', PQM_VERSION, $build ),
+            sprintf( 'Post Quality Manager %s (%s)', POSTQUALITY_VERSION, $build ),
             'WordPress ' . get_bloginfo( 'version' ),
             'PHP ' . PHP_VERSION,
             $workflow,
@@ -1163,7 +1163,7 @@ class PQM_REST_API {
      * then `review`; the path is GET /setup's `manual`: with a URL saved, how
      * the workflow was made (by the plugin → the key path, by hand → the
      * manual path, even with a passing key: adoption, entry 6.8, takes it
-     * over); without one, pqm_manual_reason() (a stored choice or a failed
+     * over); without one, postquality_manual_reason() (a stored choice or a failed
      * check, outranked by a passing key). The three configuration steps
      * after it (story 55) are ticked when saved or skipped; they never count
      * toward completion. A stored key of a step not listed here (the manual
@@ -1190,11 +1190,11 @@ class PQM_REST_API {
     /**
      * Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`,
      * plus `'manual' => true` once the owner chose the manual path (POST
-     * /setup `{ manual: true }` writes it, pqm_manual_reason() reads it), so a
+     * /setup `{ manual: true }` writes it, postquality_manual_reason() reads it), so a
      * step tick keeps it.
      */
     private static function setup_progress(): array {
-        $stored   = get_option( PQM_SETUP_OPTION, [] );
+        $stored   = get_option( POSTQUALITY_SETUP_OPTION, [] );
         $progress = [
             'steps'    => is_array( $stored['steps'] ?? null ) ? $stored['steps'] : [],
             'complete' => ! empty( $stored['complete'] ),
@@ -1208,20 +1208,20 @@ class PQM_REST_API {
 
     /**
      * Everything the dialog shows: per-step progress, completion (derived
-     * for sites connected before the dialog, see pqm_setup_complete()), the
+     * for sites connected before the dialog, see postquality_setup_complete()), the
      * n8n connection (never its key) and the path the n8n steps take.
      */
     private static function setup_state(): array {
-        $settings  = pqm_get_settings();
+        $settings  = postquality_get_settings();
         $progress  = self::setup_progress();
-        $complete  = pqm_setup_complete();
-        $n8n       = PQM_N8n::public_state();
+        $complete  = postquality_setup_complete();
+        $n8n       = PostQuality_N8n::public_state();
         $connected = ! empty( $settings['n8n_webhook_url'] );
-        $reason    = pqm_manual_reason();
+        $reason    = postquality_manual_reason();
         $key_ok    = $n8n['connected'];
         // What the plugin set up in n8n (entry 6.4); a URL without it was made by hand.
-        $provisioned = (bool) get_option( PQM_N8n::SETUP_OPTION );
-        $leftovers   = get_option( PQM_N8n::LEFTOVERS_OPTION, false );
+        $provisioned = (bool) get_option( PostQuality_N8n::SETUP_OPTION );
+        $leftovers   = get_option( PostQuality_N8n::LEFTOVERS_OPTION, false );
         $left_on     = is_array( $leftovers ) ? (string) ( $leftovers['base_url'] ?? '' ) : '';
         // A failed ping keeps the step open, so the dialog offers the paste-URL body again.
         $url_done  = $connected && false !== ( $progress['steps']['connect'] ?? null );
@@ -1241,11 +1241,11 @@ class PQM_REST_API {
 
         // Preset texts in the site locale, like the payload sends them and
         // the Settings page shows them; labels in the viewer's language.
-        $profiles = PQM_Admin::blog_profiles();
-        $voices   = pqm_voice_presets();
-        [ $profile_texts, $voice_texts ] = pqm_in_site_locale( static fn() => [
-            array_map( static fn( $p ) => $p['website_context'], PQM_Admin::blog_profiles() ),
-            array_map( static fn( $p ) => $p['instruction'], pqm_voice_presets() ),
+        $profiles = PostQuality_Admin::blog_profiles();
+        $voices   = postquality_voice_presets();
+        [ $profile_texts, $voice_texts ] = postquality_in_site_locale( static fn() => [
+            array_map( static fn( $p ) => $p['website_context'], PostQuality_Admin::blog_profiles() ),
+            array_map( static fn( $p ) => $p['instruction'], postquality_voice_presets() ),
         ] );
         $choices = static fn( array $presets, array $texts ): array => array_map(
             static fn( $key ) => [
@@ -1261,17 +1261,17 @@ class PQM_REST_API {
             'steps'         => $steps,
             'complete'      => $complete,
             'connected'     => $connected,
-            'first_result'  => PQM_DB::has_result(),
+            'first_result'  => PostQuality_DB::has_result(),
             'webhook_url'   => (string) $settings['n8n_webhook_url'],
             // Where n8n sends results, for the first review's give-up line.
             'rest_url'      => rest_url(),
             // The Webhook Trigger's per-site path, for the URL field's placeholder.
-            'webhook_path'  => pqm_webhook_path(),
+            'webhook_path'  => postquality_webhook_path(),
             // n8n provisioning, entry 6: the connection (no key), the path
             // the n8n steps take — with a URL saved, how the workflow was
             // made (a hand-made one keeps the manual path, even with a
             // passing key); without one, a stored choice or a failed check,
-            // which a passing key outranks (pqm_manual_reason()) — and what
+            // which a passing key outranks (postquality_manual_reason()) — and what
             // provisioning left.
             'n8n'           => $n8n,
             'manual'        => $connected ? ! $provisioned : null !== $reason,
@@ -1280,7 +1280,7 @@ class PQM_REST_API {
             // Story 71: only a record of the connected instance is removed by the
             // next setup; one of another instance is dropped and its host named.
             'leftovers'     => is_array( $leftovers ) && $left_on === $n8n['base_url'],
-            'leftovers_elsewhere' => is_array( $leftovers ) && $left_on !== $n8n['base_url'] ? PQM_N8n::host( $left_on ) : '',
+            'leftovers_elsewhere' => is_array( $leftovers ) && $left_on !== $n8n['base_url'] ? PostQuality_N8n::host( $left_on ) : '',
             // Story 55: the configuration steps' stored choices and presets.
             'blog_profile'       => (string) $settings['blog_profile'],
             'website_context'    => (string) $settings['website_context'],
@@ -1290,7 +1290,7 @@ class PQM_REST_API {
             'voice_presets'      => $choices( $voices, $voice_texts ),
         ];
         // The Schedule step's values: Pro build only (ADR 0014).
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $state += [
                 'cron_enabled'       => ! empty( $settings['cron_enabled'] ),
                 'cron_frequency'     => (string) $settings['cron_frequency'],
@@ -1301,7 +1301,7 @@ class PQM_REST_API {
             ];
         }
 
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             // Bug 73: whose Application Password Set up the workflow would create — the
             // current user's, by display name; '' where the site offers none (D1).
             $user                               = wp_get_current_user();
@@ -1310,12 +1310,12 @@ class PQM_REST_API {
 
         $state += [
             'can_manage_agents'  => current_user_can( 'pqm_manage_agents' ),
-            'is_pro'             => PQM_Features::is_pro(),
+            'is_pro'             => PostQuality_Features::is_pro(),
             // Which build runs (story 54): the dialog leaves out the steps
             // the Free template has no node for.
             'build'              => 'free',
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $state['build'] = 'pro';
         }
 
@@ -1360,7 +1360,7 @@ class PQM_REST_API {
             $progress['steps'][ $step ] = (bool) $request->get_param( 'done' );
         }
 
-        update_option( PQM_SETUP_OPTION, $progress, false );
+        update_option( POSTQUALITY_SETUP_OPTION, $progress, false );
 
         return new WP_REST_Response( self::setup_state(), 200 );
     }
@@ -1381,16 +1381,16 @@ class PQM_REST_API {
      */
     public static function setup_connect_callback( WP_REST_Request $request ): WP_REST_Response {
         $url   = (string) $request->get_param( 'webhook_url' );
-        $saved = PQM_Admin::save_webhook_url( $url );
+        $saved = PostQuality_Admin::save_webhook_url( $url );
 
         if ( is_wp_error( $saved ) ) {
             return self::finish( [ 'saved' => false, 'ping_ok' => false, 'message' => $saved->get_error_message() ], null );
         }
 
-        $ping     = PQM_Admin::ping_webhook( esc_url_raw( $url ) );
+        $ping     = PostQuality_Admin::ping_webhook( esc_url_raw( $url ) );
         $progress = self::setup_progress();
         $progress['steps']['connect'] = $ping['ok'];
-        update_option( PQM_SETUP_OPTION, $progress, false );
+        update_option( POSTQUALITY_SETUP_OPTION, $progress, false );
 
         if ( ! $ping['ok'] ) {
             /* translators: %s: why the test failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
@@ -1420,15 +1420,15 @@ class PQM_REST_API {
             return $bad( __( 'Nothing to save. Reload the page and try again.', 'post-quality-manager' ) );
         }
         $keys = self::SETUP_SETTING_KEYS;
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $keys[] = 'cron_enabled';
         }
         if ( array_diff( array_keys( $input ), $keys ) ) {
             return $bad( __( 'The setup guide cannot change this setting. Reload the page and try again.', 'post-quality-manager' ) );
         }
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if ( array_key_exists( 'cron_enabled', $input )
-                && ! ( current_user_can( 'pqm_manage_agents' ) && PQM_Features::is_pro() ) ) {
+                && ! ( current_user_can( 'pqm_manage_agents' ) && PostQuality_Features::is_pro() ) ) {
                 return new WP_Error(
                     'pqm_setup_cron_forbidden',
                     __( 'Scheduled reviews need Pro and the right to manage agents. Ask an administrator.', 'post-quality-manager' ),
@@ -1441,10 +1441,10 @@ class PQM_REST_API {
         foreach ( $input as $key => $value ) {
             switch ( $key ) {
                 case 'blog_profile':
-                    $valid = array_keys( PQM_Admin::blog_profiles() );
+                    $valid = array_keys( PostQuality_Admin::blog_profiles() );
                     break;
                 case 'brand_voice_preset':
-                    $valid = array_merge( array_keys( pqm_voice_presets() ), [ 'custom' ] );
+                    $valid = array_merge( array_keys( postquality_voice_presets() ), [ 'custom' ] );
                     break;
                 case 'cron_enabled':
                     $valid = [ true, false ];
@@ -1468,9 +1468,9 @@ class PQM_REST_API {
 
         // The updated_option hook that reschedules cron is registered for
         // admin requests only; a REST save schedules it itself.
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if ( array_key_exists( 'cron_enabled', $clean ) ) {
-                PQM_Cron::schedule();
+                PostQuality_Cron::schedule();
             }
         }
 
@@ -1486,13 +1486,13 @@ class PQM_REST_API {
      * passing or refused (story 74).
      */
     public static function get_n8n_connection_callback(): WP_REST_Response {
-        return new WP_REST_Response( PQM_N8n::public_state(), 200 );
+        return new WP_REST_Response( PostQuality_N8n::public_state(), 200 );
     }
 
     /**
      * Probe an instance and store its base URL and key once the probe
      * passes; a failed probe leaves the stored URL and key as they were and,
-     * when it offers the manual path, records its cause (PQM_N8n::record_failure()).
+     * when it offers the manual path, records its cause (PostQuality_N8n::record_failure()).
      * A refusal of the stored key on the stored address (cause `key` or
      * `scoped`) also replaces its probe (story 74, D1: a timeout or a 500
      * keeps the passing one; D2: a new key refused changes nothing stored).
@@ -1501,10 +1501,10 @@ class PQM_REST_API {
      * Answers the stored state with `probe` = this run's result.
      */
     public static function connect_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $stored = PQM_N8n::connection();
+        $stored = PostQuality_N8n::connection();
         $url    = sanitize_text_field( (string) ( $request->get_param( 'base_url' ) ?? $stored['base_url'] ) );
         $key    = sanitize_text_field( (string) $request->get_param( 'api_key' ) );
-        $origin = PQM_N8n::origin( $url );
+        $origin = PostQuality_N8n::origin( $url );
 
         if ( '' === $key && ! is_wp_error( $origin ) ) {
             if ( '' === $stored['api_key'] || $origin !== $stored['base_url'] ) {
@@ -1517,29 +1517,29 @@ class PQM_REST_API {
             $key = $stored['api_key'];
         }
 
-        $probe = PQM_N8n::probe( $url, $key );
+        $probe = PostQuality_N8n::probe( $url, $key );
         if ( $probe['ok'] ) {
-            PQM_N8n::save( $origin, $key, $probe );
+            PostQuality_N8n::save( $origin, $key, $probe );
         } else {
             // Entry 2: the Workflow File section states the cause after a reload.
-            PQM_N8n::record_failure( $probe );
+            PostQuality_N8n::record_failure( $probe );
             if ( in_array( $probe['cause'], [ 'key', 'scoped' ], true ) && $key === $stored['api_key'] && $origin === $stored['base_url'] ) {
-                PQM_N8n::record_refusal( $probe );
+                PostQuality_N8n::record_refusal( $probe );
             }
         }
 
-        return new WP_REST_Response( [ 'probe' => $probe ] + PQM_N8n::public_state(), 200 );
+        return new WP_REST_Response( [ 'probe' => $probe ] + PostQuality_N8n::public_state(), 200 );
     }
 
     /** Forget: the key, its probe and a recorded failure go, the base URL stays. Nothing changes on n8n. */
     public static function forget_n8n_callback(): WP_REST_Response {
-        PQM_N8n::forget();
+        PostQuality_N8n::forget();
 
-        return new WP_REST_Response( PQM_N8n::public_state(), 200 );
+        return new WP_REST_Response( PostQuality_N8n::public_state(), 200 );
     }
 
     /**
-     * Start over (story 71): PQM_N8n::start_over() clears the setup map,
+     * Start over (story 71): PostQuality_N8n::start_over() clears the setup map,
      * the saved webhook URL and the version report, revokes the Pro build's
      * Application Password and, with `remove_from_n8n`, removes the map's
      * objects from n8n by id. Answers the n8n Instance section's state plus
@@ -1548,7 +1548,7 @@ class PQM_REST_API {
      * island swaps it, so no re-read follows. A refusal answers its error.
      */
     public static function start_over_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $result = PQM_N8n::start_over( (bool) $request->get_param( 'remove_from_n8n' ) );
+        $result = PostQuality_N8n::start_over( (bool) $request->get_param( 'remove_from_n8n' ) );
         if ( is_wp_error( $result ) ) {
             return $result;
         }
@@ -1562,8 +1562,8 @@ class PQM_REST_API {
             $message = __( 'The setup was removed here. Your workflow and credentials stay in n8n.', 'post-quality-manager' );
         }
         $message              = self::dropped_leftovers_prefix( (string) ( $result['dropped_leftovers'] ?? '' ) ) . $message;
-        $reply                = PQM_N8n::public_state() + [ 'message' => $message ];
-        $reply['status_html'] = PQM_Admin::render_workflow_body( $message, $tone );
+        $reply                = PostQuality_N8n::public_state() + [ 'message' => $message ];
+        $reply['status_html'] = PostQuality_Admin::render_workflow_body( $message, $tone );
 
         return new WP_REST_Response( $reply, 200 );
     }
@@ -1587,9 +1587,9 @@ class PQM_REST_API {
     }
 
     /**
-     * Provision the connected instance (PQM_N8n::provision()), then the
+     * Provision the connected instance (PostQuality_N8n::provision()), then the
      * connect step's flow: save the production webhook URL — the connected
-     * origin + /webhook/ + pqm_webhook_path(), as the n8n public API exposes
+     * origin + /webhook/ + postquality_webhook_path(), as the n8n public API exposes
      * no webhook base — ping it, record the replied version. The Anthropic
      * key is passed on and never echoed. The ping goes through
      * ping_after_activation(): a 404 right after activation is usually n8n
@@ -1604,7 +1604,7 @@ class PQM_REST_API {
      * created, D1).
      */
     public static function provision_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $setup = PQM_N8n::provision( sanitize_text_field( (string) $request->get_param( 'anthropic_key' ) ) );
+        $setup = PostQuality_N8n::provision( sanitize_text_field( (string) $request->get_param( 'anthropic_key' ) ) );
         if ( is_wp_error( $setup ) ) {
             return $setup;
         }
@@ -1612,14 +1612,14 @@ class PQM_REST_API {
         $dropped = (string) ( $setup['dropped_leftovers'] ?? '' );
         unset( $setup['dropped_leftovers'] );
 
-        $url   = PQM_N8n::connection()['base_url'] . '/webhook/' . $setup['path'];
-        $saved = PQM_Admin::save_webhook_url( $url );
+        $url   = PostQuality_N8n::connection()['base_url'] . '/webhook/' . $setup['path'];
+        $saved = PostQuality_Admin::save_webhook_url( $url );
         $ping  = is_wp_error( $saved )
             ? [ 'ok' => false, 'message' => $saved->get_error_message() ]
             : self::ping_after_activation( esc_url_raw( $url ) );
         $progress = self::setup_progress();
         $progress['steps']['connect'] = $ping['ok'];
-        update_option( PQM_SETUP_OPTION, $progress, false );
+        update_option( POSTQUALITY_SETUP_OPTION, $progress, false );
 
         $reply = [
             'provisioned' => true,
@@ -1630,9 +1630,9 @@ class PQM_REST_API {
         ];
         if ( ! $ping['ok'] && 404 === ( $ping['code'] ?? 0 ) ) {
             // The page's "needs attention" says the same as the dialog, not the Test button's 404 line.
-            pqm_record_workflow_failure( $reply['message'] );
+            postquality_record_workflow_failure( $reply['message'] );
         }
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
             if ( ! $reply['rewrite_ready'] ) {
                 $reply['message'] .= ' ' . __( 'Application Passwords are turned off on this site, so no WordPress credential was created. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Rewrite stays off until Application Passwords are available and a WordPress credential is added in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
@@ -1649,7 +1649,7 @@ class PQM_REST_API {
      * at once can meet a 404 that is nobody's fault — see
      * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
      * Only a 404 is retried, up to PROVISION_PINGS pings 2 s apart (filter
-     * `pqm_provision_ping_retry_wait`; the harness sets 0); every other
+     * `postquality_provision_ping_retry_wait`; the harness sets 0); every other
      * answer, pass or fail, counts the first time. Provisioning and the
      * update (bug 84; memory/n8n-provisioning.md) are the callers that
      * just published something: the Test button, POST /setup/connect and
@@ -1658,11 +1658,11 @@ class PQM_REST_API {
     private static function ping_after_activation( string $url ): array {
         for ( $attempt = 1; ; $attempt++ ) {
             // The workflow was just created or updated: a 404 here is the window, never a gone workflow (story 71, no read).
-            $ping = PQM_Admin::ping_webhook( $url, true, false );
+            $ping = PostQuality_Admin::ping_webhook( $url, true, false );
             if ( $ping['ok'] || 404 !== ( $ping['code'] ?? 0 ) || $attempt >= self::PROVISION_PINGS ) {
                 return $ping;
             }
-            sleep( max( 0, (int) apply_filters( 'pqm_provision_ping_retry_wait', 2 ) ) );
+            sleep( max( 0, (int) apply_filters( 'postquality_provision_ping_retry_wait', 2 ) ) );
         }
     }
 
@@ -1698,9 +1698,9 @@ class PQM_REST_API {
      */
     private static function finish( array $reply, ?array $ping ): WP_REST_Response {
         if ( $ping && $ping['ok'] ) {
-            pqm_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
+            postquality_record_workflow_version( $ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null );
         }
-        $reply['status_html'] = PQM_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
+        $reply['status_html'] = PostQuality_Admin::render_workflow_body( $reply['message'], self::tone( $reply ) );
 
         return new WP_REST_Response( $reply, 200 );
     }
@@ -1721,17 +1721,17 @@ class PQM_REST_API {
     /* ─── Adoption of a hand-made workflow (n8n provisioning, entry 8) ─ */
 
     /**
-     * What the plugin would manage (PQM_N8n::propose_adoption()): the
+     * What the plugin would manage (PostQuality_N8n::propose_adoption()): the
      * workflow at the saved webhook URL and its credentials by name. One GET
      * on n8n, nothing stored. On the Pro build `rewrite_ready` says whether
      * the node saving a rewrite carries a credential (D2).
      */
     public static function get_n8n_adoption_callback(): WP_REST_Response|WP_Error {
-        $proposal = PQM_N8n::propose_adoption();
+        $proposal = PostQuality_N8n::propose_adoption();
         if ( is_wp_error( $proposal ) ) {
             return $proposal;
         }
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $proposal['rewrite_ready'] = isset( $proposal['credentials']['wordpress'] );
         }
 
@@ -1740,16 +1740,16 @@ class PQM_REST_API {
 
     /**
      * The owner's confirm: store the setup map of the workflow shown
-     * (PQM_N8n::adopt(), which reads n8n again and refuses a changed one).
+     * (PostQuality_N8n::adopt(), which reads n8n again and refuses a changed one).
      * Answers the n8n Instance section's state, plus `rewrite_ready` on Pro.
      */
     public static function adopt_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
-        $setup = PQM_N8n::adopt( sanitize_text_field( (string) $request->get_param( 'workflow_id' ) ) );
+        $setup = PostQuality_N8n::adopt( sanitize_text_field( (string) $request->get_param( 'workflow_id' ) ) );
         if ( is_wp_error( $setup ) ) {
             return $setup;
         }
-        $reply = PQM_N8n::public_state();
-        if ( pqm_fs()->is__premium_only() ) {
+        $reply = PostQuality_N8n::public_state();
+        if ( postquality_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
         }
 
@@ -1759,7 +1759,7 @@ class PQM_REST_API {
     /* ─── Webhook token rotation (n8n provisioning, entry 10) ────────── */
 
     /**
-     * Rotate the webhook token: PQM_N8n::rotate_token() writes a new one
+     * Rotate the webhook token: PostQuality_N8n::rotate_token() writes a new one
      * into the setup map's webhook credential in n8n, then the one-key save
      * here, then a ping of the saved URL with it, which proves the pair (no
      * diagnosis read: the PATCH stays the one n8n API call). A refused
@@ -1772,13 +1772,13 @@ class PQM_REST_API {
      * page's own token row, which the saving page already carries.
      */
     public static function rotate_n8n_token_callback(): WP_REST_Response|WP_Error {
-        $token = PQM_N8n::rotate_token();
+        $token = PostQuality_N8n::rotate_token();
         if ( is_wp_error( $token ) ) {
             return self::with_body( $token );
         }
-        PQM_Admin::save_webhook_token( $token );
+        PostQuality_Admin::save_webhook_token( $token );
 
-        $ping = PQM_Admin::ping_webhook( (string) pqm_get_settings()['n8n_webhook_url'], false );
+        $ping = PostQuality_Admin::ping_webhook( (string) postquality_get_settings()['n8n_webhook_url'], false );
         if ( $ping['ok'] ) {
             /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
             $message = sprintf( __( 'Token rotated. %s', 'post-quality-manager' ), $ping['message'] );
@@ -1797,7 +1797,7 @@ class PQM_REST_API {
 
     /**
      * Update the managed workflow to the bundled template:
-     * PQM_N8n::update_workflow() reads it once and PUTs the build's template
+     * PostQuality_N8n::update_workflow() reads it once and PUTs the build's template
      * onto it (credentials and path kept), then the ping of the
      * saved URL (a 404 retried, ping_after_activation()), its diagnosis included, proves the new version answers. A
      * refused update answers its error, nothing written. Answers
@@ -1808,14 +1808,14 @@ class PQM_REST_API {
      * WordPress credential: that node stays name-only, D1).
      */
     public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
-        $setup = PQM_N8n::update_workflow();
+        $setup = PostQuality_N8n::update_workflow();
         if ( is_wp_error( $setup ) ) {
             return self::with_body( $setup );
         }
 
         // The PUT just passed: a 404 is the publication window (bug 84, memory/n8n-provisioning.md),
         // retried like provisioning's, never a gone workflow (story 71, no read).
-        $ping    = self::ping_after_activation( (string) pqm_get_settings()['n8n_webhook_url'] );
+        $ping    = self::ping_after_activation( (string) postquality_get_settings()['n8n_webhook_url'] );
         $message = $ping['ok']
             /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
             ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
@@ -1823,7 +1823,7 @@ class PQM_REST_API {
             : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
 
         $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $reply['rewrite_ready'] = isset( $setup['credentials']['wordpress'] );
             if ( ! $reply['rewrite_ready'] ) {
                 $reply['message'] .= ' ' . __( 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
@@ -1839,7 +1839,7 @@ class PQM_REST_API {
      * off the page at once. pqm-admin.js swaps it on an error reply too.
      */
     private static function with_body( WP_Error $error ): WP_Error {
-        $error->add_data( (array) $error->get_error_data() + [ 'status_html' => PQM_Admin::render_workflow_body( $error->get_error_message(), 'error' ) ] );
+        $error->add_data( (array) $error->get_error_data() + [ 'status_html' => PostQuality_Admin::render_workflow_body( $error->get_error_message(), 'error' ) ] );
 
         return $error;
     }

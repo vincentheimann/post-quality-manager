@@ -296,7 +296,7 @@ function NotConnectedNotice( { canManage } ) {
 									'Set up the n8n workflow',
 									'post-quality-manager'
 								),
-								url: 'admin.php?page=pqm-workflow',
+								url: 'admin.php?page=postquality-workflow',
 								variant: 'primary',
 							},
 					  ]

@@ -26,7 +26,7 @@ function renderPage( slugs ) {
 					.join( '' ) }
 			</nav>
 			<form method="post" action="options.php">
-				<input type="hidden" name="_wp_http_referer" value="/wp-admin/admin.php?page=pqm-settings" />
+				<input type="hidden" name="_wp_http_referer" value="/wp-admin/admin.php?page=postquality-settings" />
 				${ slugs
 					.map(
 						( slug, i ) =>
@@ -59,9 +59,9 @@ function boot( hash = '' ) {
 	window.history.replaceState(
 		null,
 		'',
-		'/wp-admin/admin.php?page=pqm-settings' + hash
+		'/wp-admin/admin.php?page=postquality-settings' + hash
 	);
-	window.pqmAdmin = {};
+	window.postqualityAdmin = {};
 	const listen = jest.spyOn( document, 'addEventListener' );
 	jest.isolateModules( () => require( SCRIPT ) );
 	const [ , init ] = listen.mock.calls.find(
@@ -132,11 +132,11 @@ describe( 'Settings tabs', () => {
 		);
 		expect( window.location.hash ).toBe( '#tab-automation' );
 		expect( referer() ).toBe(
-			'/wp-admin/admin.php?page=pqm-settings#tab-automation'
+			'/wp-admin/admin.php?page=postquality-settings#tab-automation'
 		);
 		tab( 'usage' ).click(); // the referer keeps one hash, never two
 		expect( referer() ).toBe(
-			'/wp-admin/admin.php?page=pqm-settings#tab-usage'
+			'/wp-admin/admin.php?page=postquality-settings#tab-usage'
 		);
 	} );
 

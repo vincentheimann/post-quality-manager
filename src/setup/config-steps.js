@@ -19,8 +19,8 @@ import { __, sprintf } from '@wordpress/i18n';
 
 import { commandLabel } from '../kit/copy';
 
-const SETTINGS_URL = 'admin.php?page=pqm-settings';
-// The same address as PHP's PQM_PRICING_URL; the render-matrix harness fails when they differ.
+const SETTINGS_URL = 'admin.php?page=postquality-settings';
+// The same address as PHP's POSTQUALITY_PRICING_URL; the render-matrix harness fails when they differ.
 const PRICING_URL = 'https://postquality.com/pricing/';
 
 /**

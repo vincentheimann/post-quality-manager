@@ -12,4 +12,4 @@ metadata:
 
 The former sibling repo `post-quality-api\` (single-file plugin `post_quality_api.php`) was retired 2026-07-23: local folder deleted, GitHub repo `vincentheimann/post-quality-api` archived by the user. The manager registers the same `post-quality/v1/post-score` endpoint and is the canonical source — do not re-create the standalone plugin.
 
-Reorg of 2026-07-22 was committed on branch `chore/claude-workspace-reorg` (history preserved via `git mv`), together with a fix aligning the plugin header version to `PQM_VERSION` 3.0.0.
+Reorg of 2026-07-22 was committed on branch `chore/claude-workspace-reorg` (history preserved via `git mv`), together with a fix aligning the plugin header version to `POSTQUALITY_VERSION` 3.0.0.

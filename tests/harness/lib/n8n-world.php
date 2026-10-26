@@ -46,7 +46,7 @@ $GLOBALS['tw'] = [
     'pings'    => [], // wp_remote_post() calls (the webhook ping): [url, args]
     'ping_response' => null,
     'ping_queue'    => [],   // scripted ping answers, in call order; ping_response once empty (bug 80)
-    'filters'       => ['pqm_provision_ping_retry_wait' => 0, 'pqm_ping_callback_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply)
+    'filters'       => ['postquality_provision_ping_retry_wait' => 0, 'postquality_ping_callback_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply)
     'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
     'app_created'   => [],   // Application Passwords created: [user_id, args]
@@ -134,7 +134,7 @@ function add_query_arg($args, $url = '', $unused = null) {
     if (!is_array($args)) { [$args, $url] = [[$args => $url], $unused]; }
     return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($args);
 }
-/* $wpdb: PQM_DB's read answers nothing. The provisioning lock's two statements (bug 82) are serialized against the options
+/* $wpdb: PostQuality_DB's read answers nothing. The provisioning lock's two statements (bug 82) are serialized against the options
    store as the database serializes them: INSERT IGNORE affects 1 row only while the key is free, the compare-and-set UPDATE
    only while the stored value is byte-identical to the one read; `db_refuses` answers false. Writes are recorded as
    update_option() records them, so untouched()/lock_free() and the writes[0] assertions hold. `on_claim` fires before the
@@ -179,7 +179,7 @@ require dirname(__DIR__, 3) . '/post-quality-manager/post-quality-manager.php';
 const KEY    = 'n8n_api_key-SECRET-0123456789';
 const OLD_KEY = 'n8n_api_key-OLD-9876543210';
 const BASE    = 'https://n8n.example.com';
-const UA      = 'PostQualityManager/' . PQM_VERSION . ' (+https://postquality.com)';
+const UA      = 'PostQualityManager/' . POSTQUALITY_VERSION . ' (+https://postquality.com)';
 
 function resp(int $code, $body): array {
     return ['response' => ['code' => $code], 'body' => is_string($body) ? $body : json_encode($body)];
@@ -201,17 +201,17 @@ function site(array $options = [], array $queue = []): void {
 }
 
 function post(array $params) {
-    $r = PQM_REST_API::connect_n8n_callback(new WP_REST_Request($params));
+    $r = PostQuality_REST_API::connect_n8n_callback(new WP_REST_Request($params));
     $GLOBALS['replies'][] = $r instanceof WP_Error ? $r->message : json_encode($r->get_data());
     return $r instanceof WP_Error ? $r : $r->get_data();
 }
 function get_state(): array {
-    $d = PQM_REST_API::get_n8n_connection_callback()->get_data();
+    $d = PostQuality_REST_API::get_n8n_connection_callback()->get_data();
     $GLOBALS['replies'][] = json_encode($d);
     return $d;
 }
 function forget(): array {
-    $d = PQM_REST_API::forget_n8n_callback()->get_data();
+    $d = PostQuality_REST_API::forget_n8n_callback()->get_data();
     $GLOBALS['replies'][] = json_encode($d);
     return $d;
 }
@@ -235,28 +235,28 @@ function calls_signed(string $key): bool {
 
 /** Nothing written: the stored option is still $before. */
 function unchanged(array $before): bool {
-    return $GLOBALS['tw']['writes'] === [] && ($GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? null) === ($before[PQM_N8n::OPTION] ?? null);
+    return $GLOBALS['tw']['writes'] === [] && ($GLOBALS['tw']['options'][PostQuality_N8n::OPTION] ?? null) === ($before[PostQuality_N8n::OPTION] ?? null);
 }
 
 /** The stored option, its `failed` record left out. */
 function without_failed(): ?array {
-    $stored = $GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? null;
+    $stored = $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] ?? null;
     unset($stored['failed']);
     return $stored;
 }
 
 const MANUAL_SENTENCE = 'Or set up the workflow by hand with the Workflow File section.';
 
-$stored_conn = [PQM_N8n::OPTION => [
+$stored_conn = [PostQuality_N8n::OPTION => [
     'base_url' => 'https://old.example.com',
     'api_key'  => OLD_KEY,
     'probe'    => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000],
 ]];
 
 /* ─── The routes, the right, the gate every route section reads ──────── */
-PQM_REST_API::register_routes();
+PostQuality_REST_API::register_routes();
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
-$gate  = ['PQM_REST_API', 'check_manage_settings'];
+$gate  = ['PostQuality_REST_API', 'check_manage_settings'];
 
 /* ─── Provisioning (entry 4): constants and builders ─────────────────── */
 const PROVIDER_KEY = 'sk-ant-PROVIDER-SECRET-4242';
@@ -274,12 +274,12 @@ const WP_CRED        = ['id' => 'c-wp', 'name' => 'WordPress - example.com'];
 const WIRED          = ['Post Quality webhook - example.com' => WEBHOOK_CRED, 'Anthropic - Claude' => ANTHROPIC_CRED, 'WordPress - example.com' => WP_CRED];
 
 /**
- * The build's template nodes (pqm_workflow_json()) with the ids rewired:
+ * The build's template nodes (postquality_workflow_json()) with the ids rewired:
  * template credential name => the {id, name} n8n stores, or null (name-only).
  * `$edit`: node name => fn(array $node): array, for a single node.
  */
 function wired(array $credentials = WIRED, array $edit = []): array {
-    $nodes = json_decode((string) pqm_workflow_json(), true)['nodes'];
+    $nodes = json_decode((string) postquality_workflow_json(), true)['nodes'];
     foreach ($nodes as &$node) {
         foreach ($node['credentials'] ?? [] as $type => $ref) {
             $node['credentials'][$type] = $credentials[$ref['name']] ?? ['name' => $ref['name']];
@@ -311,11 +311,11 @@ define('PRO_OK', [MODELS_OK, created('c-webhook'), created('c-anthropic'), creat
 
 /** A connected site, nothing provisioned, the given answers scripted; the ping answers the current version. */
 function connected(array $queue, array $extra = []): void {
-    site([PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000]],
+    site([PostQuality_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000]],
         'pqm_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
     $GLOBALS['tw']['pings']         = [];
     $GLOBALS['tw']['ping_queue']    = [];
-    $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
+    $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
     $GLOBALS['tw']['app_passwords'] = true;
     $GLOBALS['tw']['app_created']   = [];
     $GLOBALS['tw']['app_revoked']   = [];
@@ -327,7 +327,7 @@ function connected(array $queue, array $extra = []): void {
 
 $provision_runs = []; // [options, calls, pings] after every run, for the leak scan
 function provision(string $key = PROVIDER_KEY) {
-    $r = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => $key]));
+    $r = PostQuality_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => $key]));
     $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
     $GLOBALS['provision_runs'][] = [$GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
     return $r instanceof WP_Error ? $r : $r->get_data();
@@ -343,13 +343,13 @@ function linked(array $workflow): array {
 
 /** Nothing written but the lock's claim and release (bug 72), the lock gone, nothing pinged, no Application Password created or revoked. */
 function untouched(): bool {
-    return array_values(array_diff($GLOBALS['tw']['writes'], [PQM_N8n::LOCK_OPTION, '-' . PQM_N8n::LOCK_OPTION])) === [] && lock_free()
+    return array_values(array_diff($GLOBALS['tw']['writes'], [PostQuality_N8n::LOCK_OPTION, '-' . PostQuality_N8n::LOCK_OPTION])) === [] && lock_free()
         && $GLOBALS['tw']['pings'] === [] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['app_revoked'] === [];
 }
 
 /** The provisioning lock is not held (bug 72): absent, or never written. */
 function lock_free(): bool {
-    return !isset($GLOBALS['tw']['options'][PQM_N8n::LOCK_OPTION]);
+    return !isset($GLOBALS['tw']['options'][PostQuality_N8n::LOCK_OPTION]);
 }
 
 /** The setup map a passing Pro run stores (bug 73: with the Application Password it created), `at` as stored. */
@@ -358,7 +358,7 @@ function pro_map(?int $at): array {
         'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => $at, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
 }
 
-$template = json_decode((string) pqm_workflow_json(), true);
+$template = json_decode((string) postquality_workflow_json(), true);
 $strip    = static fn(array $nodes) => array_map(static function ($n) { unset($n['credentials']); return $n; }, $nodes);
 
 /* ─── Rollback (entry 5): constants and the instance model ───────────── */
@@ -416,14 +416,14 @@ function revoked(): bool {
     return count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']];
 }
 
-/** The options written, without the pending test ping (story 2: PQM_Admin::PING_OPTION, written before every ping and deleted after it). */
+/** The options written, without the pending test ping (story 2: PostQuality_Admin::PING_OPTION, written before every ping and deleted after it). */
 function writes(): array {
-    return array_values(array_diff($GLOBALS['tw']['writes'], [PQM_Admin::PING_OPTION, '-' . PQM_Admin::PING_OPTION]));
+    return array_values(array_diff($GLOBALS['tw']['writes'], [PostQuality_Admin::PING_OPTION, '-' . PostQuality_Admin::PING_OPTION]));
 }
 
 /** Nothing of a provisioned site saved, nothing pinged. */
 function nothing_saved(): bool {
-    return !array_intersect([PQM_N8n::SETUP_OPTION, 'pqm_settings', PQM_SETUP_OPTION], $GLOBALS['tw']['writes']) && $GLOBALS['tw']['pings'] === [];
+    return !array_intersect([PostQuality_N8n::SETUP_OPTION, 'pqm_settings', POSTQUALITY_SETUP_OPTION], $GLOBALS['tw']['writes']) && $GLOBALS['tw']['pings'] === [];
 }
 
 /** The message names the step in plain words and never repeats n8n's reply body. */
@@ -448,12 +448,12 @@ const MISSING_SENTENCE = 'In n8n, no credential is set on Update WP Post (Rewrit
 const PING_OK  = 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.';
 $diagnosis_calls = []; // every call the rows below made, for the GET-only check
 $status_blocks   = []; // every status block a connect ping below answered
-$setup_map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => 1]];
+$setup_map = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic', 'wordpress' => 'c-wp'], 'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => 1]];
 $miswired_map = static fn(array $published, ?array $draft = null): array => [resp(200, stored_workflow('wf1', $published, $draft))];
 
 /** POST /setup/connect: save the URL, ping it, record (the dialog's connect step, D2). */
 function connect_ping(string $url): array {
-    $r = PQM_REST_API::setup_connect_callback(new WP_REST_Request(['webhook_url' => $url]))->get_data();
+    $r = PostQuality_REST_API::setup_connect_callback(new WP_REST_Request(['webhook_url' => $url]))->get_data();
     $GLOBALS['replies'][] = json_encode($r);
     $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
     $GLOBALS['status_blocks'][]  = $r['status_html'] ?? '';
@@ -461,7 +461,7 @@ function connect_ping(string $url): array {
 }
 /** diagnose() on the given site, its calls kept for the GET-only check. */
 function diagnosed(string $url = HOOK): ?string {
-    $r = PQM_N8n::diagnose($url);
+    $r = PostQuality_N8n::diagnose($url);
     $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
     return $r;
 }
@@ -505,13 +505,13 @@ function hand_made(array $queue, string $url = V5_HOOK, array $extra = []): void
     $GLOBALS['tw']['writes'] = [];
 }
 function proposal() {
-    $r = PQM_REST_API::get_n8n_adoption_callback();
+    $r = PostQuality_REST_API::get_n8n_adoption_callback();
     $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
     $GLOBALS['adoption_calls'] = array_merge($GLOBALS['adoption_calls'], $GLOBALS['tw']['calls']);
     return $r instanceof WP_Error ? $r : $r->get_data();
 }
 function adopt_post(string $workflow_id) {
-    $r = PQM_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => $workflow_id]));
+    $r = PostQuality_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => $workflow_id]));
     $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
     $GLOBALS['adoption_calls'] = array_merge($GLOBALS['adoption_calls'], $GLOBALS['tw']['calls']);
     return $r instanceof WP_Error ? $r : $r->get_data();
@@ -535,7 +535,7 @@ const ROTATED_PREFIX   = 'The token was rotated in n8n and saved here.';
 const OTHER_CREDENTIAL = ROTATED_PREFIX . ' n8n still refused the test ping: your Webhook Trigger uses another credential than the one the plugin manages. In n8n, pick that credential on the Webhook Trigger, publish the workflow, then send a test ping.';
 define('PATCHED', resp(200, ['id' => 'c-webhook', 'name' => 'Post Quality webhook - example.com', 'type' => 'httpHeaderAuth', 'updatedAt' => '2026-10-16T10:00:00.000Z']));
 $rotation_runs = []; // [reply, options, calls, pings] after every rotation, for the leak scan
-$adopted_map   = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'base_url' => BASE, 'wizard_created' => false, 'at' => HAND_MAP_AT]];
+$adopted_map   = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'base_url' => BASE, 'wizard_created' => false, 'at' => HAND_MAP_AT]];
 
 /** A managed site: a passing key, a setup map (the provisioned one by default), the saved URL on its path (D3). */
 function managed(array $queue, ?array $map = null, string $url = HOOK): void {
@@ -544,7 +544,7 @@ function managed(array $queue, ?array $map = null, string $url = HOOK): void {
     $GLOBALS['tw']['writes'] = [];
 }
 function rotate() {
-    $r     = PQM_REST_API::rotate_n8n_token_callback();
+    $r     = PostQuality_REST_API::rotate_n8n_token_callback();
     $reply = $r instanceof WP_Error ? error_json($r) : json_encode($r->get_data());
     $GLOBALS['replies'][]       = $reply;
     $GLOBALS['rotation_runs'][] = [$reply, $GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
@@ -560,10 +560,10 @@ const UPDATE_BUTTON  = '<button type="button" class="button button-primary pqm-u
 const IN_PLACE       = 'The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.'; // story 76 (D3)
 const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again. Choose Start over in the n8n connection section to set it up again.';
 define('UPDATED', resp(200, ['id' => 'wf1', 'name' => 'Post Quality — example.com', 'active' => true, 'versionId' => 'v-new']));
-$older_report = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
+$older_report = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
 $update_runs  = []; // [reply, options, calls, pings] after every update, for the leak scan
 function update() {
-    $r     = PQM_REST_API::update_n8n_workflow_callback();
+    $r     = PostQuality_REST_API::update_n8n_workflow_callback();
     $reply = $r instanceof WP_Error ? error_json($r) : json_encode($r->get_data());
     $GLOBALS['replies'][]     = $reply;
     $GLOBALS['update_runs'][] = [$reply, $GLOBALS['tw']['options'], $GLOBALS['tw']['calls'], $GLOBALS['tw']['pings']];
@@ -582,18 +582,18 @@ const START_OVER_CLAUSE = 'Choose Start over in the n8n connection section to se
 const GONE_PING         = 'The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.';
 const PLAIN_404         = 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
 $state_keys = ['base_url', 'key_set', 'key_hint', 'probe', 'connected', 'setup', 'adoptable', 'rotatable'];
-$report     = ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
-$elsewhere  = [PQM_N8n::SETUP_OPTION => array_replace(pro_map(1), ['base_url' => OTHER_INSTANCE])];
+$report     = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
+$elsewhere  = [PostQuality_N8n::SETUP_OPTION => array_replace(pro_map(1), ['base_url' => OTHER_INSTANCE])];
 function start_over(bool $remove) {
-    $r = PQM_REST_API::start_over_n8n_callback(new WP_REST_Request(['remove_from_n8n' => $remove]));
+    $r = PostQuality_REST_API::start_over_n8n_callback(new WP_REST_Request(['remove_from_n8n' => $remove]));
     $GLOBALS['replies'][] = $r instanceof WP_Error ? json_encode([$r->code, $r->message, $r->data]) : json_encode($r->get_data());
     return $r instanceof WP_Error ? $r : $r->get_data();
 }
 /** The site after a start over: no map, no report, the URL '' and the token kept, the key stored. */
 function started_over(): bool {
     $o = $GLOBALS['tw']['options'];
-    return !isset($o[PQM_N8n::SETUP_OPTION]) && !isset($o['pqm_workflow_version_seen']) && ($o['pqm_settings']['n8n_webhook_url'] ?? null) === ''
-        && ($o['pqm_settings']['webhook_token'] ?? null) === TOKEN && ($o[PQM_N8n::OPTION]['api_key'] ?? null) === KEY;
+    return !isset($o[PostQuality_N8n::SETUP_OPTION]) && !isset($o['pqm_workflow_version_seen']) && ($o['pqm_settings']['n8n_webhook_url'] ?? null) === ''
+        && ($o['pqm_settings']['webhook_token'] ?? null) === TOKEN && ($o[PostQuality_N8n::OPTION]['api_key'] ?? null) === KEY;
 }
 
 /* ─── Story 74: sentences, the stored connections, refusal_stored() ──── */
@@ -602,14 +602,14 @@ const SCOPED_SENTENCE = 'This API key cannot create credentials or publish workf
 const REFUSED_FIX     = 'n8n refused the API key. Create a new one in n8n under Settings → n8n API, connect again, then try again.';
 define('UNAUTHORIZED', resp(401, ['message' => 'unauthorized']));
 $passing_probe = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000];
-$passing_conn  = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $passing_probe]];
-$refused_conn  = [PQM_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => false, 'cause' => 'key', 'message' => KEY_SENTENCE, 'at' => 1700000500]]];
+$passing_conn  = [PostQuality_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => $passing_probe]];
+$refused_conn  = [PostQuality_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => false, 'cause' => 'key', 'message' => KEY_SENTENCE, 'at' => 1700000500]]];
 /** The stored probe is a fresh refusal of this cause, {ok, cause, message, at}; the URL and key kept; not connected. */
 function refusal_stored(string $cause): bool {
-    $c = $GLOBALS['tw']['options'][PQM_N8n::OPTION] ?? [];
+    $c = $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] ?? [];
     return ($c['base_url'] ?? '') === BASE && ($c['api_key'] ?? '') === KEY && is_array($c['probe'] ?? null)
         && array_keys($c['probe']) === ['ok', 'cause', 'message', 'at'] && $c['probe']['ok'] === false && $c['probe']['cause'] === $cause
-        && abs($c['probe']['at'] - time()) <= 5 && PQM_N8n::connected() === false;
+        && abs($c['probe']['at'] - time()) <= 5 && PostQuality_N8n::connected() === false;
 }
 
 /* ─── The key never leaves the server ────────────────────────────────── */

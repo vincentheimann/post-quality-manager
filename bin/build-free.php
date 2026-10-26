@@ -12,7 +12,7 @@
  *    and every file named `*__premium_only.*`;
  *  - removes, outside vendor/, every function or method named
  *    `*__premium_only` (with its doc comment) and every
- *    `if ( pqm_fs()->is__premium_only() ) { … }` block — that exact
+ *    `if ( postquality_fs()->is__premium_only() ) { … }` block — that exact
  *    condition, braces, no `else`;
  *  - sets the SDK's `'is_premium' => true` to false;
  *  - mimics Freemius's other rewrite (its Free build of 3.5.1, 2026-10-13):
@@ -119,7 +119,7 @@ function pqm_premium_ranges(array $t): array {
                 }
             }
             $brace = pqm_next($t, $close + 1);
-            if ($cond !== 'pqm_fs()->is' . PQM_SUFFIX . '()' || $t[$brace] !== '{') {
+            if ($cond !== 'postquality_fs()->is' . PQM_SUFFIX . '()' || $t[$brace] !== '{') {
                 continue;
             }
             $end = pqm_close($t, $brace);
@@ -203,7 +203,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dest, Fil
     }
 }
 if ($survivors) {
-    pqm_fail("Premium code survived the strip (wrap it in if ( pqm_fs()->is__premium_only() ) { … }):\n  " . implode("\n  ", $survivors));
+    pqm_fail("Premium code survived the strip (wrap it in if ( postquality_fs()->is__premium_only() ) { … }):\n  " . implode("\n  ", $survivors));
 }
 
 echo "Free build written to $dest\n";

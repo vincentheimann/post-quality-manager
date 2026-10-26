@@ -1,7 +1,7 @@
 /**
  * swapStatusBlock — the one swap of the n8n Workflow page's body for React
  * callers (story 67): every reply that carries `status_html` carries the
- * whole body under the H1 (PQM_Admin::render_workflow_body()), which sits
+ * whole body under the H1 (PostQuality_Admin::render_workflow_body()), which sits
  * outside the setup island. The swap replaces #pqm-workflow-body's content
  * and dispatches WORKFLOW_STATUS_EVENT, on which src/index.js remounts the
  * n8n connection island and pqm-admin.js binds its rows again. Used by the
@@ -13,11 +13,11 @@
  * the swap.
  */
 
-export const WORKFLOW_STATUS_EVENT = 'pqm:workflow-status';
-export const SETUP_CLOSED_EVENT = 'pqm:setup-closed';
-export const WORKFLOW_REFRESH_EVENT = 'pqm:workflow-refresh';
+export const WORKFLOW_STATUS_EVENT = 'postquality:workflow-status';
+export const SETUP_CLOSED_EVENT = 'postquality:setup-closed';
+export const WORKFLOW_REFRESH_EVENT = 'postquality:workflow-refresh';
 // Dispatched (cancelable) by pqm-admin.js before a [data-pqm-confirm] control posts (story 76).
-export const CONFIRM_ACTION_EVENT = 'pqm:confirm-action';
+export const CONFIRM_ACTION_EVENT = 'postquality:confirm-action';
 
 /**
  * @param {string=} html The reply's `status_html`; nothing happens without one.

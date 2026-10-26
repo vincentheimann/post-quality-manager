@@ -33,7 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_N8n {
+class PostQuality_N8n {
 
     /** Own option (autoload off, deleted on uninstall): base_url, api_key, probe, failed. */
     const OPTION = 'pqm_n8n_api';
@@ -44,7 +44,7 @@ class PQM_N8n {
     /**
      * The header the webhook token travels in, both directions (ADR 0010):
      * the one the template's Webhook Trigger checks, the webhook credential
-     * carries and pqm_n8n_headers() sends. Spelled here only (story 77).
+     * carries and postquality_n8n_headers() sends. Spelled here only (story 77).
      */
     const TOKEN_HEADER = 'X-PQM-Token';
 
@@ -186,7 +186,7 @@ class PQM_N8n {
      * it say so until a probe passes. Only `probe` changes: the URL, the key
      * and `failed` stay (Forget is the owner's). The callers know the key
      * refused was the stored one: request(), and Check again on the stored
-     * address (PQM_REST_API::connect_n8n_callback()).
+     * address (PostQuality_REST_API::connect_n8n_callback()).
      */
     public static function record_refusal( array $probe ): void {
         $stored = get_option( self::OPTION, [] );
@@ -209,7 +209,7 @@ class PQM_N8n {
     }
 
     public static function user_agent(): string {
-        return 'PostQualityManager/' . PQM_VERSION . ' (+https://postquality.com)';
+        return 'PostQualityManager/' . POSTQUALITY_VERSION . ' (+https://postquality.com)';
     }
 
     /**
@@ -687,7 +687,7 @@ class PQM_N8n {
         if ( null !== $blocked ) {
             return $blocked;
         }
-        $workflow = self::workflow_at( (string) pqm_get_settings()['n8n_webhook_url'] );
+        $workflow = self::workflow_at( (string) postquality_get_settings()['n8n_webhook_url'] );
         if ( is_wp_error( $workflow ) ) {
             return $workflow;
         }
@@ -780,7 +780,7 @@ class PQM_N8n {
         if ( ! self::connected() ) {
             return self::not_connected();
         }
-        if ( '' === (string) pqm_get_settings()['n8n_webhook_url'] ) {
+        if ( '' === (string) postquality_get_settings()['n8n_webhook_url'] ) {
             return new WP_Error( 'pqm_webhook_url_missing', __( 'Save your n8n Webhook URL first: the plugin finds your workflow by it.', 'post-quality-manager' ), [ 'status' => 400 ] );
         }
 
@@ -916,7 +916,7 @@ class PQM_N8n {
             return self::already_provisioned();
         }
         // Objects, not arrays: an empty `{}` in the template must stay one.
-        $workflow = json_decode( (string) pqm_workflow_json() );
+        $workflow = json_decode( (string) postquality_workflow_json() );
         if ( ! is_object( $workflow ) ) {
             return new WP_Error( 'pqm_provision_failed', __( 'The workflow template is missing from the plugin. Reinstall the plugin, then try again.', 'post-quality-manager' ), [ 'status' => 500, 'step' => 'template' ] );
         }
@@ -930,13 +930,13 @@ class PQM_N8n {
             return $dropped;
         }
 
-        $host        = pqm_site_host();
+        $host        = postquality_site_host();
         $names       = self::credential_names( $host );
         $credentials = [
-            'webhook'   => [ 'name' => $names['webhook'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => self::TOKEN_HEADER, 'value' => (string) pqm_get_settings()['webhook_token'] ] ],
+            'webhook'   => [ 'name' => $names['webhook'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => self::TOKEN_HEADER, 'value' => (string) postquality_get_settings()['webhook_token'] ] ],
             'anthropic' => [ 'name' => $names['anthropic'], 'type' => 'httpHeaderAuth', 'data' => [ 'name' => 'x-api-key', 'value' => $provider_key ] ],
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $wordpress = self::wordpress_credential__premium_only( $host );
             if ( is_wp_error( $wordpress ) ) {
                 return $wordpress;
@@ -992,12 +992,12 @@ class PQM_N8n {
         $setup = [
             'workflow_id'    => $workflow_id,
             'credentials'    => $created,
-            'path'           => pqm_webhook_path(),
+            'path'           => postquality_webhook_path(),
             'base_url'       => self::connection()['base_url'],
             'wizard_created' => true,
             'at'             => time(),
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             // Bug 73: the map names the Application Password the run created, so a later
             // removal of the setup (uninstall, Start over) revokes it. Never sent anywhere.
             if ( isset( $credentials['wordpress']['uuid'] ) ) {
@@ -1025,7 +1025,7 @@ class PQM_N8n {
     }
 
     /**
-     * The decoded template (pqm_workflow_json(), objects) rendered for n8n:
+     * The decoded template (postquality_workflow_json(), objects) rendered for n8n:
      * the four keys a create or an update takes — `name`, `nodes`,
      * `connections`, `settings`, never `active` (the public API sets it
      * through activate only) — with every credentialed node linked by id.
@@ -1140,7 +1140,7 @@ class PQM_N8n {
 
     /**
      * Revoke the Application Password the setup map names, if it names one:
-     * what removes the map calls it first (PQM_Activator::uninstall() now;
+     * what removes the map calls it first (PostQuality_Activator::uninstall() now;
      * story 71's Start over later). A map without one (set up by an earlier
      * version, adopted, or without Application Passwords) or no map: no call.
      */
@@ -1179,7 +1179,7 @@ class PQM_N8n {
      */
     private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null, ?string $then = null ): WP_Error {
         // Before n8n's rollback, and whatever it gives: the WordPress credential is useless once the run failed.
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if ( isset( $credentials['wordpress']['uuid'] ) ) {
                 self::revoke_application_password__premium_only( (int) $credentials['wordpress']['user_id'], (string) $credentials['wordpress']['uuid'] );
             }
@@ -1312,7 +1312,7 @@ class PQM_N8n {
         if ( null !== $blocked ) {
             return $blocked;
         }
-        $miswired = ( pqm_workflow_report() ?? [] )['miswired'] ?? '';
+        $miswired = ( postquality_workflow_report() ?? [] )['miswired'] ?? '';
         if ( '' !== $miswired ) {
             return new WP_Error( 'pqm_workflow_miswired', sprintf(
                 /* translators: %s: the diagnosis sentence naming the nodes and the fix, e.g. "In n8n, the webhook credential … then test again." */
@@ -1356,7 +1356,7 @@ class PQM_N8n {
         if ( ! self::same_instance( $setup ) ) {
             return self::other_instance( $setup );
         }
-        $path = self::webhook_segment( (string) pqm_get_settings()['n8n_webhook_url'] );
+        $path = self::webhook_segment( (string) postquality_get_settings()['n8n_webhook_url'] );
         if ( '' === $path || (string) ( $setup['path'] ?? '' ) !== $path ) {
             return new WP_Error( 'pqm_webhook_url_changed', __( 'Your n8n Webhook URL no longer points at the workflow the plugin manages, so nothing was changed. Save that workflow\'s production URL as the n8n Webhook URL, then try again.', 'post-quality-manager' ), [ 'status' => 409 ] );
         }
@@ -1373,7 +1373,7 @@ class PQM_N8n {
      * and its own name, both kept (D2); a JSON 404 says it is gone — then
      * one PUT of linked_template(): the map's credential id on every
      * credentialed node, the trigger on the map's path (D1: an adopted
-     * workflow keeps its own, never pqm_webhook_path()), the four keys n8n
+     * workflow keeps its own, never postquality_webhook_path()), the four keys n8n
      * takes and never `active` — n8n republishes a PUT workflow by itself
      * (memory/n8n-provisioning.md: PUT republishes, seen 2026-10-16 on n8n
      * 2.42.x), so the production URL stays. A role the map lacks leaves
@@ -1390,7 +1390,7 @@ class PQM_N8n {
         }
         $setup = get_option( self::SETUP_OPTION );
         // Objects, not arrays: an empty `{}` in the template must stay one.
-        $workflow = json_decode( (string) pqm_workflow_json( (string) $setup['path'] ) );
+        $workflow = json_decode( (string) postquality_workflow_json( (string) $setup['path'] ) );
         if ( ! is_object( $workflow ) ) {
             return new WP_Error( 'pqm_update_failed', __( 'The workflow template is missing from the plugin. Reinstall the plugin, then try again.', 'post-quality-manager' ), [ 'status' => 500 ] );
         }
@@ -1414,7 +1414,7 @@ class PQM_N8n {
         }
         $ids   = []; // template credential name => the map's id for that role; null = left name-only (D1)
         $names = [];
-        foreach ( self::credential_names( pqm_site_host() ) as $role => $name ) {
+        foreach ( self::credential_names( postquality_site_host() ) as $role => $name ) {
             $ids[ $name ]   = isset( $setup['credentials'][ $role ] ) ? (string) $setup['credentials'][ $role ] : null;
             $names[ $name ] = $carried[ $ids[ $name ] ] ?? '';
         }
@@ -1440,7 +1440,7 @@ class PQM_N8n {
      * what n8n refuses kept in LEFTOVERS_OPTION for the next provisioning
      * (never retried from here); the Pro build's Application Password
      * revoked; then the setup map, the saved n8n Webhook URL (a one-key
-     * merge, as PQM_Admin::save_webhook_token() writes) and the version
+     * merge, as PostQuality_Admin::save_webhook_token() writes) and the version
      * report gone, whatever the removal gave — the site has started over
      * (D1: the n8n key stays). The removal needs a key that passes and a
      * map made on the connected instance: nothing is ever sent to another
@@ -1478,7 +1478,7 @@ class PQM_N8n {
                 update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
             }
         }
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             self::revoke_setup_password__premium_only();
         }
         delete_option( self::SETUP_OPTION );

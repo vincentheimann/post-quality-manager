@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_Blocks {
+class PostQuality_Blocks {
 
     /** Rows read to find the command's latest — the detail panel's window (GET /reviews). */
     const ROWS_LIMIT = 50;
@@ -47,7 +47,7 @@ class PQM_Blocks {
      */
     public static function item_keys(): array {
         $keys = [ 'takeaways' => 'rewritten_items' ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $keys['sources'] = 'rewritten_sources';
         }
 
@@ -70,7 +70,7 @@ class PQM_Blocks {
                 sprintf(
                     /* translators: %s: agent command label, e.g. "Takeaways" */
                     __( 'Run %s first, then insert.', 'post-quality-manager' ),
-                    PQM_Features::label( $command )
+                    PostQuality_Features::label( $command )
                 ),
                 [ 'status' => 409 ]
             );
@@ -79,7 +79,7 @@ class PQM_Blocks {
         // The Pattern setting sits in the Pro-only Overrides: the Free build
         // and an unlicensed site insert a plain list.
         $copy = [];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $copy = self::pattern_copy__premium_only( $command );
         }
 
@@ -100,9 +100,9 @@ class PQM_Blocks {
      * unpublished or lost its List.
      */
     private static function pattern_copy__premium_only( string $command ): array {
-        $id = (int) ( pqm_get_settings()['agent_prompts'][ $command ]['pattern'] ?? 0 );
+        $id = (int) ( postquality_get_settings()['agent_prompts'][ $command ]['pattern'] ?? 0 );
 
-        return $id && PQM_Features::is_pro() && isset( self::patterns()[ $id ] )
+        return $id && PostQuality_Features::is_pro() && isset( self::patterns()[ $id ] )
             ? parse_blocks( (string) get_post( $id )->post_content )
             : [];
     }
@@ -181,7 +181,7 @@ class PQM_Blocks {
      * Newest stored row of $command for the post → its trimmed, non-empty items.
      */
     private static function latest_items( int $post_id, string $command ): array {
-        foreach ( PQM_DB::get_reviews_for_post( $post_id, self::ROWS_LIMIT ) as $row ) {
+        foreach ( PostQuality_DB::get_reviews_for_post( $post_id, self::ROWS_LIMIT ) as $row ) {
             if ( $row['command'] !== $command ) {
                 continue;
             }

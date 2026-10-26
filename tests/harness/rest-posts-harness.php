@@ -129,12 +129,12 @@ function limit_args(PQM_Stub_WPDB $wpdb): ?array {
 
 /* Row: registration — /posts exists, GET, view-reviews gate; old routes untouched */
 echo "Route registration\n";
-PQM_REST_API::register_routes();
+PostQuality_REST_API::register_routes();
 $routes = $GLOBALS['pqm_routes'];
-$ns = PQM_REST_NAMESPACE;
+$ns = POSTQUALITY_REST_NAMESPACE;
 check('/posts registered', isset($routes[$ns . '/posts']));
 check('/posts is read-only GET', ($routes[$ns . '/posts']['methods'] ?? '') === WP_REST_Server::READABLE);
-check('/posts gated by check_view_reviews', ($routes[$ns . '/posts']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+check('/posts gated by check_view_reviews', ($routes[$ns . '/posts']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_view_reviews']);
 foreach (['/post-score', '/save-review', '/reviews/(?P<post_id>\d+)', '/trigger-review', '/workflow'] as $existing) {
     check("existing route still registered: $existing", isset($routes[$ns . $existing]));
 }
@@ -142,7 +142,7 @@ foreach (['/post-score', '/save-review', '/reviews/(?P<post_id>\d+)', '/trigger-
 /* Story 14: the registry is the one command whitelist — both command enums are its keys,
    so WP's arg validation answers 400 rest_invalid_param for anything else. */
 echo "Command enums = registry keys\n";
-$registry_keys = array_keys(PQM_Features::registry());
+$registry_keys = array_keys(PostQuality_Features::registry());
 check('registry keys are the 8 commands',
     $registry_keys === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply']);
 foreach (['/trigger-review', '/save-review'] as $route) {
@@ -189,16 +189,16 @@ foreach ($routes as $route => $def) {
 /* Row: no capability — 403 via the shared permission callback */
 echo "No capability\n";
 $GLOBALS['tw']['caps'] = [];
-check('check_view_reviews refuses without pqm_view_reviews', PQM_REST_API::check_view_reviews() === false);
+check('check_view_reviews refuses without pqm_view_reviews', PostQuality_REST_API::check_view_reviews() === false);
 $GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
-check('check_view_reviews passes with pqm_view_reviews', PQM_REST_API::check_view_reviews() === true);
+check('check_view_reviews passes with pqm_view_reviews', PostQuality_REST_API::check_view_reviews() === true);
 /* Ticket 12: an edit_posts-only user (WP Author/Contributor without pqm caps) cannot read reviews */
 $GLOBALS['tw']['caps'] = ['edit_posts'];
-check('check_view_reviews refuses an edit_posts-only user', PQM_REST_API::check_view_reviews() === false);
+check('check_view_reviews refuses an edit_posts-only user', PostQuality_REST_API::check_view_reviews() === false);
 
 /* Ticket 12: the trigger route lets through any registry capability, nothing else */
 echo "Trigger route permission\n";
-check('/trigger-review gated by check_can_trigger', ($routes[$ns . '/trigger-review']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_can_trigger']);
+check('/trigger-review gated by check_can_trigger', ($routes[$ns . '/trigger-review']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_can_trigger']);
 foreach ([
     'free cap [pqm_run_free_agents]' => [['pqm_run_free_agents'], true],
     'paid cap [pqm_run_paid_agents]' => [['pqm_run_paid_agents'], true],
@@ -206,7 +206,7 @@ foreach ([
     'edit_posts only [edit_posts]'   => [['edit_posts'], false],
 ] as $label => [$caps, $expected]) {
     $GLOBALS['tw']['caps'] = $caps;
-    check("check_can_trigger, $label → " . var_export($expected, true), PQM_REST_API::check_can_trigger() === $expected);
+    check("check_can_trigger, $label → " . var_export($expected, true), PostQuality_REST_API::check_can_trigger() === $expected);
 }
 $GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
 
@@ -229,7 +229,7 @@ $wpdb = fresh_wpdb([
         ['status' => null, 'cnt' => '1'],
     ],
 ], [2]);
-$res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
+$res = PostQuality_REST_API::list_posts_callback(new WP_REST_Request());
 check('200 response', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $data = $res->get_data();
 check('shape is {items,total,pages,counts,viewer,yoast_active} — counts (5.3), viewer (5.2), yoast_active (5.10) additive, first three untouched',
@@ -274,7 +274,7 @@ check('latest-review subquery excludes the processing placeholder (5.4: a runnin
 /* Row: bad params — clamped/whitelisted, silently sanitized, still 200 */
 echo "Bad params\n";
 $wpdb = fresh_wpdb([[], []], [0]);
-$res = PQM_REST_API::list_posts_callback(new WP_REST_Request([
+$res = PostQuality_REST_API::list_posts_callback(new WP_REST_Request([
     'per_page'  => 999,
     'page'      => 0,
     'orderby'   => 'evil',
@@ -298,7 +298,7 @@ check('scores clamped to 0–100 (min -5 → 0, max 500 → 100)', $band !== nul
 /* Row: whitelisted values pass through untouched */
 echo "Whitelisted params\n";
 $wpdb = fresh_wpdb([[], []], [0]);
-PQM_REST_API::list_posts_callback(new WP_REST_Request([
+PostQuality_REST_API::list_posts_callback(new WP_REST_Request([
     'per_page' => 5,
     'page'     => 3,
     'orderby'  => 'score',
@@ -319,7 +319,7 @@ check('no status / band clauses by default',
 /* Row: empty site — 200 with items: [] */
 echo "Empty site\n";
 $wpdb = fresh_wpdb([], []);
-$res = PQM_REST_API::list_posts_callback(new WP_REST_Request());
+$res = PostQuality_REST_API::list_posts_callback(new WP_REST_Request());
 $data = $res->get_data();
 check('200 with empty items', $res->get_status() === 200 && $data['items'] === [] && $data['total'] === 0 && $data['pages'] === 0);
 check('counts all zero on an empty site',
@@ -340,7 +340,7 @@ function prepared_with(PQM_Stub_WPDB $wpdb, string $needle): ?array {
 /** Run one list request against an empty result set and return the stub. */
 function list_with(array $params): PQM_Stub_WPDB {
     $wpdb = fresh_wpdb([[], []], [0]);
-    PQM_REST_API::list_posts_callback(new WP_REST_Request($params));
+    PostQuality_REST_API::list_posts_callback(new WP_REST_Request($params));
     return $wpdb;
 }
 
@@ -400,7 +400,7 @@ check('HAVING (needs_review) AND band', $limit !== null
 
 /* Row: status sort — severity FIELD() order, NULLs last asc, desc reverses */
 echo "Status sort\n";
-$expr = PQM_DB::status_order_expression();
+$expr = PostQuality_DB::status_order_expression();
 check('expression ranks by FIELD(major_revision, needs_revision, ship, processing)',
     $expr === "IFNULL(NULLIF(FIELD(lr.status, 'major_revision','needs_revision','ship','processing'), 0), 99)");
 $wpdb = list_with(['orderby' => 'status', 'order' => 'asc']);
@@ -422,7 +422,7 @@ $wpdb = fresh_wpdb([
         ['status' => null,             'cnt' => '15'],
     ],
 ], [0]);
-$data = PQM_REST_API::list_posts_callback(new WP_REST_Request(['status' => 'ship', 'min_score' => 71]))->get_data();
+$data = PostQuality_REST_API::list_posts_callback(new WP_REST_Request(['status' => 'ship', 'min_score' => 71]))->get_data();
 check('counts keys are {all,ship,needs_revision,major_revision,none}',
     array_keys($data['counts']) === ['all', 'ship', 'needs_revision', 'major_revision', 'none']);
 check('counts are ints: ship 28, needs_revision 9, major_revision 6, none 15',
@@ -437,12 +437,12 @@ check('counts query ignores the active status / band filters',
 check('counts query shares the placeholder exclusion (chips never count a running review)',
     strpos($counts_sql, "WHERE command = 'review' AND status <> 'processing'") !== false);
 
-/* ─── Viewer block (story 5.2) — read-only mirror of PQM_Features ────── */
+/* ─── Viewer block (story 5.2) — read-only mirror of PostQuality_Features ────── */
 
 /** Fetch just the viewer block for the current test-world user. */
 function viewer_block(): array {
     fresh_wpdb([[]], [0]);
-    return PQM_REST_API::list_posts_callback(new WP_REST_Request())->get_data()['viewer'];
+    return PostQuality_REST_API::list_posts_callback(new WP_REST_Request())->get_data()['viewer'];
 }
 
 /* Row: free-tier author — quota applies, paid commands hidden by role */
@@ -459,12 +459,12 @@ check('quota: limit 20, used 6, remaining 14',
     && $v['quota']['used'] === 6
     && $v['quota']['remaining'] === 14);
 check('quota carries a non-empty resets date', is_string($v['quota']['resets'] ?? null) && $v['quota']['resets'] !== '');
-check('quota equals PQM_Features::quota_state()', $v['quota'] === PQM_Features::quota_state());
+check('quota equals PostQuality_Features::quota_state()', $v['quota'] === PostQuality_Features::quota_state());
 check('gated_commands empty', $v['gated_commands'] === []);
 check('hidden_commands = paid commands', $v['hidden_commands'] === ['rewrite', 'sources', 'seo', 'audit']);
-check('partition equals PQM_Features outputs',
-    $v['gated_commands'] === PQM_Features::gated_commands()
-    && $v['hidden_commands'] === PQM_Features::hidden_commands());
+check('partition equals PostQuality_Features outputs',
+    $v['gated_commands'] === PostQuality_Features::gated_commands()
+    && $v['hidden_commands'] === PostQuality_Features::hidden_commands());
 
 /* Row: admin on free plan — exempt from quota, paid commands gated by plan */
 echo "Viewer: admin on free plan\n";
@@ -475,9 +475,9 @@ check('can_trigger true', $v['can_trigger'] === true);
 check('quota null (exempt via pqm_run_paid_agents)', $v['quota'] === null);
 check('gated_commands = paid commands', $v['gated_commands'] === ['rewrite', 'sources', 'seo', 'audit']);
 check('hidden_commands empty', $v['hidden_commands'] === []);
-check('partition equals PQM_Features outputs',
-    $v['gated_commands'] === PQM_Features::gated_commands()
-    && $v['hidden_commands'] === PQM_Features::hidden_commands());
+check('partition equals PostQuality_Features outputs',
+    $v['gated_commands'] === PostQuality_Features::gated_commands()
+    && $v['hidden_commands'] === PostQuality_Features::hidden_commands());
 
 /* Row: cannot trigger — view-only user: quota null even though a limit exists */
 echo "Viewer: cannot trigger\n";
@@ -485,10 +485,10 @@ $GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
 $GLOBALS['tw']['user_meta'] = [];
 $v = viewer_block();
 check('can_trigger false', $v['can_trigger'] === false);
-check('quota null despite an applicable limit', $v['quota'] === null && PQM_Features::quota_state() !== null);
+check('quota null despite an applicable limit', $v['quota'] === null && PostQuality_Features::quota_state() !== null);
 check('gated_commands empty', $v['gated_commands'] === []);
 check('all 8 registry commands hidden', $v['hidden_commands'] === ['review', 'takeaways', 'rewrite', 'sources', 'seo', 'audit', 'score', 'apply']);
-check('hidden equals PQM_Features::hidden_commands()', $v['hidden_commands'] === PQM_Features::hidden_commands());
+check('hidden equals PostQuality_Features::hidden_commands()', $v['hidden_commands'] === PostQuality_Features::hidden_commands());
 
 /* Ticket 32: connected / can_manage_settings — the GET /dashboard flags, on the list's viewer */
 echo "Viewer: connected and can_manage_settings\n";
@@ -514,7 +514,7 @@ $GLOBALS['tw']['options'] = site_options();
 
 /* Row: queue order — rank, score ASC, reviewed ASC, post date ASC, ID ASC; `order` ignored */
 echo "Queue order (orderby=priority)\n";
-$priority = PQM_DB::priority_order_sql();
+$priority = PostQuality_DB::priority_order_sql();
 check('priority SQL: rank (major, needs, none — NULL/empty status read as none), then score, staleness, post date, ID',
     $priority === "IFNULL(NULLIF(FIELD(IFNULL(NULLIF(lr.status, ''), 'none'), 'major_revision','needs_revision','none'), 0), 99) ASC, latest_score ASC, latest_reviewed ASC, p.post_date ASC, p.ID ASC");
 $wpdb = list_with(['orderby' => 'priority', 'order' => 'desc', 'per_page' => 5]);
@@ -523,18 +523,18 @@ check('orderby=priority passes the whitelist → ORDER BY <priority list>', $lim
 check('order=desc ignored (no fallback to latest_reviewed, no DESC)', $limit !== null
     && strpos($limit['sql'], 'ORDER BY latest_reviewed') === false && strpos($limit['sql'], 'DESC') === false);
 check('per_page 5 reaches the DB (queue of 5)', $limit !== null && $limit['args'] === [5, 0]);
-check('ship is not a priority rank (ranks after; the client drops ship rows)', !in_array('ship', PQM_DB::PRIORITY, true));
+check('ship is not a priority rank (ranks after; the client drops ship rows)', !in_array('ship', PostQuality_DB::PRIORITY, true));
 
 /* ─── GET /dashboard (story 5.6) ─────────────────────────────────────── */
 
 /* Row: registration + permission — read-only, view-reviews gate */
 echo "Dashboard route\n";
-PQM_REST_API::register_routes();
+PostQuality_REST_API::register_routes();
 $routes = $GLOBALS['pqm_routes'];
 check('/dashboard registered', isset($routes[$ns . '/dashboard']));
 check('/dashboard is read-only GET', ($routes[$ns . '/dashboard']['methods'] ?? '') === WP_REST_Server::READABLE);
 check('/dashboard gated by check_view_reviews (no pqm_view_reviews → 401/403)',
-    ($routes[$ns . '/dashboard']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+    ($routes[$ns . '/dashboard']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_view_reviews']);
 
 /**
  * One /dashboard request: $rows feed the trend query; $settings become
@@ -542,10 +542,10 @@ check('/dashboard gated by check_view_reviews (no pqm_view_reviews → 401/403)'
  */
 function dashboard_with(array $caps, array $settings, array $rows, bool $dismissed = false, bool $pro = true): array {
     $GLOBALS['tw']['caps'] = $caps;
-    pqm_fs()->pro = $pro; // the SDK stand-in's license (story 44)
+    postquality_fs()->pro = $pro; // the SDK stand-in's license (story 44)
     $GLOBALS['tw']['options'] = site_options(['pqm_settings' => $settings, 'pqm_cron_nudge_dismissed' => $dismissed ? 1 : false]);
     fresh_wpdb([$rows], []);
-    $res = PQM_REST_API::dashboard_callback();
+    $res = PostQuality_REST_API::dashboard_callback();
     return ['status' => $res->get_status(), 'data' => $res->get_data()];
 }
 
@@ -613,10 +613,10 @@ echo "Cron nudge\n";
 $r = dashboard_with($admin, $connected_pro, $one_scored);
 $url = $r['data']['cron_nudge_dismiss_url'] ?? '';
 check('all conditions met → cron_nudge true', $r['data']['cron_nudge'] === true);
-check('dismiss URL targets the Dashboard and carries a nonce for pqm_dismiss_cron_nudge',
-    strpos($url, '/wp-admin/admin.php?page=pqm-dashboard') === 0
-    && strpos($url, 'pqm_dismiss_cron_nudge=1') !== false
-    && strpos($url, '_wpnonce=nonce-pqm_dismiss_cron_nudge') !== false);
+check('dismiss URL targets the Dashboard and carries a nonce for postquality_dismiss_cron_nudge',
+    strpos($url, '/wp-admin/admin.php?page=postquality-dashboard') === 0
+    && strpos($url, 'postquality_dismiss_cron_nudge=1') !== false
+    && strpos($url, '_wpnonce=nonce-postquality_dismiss_cron_nudge') !== false);
 check('dismiss URL is raw (no &amp;) — it travels as JSON into an href', strpos($url, '&amp;') === false);
 /* Ticket 16: the nudge follows pqm_manage_agents, the cap of the section it links to */
 $r = dashboard_with(['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents'], $connected_pro, $one_scored);
@@ -625,7 +625,7 @@ check('editor (pqm_manage_agents, no pqm_manage_settings) on pro → cron_nudge 
 check('…while can_manage_settings stays the settings cap (false)', $r['data']['can_manage_settings'] === false);
 $src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
 check('dismiss handler persists only for pqm_manage_agents (static)',
-    (bool) preg_match("/'pqm_dismiss_cron_nudge'\\)\\s*&& current_user_can\\('pqm_manage_agents'\\)/", $src));
+    (bool) preg_match("/'postquality_dismiss_cron_nudge'\\)\\s*&& current_user_can\\('pqm_manage_agents'\\)/", $src));
 $cases = [
     'free plan'            => dashboard_with($admin, $connected_pro, $one_scored, false, false),
     'settings-only role (cannot see the cron section)' => dashboard_with(['pqm_view_reviews', 'pqm_manage_settings'], $connected_pro, $one_scored),
@@ -640,7 +640,7 @@ foreach ($cases as $label => $r) {
         $r['data']['cron_nudge'] === false && !array_key_exists('cron_nudge_dismiss_url', $r['data']));
 }
 $GLOBALS['tw']['options'] = site_options();
-pqm_fs()->pro = false;
+postquality_fs()->pro = false;
 
 /* ─── Feedback card (story 79) ───────────────────────────────────────── */
 
@@ -653,7 +653,7 @@ check('feedback is the last key: {dismissed, environment}',
 check('not dismissed by default', $fb['dismissed'] === false);
 check('environment: plugin + build (Pro here), WordPress, PHP, workflow not seen yet, theme — five lines, nothing else',
     $fb['environment'] === [
-        'Post Quality Manager ' . PQM_VERSION . ' (Pro)',
+        'Post Quality Manager ' . POSTQUALITY_VERSION . ' (Pro)',
         'WordPress 6.8',
         'PHP ' . PHP_VERSION,
         'Workflow version: not seen yet',
@@ -661,29 +661,29 @@ check('environment: plugin + build (Pro here), WordPress, PHP, workflow not seen
     ]);
 $GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => 7, 'via' => 'test', 'at' => 1760000000];
 fresh_wpdb([$one_scored], []);
-$env = PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'];
+$env = PostQuality_REST_API::dashboard_callback()->get_data()['feedback']['environment'];
 check('a workflow seen → "Workflow version 7"', $env[3] === 'Workflow version 7');
 check('no URL, host, email, token or setting in any line', !preg_grep('~https?:|example\.com|@|webhook|token|key~i', $env));
-// A failure alone, as pqm_record_workflow_failure() stores it on an empty report: no version, no time.
+// A failure alone, as postquality_record_workflow_failure() stores it on an empty report: no version, no time.
 $GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['failed' => ['message' => 'n8n responded with 404.', 'at' => 1760000000]];
 fresh_wpdb([$one_scored], []);
 check('a failed test, no version → "not seen yet"',
-    PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: not seen yet');
+    PostQuality_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: not seen yet');
 // Version 0 with a time: a v1–v4 workflow answered without its number (the n8n Workflow page's "older version").
 $GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => 0, 'via' => 'test', 'at' => 1760000000];
 fresh_wpdb([$one_scored], []);
 check('an older workflow that answered without its number → said so, never "not seen yet"',
-    PQM_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: an older one that does not report its number');
+    PostQuality_REST_API::dashboard_callback()->get_data()['feedback']['environment'][3] === 'Workflow version: an older one that does not report its number');
 $GLOBALS['tw']['options'] = site_options(['pqm_settings' => $connected_pro]);
 
 /* Row: Other user — the flag is per user */
 echo "Feedback card: per-user dismissal\n";
 $GLOBALS['tw']['user_meta'] = [42 => ['pqm_feedback_dismissed' => 1]];
 fresh_wpdb([$one_scored], []);
-check('user 42 dismissed → dismissed true', PQM_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === true);
+check('user 42 dismissed → dismissed true', PostQuality_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === true);
 $GLOBALS['tw']['user_id'] = 43;
 fresh_wpdb([$one_scored], []);
-check('user 43 still sees the card → dismissed false', PQM_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === false);
+check('user 43 still sees the card → dismissed false', PostQuality_REST_API::dashboard_callback()->get_data()['feedback']['dismissed'] === false);
 $GLOBALS['tw']['user_id'] = 42;
 
 /* Row: POST /dashboard/feedback — registration, the one boolean arg, true stores, false deletes, the gate */
@@ -691,20 +691,20 @@ echo "Feedback card: POST /dashboard/feedback\n";
 $route = $routes[$ns . '/dashboard/feedback'] ?? [];
 check('registered as POST, gated by check_view_reviews (the Dashboard\'s own gate)',
     ($route['methods'] ?? '') === WP_REST_Server::CREATABLE
-    && ($route['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+    && ($route['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_view_reviews']);
 check('dismissed: a required boolean coerced by the schema type, no sanitize_callback (never intval, lessons 2026-10-05)',
     ($route['args']['dismissed'] ?? null) === ['required' => true, 'type' => 'boolean']);
 $GLOBALS['tw']['user_meta'] = [];
-$res = PQM_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => true]));
+$res = PostQuality_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => true]));
 check('true → 200 {dismissed: true}, the meta set for user 42 only',
     $res instanceof WP_REST_Response && $res->get_status() === 200 && $res->get_data() === ['dismissed' => true]
     && $GLOBALS['tw']['user_meta'] === [42 => ['pqm_feedback_dismissed' => 1]]);
-$res = PQM_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => false]));
+$res = PostQuality_REST_API::dashboard_feedback_callback(new WP_REST_Request(['dismissed' => false]));
 check('false → 200 {dismissed: false}, the meta deleted',
     $res->get_status() === 200 && $res->get_data() === ['dismissed' => false]
     && !isset($GLOBALS['tw']['user_meta'][42]['pqm_feedback_dismissed']));
 $GLOBALS['tw']['caps'] = ['edit_posts'];
-check('without pqm_view_reviews the gate refuses (WP answers 403)', PQM_REST_API::check_view_reviews() === false);
+check('without pqm_view_reviews the gate refuses (WP answers 403)', PostQuality_REST_API::check_view_reviews() === false);
 $GLOBALS['tw']['caps'] = [];
 $GLOBALS['tw']['user_meta'] = [];
 $GLOBALS['tw']['options'] = site_options();
@@ -721,7 +721,7 @@ function list_rows(array $rows): array {
     fresh_wpdb([$rows, [], [], []], [count($rows)]);
     $GLOBALS['tw']['meta_reads']  = 0;
     $GLOBALS['tw']['meta_primes'] = [];
-    return PQM_REST_API::list_posts_callback(new WP_REST_Request())->get_data();
+    return PostQuality_REST_API::list_posts_callback(new WP_REST_Request())->get_data();
 }
 
 /** A never-reviewed DB row with the given WordPress post status. */
@@ -771,13 +771,13 @@ check('items [] with yoast_active true, no cache prime',
     $data['items'] === [] && $data['yoast_active'] === true && $GLOBALS['tw']['meta_primes'] === []);
 $GLOBALS['tw']['post_meta'] = [];
 
-/* ─── Ticket 3: cron selection per command — PQM_DB::get_posts_needing_review()
+/* ─── Ticket 3: cron selection per command — PostQuality_DB::get_posts_needing_review()
        prepares the command as %s in the latest-row subquery and the r1 join ── */
 echo "Cron selection per command (ticket 3)\n";
 defined('DAY_IN_SECONDS') || define('DAY_IN_SECONDS', 86400);
 foreach (['audit' => [70, 14, 4, 'audit'], 'review (default)' => [70, 14, 4]] as $what => $call) {
     $wpdb = fresh_wpdb([], []);
-    PQM_DB::get_posts_needing_review(...$call);
+    PostQuality_DB::get_posts_needing_review(...$call);
     $cmd = $call[3] ?? 'review';
     $p   = prepared_with($wpdb, 'MAX(reviewed_at)');
     $sql = preg_replace('/\s+/', ' ', $p['sql'] ?? '');

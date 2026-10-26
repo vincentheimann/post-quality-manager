@@ -38,7 +38,7 @@ $GLOBALS['pqm_routes'] = [];
 /* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function apply_filters($tag, $value) { return $tag === 'pqm_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply, nothing to wait for
+function apply_filters($tag, $value) { return $tag === 'postquality_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply, nothing to wait for
 function get_locale() { return 'en_US'; }
 function switch_to_locale($l) { return false; }
 function restore_previous_locale() {}
@@ -76,7 +76,7 @@ require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, 
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
-/* Review rows for PQM_DB::has_result(): the stub answers its one get_var
+/* Review rows for PostQuality_DB::has_result(): the stub answers its one get_var
  * from the stored statuses, mirroring the SQL's exclusion list (asserted below). */
 $wpdb = new class {
     public $prefix = 'wp_';
@@ -102,25 +102,25 @@ function site(array $options = [], array $review_statuses = []): void {
     $GLOBALS['tw_cache_deletes'] = [];
 }
 /** Reads of the pending ping since site(): 0 = the branch did not wait for a callback, 1 = it read once (the wait is 0 s here). */
-function ping_reads(): int { return $GLOBALS['tw_cache_deletes'][PQM_Admin::PING_OPTION] ?? 0; }
+function ping_reads(): int { return $GLOBALS['tw_cache_deletes'][PostQuality_Admin::PING_OPTION] ?? 0; }
 
 function setup_state(): array {
-    return PQM_REST_API::get_setup_callback()->get_data();
+    return PostQuality_REST_API::get_setup_callback()->get_data();
 }
 
 function post_setup(array $params) {
-    return PQM_REST_API::update_setup_callback(new WP_REST_Request($params));
+    return PostQuality_REST_API::update_setup_callback(new WP_REST_Request($params));
 }
 
 function post_settings($json) {
-    return PQM_REST_API::setup_settings_callback(new WP_REST_Request([], $json));
+    return PostQuality_REST_API::setup_settings_callback(new WP_REST_Request([], $json));
 }
 
 function connect(string $url): array {
-    return PQM_REST_API::setup_connect_callback(new WP_REST_Request(['webhook_url' => $url]))->get_data();
+    return PostQuality_REST_API::setup_connect_callback(new WP_REST_Request(['webhook_url' => $url]))->get_data();
 }
 
-$ns = PQM_REST_NAMESPACE;
+$ns = POSTQUALITY_REST_NAMESPACE;
 $manager = ['pqm_manage_settings', 'pqm_manage_agents', 'pqm_view_reviews', 'pqm_run_free_agents'];
 $editor  = ['pqm_manage_agents', 'pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents'];
 $token   = 'tok-36';
@@ -129,9 +129,9 @@ $fresh     = ['pqm_settings' => ['n8n_webhook_url' => '', 'webhook_token' => $to
 
 /* Row: registration + permission — managers only, on all three */
 echo "Route registration and permission\n";
-PQM_REST_API::register_routes();
+PostQuality_REST_API::register_routes();
 $routes = $GLOBALS['pqm_routes'];
-$gate = ['PQM_REST_API', 'check_manage_settings'];
+$gate = ['PostQuality_REST_API', 'check_manage_settings'];
 check('/setup registered with a GET and a POST endpoint',
     ($routes[$ns . '/setup'][0]['methods'] ?? null) === 'GET' && ($routes[$ns . '/setup'][1]['methods'] ?? null) === 'POST');
 check('/setup GET and POST gated by check_manage_settings',
@@ -141,11 +141,11 @@ check('/setup/connect is POST, gated by check_manage_settings',
 check('/setup/settings is POST, gated by check_manage_settings (story 55)',
     ($routes[$ns . '/setup/settings']['methods'] ?? null) === 'POST' && ($routes[$ns . '/setup/settings']['permission_callback'] ?? null) === $gate);
 $GLOBALS['tw']['caps'] = $editor;
-check('non-manager (Editor caps): refused — WP answers 403', PQM_REST_API::check_manage_settings() === false);
+check('non-manager (Editor caps): refused — WP answers 403', PostQuality_REST_API::check_manage_settings() === false);
 $GLOBALS['tw']['caps'] = [];
-check('no caps: refused', PQM_REST_API::check_manage_settings() === false);
+check('no caps: refused', PostQuality_REST_API::check_manage_settings() === false);
 $GLOBALS['tw']['caps'] = $manager;
-check('manager: allowed', PQM_REST_API::check_manage_settings() === true);
+check('manager: allowed', PostQuality_REST_API::check_manage_settings() === true);
 
 /* Row: fresh site — nothing done, the values to copy */
 echo "GET /setup — fresh site\n";
@@ -170,30 +170,30 @@ echo "GET /setup — completion derived for sites connected before the dialog\n"
 site($connected, ['needs_revision']);
 $s = setup_state();
 check('connected + a scored result stored, no progress option, no version ever reported (pre-handshake import): complete, review step done',
-    $s['complete'] === true && $s['steps']['review'] === true && $s['first_result'] === true && pqm_setup_complete() === true);
-check('... and nothing is written (no migration)', $GLOBALS['tw']['writes'] === [] && !isset($GLOBALS['tw']['options'][PQM_SETUP_OPTION]));
+    $s['complete'] === true && $s['steps']['review'] === true && $s['first_result'] === true && postquality_setup_complete() === true);
+check('... and nothing is written (no migration)', $GLOBALS['tw']['writes'] === [] && !isset($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]));
 check('has_result() SQL excludes the placeholder and both failed-run shapes',
     str_contains($wpdb->last_sql, "FROM wp_pqm_reviews WHERE status NOT IN ('', 'processing', 'error') LIMIT 1"));
 site($connected);
-check('connected, no result yet: not complete', setup_state()['complete'] === false && pqm_setup_complete() === false);
+check('connected, no result yet: not complete', setup_state()['complete'] === false && postquality_setup_complete() === false);
 site($connected, ['error', '', 'processing']);
 check('connected, only a failed run (error, empty fallback) and a placeholder: not complete',
     setup_state()['complete'] === false && setup_state()['first_result'] === false);
-site($connected + ['pqm_workflow_version_seen' => ['version' => PQM_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]], ['error']);
+site($connected + ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]], ['error']);
 check('version handshake seen (a ping, or a failed row\'s callback) but no real result: not complete', setup_state()['complete'] === false);
 site($connected, ['rewritten']);
 check('any non-failed result counts (a Rewrite confirmation)', setup_state()['complete'] === true);
 site($fresh, ['ship']);
 check('a result once, URL emptied since: not complete', setup_state()['complete'] === false);
-site($fresh + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
 check('progress flag complete: complete even while not connected', setup_state()['complete'] === true);
 
 /* Row: progress — tick, untick, resume data; unknown step refused */
 echo "POST /setup — progress\n";
 site($fresh);
 $r = post_setup(['step' => 'profile', 'done' => true]);
-check('tick a step: stored once per site, autoload off', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['profile'] ?? null) === true
-    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false);
+check('tick a step: stored once per site, autoload off', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['profile'] ?? null) === true
+    && $GLOBALS['tw']['autoload'][POSTQUALITY_SETUP_OPTION] === false);
 check('... the answer is the fresh state (the dialog resumes from it)', $r instanceof WP_REST_Response && $r->get_data()['steps']['profile'] === true
     && $r->get_data()['steps']['standards'] === false);
 post_setup(['step' => 'standards', 'done' => true]);
@@ -203,24 +203,24 @@ post_setup(['step' => 'profile', 'done' => false]);
 check('untick', setup_state()['steps']['profile'] === false);
 // The n8n steps are derived (entry 6), never ticked; the manual steps before entry 6 are gone.
 foreach (['foo', 'n8n', 'provision', 'manual', 'review', 'connect', 'instance', 'import', '', 'PROFILE'] as $step) {
-    $before = $GLOBALS['tw']['options'][PQM_SETUP_OPTION];
+    $before = $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION];
     $r = post_setup(['step' => $step, 'done' => true]);
     check("step \"$step\" refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
-        && $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === $before);
+        && $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === $before);
 }
 check('no step and no complete: refused', post_setup([]) instanceof WP_Error);
 
 /* Row: "Set up by hand instead" stores the choice (n8n provisioning entry 6) */
 echo "POST /setup { manual: true } — the manual-path choice\n";
 check('the route schema takes `manual` as a boolean', ($GLOBALS['pqm_routes'][$ns . '/setup'][1]['args']['manual'] ?? null) === ['required' => false, 'type' => 'boolean']);
-site($fresh + [PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
 $r = post_setup(['manual' => true]);
-check('stored beside the progress, autoload off; nothing else written', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]
-    && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false && $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION]);
+check('stored beside the progress, autoload off; nothing else written', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]
+    && $GLOBALS['tw']['autoload'][POSTQUALITY_SETUP_OPTION] === false && $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION]);
 check('... the answer: manual, the reason {kind: choice}, the manual step open', $r instanceof WP_REST_Response && $r->get_data()['manual'] === true
     && $r->get_data()['manual_reason'] === ['kind' => 'choice'] && $r->get_data()['steps']['manual'] === false);
 post_setup(['manual' => true]);
-check('choosing again changes nothing', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]);
+check('choosing again changes nothing', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]);
 // Callback-level guards: the route's `type: boolean` schema already refuses "yes" and coerces 1 / "true" to true upstream.
 foreach (['false' => false, '"yes"' => 'yes', '1' => 1, '"true"' => 'true'] as $label => $value) {
     site($fresh);
@@ -228,29 +228,29 @@ foreach (['false' => false, '"yes"' => 'yes', '1' => 1, '"true"' => 'true'] as $
     check("callback: a non-true value ($label) is refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
         && $GLOBALS['tw']['writes'] === []);
 }
-site($fresh + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
 post_setup(['manual' => false]);
-check('manual: false clears nothing (a passing key outranks the choice)', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+check('manual: false clears nothing (a passing key outranks the choice)', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['manual'] ?? null) === true);
 
 /* Row: the choice survives every progress write */
 echo "POST /setup — the manual-path choice is kept\n";
-site($fresh + [PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]]);
 post_setup(['step' => 'standards', 'done' => true]);
-check('a step tick keeps `manual`', $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'standards' => true], 'complete' => false, 'manual' => true]);
+check('a step tick keeps `manual`', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true, 'standards' => true], 'complete' => false, 'manual' => true]);
 post_setup(['complete' => true]);
-check('completing keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
+check('completing keeps `manual`', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['manual'] ?? null) === true);
 connect('https://n8n.example.com/webhook/pqm-execute-example-com');
-check('the connect route keeps `manual`', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['manual'] ?? null) === true);
-check('pqm_manual_reason() reads it: {kind: choice}', pqm_manual_reason() === ['kind' => 'choice']);
+check('the connect route keeps `manual`', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['manual'] ?? null) === true);
+check('postquality_manual_reason() reads it: {kind: choice}', postquality_manual_reason() === ['kind' => 'choice']);
 site($fresh);
 post_setup(['step' => 'profile', 'done' => true]);
-check('no choice stored: no `manual` key written', !array_key_exists('manual', $GLOBALS['tw']['options'][PQM_SETUP_OPTION]));
+check('no choice stored: no `manual` key written', !array_key_exists('manual', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]));
 
 /* Row: the n8n steps derived per site state (entry 6), as the dialog reads them */
 echo "GET /setup — the n8n steps per site state\n";
 $passing = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1760000000];
-$key     = [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'api_key' => 'n8n-secret-key-ab12', 'probe' => $passing]];
-$failed  = [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'failed' => ['cause' => 'api_disabled', 'message' => 'The public API is turned off on this instance.', 'at' => 1760000000]]];
+$key     = [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'api_key' => 'n8n-secret-key-ab12', 'probe' => $passing]];
+$failed  = [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'failed' => ['cause' => 'api_disabled', 'message' => 'The public API is turned off on this instance.', 'at' => 1760000000]]];
 $n8n_steps = static fn(array $s): array => array_slice($s['steps'], 0, 3, true);
 site($fresh + $key);
 $s = setup_state();
@@ -258,23 +258,23 @@ check('key stored with a passing check: Connect your n8n done, Set up the workfl
     $n8n_steps($s) === ['n8n' => true, 'provision' => false, 'manual' => false] && $s['manual'] === false
     && $s['n8n'] === ['base_url' => 'https://n8n.example.com', 'key_set' => true, 'key_hint' => 'ab12', 'probe' => $passing, 'connected' => true, 'setup' => null, 'adoptable' => false, 'rotatable' => false]);
 // Story 74: a refusal of the stored key replaces its probe; every reader asks the one predicate.
-$refused_key = [PQM_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'key', 'message' => 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'at' => 1760000500]] + $key[PQM_N8n::OPTION]];
+$refused_key = [PostQuality_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'key', 'message' => 'n8n refused this API key. Create a new one in n8n under Settings → n8n API, then try again.', 'at' => 1760000500]] + $key[PostQuality_N8n::OPTION]];
 site($fresh + $refused_key);
 $s = setup_state();
 check('story 74, a stored refusal (key): n8n.connected false, Connect your n8n open, no manual reason (the key path, a new key is the fix)',
     $s['n8n']['connected'] === false && $s['n8n']['key_set'] === true && $s['n8n']['probe']['cause'] === 'key'
     && $n8n_steps($s) === ['n8n' => false, 'provision' => false, 'manual' => false] && $s['manual'] === false && $s['manual_reason'] === null
-    && PQM_N8n::connected() === false && pqm_manual_reason() === null);
+    && PostQuality_N8n::connected() === false && postquality_manual_reason() === null);
 $scoped_reason  = 'This API key cannot create credentials or publish workflows: n8n limits what it may do. In n8n under Settings → n8n API, create a key without scope limits, then try again.';
-$refused_scoped = [PQM_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'scoped', 'message' => $scoped_reason . ' Or set up the workflow by hand with the Workflow File section.', 'at' => 1760000500],
-    'failed' => ['cause' => 'scoped', 'message' => $scoped_reason, 'at' => 1760000500]] + $key[PQM_N8n::OPTION]];
+$refused_scoped = [PostQuality_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'scoped', 'message' => $scoped_reason . ' Or set up the workflow by hand with the Workflow File section.', 'at' => 1760000500],
+    'failed' => ['cause' => 'scoped', 'message' => $scoped_reason, 'at' => 1760000500]] + $key[PostQuality_N8n::OPTION]];
 site($fresh + $refused_scoped);
 $s = setup_state();
 check('... a stored refusal (scoped): n8n.connected false, the n8n step open, the manual path with its reason (the probe kind, the cause sentence)',
     $s['n8n']['connected'] === false && $n8n_steps($s)['n8n'] === false && $s['manual'] === true
     && $s['manual_reason'] === ['kind' => 'probe', 'message' => $scoped_reason, 'at' => wp_date('F j, Y', 1760000500)]);
 check('... the n8n API key is in no field of the reply, only its last 4 characters', !str_contains(json_encode($s), 'n8n-secret-key'));
-site($fresh + $key + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+site($fresh + $key + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
 check('key path wins: a passing key with the choice stored reads not manual', setup_state()['manual'] === false && setup_state()['manual_reason'] === null);
 site($fresh + $failed);
 $s = setup_state();
@@ -282,7 +282,7 @@ check('a failed check that offered the manual path: manual, with its date and ca
     $s['manual'] === true && $s['manual_reason'] === ['kind' => 'probe', 'message' => 'The public API is turned off on this instance.', 'at' => wp_date('F j, Y', 1760000000)]
     && !in_array(true, $n8n_steps($s), true));
 // Only what the plugin did ticks a step (owner, 2026-10-15): a saved URL follows how its workflow was made.
-$map = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]];
+$map = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => [], 'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1]];
 site($connected);
 $s = setup_state();
 check('hand-made: a URL saved without the setup map, no key (legacy, Settings, no ping record): the manual path, Set up by hand done, no reason stored',
@@ -292,17 +292,17 @@ site($connected + $key);
 $s = setup_state();
 check('hand-made, a passing key: still the manual path (the key waits for adoption, 6.8); Connect your n8n reads the key, Set up the workflow never ticked',
     $s['manual'] === true && $s['manual_reason'] === null && $n8n_steps($s) === ['n8n' => true, 'provision' => false, 'manual' => true]);
-site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
+site($connected + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]]);
 $s = setup_state();
 check('hand-made, complete: the manual path, complete', $s['manual'] === true && $s['complete'] === true && $s['steps']['review'] === true);
-site($connected + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+site($connected + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
 $s = setup_state();
 check('hand-made with the choice stored: the manual path, the choice as its reason, Set up by hand done',
     $s['manual'] === true && $s['manual_reason'] === ['kind' => 'choice'] && $n8n_steps($s) === ['n8n' => false, 'provision' => false, 'manual' => true]);
-site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => true], 'complete' => false]]);
+site($connected + [POSTQUALITY_SETUP_OPTION => ['steps' => ['connect' => true], 'complete' => false]]);
 check('hand-made, its last dialog ping passed: Set up by hand done, nothing else',
     $n8n_steps(setup_state()) === ['n8n' => false, 'provision' => false, 'manual' => true] && setup_state()['manual'] === true);
-site($connected + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
+site($connected + [POSTQUALITY_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
 check('hand-made, the ping after a by-hand paste failed: the manual path, Set up by hand open, the record not listed',
     $n8n_steps(setup_state()) === ['n8n' => false, 'provision' => false, 'manual' => false] && setup_state()['manual'] === true
     && !array_key_exists('connect', setup_state()['steps']));
@@ -310,7 +310,7 @@ site($connected + $key + $map);
 $s = setup_state();
 check('provisioned: the setup map, a URL, a passing key: the key path, both n8n steps done',
     $s['manual'] === false && $s['provisioned'] === true && $n8n_steps($s) === ['n8n' => true, 'provision' => true, 'manual' => true]);
-$adopted = [PQM_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'wizard_created' => false, 'at' => 1]];
+$adopted = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute', 'wizard_created' => false, 'at' => 1]];
 site($connected + $key + $adopted);
 $s = setup_state();
 check('adopted (entry 8): a map with wizard_created false reads as provisioned — the key path, both n8n steps done; the island\'s setup line, not adoptable',
@@ -318,15 +318,15 @@ check('adopted (entry 8): a map with wizard_created false reads as provisioned �
     && $s['n8n']['setup'] === ['wizard_created' => false, 'at' => 1, 'host' => '', 'same_instance' => true] && $s['n8n']['adoptable'] === false);
 site($connected + $key);
 check('hand-made with a passing key, before adoption: the island offers it (adoptable)', setup_state()['n8n']['adoptable'] === true && setup_state()['n8n']['setup'] === null);
-site($connected + $map + [PQM_N8n::OPTION => ['base_url' => 'https://n8n.example.com']]);
+site($connected + $map + [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example.com']]);
 $s = setup_state();
 check('provisioned, key forgotten: the key path, Connect your n8n open, Set up the workflow done',
     $s['manual'] === false && $s['manual_reason'] === null && $n8n_steps($s) === ['n8n' => false, 'provision' => true, 'manual' => true]);
-site($connected + $key + $map + [PQM_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
+site($connected + $key + $map + [POSTQUALITY_SETUP_OPTION => ['steps' => ['connect' => false], 'complete' => false]]);
 check('provisioned, the ping failed: the key path, Set up the workflow open, the record not listed',
     $n8n_steps(setup_state()) === ['n8n' => true, 'provision' => false, 'manual' => false] && setup_state()['manual'] === false
     && !array_key_exists('connect', setup_state()['steps']));
-site($fresh + [PQM_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
 $s = setup_state();
 check('the choice stored, no key, no URL: the manual path, Set up by hand open (unchanged)',
     $s['manual'] === true && $s['manual_reason'] === ['kind' => 'choice'] && !in_array(true, $n8n_steps($s), true));
@@ -334,9 +334,9 @@ site($fresh + $key + $map);
 $s = setup_state();
 check('provisioned, URL missing: provisioned, the key path, Set up the workflow open', $s['provisioned'] === true && $s['manual'] === false
     && $s['steps']['provision'] === false && $s['connected'] === false);
-site($fresh + $key + [PQM_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example.com', 'credentials' => ['c1'], 'at' => 1]]);
+site($fresh + $key + [PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example.com', 'credentials' => ['c1'], 'at' => 1]]);
 check('leftovers waiting: leftovers', setup_state()['leftovers'] === true && setup_state()['provisioned'] === false);
-site($fresh + [PQM_SETUP_OPTION => ['steps' => ['instance' => true, 'import' => true, 'credentials' => true, 'link' => true, 'publish' => true, 'connect' => true], 'complete' => false]]);
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => ['instance' => true, 'import' => true, 'credentials' => true, 'link' => true, 'publish' => true, 'connect' => true], 'complete' => false]]);
 $s = setup_state();
 check('old stored step keys (the manual steps before entry 6) ignored: none in the reply, nothing done',
     array_keys($s['steps']) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule'] && !in_array(true, $s['steps'], true)
@@ -346,12 +346,12 @@ check('old stored step keys (the manual steps before entry 6) ignored: none in t
 echo "POST /setup { complete: true }\n";
 site($fresh);
 $r = post_setup(['complete' => true]);
-check('complete stored, state complete', ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['complete'] ?? null) === true && $r->get_data()['complete'] === true);
-check('only the progress option was written (settings untouched)', $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION]
+check('complete stored, state complete', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['complete'] ?? null) === true && $r->get_data()['complete'] === true);
+check('only the progress option was written (settings untouched)', $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION]
     && $GLOBALS['tw']['options']['pqm_settings'] === $fresh['pqm_settings']);
 post_setup(['complete' => true]);
-check('completing again changes nothing else', $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION, PQM_SETUP_OPTION]
-    && $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => [], 'complete' => true]);
+check('completing again changes nothing else', $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION, POSTQUALITY_SETUP_OPTION]
+    && $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => [], 'complete' => true]);
 $r = post_setup(['complete' => false]);
 check('complete:false is no reset (refused: no step given)', $r instanceof WP_Error && setup_state()['complete'] === true);
 
@@ -365,7 +365,7 @@ foreach (['https://acme.app.n8n.cloud/webhook-test/pqm-execute', 'https://n8n.ex
     $r = connect($url);
     check("test URL $url: refused with the story 35 warning, nothing stored, nothing sent; the body with the refusal as its outcome line",
         array_keys($r) === ['saved', 'ping_ok', 'message', 'status_html'] && $r['saved'] === false && $r['ping_ok'] === false
-        && $r['message'] === pqm_webhook_url_warning($url) && $outcome_of($r['status_html']) === 'is-error: ' . $r['message']
+        && $r['message'] === postquality_webhook_url_warning($url) && $outcome_of($r['status_html']) === 'is-error: ' . $r['message']
         && $state_of($r['status_html']) === 'not-set-up' && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['pings'] === []);
 }
 site($fresh);
@@ -378,7 +378,7 @@ $prod = 'https://acme.app.n8n.cloud/webhook/pqm-execute';
 $pings_deleted = static fn(): int => count(array_keys($GLOBALS['tw_deleted'] ?? [], 'pqm_ping', true));
 site($fresh);
 $deleted_before = $pings_deleted();
-$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}'];
+$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . '}'];
 $r = connect($prod);
 check('production URL, n8n 2xx from a current workflow, the callback received: stored, pinged, says what the ping proved — the round trip (story 2)',
     $r['saved'] === true && $r['ping_ok'] === true && $r['outdated'] === false && $r['message'] === PING_PROVEN);
@@ -391,18 +391,18 @@ check('... the pending ping written after the URL save (autoload off), claimed b
     && ping_reads() === 1);
 $report = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
 check('... the replied version is recorded {5, via test, at now} (the URL was just saved)',
-    is_array($report) && $report['version'] === PQM_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
+    is_array($report) && $report['version'] === POSTQUALITY_WORKFLOW_VERSION && $report['via'] === 'test' && abs($report['at'] - time()) <= 5);
 check('... status_html = the page\'s renderer with the message first: set up, "Your workflow answers.", version 5, checked just now by a test',
-    $r['status_html'] === PQM_Admin::render_workflow_body($r['message'], 'success') && $state_of($r['status_html']) === 'set-up'
+    $r['status_html'] === PostQuality_Admin::render_workflow_body($r['message'], 'success') && $state_of($r['status_html']) === 'set-up'
     && $outcome_of($r['status_html']) === 'is-success: ' . $r['message'] && str_contains($r['status_html'], 'Your workflow answers.')
-    && str_contains($r['status_html'], 'Version ' . PQM_WORKFLOW_VERSION . ' · checked just now by a test.'));
+    && str_contains($r['status_html'], 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.'));
 check('... merge-save: only the URL changed in pqm_settings',
     $GLOBALS['tw']['options']['pqm_settings'] === ['n8n_webhook_url' => $prod, 'webhook_token' => $token, 'license_key' => 'kept']);
 check('... one ping to that URL with the X-PQM-Token header',
     count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === $prod
     && $GLOBALS['tw']['pings'][0][1]['headers'] === ['Content-Type' => 'application/json', 'X-PQM-Token' => $token]);
 check('... the ping recorded (autoload off): Set up by hand reads done, on the manual path (no setup map: made by hand); Set up the workflow never',
-    ($GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] ?? null) === true && $GLOBALS['tw']['autoload'][PQM_SETUP_OPTION] === false
+    ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] ?? null) === true && $GLOBALS['tw']['autoload'][POSTQUALITY_SETUP_OPTION] === false
     && setup_state()['steps']['manual'] === true && setup_state()['steps']['provision'] === false && setup_state()['manual'] === true
     && setup_state()['connected'] === true);
 
@@ -413,23 +413,23 @@ check('production URL, n8n 2xx without a version (v1–v4 import): connected, ou
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version')
     && ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === 0
     && $state_of($r['status_html']) === 'outdated' && $outcome_of($r['status_html']) === 'is-warning: ' . $r['message']
-    && str_contains($r['status_html'], 'an older version that does not report its number; this plugin needs ' . PQM_WORKFLOW_VERSION . '.')
+    && str_contains($r['status_html'], 'an older version that does not report its number; this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.')
     && setup_state()['steps']['manual'] === true);
 
-$before = ['version' => PQM_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
-site($fresh + ['pqm_workflow_version_seen' => $before, PQM_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
+$before = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
+site($fresh + ['pqm_workflow_version_seen' => $before, POSTQUALITY_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false]]);
 $GLOBALS['tw']['ping_response'] = ['response' => ['code' => 404]];
 $r = connect($prod);
 check('ping fails: the failure recorded on the report (story 67), the version kept; the body needs attention, the message its outcome line',
-    pqm_workflow_report() === $before + ['failed' => ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => pqm_workflow_report()['failed']['at'] ?? 0]]
-    && abs(pqm_workflow_report()['failed']['at'] - time()) <= 5 && $state_of($r['status_html']) === 'failing'
+    postquality_workflow_report() === $before + ['failed' => ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => postquality_workflow_report()['failed']['at'] ?? 0]]
+    && abs(postquality_workflow_report()['failed']['at'] - time()) <= 5 && $state_of($r['status_html']) === 'failing'
     && $outcome_of($r['status_html']) === 'is-error: ' . $r['message'] && str_contains($r['status_html'], 'The last test just now did not pass: n8n responded with 404.'));
 check('production URL, n8n 404: stored, message names the cause and the next step',
     $r['saved'] === true && $r['ping_ok'] === false
     && $r['message'] === 'URL saved, but the test did not pass. n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
     && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === $prod);
 check('... the failed ping recorded, other ticks kept: the URL steps stay open (the dialog offers the paste-URL body again)',
-    $GLOBALS['tw']['options'][PQM_SETUP_OPTION] === ['steps' => ['profile' => true, 'connect' => false], 'complete' => false]
+    $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true, 'connect' => false], 'complete' => false]
     && setup_state()['steps']['provision'] === false && setup_state()['steps']['manual'] === false && setup_state()['steps']['n8n'] === false);
 
 site($fresh);
@@ -449,7 +449,7 @@ check('... no pending ping left behind by a failed request', $pings_deleted() ==
 
 /* Story 2: the callback refused (a wrong token) or missing — the connect step stays open as after any failed ping.
    The callback comes from n8n, not a logged-in user: the manager's own pqm_run_free_agents must not vouch for it. */
-$current = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . '}'];
+$current = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . '}'];
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
 site($fresh);
 $deleted_before = $pings_deleted();
@@ -459,9 +459,9 @@ $r = connect($prod);
 check('current workflow, the callback refused (wrong token): stored, ping_ok false, the message names the token and the node to fix',
     $r['saved'] === true && $r['ping_ok'] === false && array_keys($r) === ['saved', 'ping_ok', 'message', 'status_html']
     && $r['message'] === 'URL saved, but the test did not pass. n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.');
-check('... the failure on record, the body needs attention, the step open, no pending ping left', isset(pqm_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
+check('... the failure on record, the body needs attention, the step open, no pending ping left', isset(postquality_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
     && str_contains($r['status_html'], 'The last test just now did not pass: n8n reached this site, but the callback was refused')
-    && $GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
+    && $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
 site($fresh);
 $deleted_before = $pings_deleted();
 $GLOBALS['tw']['ping_response'] = $current;
@@ -470,17 +470,17 @@ $r = connect($prod);
 check('current workflow, no callback within the wait: stored, ping_ok false, the message names the wait, this site\'s REST address and the n8n execution',
     $r['saved'] === true && $r['ping_ok'] === false
     && $r['message'] === 'URL saved, but the test did not pass. n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.');
-check('... the failure on record, the step open, no pending ping left', isset(pqm_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
-    && $GLOBALS['tw']['options'][PQM_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
+check('... the failure on record, the step open, no pending ping left', isset(postquality_workflow_report()['failed']) && $state_of($r['status_html']) === 'failing'
+    && $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] === false && $pings_deleted() === $deleted_before + 1);
 site($fresh);
 $deleted_before = $pings_deleted();
-$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . (PQM_WORKFLOW_VERSION - 1) . '}'];
+$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . (POSTQUALITY_WORKFLOW_VERSION - 1) . '}'];
 $r = connect($prod);
 check('an older workflow, no callback: the older-version warning as before, ping_ok true, outdated, no wait (zero reads of the pending ping), no pending ping left',
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is an older version') && !str_contains($r['message'], 'call this site back')
     && ping_reads() === 0 && $pings_deleted() === $deleted_before + 1);
 site($fresh);
-$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}'];
+$GLOBALS['tw']['ping_response'] = ['response' => ['code' => 200], 'body' => '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . ',"workflow_variant":"free"}'];
 $r = connect($prod);
 check('a current Free template on the Pro build: the Free-variant warning as before, ping_ok true, outdated — and the branch waited (one read), so the Free callback claims its id instead of meeting a 404',
     $r['ping_ok'] === true && $r['outdated'] === true && str_contains($r['message'], 'your n8n workflow is the Free variant') && !str_contains($r['message'], 'call this site back')
@@ -493,30 +493,30 @@ $GLOBALS['tw']['caps'] = $manager;
 /* Row: state carries the stored choices, the presets and the two capability flags */
 echo "GET /setup — configuration step values (story 55)\n";
 $GLOBALS['tw']['caps'] = $manager;
-pqm_fs()->pro = false;
+postquality_fs()->pro = false;
 site($fresh);
 $s = setup_state();
 check('fresh site: defaults (Custom profile and standards, empty texts)',
     $s['blog_profile'] === 'custom' && $s['website_context'] === '' && $s['brand_voice_preset'] === 'custom' && $s['brand_voice'] === '');
 check('profiles: every Blog Profile in Settings order, with its label and preset text (Custom has none)',
-    array_column($s['profiles'], 'value') === array_keys(PQM_Admin::blog_profiles())
-    && $s['profiles'][0] === ['value' => 'marketing', 'label' => 'Marketing Blog', 'text' => PQM_Admin::blog_profiles()['marketing']['website_context']]
+    array_column($s['profiles'], 'value') === array_keys(PostQuality_Admin::blog_profiles())
+    && $s['profiles'][0] === ['value' => 'marketing', 'label' => 'Marketing Blog', 'text' => PostQuality_Admin::blog_profiles()['marketing']['website_context']]
     && end($s['profiles']) === ['value' => 'custom', 'label' => 'Custom', 'text' => '']);
 check('voice presets: every Editorial Standards preset, then Custom',
-    array_column($s['voice_presets'], 'value') === array_merge(array_keys(pqm_voice_presets()), ['custom'])
-    && $s['voice_presets'][0]['text'] === pqm_voice_presets()['professional']['instruction']
+    array_column($s['voice_presets'], 'value') === array_merge(array_keys(postquality_voice_presets()), ['custom'])
+    && $s['voice_presets'][0]['text'] === postquality_voice_presets()['professional']['instruction']
     && end($s['voice_presets']) === ['value' => 'custom', 'label' => 'Custom', 'text' => '']);
 check('cron knobs: the stored (default) values the schedule step names',
     $s['cron_enabled'] === false && $s['cron_frequency'] === 'daily' && $s['cron_batch_size'] === 5
     && $s['cron_min_score'] === 60 && $s['cron_max_age_days'] === 30 && $s['cron_command'] === 'review');
 check('capability flags: manager with pqm_manage_agents on a free site', $s['can_manage_agents'] === true && $s['is_pro'] === false);
 check('build: pro (story 54; the harness runs the Pro build, licensed or not)', $s['build'] === 'pro');
-pqm_fs()->pro = true;
+postquality_fs()->pro = true;
 check('... pro site: is_pro', setup_state()['is_pro'] === true);
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
 check('... manager without pqm_manage_agents: can_manage_agents false', setup_state()['can_manage_agents'] === false);
 $GLOBALS['tw']['caps'] = $manager;
-pqm_fs()->pro = false;
+postquality_fs()->pro = false;
 site(['pqm_settings' => $fresh['pqm_settings'] + ['blog_profile' => 'food', 'website_context' => 'My old words', 'brand_voice_preset' => 'casual']]);
 $s = setup_state();
 check('stored choices prefill: preset key, and the stored custom text kept beside it',
@@ -537,11 +537,11 @@ foreach (['profile', 'standards', 'schedule'] as $step) {
     $r = post_setup(['step' => $step, 'done' => true]);
     check("skip \"$step\": ticked, only the progress option written, settings untouched",
         $r instanceof WP_REST_Response && $r->get_data()['steps'][$step] === true
-        && $GLOBALS['tw']['writes'] === [PQM_SETUP_OPTION] && $GLOBALS['tw']['options']['pqm_settings'] === $fresh['pqm_settings']);
+        && $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION] && $GLOBALS['tw']['options']['pqm_settings'] === $fresh['pqm_settings']);
 }
 
 /* A configured site with every key the Settings form stores, nested agent prompts included. */
-$configured = pqm_default_settings();
+$configured = postquality_default_settings();
 $configured['n8n_webhook_url'] = 'https://acme.app.n8n.cloud/webhook/pqm-execute';
 $configured['webhook_token'] = $token;
 $configured['blog_profile'] = 'technical';
@@ -567,8 +567,8 @@ check('preset pick: blog_profile saved alone; every other key byte-identical (cu
     $r instanceof WP_REST_Response && merged_only($configured, ['blog_profile' => 'marketing']));
 check('... only pqm_settings written, no cron scheduled, the answer is the fresh state',
     $GLOBALS['tw']['writes'] === ['pqm_settings'] && $GLOBALS['tw']['scheduled'] === [] && $r->get_data()['blog_profile'] === 'marketing');
-check('... the agents now get the preset text (pqm_resolved_context)',
-    pqm_resolved_context(pqm_get_settings()) === PQM_Admin::blog_profiles()['marketing']['website_context']);
+check('... the agents now get the preset text (postquality_resolved_context)',
+    postquality_resolved_context(postquality_get_settings()) === PostQuality_Admin::blog_profiles()['marketing']['website_context']);
 
 site(['pqm_settings' => $configured]);
 post_settings(['blog_profile' => 'custom', 'website_context' => "  <b>Home automation</b> for tinkerers.  "]);
@@ -610,7 +610,7 @@ $cron_cases = [
 ];
 foreach ($cron_cases as $label => [$caps, $pro]) {
     $GLOBALS['tw']['caps'] = $caps;
-    pqm_fs()->pro = $pro;
+    postquality_fs()->pro = $pro;
     site(['pqm_settings' => $configured]);
     $r = post_settings(['cron_enabled' => true]);
     check("$label: refused with 403, nothing stored or scheduled", $r instanceof WP_Error && ($r->data['status'] ?? null) === 403
@@ -620,20 +620,20 @@ foreach ($cron_cases as $label => [$caps, $pro]) {
     check("... with a profile beside it: still 403, the profile not stored either", $r instanceof WP_Error && $GLOBALS['tw']['writes'] === []);
 }
 $GLOBALS['tw']['caps'] = $manager;
-pqm_fs()->pro = true;
+postquality_fs()->pro = true;
 site(['pqm_settings' => $configured]);
 $r = post_settings(['cron_enabled' => true]);
 check('pro site + pqm_manage_agents: enabled with the stored knobs, every other key byte-identical',
     $r instanceof WP_REST_Response && merged_only($configured, ['cron_enabled' => true]) && $r->get_data()['cron_enabled'] === true);
-check('... the schedule is set right away, at the stored frequency', $GLOBALS['tw']['scheduled'] === [['pqm_weekly', PQM_Cron::HOOK]]);
+check('... the schedule is set right away, at the stored frequency', $GLOBALS['tw']['scheduled'] === [['pqm_weekly', PostQuality_Cron::HOOK]]);
 site(['pqm_settings' => $configured]);
 $r = post_settings(['cron_enabled' => 'yes']);
 check('... a non-boolean switch: refused with 400', $r instanceof WP_Error && ($r->data['status'] ?? null) === 400 && $GLOBALS['tw']['writes'] === []);
-pqm_fs()->pro = false;
+postquality_fs()->pro = false;
 
 /* Row: re-run without a pick — settings, URL and token byte-identical */
 echo "Re-run, every configuration step walked without a pick (story 55)\n";
-site(['pqm_settings' => $configured, PQM_SETUP_OPTION => ['steps' => [], 'complete' => true]], ['ship']);
+site(['pqm_settings' => $configured, POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]], ['ship']);
 $before = serialize($GLOBALS['tw']['options']['pqm_settings']);
 setup_state();
 foreach (['profile', 'standards', 'schedule'] as $step) {
@@ -641,7 +641,7 @@ foreach (['profile', 'standards', 'schedule'] as $step) {
 }
 $s = setup_state();
 check('pqm_settings byte-identical (webhook URL and token included); only progress written',
-    serialize($GLOBALS['tw']['options']['pqm_settings']) === $before && array_unique($GLOBALS['tw']['writes']) === [PQM_SETUP_OPTION]);
+    serialize($GLOBALS['tw']['options']['pqm_settings']) === $before && array_unique($GLOBALS['tw']['writes']) === [POSTQUALITY_SETUP_OPTION]);
 check('... the three steps done, the setup still complete', $s['complete'] === true
     && $s['steps']['profile'] === true && $s['steps']['standards'] === true && $s['steps']['schedule'] === true);
 
@@ -655,9 +655,9 @@ check('wp_remote_post appears once in the admin class (the ping helper)', substr
 
 /* Row: uninstall — the progress and n8n connection options are removed, through the SDK hook (story 44) */
 echo "Uninstall\n";
-check('the SDK after_uninstall hook calls PQM_Activator::uninstall()',
-    (pqm_fs()->actions['after_uninstall'] ?? []) === [['PQM_Activator', 'uninstall']]);
-$icon = (pqm_fs()->filters['plugin_icon'] ?? [null])[0];
+check('the SDK after_uninstall hook calls PostQuality_Activator::uninstall()',
+    (postquality_fs()->actions['after_uninstall'] ?? []) === [['PostQuality_Activator', 'uninstall']]);
+$icon = (postquality_fs()->filters['plugin_icon'] ?? [null])[0];
 check('the SDK plugin_icon filter returns a bundled icon file (no remote fetch)',
     is_callable($icon) && is_file($icon()));
 $GLOBALS['tw_deleted'] = [];
@@ -666,24 +666,24 @@ function delete_metadata(...$a) { return true; }
 function wp_roles() { return (object) ['role_objects' => []]; }
 function get_users($args) { return []; }
 function wp_clear_scheduled_hook(...$a) {}
-PQM_Activator::uninstall();
-check('uninstall deletes the setup progress option (PQM_SETUP_OPTION)', in_array(PQM_SETUP_OPTION, $GLOBALS['tw_deleted'], true));
-check('uninstall deletes the n8n connection option (PQM_N8n::OPTION: base URL and API key)', PQM_N8n::OPTION === 'pqm_n8n_api'
-    && in_array(PQM_N8n::OPTION, $GLOBALS['tw_deleted'], true));
-check('uninstall deletes the provisioning lock option (PQM_N8n::LOCK_OPTION, bug 72)', PQM_N8n::LOCK_OPTION === 'pqm_n8n_provisioning'
-    && in_array(PQM_N8n::LOCK_OPTION, $GLOBALS['tw_deleted'], true));
-check('uninstall deletes the pending test ping option (PQM_Admin::PING_OPTION, story 2)', PQM_Admin::PING_OPTION === 'pqm_ping'
-    && in_array(PQM_Admin::PING_OPTION, $GLOBALS['tw_deleted'], true));
+PostQuality_Activator::uninstall();
+check('uninstall deletes the setup progress option (POSTQUALITY_SETUP_OPTION)', in_array(POSTQUALITY_SETUP_OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the n8n connection option (PostQuality_N8n::OPTION: base URL and API key)', PostQuality_N8n::OPTION === 'pqm_n8n_api'
+    && in_array(PostQuality_N8n::OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the provisioning lock option (PostQuality_N8n::LOCK_OPTION, bug 72)', PostQuality_N8n::LOCK_OPTION === 'pqm_n8n_provisioning'
+    && in_array(PostQuality_N8n::LOCK_OPTION, $GLOBALS['tw_deleted'], true));
+check('uninstall deletes the pending test ping option (PostQuality_Admin::PING_OPTION, story 2)', PostQuality_Admin::PING_OPTION === 'pqm_ping'
+    && in_array(PostQuality_Admin::PING_OPTION, $GLOBALS['tw_deleted'], true));
 
 /* Rows (bug 90): the deactivation feedback form opens only on an opted-in site, so a site that skipped
  * the opt-in stores no reason and its uninstall sends nothing. The SDK passes true and, once a filter is
  * registered, no longer reads its own snooze — the callback must keep it. Every row fails (null) when
  * no callback is registered. */
 echo "Deactivation feedback form (bug 90)\n";
-$form_cb = (pqm_fs()->filters['show_deactivation_feedback_form'] ?? [null])[0];
+$form_cb = (postquality_fs()->filters['show_deactivation_feedback_form'] ?? [null])[0];
 $form_shows = static function (bool $registered, bool $snoozed, bool $pro = false) use ($form_cb) {
-    pqm_fs()->registered = $registered;
-    pqm_fs()->pro = $pro;
+    postquality_fs()->registered = $registered;
+    postquality_fs()->pro = $pro;
     PQM_FS_Stub::$snoozed = $snoozed;
     return is_callable($form_cb) ? $form_cb(true) : null;
 };

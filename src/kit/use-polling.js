@@ -11,7 +11,7 @@
  * command left `in_flight` (its result row arrived), or the post left the
  * list altogether (its result changed its status / score and the current
  * filter, sort or page no longer holds it — the placeholder itself never
- * moves a post, see PQM_DB::latest_review_subquery()). Either way
+ * moves a post, see PostQuality_DB::latest_review_subquery()). Either way
  * `onSettled( postId, command )` fires once. A change of `listKey` (the
  * user navigated: filter, sort, page) resets tracking and forgets.
  *

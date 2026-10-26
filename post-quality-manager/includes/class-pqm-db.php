@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_DB {
+class PostQuality_DB {
 
     /**
      * Get the full table name.

@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_Cron {
+class PostQuality_Cron {
 
     const HOOK = 'pqm_cron_review_posts';
 
@@ -26,7 +26,7 @@ class PQM_Cron {
      * Schedule or reschedule the cron event based on current settings.
      */
     public static function schedule(): void {
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
 
         // Always clear first.
         self::clear_scheduled_events();
@@ -56,7 +56,7 @@ class PQM_Cron {
      * Cron callback: trigger reviews for posts that need one.
      */
     public static function run_scheduled_review(): void {
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
 
         if ( empty( $settings['n8n_webhook_url'] ) ) {
             return; // Cannot run without a configured webhook.
@@ -71,11 +71,11 @@ class PQM_Cron {
         // behind after a license lapse) must never fire on a free site.
         // Cron runs with no user, so only the plan half applies; skip the
         // whole batch before querying any posts.
-        if ( ! PQM_Features::plan_allows( $command ) ) {
+        if ( ! PostQuality_Features::plan_allows( $command ) ) {
             return;
         }
 
-        $posts = PQM_DB::get_posts_needing_review( $min_score, $max_age_days, $batch_size, $command );
+        $posts = PostQuality_DB::get_posts_needing_review( $min_score, $max_age_days, $batch_size, $command );
 
         foreach ( $posts as $post_data ) {
             self::trigger_single_review( (int) $post_data['post_id'], $command, $settings );
@@ -94,10 +94,10 @@ class PQM_Cron {
         // Shared payload builder — cron batches now carry the same brand
         // voice, website context, and per-agent 'llm' fragments as manual
         // triggers, so scheduled reviews run with the configured models.
-        $payload = pqm_n8n_payload( $post, $command, $settings );
+        $payload = postquality_n8n_payload( $post, $command, $settings );
 
         wp_remote_post( $settings['n8n_webhook_url'], [
-            'headers'  => pqm_n8n_headers( $settings ),
+            'headers'  => postquality_n8n_headers( $settings ),
             'body'     => wp_json_encode( $payload ),
             'timeout'  => 5,
             'blocking' => false, // Fire-and-forget for cron batches.

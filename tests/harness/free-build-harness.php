@@ -116,11 +116,11 @@ $leaks = [
         "    public static function label( string \$command ): string {\n",
         "    public static function label( string \$command ): string {\n        self::paid_registry__premium_only();\n"],
     'inline condition with the premium check' => ['post-quality-manager.php',
-        "if ( pqm_fs()->is__premium_only() ) {\n    require_once",
-        "if ( is_admin() && pqm_fs()->is__premium_only() ) {\n    require_once"],
+        "if ( postquality_fs()->is__premium_only() ) {\n    require_once",
+        "if ( is_admin() && postquality_fs()->is__premium_only() ) {\n    require_once"],
     'assignment from a premium method' => ['includes/class-pqm-blocks.php',
         "        \$keys = [ 'takeaways' => 'rewritten_items' ];\n",
-        "        \$keys = [ 'takeaways' => 'rewritten_items' ];\n        \$premium = pqm_fs()->is__premium_only();\n"],
+        "        \$keys = [ 'takeaways' => 'rewritten_items' ];\n        \$premium = postquality_fs()->is__premium_only();\n"],
     'an else after a premium block' => ['includes/class-pqm-features.php',
         "            \$registry += self::paid_registry__premium_only();\n        }\n",
         "            \$registry += self::paid_registry__premium_only();\n        } else {\n            \$registry += [];\n        }\n"],
@@ -186,7 +186,7 @@ function is_admin() { return true; }
 function wp_cache_get($k, $group = '') { return false; }
 function wp_cache_set($k, $v, $group = '') { return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
-function apply_filters($tag, $value) { return $tag === 'pqm_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply
+function apply_filters($tag, $value) { return $tag === 'postquality_ping_callback_wait' ? 0 : $value; } // story 2: the stub plays the callback before the reply
 function esc_textarea($s) { return (string) $s; }
 function wp_print_inline_script_tag($data, $attributes = []) { echo "<script>$data</script>"; }
 function settings_fields($g) {}
@@ -245,7 +245,7 @@ $wpdb = new class {
     public $rows_affected = 0;
     public function prepare($sql, ...$args) { return [$sql, $args]; } // the statement with its arguments; the reads below ignore it
     public function get_results($sql, $output = null) { return []; }
-    public $has_result = null; // story 67: PQM_DB::has_result() on the Free build
+    public $has_result = null; // story 67: PostQuality_DB::has_result() on the Free build
     public function get_var($sql) { return $this->has_result; }
     /* Bug 82: the provisioning lock's two statements against the options store (the race rows are n8n-provisioning-harness.php's). */
     public function query($prepared) {
@@ -265,7 +265,7 @@ $wpdb = new class {
     }
 };
 
-/* pqm_fs() is fs-stub.php's (loaded by the bootstrap at the top) without the SDK; no premium check is left to read it. */
+/* postquality_fs() is fs-stub.php's (loaded by the bootstrap at the top) without the SDK; no premium check is left to read it. */
 if (!is_file($free . '/post-quality-manager.php')) {
     echo "\n$pass passed, " . ($fail + 1) . " failed (no Free tree to boot)\n";
     exit(1);
@@ -274,108 +274,108 @@ require $free . '/post-quality-manager.php';
 
 /* ─── Row: Free build registry and defaults ──────────────────────────── */
 echo "Row — the Free build's registry, defaults and insert keys are free only\n";
-$registry = PQM_Features::registry();
+$registry = PostQuality_Features::registry();
 check('registry = review, takeaways, score, apply', array_keys($registry) === ['review', 'takeaways', 'score', 'apply']);
 check('every entry is tier free', array_unique(array_column($registry, 'tier')) === ['free']);
-check('agent defaults = review, takeaways', array_keys(pqm_default_settings()['agent_prompts']) === ['review', 'takeaways']);
-check('output budgets = review, takeaways', array_keys(pqm_agent_max_tokens()) === ['review', 'takeaways']);
-check('Insert into Post keys = takeaways', array_keys(PQM_Blocks::item_keys()) === ['takeaways']);
-check('no cron class is loaded, no cron hook registered (a stale schedule runs nothing)', !class_exists('PQM_Cron', false)
-    && !str_contains((string) file_get_contents($free . '/post-quality-manager.php'), 'PQM_Cron'));
+check('agent defaults = review, takeaways', array_keys(postquality_default_settings()['agent_prompts']) === ['review', 'takeaways']);
+check('output budgets = review, takeaways', array_keys(postquality_agent_max_tokens()) === ['review', 'takeaways']);
+check('Insert into Post keys = takeaways', array_keys(PostQuality_Blocks::item_keys()) === ['takeaways']);
+check('no cron class is loaded, no cron hook registered (a stale schedule runs nothing)', !class_exists('PostQuality_Cron', false)
+    && !str_contains((string) file_get_contents($free . '/post-quality-manager.php'), 'PostQuality_Cron'));
 $GLOBALS['tw']['caps'] = ['pqm_run_free_agents'];
-check('Post Reviews viewer: nothing locked, nothing paid hidden', PQM_Features::gated_commands() === []
-    && !array_intersect(PQM_Features::hidden_commands(), PAID_COMMANDS));
+check('Post Reviews viewer: nothing locked, nothing paid hidden', PostQuality_Features::gated_commands() === []
+    && !array_intersect(PostQuality_Features::hidden_commands(), PAID_COMMANDS));
 
 /* ─── Row: REST enums come from the free registry ────────────────────── */
 echo "Row — paid commands are refused by the route schema (400), never reach the gate\n";
-PQM_REST_API::register_routes();
+PostQuality_REST_API::register_routes();
 $enum = static fn(string $route) => $GLOBALS['pqm_routes'][$route]['args']['command']['enum'] ?? null;
 check('trigger-review command enum = the free registry', $enum('/trigger-review') === array_keys($registry));
 check('save-review command enum = the free registry', $enum('/save-review') === array_keys($registry));
 check('insert-block command enum = takeaways', $enum('/insert-block') === ['takeaways']);
 check('the n8n connection routes are there, as on Pro (provisioning is free): GET, POST, DELETE, each gated by check_manage_settings',
     array_column($GLOBALS['pqm_routes']['/n8n/connection'] ?? [], 'methods') === ['GET', 'POST', 'DELETE']
-    && array_unique(array_column($GLOBALS['pqm_routes']['/n8n/connection'], 'permission_callback'), SORT_REGULAR) === [['PQM_REST_API', 'check_manage_settings']]);
+    && array_unique(array_column($GLOBALS['pqm_routes']['/n8n/connection'], 'permission_callback'), SORT_REGULAR) === [['PostQuality_REST_API', 'check_manage_settings']]);
 
 /* ─── Row: setup dialog and dashboard ────────────────────────────────── */
 echo "Row — setup state and dashboard carry no schedule\n";
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings', 'pqm_manage_agents'];
-$state = PQM_REST_API::get_setup_callback()->get_data();
+$state = PostQuality_REST_API::get_setup_callback()->get_data();
 check('setup state has no cron_* key', !preg_grep('/^cron_/', array_keys($state)));
 check("setup state names the build: 'free'", ($state['build'] ?? null) === 'free');
 check('the same n8n steps as Pro (provisioning is free, entry 6): n8n, provision, manual, then review and the configuration steps',
     array_keys($state['steps'] ?? []) === ['n8n', 'provision', 'manual', 'review', 'profile', 'standards', 'schedule']
     && array_key_exists('n8n', $state) && array_key_exists('manual', $state) && array_key_exists('provisioned', $state) && array_key_exists('leftovers', $state));
 check('no application_password_user (bug 73, Pro only: the Free build creates no Application Password)', !array_key_exists('application_password_user', $state));
-$by_hand = PQM_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
+$by_hand = PostQuality_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
 check('... and "Set up by hand instead" stores the choice there too', $by_hand instanceof WP_REST_Response && $by_hand->get_data()['manual'] === true);
 unset($GLOBALS['tw']['options']['pqm_setup_progress']); // the rows below start from a site without the choice
 $options_before = $GLOBALS['tw']['options'];
 $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
 unset($GLOBALS['tw']['options']['pqm_n8n_setup'], $GLOBALS['tw']['options']['pqm_n8n_api']);
-$hand_made = PQM_REST_API::get_setup_callback()->get_data();
+$hand_made = PostQuality_REST_API::get_setup_callback()->get_data();
 check('... a hand-made site (a URL, no setup map, no key) takes the manual path there too: Set up by hand done, neither Connect your n8n nor Set up the workflow',
     $hand_made['manual'] === true && $hand_made['provisioned'] === false
     && array_slice($hand_made['steps'], 0, 3, true) === ['n8n' => false, 'provision' => false, 'manual' => true]);
 $GLOBALS['tw']['options'] = $options_before;
-$refused = PQM_REST_API::setup_settings_callback(new WP_REST_Request(['cron_enabled' => true]));
+$refused = PostQuality_REST_API::setup_settings_callback(new WP_REST_Request(['cron_enabled' => true]));
 check('the setup guide cannot switch scheduled reviews on (400, unknown setting)', $refused instanceof WP_Error
     && $refused->code === 'pqm_setup_bad_setting' && ($refused->data['status'] ?? null) === 400);
-$dash = PQM_REST_API::dashboard_callback()->get_data();
+$dash = PostQuality_REST_API::dashboard_callback()->get_data();
 check('dashboard has no cron_nudge key', !array_key_exists('cron_nudge', $dash) && !array_key_exists('cron_nudge_dismiss_url', $dash));
 /* Story 79: the feedback card is whole on the Free build; only the build word changes. */
 $stripped_rest = (string) file_get_contents($free . '/includes/class-pqm-rest-api.php');
 check('the feedback card: feedback_environment() and the /dashboard/feedback route survive the strip, the build word reads Free',
     str_contains($stripped_rest, 'function feedback_environment') && !str_contains($stripped_rest, "\$build = 'Pro'")
     && isset($GLOBALS['pqm_routes']['/dashboard/feedback'])
-    && ($dash['feedback']['environment'][0] ?? '') === 'Post Quality Manager ' . PQM_VERSION . ' (Free)'
+    && ($dash['feedback']['environment'][0] ?? '') === 'Post Quality Manager ' . POSTQUALITY_VERSION . ' (Free)'
     && count($dash['feedback']['environment']) === 5 && $dash['feedback']['dismissed'] === false);
 
 /* ─── Row: the handshake on the Free build ───────────────────────────── */
 echo "Row — the Free build takes either template variant as current\n";
 $free_notice = 'Your workflow is the Free variant';
 foreach (['Free template' => ',"workflow_variant":"free"', 'Pro template' => ''] as $label => $variant_json) {
-    $GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . $variant_json . '}';
-    $ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute');
-    pqm_record_workflow_version($ping['version'], 'test', $ping['variant']);
+    $GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . $variant_json . '}';
+    $ping = PostQuality_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute');
+    postquality_record_workflow_version($ping['version'], 'test', $ping['variant']);
     check("$label answers: up to date, no variant notice", $ping['ok'] === true && $ping['outdated'] === false
-        && !str_contains(PQM_Admin::render_workflow_body(), $free_notice));
-    check('... and no re-import button', !str_contains(PQM_Admin::render_workflow_body(), 'pqm-reimport'));
+        && !str_contains(PostQuality_Admin::render_workflow_body(), $free_notice));
+    check('... and no re-import button', !str_contains(PostQuality_Admin::render_workflow_body(), 'pqm-reimport'));
 }
 /* Story 67: the page's state machine on the Free build — a URL saved, no map: an older report needs attention, its fix the re-import. */
 $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
-pqm_record_workflow_version(PQM_WORKFLOW_VERSION - 1, 'test', 'free');
-$body = PQM_Admin::render_workflow_body();
+postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION - 1, 'test', 'free');
+$body = PostQuality_Admin::render_workflow_body();
 check('an older Free template, hand-made: needs attention, "this plugin needs N", the one primary is Re-import the workflow',
-    str_contains($body, 'data-state="outdated"') && str_contains($body, 'this plugin needs ' . PQM_WORKFLOW_VERSION . '.')
+    str_contains($body, 'data-state="outdated"') && str_contains($body, 'this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.')
     && substr_count($body, 'pqm-reimport') === 1 && substr_count($body, 'button-primary') === 1);
 preg_match_all('/<details class="pqm-disclosure" id="([a-z0-9-]+)"/', $body, $m);
 check('... no locked or empty section: the Set up by hand, n8n connection and Webhook disclosures (' . implode(', ', $m[1]) . '), no paid word',
     $m[1] === ['pqm-by-hand', 'pqm-n8n-connection', 'pqm-webhook'] && !preg_match('/\b(Pro|Rewrite|Sources|SEO|Audit)\b/', strip_tags($body)));
 /* Story 67: set up with results, the configuration steps still open — the Free dialog has no scheduled-reviews step, so two names, then none. */
-pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'free');
+postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION, 'test', 'free');
 $wpdb->has_result = '1';
-$built_free = is_file(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
+$built_free = is_file(POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php');
 $GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => [], 'complete' => true];
 check('set up, results, nothing ticked: "Finish setting up: Blog Profile, Editorial Standards" — no scheduled reviews on Free' . ($built_free ? '' : ' (unbuilt: no link at all)'),
-    $built_free ? str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up: Blog Profile, Editorial Standards</button>') : !str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up'));
+    $built_free ? str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up: Blog Profile, Editorial Standards</button>') : !str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up'));
 $GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => ['profile' => true, 'standards' => true], 'complete' => true];
-check('... profile and standards ticked: the link is gone (schedule is no Free step)', !str_contains(PQM_Admin::render_workflow_body(), 'Finish setting up'));
+check('... profile and standards ticked: the link is gone (schedule is no Free step)', !str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up'));
 $wpdb->has_result = null;
 $GLOBALS['tw']['options'] = $options_before;
-pqm_record_workflow_version(PQM_WORKFLOW_VERSION, 'test', 'pro');
-check('pqm_workflow_json() serves the Free template, filled with the host',
-    ($json = json_decode((string) pqm_workflow_json(), true)) !== null && $json['name'] === 'Post Quality — example.com'
+postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION, 'test', 'pro');
+check('postquality_workflow_json() serves the Free template, filled with the host',
+    ($json = json_decode((string) postquality_workflow_json(), true)) !== null && $json['name'] === 'Post Quality — example.com'
     && !in_array('Build Rewrite Body', array_column($json['nodes'], 'name'), true));
 $free_trigger = array_column($json['nodes'], null, 'name')['Webhook Trigger']['parameters'];
 check('the Free template carries the per-site trigger path and the version, no __PQM_ placeholder left',
-    $free_trigger['path'] === 'pqm-execute-example-com' && !str_contains((string) pqm_workflow_json(), '__PQM_')
-    && json_decode($free_trigger['options']['responseData'], true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION, 'workflow_variant' => 'free']);
+    $free_trigger['path'] === 'pqm-execute-example-com' && !str_contains((string) postquality_workflow_json(), '__PQM_')
+    && json_decode($free_trigger['options']['responseData'], true) === ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION, 'workflow_variant' => 'free']);
 
 /* ─── Row: provisioning on the Free build (n8n provisioning, entry 4) ── */
 echo "Row — Free provisioning: 2 credentials, no WordPress one, the 3 Free nodes linked\n";
 check('the provision route is there, as on Pro (provisioning is free), gated by check_manage_settings',
-    ($GLOBALS['pqm_routes']['/n8n/provision']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+    ($GLOBALS['pqm_routes']['/n8n/provision']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_manage_settings']);
 $ok = static fn(array $json) => ['response' => ['code' => 200], 'body' => json_encode($json)];
 $options_before = $GLOBALS['tw']['options'];
 // Story 74: provisioning needs a connected key (a stored key whose last probe passed).
@@ -386,7 +386,7 @@ $GLOBALS['tw']['options'] = [
 $GLOBALS['tw']['calls'] = [];
 /* Entry 7: the Free template as n8n stores it, ids rewired — what the passing ping's diagnosis reads back. */
 $free_wired = static function (array $ids): array {
-    $nodes = json_decode((string) pqm_workflow_json(), true)['nodes'];
+    $nodes = json_decode((string) postquality_workflow_json(), true)['nodes'];
     foreach ($nodes as &$node) {
         foreach ($node['credentials'] ?? [] as $type => $ref) {
             $node['credentials'][$type] = $ids[$ref['name']] + ['name' => $ref['name']];
@@ -397,8 +397,8 @@ $free_wired = static function (array $ids): array {
 $free_stored = static fn(array $nodes): array => $ok(['id' => 'wf-free', 'active' => true, 'nodes' => $nodes, 'activeVersion' => ['nodes' => $nodes]]);
 $free_clean  = $free_wired(['Post Quality webhook - example.com' => ['id' => 'c-webhook'], 'Anthropic - Claude' => ['id' => 'c-anthropic']]);
 $GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
-$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
-$reply = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
+$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
+$reply = PostQuality_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
 $reply = $reply instanceof WP_REST_Response ? $reply->get_data() : null;
 $sent  = array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']);
 $bodies = array_map(static fn($c) => json_decode($c[1]['body'] ?? 'null', true), $GLOBALS['tw']['calls']);
@@ -410,7 +410,7 @@ check('calls: the models check, 2 credentials, the workflow, activate; then the 
     'POST https://n8n.example/api/v1/workflows/wf-free/activate',
     'GET https://n8n.example/api/v1/workflows/wf-free',
 ]);
-check('... the Free workflow reads clean: the ping message, nothing stored', str_starts_with($reply['message'] ?? '', 'Ping OK') && !isset(pqm_workflow_report()['miswired']));
+check('... the Free workflow reads clean: the ping message, nothing stored', str_starts_with($reply['message'] ?? '', 'Ping OK') && !isset(postquality_workflow_report()['miswired']));
 check('... the webhook and Anthropic credentials, no httpBasicAuth anywhere', array_column(array_slice($bodies, 1, 2), 'name') === ['Post Quality webhook - example.com', 'Anthropic - Claude']
     && !str_contains(json_encode($bodies), 'httpBasicAuth'));
 $linked = array_column(array_filter($bodies[3]['nodes'] ?? [], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
@@ -430,9 +430,9 @@ echo "Row — Free build: the 2026-10-13 shape, reported in one sentence\n";
 $shared = ['id' => 'c-hdr', 'name' => 'Header Auth account'];
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$free_stored($free_wired(['Post Quality webhook - example.com' => $shared, 'Anthropic - Claude' => $shared]))];
-$ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com'); // the saved URL
-pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
-$status = PQM_Admin::render_workflow_body();
+$ping = PostQuality_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com'); // the saved URL
+postquality_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
+$status = PostQuality_Admin::render_workflow_body();
 check('the provisioned Free workflow read by id; the sentence names its two Claude nodes, the credential and the fix',
     array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === ['GET https://n8n.example/api/v1/workflows/wf-free']
     && $ping['message'] === 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent and Claude - Takeaways Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.'
@@ -440,9 +440,9 @@ check('the provisioned Free workflow read by id; the sentence names its two Clau
 check('... the status block: needs attention (failing), the sentence and Test again, the one primary', str_contains($status, 'data-state="failing"')
     && str_contains($status, $ping['message']) && str_contains($status, 'button button-primary pqm-test-connection') && substr_count($status, 'button-primary') === 1);
 $GLOBALS['tw']['queue'] = [$free_stored($free_clean)];
-$ping = PQM_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com');
-pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
-$status = PQM_Admin::render_workflow_body();
+$ping = PostQuality_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com');
+postquality_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
+$status = PostQuality_Admin::render_workflow_body();
 check('... fixed, Test again: clean, set up ("Your workflow answers."), the sentence gone, one primary (the first review)', $ping['miswired'] === ''
     && str_contains($status, 'data-state="set-up"') && str_contains($status, 'Your workflow answers.') && substr_count($status, 'button-primary') === 1
     && str_contains($status, 'pqm-open-setup" data-step="review">Run your first review</button>'));
@@ -456,14 +456,14 @@ $GLOBALS['tw']['calls'] = [];
 $hand      = $free_wired(['Post Quality webhook - example.com' => ['id' => 'c-h1', 'name' => 'Header Auth account'], 'Anthropic - Claude' => ['id' => 'c-k1', 'name' => 'my claude key']]);
 $hand_list = $ok(['data' => [['id' => 'wf-hand', 'name' => 'My reviews', 'active' => true, 'nodes' => $hand, 'activeVersion' => ['nodes' => $hand]]], 'nextCursor' => null]);
 $GLOBALS['tw']['queue'] = [$hand_list, $hand_list];
-$offered  = PQM_N8n::public_state()['adoptable'];
-$proposal = PQM_REST_API::get_n8n_adoption_callback();
+$offered  = PostQuality_N8n::public_state()['adoptable'];
+$proposal = PostQuality_REST_API::get_n8n_adoption_callback();
 $proposal = $proposal instanceof WP_REST_Response ? $proposal->get_data() : null;
 check('offered; the proposal names the webhook and Anthropic credentials, no wordpress, no rewrite_ready', $offered === true && $proposal === [
     'workflow'    => ['id' => 'wf-hand', 'name' => 'My reviews', 'path' => 'pqm-execute-example-com'],
     'credentials' => ['webhook' => ['id' => 'c-h1', 'name' => 'Header Auth account'], 'anthropic' => ['id' => 'c-k1', 'name' => 'my claude key']],
 ]);
-$adopted = PQM_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => 'wf-hand']));
+$adopted = PostQuality_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => 'wf-hand']));
 $adopted = $adopted instanceof WP_REST_Response ? $adopted->get_data() : null;
 $map     = $GLOBALS['tw']['options']['pqm_n8n_setup'] ?? [];
 check('... confirmed: the map without wordpress, wizard_created false; the reply has no rewrite_ready; GET calls only', $adopted !== null
@@ -478,8 +478,8 @@ $GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => ''
 $GLOBALS['tw']['uuid']  = 'free-rotated-token';
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$ok(['id' => 'c-webhook', 'type' => 'httpHeaderAuth'])];
-$offered = PQM_N8n::public_state()['rotatable'];
-$rotated = PQM_REST_API::rotate_n8n_token_callback();
+$offered = PostQuality_N8n::public_state()['rotatable'];
+$rotated = PostQuality_REST_API::rotate_n8n_token_callback();
 $rotated = $rotated instanceof WP_REST_Response ? $rotated->get_data() : null;
 check('the provisioned Free site: offered; one PATCH of its webhook credential with the new token; saved; pinged, the status block back; the token in no reply',
     $offered === true && $rotated !== null
@@ -489,19 +489,19 @@ check('the provisioned Free site: offered; one PATCH of its webhook credential w
     && $rotated['rotated'] === true && $rotated['ping_ok'] === true && isset($rotated['status_html'])
     && !str_contains(json_encode(array_diff_key($rotated, ['status_html' => 1])), 'free-rotated-token')); // story 67: the body carries the page's own token row
 check('... the token route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/token']['methods'] ?? null) === 'POST'
-    && ($GLOBALS['pqm_routes']['/n8n/token']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+    && ($GLOBALS['pqm_routes']['/n8n/token']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_manage_settings']);
 unset($GLOBALS['tw']['uuid']);
 $GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: the workflow update on the Free build (entry 9) ───────────── */
 echo "Row — Free build: Update workflow PUTs the Free template the same way, no WordPress credential\n";
 $GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
-$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => PQM_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1];
+$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1];
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$free_stored($free_clean), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
-$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . PQM_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
-$offered = str_contains(PQM_Admin::render_workflow_body(), 'class="button button-primary pqm-update-workflow"');
-$updated = PQM_REST_API::update_n8n_workflow_callback();
+$GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
+$offered = str_contains(PostQuality_Admin::render_workflow_body(), 'class="button button-primary pqm-update-workflow"');
+$updated = PostQuality_REST_API::update_n8n_workflow_callback();
 $updated = $updated instanceof WP_REST_Response ? $updated->get_data() : null;
 $sent    = json_decode($GLOBALS['tw']['calls'][1][1]['body'] ?? 'null', true);
 $linked  = array_column(array_filter($sent['nodes'] ?? [], static fn($n) => isset($n['credentials'])), 'credentials', 'name');
@@ -516,10 +516,10 @@ check('the provisioned Free site: offered; GET then PUT /workflows/wf-free, then
     ] && array_column($sent['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] === 'pqm-execute-example-com');
 check('... reply updated and pinged, the status block back, no rewrite_ready; the version recorded; the key in no reply', $updated !== null
     && $updated['updated'] === true && $updated['ping_ok'] === true && isset($updated['status_html']) && !array_key_exists('rewrite_ready', $updated)
-    && str_starts_with($updated['message'], 'Workflow updated. Ping OK') && pqm_workflow_report()['version'] === PQM_WORKFLOW_VERSION
+    && str_starts_with($updated['message'], 'Workflow updated. Ping OK') && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
     && !str_contains(json_encode($updated), 'free-build-n8n-key-secret') && !str_contains($GLOBALS['tw']['calls'][1][1]['body'], 'free-token'));
 check('... the workflow route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/workflow']['methods'] ?? null) === 'POST'
-    && ($GLOBALS['pqm_routes']['/n8n/workflow']['permission_callback'] ?? null) === ['PQM_REST_API', 'check_manage_settings']);
+    && ($GLOBALS['pqm_routes']['/n8n/workflow']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_manage_settings']);
 $GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: a failed Free provisioning leaves nothing behind (entry 5) ── */
@@ -534,7 +534,7 @@ $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']),
     ['response' => ['code' => 400], 'body' => '{"message":"Workflow has no node to start the workflow"}'],
     $ok(['id' => 'wf-free', 'active' => false]), $ok(['id' => 'wf-free']), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic'])];
-$failed = PQM_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
+$failed = PostQuality_REST_API::provision_n8n_callback(new WP_REST_Request(['anthropic_key' => 'sk-ant-free-provider-key']));
 $sent   = array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']);
 check('502, step activate; deactivate → DELETE the workflow → DELETE the 2 credentials', $failed instanceof WP_Error
     && $failed->data === ['status' => 502, 'step' => 'activate'] && array_slice($sent, 4) === [
@@ -552,7 +552,7 @@ $GLOBALS['tw']['options'] = $options_before; // the screens below start from the
 echo "Row — Settings and n8n Workflow: nothing locked, one Get Pro, no paid agent named\n";
 $GLOBALS['tw']['caps'] = ['manage_options', 'pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
 ob_start();
-PQM_Admin::render_settings();
+PostQuality_Admin::render_settings();
 $settings_html = ob_get_clean();
 preg_match_all('/class="nav-tab(?: nav-tab-active)?">([^<]+)<\/a>/', $settings_html, $m);
 check('tabs: Connection, AI, Usage & Limits', $m[1] === ['Connection', 'AI', 'Usage & Limits']);
@@ -564,7 +564,7 @@ $GLOBALS['tw']['options']['pqm_n8n_api'] = ['base_url' => 'https://n8n.example',
 $GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => [], 'manual' => true];
 unset($GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url']);
 ob_start();
-PQM_Admin::render_workflow();
+PostQuality_Admin::render_workflow();
 $workflow_html = ob_get_clean();
 preg_match('/<details class="pqm-disclosure" id="pqm-by-hand" open>.*?<\/details>/s', $workflow_html, $m);
 $workflow_file = $m[0] ?? '';
@@ -597,16 +597,16 @@ check('no paid agent is named on either screen', !preg_match('/\b(Rewrite|Source
 /* ─── Row: Settings access and the License section per plan state ────── */
 echo "Row — Settings needs pqm_manage_settings (or core manage_options); a license on the Free build points to the Pro download\n";
 $GLOBALS['tw']['caps'] = ['pqm_manage_agents'];
-check('pqm_manage_agents alone: no Settings page (core manage_options)', PQM_Admin::settings_page_capability() === 'manage_options');
+check('pqm_manage_agents alone: no Settings page (core manage_options)', PostQuality_Admin::settings_page_capability() === 'manage_options');
 $GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
-check('pqm_manage_settings: the Settings page', PQM_Admin::settings_page_capability() === 'pqm_manage_settings');
-pqm_fs()->pro = true;
+check('pqm_manage_settings: the Settings page', PostQuality_Admin::settings_page_capability() === 'pqm_manage_settings');
+postquality_fs()->pro = true;
 ob_start();
-PQM_Admin::render_settings();
+PostQuality_Admin::render_settings();
 $licensed_html = ob_get_clean();
-pqm_fs()->pro = false;
+postquality_fs()->pro = false;
 check('license active on the Free build: "install the Pro version" with the Account link, no plan-Pro line, no Get Pro',
-    str_contains($licensed_html, 'Your Pro license is active. Install the Pro version to use it: <a href="' . pqm_fs()->get_account_url() . '">')
+    str_contains($licensed_html, 'Your Pro license is active. Install the Pro version to use it: <a href="' . postquality_fs()->get_account_url() . '">')
     && !str_contains($licensed_html, 'Current plan: Pro') && !str_contains($licensed_html, 'Get Pro'));
 
 /* ─── Row: both builds installed (Freemius dual activation) ──────────── */
@@ -622,9 +622,9 @@ class Freemius {
     public function is_premium() { return $this->premium; }
     public function set_basename($is_premium, $file) { $this->calls[] = [$is_premium, basename($file)]; }
 }
-function pqm_fs() { static $fs; return $fs ??= new Freemius($GLOBALS['argv'][2] === '1'); }
+function postquality_fs() { static $fs; return $fs ??= new Freemius($GLOBALS['argv'][2] === '1'); }
 $r = require $GLOBALS['argv'][1];
-echo json_encode(['calls' => pqm_fs()->calls, 'functions' => function_exists('pqm_default_settings'), 'returned' => $r]);
+echo json_encode(['calls' => postquality_fs()->calls, 'functions' => function_exists('postquality_default_settings'), 'returned' => $r]);
 PHP);
 foreach ([
     'Free active, the Pro file loads'  => [$root . '/post-quality-manager/post-quality-manager.php', '0', true],

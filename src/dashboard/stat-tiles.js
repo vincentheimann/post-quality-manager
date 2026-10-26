@@ -26,7 +26,7 @@ const STATUS_TILES = [
  * @return {string} Post Reviews URL.
  */
 function postReviewsUrl( args ) {
-	return addQueryArgs( 'admin.php', { page: 'pqm-posts', ...args } );
+	return addQueryArgs( 'admin.php', { page: 'postquality-posts', ...args } );
 }
 
 /**

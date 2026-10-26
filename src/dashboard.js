@@ -74,7 +74,7 @@ function ConnectCard( { canManage } ) {
 						</p>
 						<Button
 							variant="primary"
-							href="admin.php?page=pqm-workflow"
+							href="admin.php?page=postquality-workflow"
 						>
 							{ __(
 								'Set up the n8n workflow',
@@ -294,7 +294,7 @@ export default function Dashboard() {
 								'Enable scheduled reviews',
 								'post-quality-manager'
 							),
-							url: 'admin.php?page=pqm-settings#pqm-cron-settings',
+							url: 'admin.php?page=postquality-settings#pqm-cron-settings',
 							variant: 'primary',
 						},
 						{

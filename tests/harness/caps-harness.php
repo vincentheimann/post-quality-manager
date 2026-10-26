@@ -19,7 +19,7 @@ define('ABSPATH', __DIR__ . '/');
 $GLOBALS['tw'] = [
     'roles'        => [],     // role_name => WP_Role (stub) objects
     'current_role' => null,   // whose capabilities current_user_can() reads
-    'filter_pro'   => null,   // null = pqm_is_pro filter not hooked, bool = override
+    'filter_pro'   => null,   // null = postquality_is_pro filter not hooked, bool = override
 ];
 
 /* ─── WP stubs ───────────────────────────────────────────────────────── */
@@ -53,9 +53,9 @@ function current_user_can($cap) {
     $role = get_role($GLOBALS['tw']['current_role']);
     return $role instanceof WP_Role && !empty($role->capabilities[$cap]);
 }
-function pqm_get_settings() { return []; }
+function postquality_get_settings() { return []; }
 function apply_filters($tag, $value) {
-    if ($tag === 'pqm_is_pro' && $GLOBALS['tw']['filter_pro'] !== null) {
+    if ($tag === 'postquality_is_pro' && $GLOBALS['tw']['filter_pro'] !== null) {
         return $GLOBALS['tw']['filter_pro'];
     }
     return $value;
@@ -78,7 +78,7 @@ function reset_world($role_names = ['administrator', 'editor', 'author', 'contri
         'current_role' => $current_role,
         'filter_pro'   => null,
     ];
-    pqm_fs()->pro = $is_pro; // the SDK stand-in's license (story 44)
+    postquality_fs()->pro = $is_pro; // the SDK stand-in's license (story 44)
     foreach ($role_names as $name) {
         $GLOBALS['tw']['roles'][$name] = new WP_Role($name);
     }
@@ -98,8 +98,8 @@ $paid_commands     = ['rewrite', 'sources', 'seo', 'audit'];
 /* ─── Row 1: Default map ─────────────────────────────────────────────── */
 echo "Row 1 — Fresh registration grants the ADR 0003 access matrix\n";
 reset_world();
-check('capabilities() equals the ADR 0003 access matrix', PQM_Features::capabilities() === $default_map);
-PQM_Features::register_capabilities();
+check('capabilities() equals the ADR 0003 access matrix', PostQuality_Features::capabilities() === $default_map);
+PostQuality_Features::register_capabilities();
 foreach ($default_map as $cap => $granted_roles) {
     $holders = [];
     foreach ($GLOBALS['tw']['roles'] as $name => $role) {
@@ -111,7 +111,7 @@ check('contributor holds no pqm_ cap', $GLOBALS['tw']['roles']['contributor']->c
 check('registration is idempotent', (function () use ($default_map) {
     $before = [];
     foreach ($GLOBALS['tw']['roles'] as $name => $role) { $before[$name] = $role->capabilities; }
-    PQM_Features::register_capabilities();
+    PostQuality_Features::register_capabilities();
     foreach ($GLOBALS['tw']['roles'] as $name => $role) {
         if ($role->capabilities !== $before[$name]) { return false; }
     }
@@ -121,7 +121,7 @@ check('registration is idempotent', (function () use ($default_map) {
 /* ─── Row 2: Missing role is skipped silently ────────────────────────── */
 echo "Row 2 — A role absent on the site is skipped, no error\n";
 reset_world(['administrator', 'contributor']); // editor + author removed from this site
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 check('no error; administrator still gets all five caps',
     array_keys($GLOBALS['tw']['roles']['administrator']->capabilities) === array_keys($default_map));
 check('absent roles stay absent', !isset($GLOBALS['tw']['roles']['editor'], $GLOBALS['tw']['roles']['author']));
@@ -129,13 +129,13 @@ check('absent roles stay absent', !isset($GLOBALS['tw']['roles']['editor'], $GLO
 /* ─── Row 3: Uninstall strip (explicit denies included) ──────────────── */
 echo "Row 3 — remove_capabilities() leaves no pqm_* key on any role\n";
 reset_world();
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 /* a role editor stored an explicit deny (cap => false) — must be stripped too (review fix 2026-10-01) */
 $GLOBALS['tw']['roles']['contributor']->capabilities['pqm_run_paid_agents'] = false;
 $GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews'] = false;
 /* a non-pqm cap must survive the strip */
 $GLOBALS['tw']['roles']['author']->capabilities['edit_posts'] = true;
-PQM_Features::remove_capabilities();
+PostQuality_Features::remove_capabilities();
 $leftover = [];
 foreach ($GLOBALS['tw']['roles'] as $name => $role) {
     foreach ($role->capabilities as $cap => $grant) {
@@ -148,12 +148,12 @@ check('non-pqm caps untouched', !empty($GLOBALS['tw']['roles']['author']->capabi
 /* ─── Row 3b (bug 20): direct user grants are stripped too ───────────── */
 echo "Row 3b — remove_capabilities() leaves no pqm_* key in any user's own capabilities\n";
 reset_world();
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 $GLOBALS['tw']['users'] = [
     'quota-lifted author' => new WP_User(['author' => true, 'pqm_run_paid_agents' => true, 'edit_others_posts' => true]),
     'denied editor'       => new WP_User(['editor' => true, 'pqm_manage_agents' => false]),
 ];
-PQM_Features::remove_capabilities();
+PostQuality_Features::remove_capabilities();
 check('the user query asks for exactly the five pqm caps',
     $GLOBALS['tw']['users_query']['capability__in'] === array_keys($default_map));
 $leftover = [];
@@ -195,24 +195,24 @@ $expected_matrix = [
 foreach ($expected_matrix as $role_name => $by_plan) {
     foreach ($by_plan as $plan => $cells) {
         reset_world(['administrator', 'editor', 'author', 'contributor'], $plan === 'pro', $role_name);
-        PQM_Features::register_capabilities();
+        PostQuality_Features::register_capabilities();
         foreach ($cells as $command => $expected) {
-            $actual = PQM_Features::why_not($command);
+            $actual = PostQuality_Features::why_not($command);
             check(sprintf('%-13s %-4s why_not(%s) = %s', $role_name, $plan, $command, var_export($expected, true)),
                 $actual === $expected);
         }
         /* can() is why_not() === null in every cell */
         foreach ($cells as $command => $expected) {
             check(sprintf('%-13s %-4s can(%s) mirrors why_not()', $role_name, $plan, $command),
-                PQM_Features::can($command) === ($expected === null));
+                PostQuality_Features::can($command) === ($expected === null));
         }
     }
 }
-/* the pqm_is_pro filter override still always wins over the provider */
+/* the postquality_is_pro filter override still always wins over the provider */
 reset_world(['administrator', 'editor', 'author', 'contributor'], false, 'editor');
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 $GLOBALS['tw']['filter_pro'] = true;
-check("mu-plugin override: why_not('seo') null for editor on an unlicensed site", PQM_Features::why_not('seo') === null);
+check("mu-plugin override: why_not('seo') null for editor on an unlicensed site", PostQuality_Features::why_not('seo') === null);
 
 /* ─── Row 5: hidden/gated/allowed partition the registry ─────────────── */
 echo "Row 5 — hidden_commands() and gated_commands() are disjoint and complete\n";
@@ -229,10 +229,10 @@ $expected_split = [
 ];
 foreach ($expected_split as [$role_name, $is_pro, $exp_hidden, $exp_gated]) {
     reset_world(['administrator', 'editor', 'author', 'contributor'], $is_pro, $role_name);
-    PQM_Features::register_capabilities();
-    $hidden  = PQM_Features::hidden_commands();
-    $gated   = PQM_Features::gated_commands();
-    $allowed = array_values(array_filter($registry_commands, ['PQM_Features', 'can']));
+    PostQuality_Features::register_capabilities();
+    $hidden  = PostQuality_Features::hidden_commands();
+    $gated   = PostQuality_Features::gated_commands();
+    $allowed = array_values(array_filter($registry_commands, ['PostQuality_Features', 'can']));
     $plan    = $is_pro ? 'pro' : 'free';
     check("$role_name $plan hidden = [" . implode(',', $exp_hidden) . ']', $hidden === $exp_hidden);
     check("$role_name $plan gated = [" . implode(',', $exp_gated) . ']', $gated === $exp_gated);
@@ -248,39 +248,39 @@ foreach ($expected_split as [$role_name, $is_pro, $exp_hidden, $exp_gated]) {
 echo "Row 6 — registry = the 8 commands with their tiers; unknown commands fail closed\n";
 $free_entry = ['tier' => 'free', 'capability' => 'pqm_run_free_agents'];
 $paid_entry = ['tier' => 'paid', 'capability' => 'pqm_run_paid_agents'];
-check('registry keys === the 8 commands', array_keys(PQM_Features::registry()) === $registry_commands);
+check('registry keys === the 8 commands', array_keys(PostQuality_Features::registry()) === $registry_commands);
 check('review, takeaways, score, apply free on pqm_run_free_agents; rewrite, sources, seo, audit paid on pqm_run_paid_agents',
-    array_map(fn($entry) => array_intersect_key($entry, $free_entry), PQM_Features::registry()) === [
+    array_map(fn($entry) => array_intersect_key($entry, $free_entry), PostQuality_Features::registry()) === [
         'review'  => $free_entry, 'takeaways' => $free_entry,
         'rewrite' => $paid_entry, 'sources'   => $paid_entry, 'seo' => $paid_entry, 'audit' => $paid_entry,
         'score'   => $free_entry, 'apply'     => $free_entry,
     ]);
 /* Story 11: the registry is the one label source */
 check('every registry entry carries a non-empty label string',
-    array_filter(PQM_Features::registry(), fn($entry) => !is_string($entry['label'] ?? null) || $entry['label'] === '') === []);
+    array_filter(PostQuality_Features::registry(), fn($entry) => !is_string($entry['label'] ?? null) || $entry['label'] === '') === []);
 check("label('seo') === 'SEO', label('takeaways') === 'Takeaways'",
-    PQM_Features::label('seo') === 'SEO' && PQM_Features::label('takeaways') === 'Takeaways');
-check("label('foo') === 'foo' (unknown passes through raw, no ucfirst)", PQM_Features::label('foo') === 'foo');
+    PostQuality_Features::label('seo') === 'SEO' && PostQuality_Features::label('takeaways') === 'Takeaways');
+check("label('foo') === 'foo' (unknown passes through raw, no ucfirst)", PostQuality_Features::label('foo') === 'foo');
 $unknown_commands = ['foo', 'apply_takeaways', 'ping', ''];
 foreach (['administrator', 'editor', 'author', 'contributor'] as $role_name) {
     foreach ([false, true] as $is_pro) {
         reset_world(['administrator', 'editor', 'author', 'contributor'], $is_pro, $role_name);
-        PQM_Features::register_capabilities();
+        PostQuality_Features::register_capabilities();
         $plan = $is_pro ? 'pro' : 'free';
         foreach ($unknown_commands as $command) {
             check(sprintf("%-13s %-4s why_not('%s') = 'role', can() false", $role_name, $plan, $command),
-                PQM_Features::why_not($command) === 'role' && PQM_Features::can($command) === false);
+                PostQuality_Features::why_not($command) === 'role' && PostQuality_Features::can($command) === false);
             check(sprintf("%-13s %-4s plan_allows('%s') = false", $role_name, $plan, $command),
-                PQM_Features::plan_allows($command) === false);
+                PostQuality_Features::plan_allows($command) === false);
         }
     }
 }
-/* the pqm_is_pro override cannot open an unknown command either (free site, filter flips it pro) */
+/* the postquality_is_pro override cannot open an unknown command either (free site, filter flips it pro) */
 reset_world(['administrator', 'editor', 'author', 'contributor'], false, 'administrator');
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 $GLOBALS['tw']['filter_pro'] = true;
 check("mu-plugin override: why_not('foo') still 'role', plan_allows('foo') still false",
-    PQM_Features::why_not('foo') === 'role' && PQM_Features::plan_allows('foo') === false);
+    PostQuality_Features::why_not('foo') === 'role' && PostQuality_Features::plan_allows('foo') === false);
 
 /* ─── Row 7 (ticket 16): the README tells the same truth ─────────────── */
 echo "Row 7 — README capability table === capabilities(); single-site stated\n";
@@ -291,7 +291,7 @@ preg_match_all('/^\| `(pqm_[a-z_]+)` \| ([^|]+) \|\s*$/m', $readme, $rows, PREG_
 $readme_caps = array_column($rows, 1);
 $readme_cells = array_column($rows, 2, 1);
 /* The README cell exactly as written: role keys ucfirst, joined by ", ". */
-$expected_cells = array_map(static fn($roles) => implode(', ', array_map('ucfirst', $roles)), PQM_Features::capabilities());
+$expected_cells = array_map(static fn($roles) => implode(', ', array_map('ucfirst', $roles)), PostQuality_Features::capabilities());
 check('README capability table: each capability exactly once, no extra pqm_ row, in capabilities() order',
     $readme_caps === array_keys($expected_cells));
 check('README role cells === capabilities() written out exactly (case and order)',
@@ -300,7 +300,7 @@ check('README states single-site support (multisite unsupported)',
     str_contains($readme, '**Single-site only.**') && str_contains($readme, 'Multisite networks are not supported'));
 
 /* ─── Row 8 (ticket 12): maybe_upgrade() grants only when the stored version is behind ── */
-echo "Row 8 — PQM_Activator::maybe_upgrade() against pqm_caps_version\n";
+echo "Row 8 — PostQuality_Activator::maybe_upgrade() against pqm_caps_version\n";
 /** Each role's capabilities array, as stored. */
 function role_caps_snapshot() {
     return array_map(static fn($role) => $role->capabilities, $GLOBALS['tw']['roles']);
@@ -311,20 +311,20 @@ function holders_of($cap) {
 }
 
 reset_world();
-PQM_Activator::maybe_upgrade();
+PostQuality_Activator::maybe_upgrade();
 foreach ($default_map as $cap => $granted_roles) {
     check("option absent: $cap granted to exactly its default roles", holders_of($cap) === $granted_roles);
 }
 check('option absent: pqm_caps_version stored as CAPS_VERSION, one write',
-    ($GLOBALS['tw']['options']['pqm_caps_version'] ?? null) === PQM_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
+    ($GLOBALS['tw']['options']['pqm_caps_version'] ?? null) === PostQuality_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
 
 reset_world();
-PQM_Features::register_capabilities();
-$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) PQM_Features::CAPS_VERSION]; // real get_option returns the stored scalar as a string
+PostQuality_Features::register_capabilities();
+$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) PostQuality_Features::CAPS_VERSION]; // real get_option returns the stored scalar as a string
 $GLOBALS['tw']['writes'] = [];
 unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // an admin removed it by hand
 $before = role_caps_snapshot();
-PQM_Activator::maybe_upgrade();
+PostQuality_Activator::maybe_upgrade();
 check('equal version: no grant — every role byte-identical (hand edit kept)', role_caps_snapshot() === $before);
 check('equal version: no option write', count($GLOBALS['tw']['writes'] ?? []) === 0);
 
@@ -333,14 +333,14 @@ check('equal version: no option write', count($GLOBALS['tw']['writes'] ?? []) ==
  * Administrator removed from a role by hand or on the Roles tab stays removed. */
 reset_world();
 $GLOBALS['tw']['roles']['administrator']->add_cap('manage_options');
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 /* Ceiling: with CAPS_VERSION = 1 this stores 0 — distinct from 'absent' only once CAPS_VERSION > 1. */
-$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) (PQM_Features::CAPS_VERSION - 1)];
+$GLOBALS['tw']['options'] = ['pqm_caps_version' => (string) (PostQuality_Features::CAPS_VERSION - 1)];
 $GLOBALS['tw']['writes'] = [];
 unset($GLOBALS['tw']['roles']['author']->capabilities['pqm_view_reviews']); // set on the Roles tab
 foreach ($GLOBALS['tw']['roles'] as $role) { $role->remove_cap('pqm_manage_agents'); } // as if new in this version
 $before = role_caps_snapshot();
-PQM_Activator::maybe_upgrade();
+PostQuality_Activator::maybe_upgrade();
 check('lower version: the hand-removed cap stays removed (author lacks pqm_view_reviews)',
     holders_of('pqm_view_reviews') === ['administrator', 'editor']);
 check('lower version: a cap no manage_options role holds is granted to exactly its default roles',
@@ -348,7 +348,7 @@ check('lower version: a cap no manage_options role holds is granted to exactly i
 $before['administrator']['pqm_manage_agents'] = $before['editor']['pqm_manage_agents'] = true;
 check('lower version: nothing else changes on any role', role_caps_snapshot() == $before);
 check('lower version: stores CAPS_VERSION, one write',
-    $GLOBALS['tw']['options']['pqm_caps_version'] === PQM_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
+    $GLOBALS['tw']['options']['pqm_caps_version'] === PostQuality_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
 
 /* ─── Row 9 (story 42): activation and upgrade keep the roles as set ─── */
 echo "Row 9 — register_capabilities() grants a cap's defaults only while no manage_options role holds it\n";
@@ -361,7 +361,7 @@ function reset_real_site() {
     }
 }
 /* activate()'s capability step (create_table() needs a WP install); PHP 8.1+ invokes a private method as is. */
-$activate_caps = new ReflectionMethod('PQM_Activator', 'register_capabilities');
+$activate_caps = new ReflectionMethod('PostQuality_Activator', 'register_capabilities');
 
 reset_real_site();
 $activate_caps->invoke(null);
@@ -373,7 +373,7 @@ foreach ($default_map as $cap => $granted_roles) {
  * Manage settings, the custom role given Run Review and Key Takeaways. */
 $set_on_tab = static function () {
     reset_real_site();
-    PQM_Features::register_capabilities();
+    PostQuality_Features::register_capabilities();
     $GLOBALS['tw']['roles']['author']->remove_cap('pqm_view_reviews');
     $GLOBALS['tw']['roles']['editor']->add_cap('pqm_manage_settings');
     $GLOBALS['tw']['roles']['writer']->add_cap('pqm_run_free_agents');
@@ -386,11 +386,11 @@ $activate_caps->invoke(null);
 check('re-activation: every role byte-identical (Author still lacks View reviews)', role_caps_snapshot() === $before);
 $activate_caps->invoke(null);
 check('second re-activation: still byte-identical', role_caps_snapshot() === $before);
-foreach (['absent' => null, 'lower' => (string) (PQM_Features::CAPS_VERSION - 1)] as $label => $stored) {
+foreach (['absent' => null, 'lower' => (string) (PostQuality_Features::CAPS_VERSION - 1)] as $label => $stored) {
     $set_on_tab();
     $GLOBALS['tw']['options'] = $stored === null ? [] : ['pqm_caps_version' => $stored];
     $before = role_caps_snapshot();
-    PQM_Activator::maybe_upgrade();
+    PostQuality_Activator::maybe_upgrade();
     check("upgrade, stored version $label: every role byte-identical", role_caps_snapshot() === $before);
 }
 check('no per-user grant read or touched (no user query)',
@@ -400,14 +400,14 @@ check('no per-user grant read or touched (no user query)',
 reset_real_site();
 $GLOBALS['tw']['roles']['writer']->add_cap('manage_options');
 $GLOBALS['tw']['roles']['writer']->add_cap('pqm_view_reviews');
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 check('a custom manage_options role holding a cap keeps its defaults from being granted',
     holders_of('pqm_view_reviews') === ['writer'] && holders_of('pqm_run_free_agents') === ['administrator', 'editor', 'author']);
 /* Documented ceiling: a cap stripped from every manage_options role is granted again. */
 reset_real_site();
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 $GLOBALS['tw']['roles']['administrator']->remove_cap('pqm_manage_settings');
-PQM_Features::register_capabilities();
+PostQuality_Features::register_capabilities();
 check('ceiling: stripped from every manage_options role, the defaults come back', holders_of('pqm_manage_settings') === ['administrator']);
 
 /* ─── Row 10 (story 42): View as is retired ──────────────────────────── */
@@ -450,14 +450,14 @@ class WP_Application_Passwords {
 reset_world();
 $GLOBALS['tw']['options']['pqm_n8n_setup'] = ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1', 'anthropic' => 'c2', 'wordpress' => 'c3'],
     'path' => 'pqm-execute-example-com', 'wizard_created' => true, 'at' => 1, 'application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]];
-PQM_Features::register_capabilities();
-PQM_Activator::uninstall(); // story 44: the SDK's after_uninstall hook calls it
+PostQuality_Features::register_capabilities();
+PostQuality_Activator::uninstall(); // story 44: the SDK's after_uninstall hook calls it
 check('uninstall revokes the Application Password the setup map names (user id and uuid from the map), before pqm_n8n_setup is deleted (bug 73)',
     count($GLOBALS['tw_app_revoked']) === 1 && $GLOBALS['tw_app_revoked'][0][0] === 7 && $GLOBALS['tw_app_revoked'][0][1] === 'app-uuid'
     && !in_array('pqm_n8n_setup', $GLOBALS['tw_app_revoked'][0]['deleted so far'], true));
 check('uninstall deletes the leftover pqm_view_as meta for all users',
     in_array(['user', 0, 'pqm_view_as', '', true], $GLOBALS['tw_metadata_deletes'], true));
-/* Story 44: the cleanup moved from uninstall.php into PQM_Activator::uninstall(), unchanged. */
+/* Story 44: the cleanup moved from uninstall.php into PostQuality_Activator::uninstall(), unchanged. */
 check('uninstall drops the pqm_reviews table', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_pqm_reviews`']);
 check('uninstall deletes every pqm_ option',
     $GLOBALS['tw_option_deletes'] === ['pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen',
@@ -466,7 +466,7 @@ $GLOBALS['tw_option_deletes'] = [];
 $GLOBALS['tw_app_revoked'] = [];
 $GLOBALS['tw_cleared_hooks'] = []; // the cron check below counts this second run's clear
 unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
-PQM_Activator::uninstall();
+PostQuality_Activator::uninstall();
 check('uninstall without a setup map: no Application Password revoked, every option still deleted', $GLOBALS['tw_app_revoked'] === []
     && in_array('pqm_n8n_setup', $GLOBALS['tw_option_deletes'], true) && in_array('pqm_n8n_provisioning', $GLOBALS['tw_option_deletes'], true));
 check('uninstall deletes the pqm_monthly_usage meta for all users',

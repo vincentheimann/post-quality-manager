@@ -13,7 +13,7 @@ import { __, _n, sprintf } from '@wordpress/i18n';
 
 import { commandLabel } from '../kit/copy';
 
-/** Where each command's suggested items live in its result (PQM_Blocks::item_keys()). */
+/** Where each command's suggested items live in its result (PostQuality_Blocks::item_keys()). */
 const ITEM_KEYS = {
 	takeaways: 'rewritten_items',
 	sources: 'rewritten_sources',
@@ -29,7 +29,7 @@ const ITEM_KEYS = {
  */
 export function insertItems( command, data ) {
 	const items = ITEM_KEYS[ command ] && data && data[ ITEM_KEYS[ command ] ];
-	// Same rule as PQM_Blocks::latest_items(): text only, blanks dropped.
+	// Same rule as PostQuality_Blocks::latest_items(): text only, blanks dropped.
 	return Array.isArray( items )
 		? items.filter(
 				( item ) =>

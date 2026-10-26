@@ -10,7 +10,7 @@ metadata:
 | Ticket | What it settles | Runs after |
 |---|---|---|
 | spike 43 | Commercial model → ADR: launch posture (D1), seller identity (D2), provider (D3, Freemius per ADR 0003 unless overridden), plans (D4), price/currencies (D5), trial/refund (D6), lapse (D7), opt-in telemetry vs `epic-ebm-telemetry` (D8), support promise (D9), plan names (D10). Each has a recommended default. | — |
-| story 44 | Real licensing: provider product + SDK behind `PQM_License` (ADR 0006 seam), "Get Pro" link, lapse → Free, harness, Plugin Check, release-notes line. Replaces the deferred-work Freemius item. | 43 |
+| story 44 | Real licensing: provider product + SDK behind `PostQuality_License` (ADR 0006 seam), "Get Pro" link, lapse → Free, harness, Plugin Check, release-notes line. Replaces the deferred-work Freemius item. | 43 |
 | story 45 | Public home: domain (+ trademark search), landing page, pricing, docs, policy pages; `Plugin URI` / `Author URI` leave GitHub. | 43, 41 |
 | story 46 | Policies: privacy (plugin + provider opt-in + website), Pro terms, refund, support, security (`SECURITY.md`), `wp_add_privacy_policy_content()` text for story 38. | 43 |
 | story 47 | `docs/distribution.md`: every field per platform (WordPress.org account + readme header, provider product, GitHub front, website, plugin header) with a value or an `OWNER:` marker. First to run. | — |

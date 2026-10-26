@@ -3,7 +3,7 @@
  * command order, status labels, plan-gate wording and the copy both React
  * pages share (Post Reviews and the Dashboard). Command labels are not
  * kept here: they come translated from the PHP registry
- * (PQM_Features::registry()), printed as window.pqmCommandLabels before
+ * (PostQuality_Features::registry()), printed as window.postqualityCommandLabels before
  * the bundle. Copy follows docs/brand.md; every string here flows
  * through @wordpress/i18n.
  */
@@ -12,7 +12,7 @@ import { __, sprintf } from '@wordpress/i18n';
 /**
  * Canonical command order — the order pills, tabs and buttons render in:
  * the six commands, kept only where the registry labels PHP prints
- * (window.pqmCommandLabels, from PQM_Features::registry()) list them, so
+ * (window.postqualityCommandLabels, from PostQuality_Features::registry()) list them, so
  * the Free build (ADR 0014, story 54) renders no paid pill, tab or button.
  * Without the print (tests), all six.
  */
@@ -26,19 +26,20 @@ const ALL_COMMANDS = [
 ];
 export const COMMAND_ORDER = ALL_COMMANDS.filter(
 	( command ) =>
-		! window.pqmCommandLabels || command in window.pqmCommandLabels
+		! window.postqualityCommandLabels ||
+		command in window.postqualityCommandLabels
 );
 
 /**
  * Display label for a command key, read from the registry labels PHP
- * prints (window.pqmCommandLabels) — carries the SEO casing ('seo' → 'SEO').
+ * prints (window.postqualityCommandLabels) — carries the SEO casing ('seo' → 'SEO').
  * Unknown keys pass through raw so new commands are never blank.
  *
  * @param {string} command Command key, e.g. 'seo'.
  * @return {string} Translated label.
  */
 export function commandLabel( command ) {
-	return ( window.pqmCommandLabels || {} )[ command ] || command;
+	return ( window.postqualityCommandLabels || {} )[ command ] || command;
 }
 
 /**

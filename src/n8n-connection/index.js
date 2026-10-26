@@ -84,7 +84,7 @@ const credentialName = ( credential ) => credential.name || credential.id;
 const dateOf = ( at ) => new Date( at * 1000 ).toLocaleDateString();
 
 /**
- * Connected: the server's one predicate (story 74: PQM_N8n::connected(), a
+ * Connected: the server's one predicate (story 74: PostQuality_N8n::connected(), a
  * key stored and its last probe passing).
  *
  * @param {Object} data The stored state.

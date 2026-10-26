@@ -18,15 +18,15 @@ if (!defined('ABSPATH')) {
  * Registers languages/ for the text domain on init, never earlier: since
  * WordPress 6.7 the files load just in time, and an earlier load raises a
  * "too early" notice. The React bundle reads the same folder
- * (wp_set_script_translations in PQM_Admin::enqueue_assets).
+ * (wp_set_script_translations in PostQuality_Admin::enqueue_assets).
  */
-function pqm_load_textdomain(): void
+function postquality_load_textdomain(): void
 {
-    load_plugin_textdomain('post-quality-manager', false, dirname(plugin_basename(PQM_PLUGIN_FILE)) . '/languages');
+    load_plugin_textdomain('post-quality-manager', false, dirname(plugin_basename(POSTQUALITY_PLUGIN_FILE)) . '/languages');
 }
 
 /* ─── Helper: Settings defaults (single source of truth) ─────────────── */
-function pqm_default_settings(): array
+function postquality_default_settings(): array
 {
     $defaults = [
         // Unused since story 44 (the Freemius SDK holds the license); kept so
@@ -53,12 +53,12 @@ function pqm_default_settings(): array
         'agent_prompts' => [
             'review' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'high'],
             // 'pattern': the user pattern (wp_block ID) Insert into Post copies the items into,
-            // 0 = plain list (PQM_Blocks) — these two agents only.
+            // 0 = plain list (PostQuality_Blocks) — these two agents only.
             'takeaways' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'medium', 'pattern' => 0],
         ],
     ];
     // The paid agents (ADR 0014: absent from the Free build).
-    if ( pqm_fs()->is__premium_only() ) {
+    if ( postquality_fs()->is__premium_only() ) {
         $defaults['agent_prompts'] += [
             'sources' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium', 'pattern' => 0],
             'seo' => ['instructions' => '', 'temperature' => 0.0, 'model' => '', 'effort' => 'medium'],
@@ -74,7 +74,7 @@ function pqm_default_settings(): array
 /**
  * Curated Claude models with the request parameters each one accepts.
  * Consumed by the settings UI, the sanitizer, the admin JS (via
- * wp_localize_script) and pqm_llm_params() — supporting a new model
+ * wp_localize_script) and postquality_llm_params() — supporting a new model
  * means adding one entry here.
  *
  * Capability notes (Claude API):
@@ -84,7 +84,7 @@ function pqm_default_settings(): array
  *   'thinking' => 'disabled' sends {type: "disabled"} so thinking tokens
  *   don't eat the agents' output budgets on this structured-JSON pipeline.
  */
-function pqm_model_registry(): array
+function postquality_model_registry(): array
 {
     return [
         'claude-opus-4-8' => [
@@ -123,9 +123,9 @@ function pqm_model_registry(): array
  * conservative profile: no sampling, no effort, no thinking parameter —
  * every current Claude model accepts that request shape.
  */
-function pqm_model_caps(string $model): array
+function postquality_model_caps(string $model): array
 {
-    return pqm_model_registry()[$model] ?? [
+    return postquality_model_registry()[$model] ?? [
         'label'                => $model,
         'pricing'              => '',
         'supports_temperature' => false,
@@ -138,10 +138,10 @@ function pqm_model_caps(string $model): array
  * Model an agent will actually call: its own override when set, otherwise
  * the global default (resolving the Custom free-text ID).
  */
-function pqm_effective_model(string $agent, array $settings): string
+function postquality_effective_model(string $agent, array $settings): string
 {
     $override = $settings['agent_prompts'][$agent]['model'] ?? '';
-    if ($override !== '' && isset(pqm_model_registry()[$override])) {
+    if ($override !== '' && isset(postquality_model_registry()[$override])) {
         return $override;
     }
 
@@ -156,13 +156,13 @@ function pqm_effective_model(string $agent, array $settings): string
 /**
  * Output budget per agent (tokens). Fixed pipeline values, not a setting.
  */
-function pqm_agent_max_tokens(): array
+function postquality_agent_max_tokens(): array
 {
     $tokens = [
         'review'    => 2500,
         'takeaways' => 1000,
     ];
-    if ( pqm_fs()->is__premium_only() ) {
+    if ( postquality_fs()->is__premium_only() ) {
         $tokens += [
             'sources'   => 2000,
             'seo'       => 1000,
@@ -179,15 +179,15 @@ function pqm_agent_max_tokens(): array
  * spreads this object into the request body as-is, so every LLM option
  * lives here (plugin-side) and never requires a workflow re-import.
  */
-function pqm_llm_params(string $agent, array $settings): array
+function postquality_llm_params(string $agent, array $settings): array
 {
-    $model = pqm_effective_model($agent, $settings);
-    $caps  = pqm_model_caps($model);
+    $model = postquality_effective_model($agent, $settings);
+    $caps  = postquality_model_caps($model);
     $agent_settings = $settings['agent_prompts'][$agent] ?? [];
 
     $params = [
         'model'      => $model,
-        'max_tokens' => pqm_agent_max_tokens()[$agent] ?? 2000,
+        'max_tokens' => postquality_agent_max_tokens()[$agent] ?? 2000,
     ];
 
     if ($caps['supports_temperature']) {
@@ -212,11 +212,11 @@ function pqm_llm_params(string $agent, array $settings): array
 /**
  * The full agent => request-fragment map shipped in every n8n payload.
  */
-function pqm_llm_map(array $settings): array
+function postquality_llm_map(array $settings): array
 {
     $map = [];
-    foreach (array_keys(pqm_default_settings()['agent_prompts']) as $agent) {
-        $map[$agent] = pqm_llm_params($agent, $settings);
+    foreach (array_keys(postquality_default_settings()['agent_prompts']) as $agent) {
+        $map[$agent] = postquality_llm_params($agent, $settings);
     }
     return $map;
 }
@@ -224,10 +224,10 @@ function pqm_llm_map(array $settings): array
 /* ─── Helper: Brand voice presets (single source of truth) ───────────── */
 /**
  * Editorial Standards presets, shared by the settings UI (labels + muted
- * preview) and pqm_resolved_voice() (the text the agents receive).
+ * preview) and postquality_resolved_voice() (the text the agents receive).
  * 'custom' is a UI state, not a preset, so it is not listed here.
  */
-function pqm_voice_presets(): array
+function postquality_voice_presets(): array
 {
     return [
         'professional' => [
@@ -250,7 +250,7 @@ function pqm_voice_presets(): array
  * determine_locale(), the viewer's), so a preset resolves to the same text
  * whoever triggers the command, cron included.
  */
-function pqm_in_site_locale(callable $fn)
+function postquality_in_site_locale(callable $fn)
 {
     $switched = switch_to_locale(get_locale());
     try {
@@ -267,10 +267,10 @@ function pqm_in_site_locale(callable $fn)
  * radio is the setting. A selected preset sends its instruction from code,
  * in the site language; Custom (or an unknown key) sends the stored text.
  */
-function pqm_resolved_voice(array $settings): string
+function postquality_resolved_voice(array $settings): string
 {
-    return pqm_in_site_locale(
-        static fn() => pqm_voice_presets()[$settings['brand_voice_preset']]['instruction'] ?? $settings['brand_voice']
+    return postquality_in_site_locale(
+        static fn() => postquality_voice_presets()[$settings['brand_voice_preset']]['instruction'] ?? $settings['brand_voice']
     );
 }
 
@@ -279,11 +279,11 @@ function pqm_resolved_voice(array $settings): string
  * text from code, in the site language; Custom (or an unknown key) sends the
  * stored text.
  */
-function pqm_resolved_context(array $settings): string
+function postquality_resolved_context(array $settings): string
 {
-    return pqm_in_site_locale(static function () use ($settings) {
+    return postquality_in_site_locale(static function () use ($settings) {
         $key = $settings['blog_profile'];
-        $profiles = PQM_Admin::blog_profiles();
+        $profiles = PostQuality_Admin::blog_profiles();
         return $key !== 'custom' && isset($profiles[$key])
             ? $profiles[$key]['website_context']
             : $settings['website_context'];
@@ -295,7 +295,7 @@ function pqm_resolved_context(array $settings): string
  * This site's host as the template's __PQM_SITE_HOST__ placeholder gets it —
  * also the suffix of two credential names the admin copy tells users to use.
  */
-function pqm_site_host(): string
+function postquality_site_host(): string
 {
     return wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
 }
@@ -310,25 +310,25 @@ function pqm_site_host(): string
  * share the credential names; add the port and path to the slug when an
  * owner needs it.
  */
-function pqm_webhook_path(): string
+function postquality_webhook_path(): string
 {
-    return 'pqm-execute-' . trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(pqm_site_host())), '-');
+    return 'pqm-execute-' . trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(postquality_site_host())), '-');
 }
 
 /**
  * Bundled workflow template with this site's values injected. Shared by the
  * n8n Workflow page download, the REST import-from-URL endpoint and the
  * n8n provisioning (entries 4 and 9). `$path` is the Webhook Trigger's
- * path, this site's own (pqm_webhook_path()) unless the caller names the one
+ * path, this site's own (postquality_webhook_path()) unless the caller names the one
  * a managed workflow already listens on (entry 9, D1: an adopted workflow
  * keeps its path). Returns null when the template file is missing.
  */
-function pqm_workflow_json(?string $path = null): ?string
+function postquality_workflow_json(?string $path = null): ?string
 {
     // ADR 0014: the Free build serves the template without the paid branches.
-    $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow-free.json';
-    if ( pqm_fs()->is__premium_only() ) {
-        $template_path = PQM_PLUGIN_DIR . 'templates/n8n-workflow.json';
+    $template_path = POSTQUALITY_PLUGIN_DIR . 'templates/n8n-workflow-free.json';
+    if ( postquality_fs()->is__premium_only() ) {
+        $template_path = POSTQUALITY_PLUGIN_DIR . 'templates/n8n-workflow.json';
     }
     if (!file_exists($template_path)) {
         return null;
@@ -337,7 +337,7 @@ function pqm_workflow_json(?string $path = null): ?string
     // The placeholders sit inside JSON strings: each value goes in as JSON string contents (an adopted path is the trigger's raw string, entry 9).
     return str_replace(
         ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'],
-        array_map(static fn(string $value): string => substr((string) wp_json_encode($value), 1, -1), [pqm_site_host(), $path ?? pqm_webhook_path()]),
+        array_map(static fn(string $value): string => substr((string) wp_json_encode($value), 1, -1), [postquality_site_host(), $path ?? postquality_webhook_path()]),
         file_get_contents($template_path)
     );
 }
@@ -360,7 +360,7 @@ function pqm_workflow_json(?string $path = null): ?string
  * template was last served. A pre-v5 plugin stored a bare int from a
  * command's callback: read as that, with no time.
  */
-function pqm_workflow_report(): ?array
+function postquality_workflow_report(): ?array
 {
     $report = get_option('pqm_workflow_version_seen', null);
     if (is_numeric($report) && (int) $report > 0) {
@@ -386,14 +386,14 @@ function pqm_workflow_report(): ?array
  * Store the version the workflow just reported, how ('test' = a test ping,
  * 'command' = a command's result callback), when, and its variant when it
  * is the Free template ('pro' is stored as no variant). `$miswired` is a
- * test's diagnosis (PQM_N8n::diagnose()): a sentence is stored, '' clears
+ * test's diagnosis (PostQuality_N8n::diagnose()): a sentence is stored, '' clears
  * the stored one, null (the check could not run, or a command's report)
  * keeps it — only a test clears it. A stored failure goes: the workflow
  * answered.
  */
-function pqm_record_workflow_version(int $version, string $via, string $variant, ?string $miswired = null): void
+function postquality_record_workflow_version(int $version, string $via, string $variant, ?string $miswired = null): void
 {
-    $miswired = $miswired ?? (pqm_workflow_report()['miswired'] ?? '');
+    $miswired = $miswired ?? (postquality_workflow_report()['miswired'] ?? '');
     $report   = ['version' => $version, 'via' => $via, 'at' => time()];
     if ($variant === 'free') {
         $report['variant'] = 'free';
@@ -408,10 +408,10 @@ function pqm_record_workflow_version(int $version, string $via, string $variant,
  * Record that a test of the saved webhook URL did not get through (story
  * 67): `failed` = {message, at} on the report option, every other key as
  * stored, so the last passing report stays readable. A passing test
- * (pqm_record_workflow_version()) clears it; a URL change or a template
+ * (postquality_record_workflow_version()) clears it; a URL change or a template
  * serve deletes the option as before.
  */
-function pqm_record_workflow_failure(string $message): void
+function postquality_record_workflow_failure(string $message): void
 {
     $stored = get_option('pqm_workflow_version_seen', null);
     if (is_numeric($stored) && (int) $stored > 0) {
@@ -423,9 +423,9 @@ function pqm_record_workflow_failure(string $message): void
 }
 
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */
-function pqm_get_settings(): array
+function postquality_get_settings(): array
 {
-    $defaults = pqm_default_settings();
+    $defaults = postquality_default_settings();
 
     $saved = get_option('pqm_settings', []);
 
@@ -449,7 +449,7 @@ function pqm_get_settings(): array
  * REST trigger endpoint and the cron batch so both ship identical data —
  * including the per-agent 'llm' request fragments.
  */
-function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
+function postquality_n8n_payload(WP_Post $post, string $command, array $settings): array
 {
     $post_id       = $post->ID;
     $content_html  = get_post_field('post_content', $post_id);
@@ -468,7 +468,7 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
     $rest_route = rest_get_route_for_post($post);
 
     return [
-        'callback_url'      => rest_url(PQM_REST_NAMESPACE . '/save-review'),
+        'callback_url'      => rest_url(POSTQUALITY_REST_NAMESPACE . '/save-review'),
         'auth_token'        => $settings['webhook_token'],
         'notification_url'  => $settings['notification_url'],
         'command'           => $command,
@@ -486,10 +486,10 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
         'focus_keyphrase'   => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_focuskw', true) : '',
         'meta_description'  => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_metadesc', true) : '',
         'seo_title'         => $yoast_active ? (string) get_post_meta($post_id, '_yoast_wpseo_title', true) : '',
-        'brand_voice'       => pqm_resolved_voice($settings),
-        'website_context'   => pqm_resolved_context($settings),
+        'brand_voice'       => postquality_resolved_voice($settings),
+        'website_context'   => postquality_resolved_context($settings),
         'agent_prompts'     => $settings['agent_prompts'],
-        'llm'               => pqm_llm_map($settings),
+        'llm'               => postquality_llm_map($settings),
     ];
 }
 
@@ -500,11 +500,11 @@ function pqm_n8n_payload(WP_Post $post, string $command, array $settings): array
  * on save-review: the template's Webhook Trigger checks it with n8n Header
  * Auth, so knowing the URL alone starts nothing. Older imports ignore it.
  */
-function pqm_n8n_headers(array $settings): array
+function postquality_n8n_headers(array $settings): array
 {
     return [
         'Content-Type' => 'application/json',
-        PQM_N8n::TOKEN_HEADER => (string) ($settings['webhook_token'] ?? ''),
+        PostQuality_N8n::TOKEN_HEADER => (string) ($settings['webhook_token'] ?? ''),
     ];
 }
 
@@ -514,7 +514,7 @@ function pqm_n8n_headers(array $settings): array
  * /webhook-test/ URL only listens while the workflow is open in the n8n
  * editor, so it would pass a ping and then miss every real run.
  */
-function pqm_webhook_url_warning(string $url): string
+function postquality_webhook_url_warning(string $url): string
 {
     $path = (string) wp_parse_url($url, PHP_URL_PATH);
     if (strpos($path, '/webhook-test/') === false) {
@@ -530,26 +530,26 @@ function pqm_webhook_url_warning(string $url): string
  * site task one administrator may finish for another):
  * `['steps' => [step => bool], 'complete' => bool]`, plus `'manual' => true`
  * once the owner chose the manual path (n8n provisioning entry 6.6 writes
- * it, pqm_manual_reason() reads it), autoload off, deleted
- * on uninstall (PQM_Activator::uninstall() names it literally: the harnesses
+ * it, postquality_manual_reason() reads it), autoload off, deleted
+ * on uninstall (PostQuality_Activator::uninstall() names it literally: the harnesses
  * load that class without this file).
  */
-define('PQM_SETUP_OPTION', 'pqm_setup_progress');
+define('POSTQUALITY_SETUP_OPTION', 'pqm_setup_progress');
 
 /**
  * Whether the site is set up: the dialog's first review marked it, or —
  * for sites connected before the dialog existed — n8n is connected and a
- * real result is stored (PQM_DB::has_result(): failed runs do not count,
+ * real result is stored (PostQuality_DB::has_result(): failed runs do not count,
  * and imports older than the version handshake do).
  */
-function pqm_setup_complete(): bool
+function postquality_setup_complete(): bool
 {
-    $progress = get_option(PQM_SETUP_OPTION, []);
+    $progress = get_option(POSTQUALITY_SETUP_OPTION, []);
     if (!empty($progress['complete'])) {
         return true;
     }
 
-    return !empty(pqm_get_settings()['n8n_webhook_url']) && PQM_DB::has_result();
+    return !empty(postquality_get_settings()['n8n_webhook_url']) && PostQuality_DB::has_result();
 }
 
 /**
@@ -558,16 +558,16 @@ function pqm_setup_complete(): bool
  * (`['kind' => 'probe', 'message' => cause sentence, 'at' => date in the
  * site's date format]`), else the owner's own choice
  * (`['kind' => 'choice']`, `manual` in the setup progress), else null. A
- * passing check hides both (PQM_N8n::connected(), story 74). The one reader
+ * passing check hides both (PostQuality_N8n::connected(), story 74). The one reader
  * for the Workflow File section and the wizard (entry 6.6).
  */
-function pqm_manual_reason(): ?array
+function postquality_manual_reason(): ?array
 {
-    if (PQM_N8n::connected()) {
+    if (PostQuality_N8n::connected()) {
         return null;
     }
 
-    $connection = PQM_N8n::connection();
+    $connection = PostQuality_N8n::connection();
     $failed     = $connection['failed'];
     // Story 74: a record older than the stored key's refusal is not why the owner is here now.
     if (is_array($failed) && !empty($failed['message']) && !empty($failed['at'])
@@ -579,7 +579,7 @@ function pqm_manual_reason(): ?array
         ];
     }
 
-    $progress = get_option(PQM_SETUP_OPTION, []);
+    $progress = get_option(POSTQUALITY_SETUP_OPTION, []);
 
     return !empty($progress['manual']) ? ['kind' => 'choice'] : null;
 }

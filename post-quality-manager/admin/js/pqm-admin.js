@@ -29,7 +29,7 @@
         initReimportLink();
         initCopyRows();
         // The rows come back fresh with every body swap (story 67).
-        document.addEventListener('pqm:workflow-status', initCopyRows);
+        document.addEventListener('postquality:workflow-status', initCopyRows);
     });
 
     /* ================================================================
@@ -126,9 +126,9 @@
          * The radio is the setting: a preset shows its text muted (what
          * the AI gets), Custom reveals the textarea with the stored text. */
         bindPresetChoice('.pqm-blog-profile', document.getElementById('pqm_profile_text'),
-            document.getElementById('pqm_context_field'), pqmAdmin.blogProfiles);
+            document.getElementById('pqm_context_field'), postqualityAdmin.blogProfiles);
         bindPresetChoice('.pqm-voice-preset', document.getElementById('pqm_voice_text'),
-            document.getElementById('pqm_voice_field'), pqmAdmin.voicePresets);
+            document.getElementById('pqm_voice_field'), postqualityAdmin.voicePresets);
 
         /* ─── Agent overrides: temperature sliders + reset ─────────── */
         document.querySelectorAll('.pqm-temp-range').forEach(function (range) {
@@ -142,7 +142,7 @@
                 e.preventDefault();
                 // No confirm(): the fill only touches unsaved form fields — Save is the commit point.
                 var key = this.dataset.agent;
-                var defs = (pqmAdmin.agentDefaults || {})[key] || {};
+                var defs = (postqualityAdmin.agentDefaults || {})[key] || {};
                 document.getElementById('pqm_agent_inst_' + key).value = '';
                 var tempInput = document.getElementById('pqm_agent_temp_' + key);
                 var temp = parseFloat(defs.temperature || 0).toFixed(1);
@@ -206,7 +206,7 @@
         // (Editor) view — the localized effective default fills in for them.
         var globalSelect = document.getElementById('pqm_default_model');
         var customField = document.getElementById('pqm_custom_model');
-        var registry = pqmAdmin.modelRegistry || {};
+        var registry = postqualityAdmin.modelRegistry || {};
 
         function caps(model) {
             // Unknown IDs (Custom) get the conservative profile: no knobs.
@@ -214,7 +214,7 @@
         }
 
         function effectiveDefault() {
-            if (!globalSelect) return pqmAdmin.defaultModel || '';
+            if (!globalSelect) return postqualityAdmin.defaultModel || '';
             return globalSelect.value === 'custom'
                 ? (customField ? customField.value.trim() : '')
                 : globalSelect.value;
@@ -285,9 +285,9 @@
     /* ================================================================
      *  WORKFLOW PAGE: ONE BODY, ONE SWAP (story 67)
      *  Every reply that carries status_html carries the page's whole
-     *  body under the H1 (PQM_Admin::render_workflow_body()). The swap
+     *  body under the H1 (PostQuality_Admin::render_workflow_body()). The swap
      *  replaces #pqm-workflow-body's content (the aria-live region
-     *  stays) and dispatches pqm:workflow-status, on which the React
+     *  stays) and dispatches postquality:workflow-status, on which the React
      *  bundle remounts the n8n connection island (src/index.js) and the
      *  Copy rows bind again. Every button below is delegated, so it
      *  keeps working after a swap.
@@ -327,7 +327,7 @@
                 status.focus();
             }
         }
-        document.dispatchEvent(new CustomEvent('pqm:workflow-status'));
+        document.dispatchEvent(new CustomEvent('postquality:workflow-status'));
     }
 
     /**
@@ -356,10 +356,10 @@
      */
     function refreshWorkflowStatus(focusId, ifChanged) {
         var form = new FormData();
-        form.append('action', 'pqm_workflow_status');
-        form.append('_wpnonce', pqmAdmin.pageNonce);
+        form.append('action', 'postquality_workflow_status');
+        form.append('_wpnonce', postqualityAdmin.pageNonce);
 
-        return fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+        return fetch(postqualityAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (resp) {
                 if (!resp || !resp.success || !resp.data || typeof resp.data.status_html !== 'string') return;
@@ -384,7 +384,7 @@
      *  the button meanwhile.
      * ================================================================ */
     function initTestConnection() {
-        var i18n = pqmAdmin.i18n || {};
+        var i18n = postqualityAdmin.i18n || {};
 
         document.addEventListener('click', function (e) {
             var btn = e.target.closest && e.target.closest('.pqm-test-connection');
@@ -396,11 +396,11 @@
             showOutcome(i18n.testing || '', 'busy');
 
             var form = new FormData();
-            form.append('action', 'pqm_test_connection');
+            form.append('action', 'postquality_test_connection');
             form.append('webhook_url', ''); // the saved URL
-            form.append('_wpnonce', pqmAdmin.pageNonce);
+            form.append('_wpnonce', postqualityAdmin.pageNonce);
 
-            fetch(pqmAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
+            fetch(postqualityAdmin.ajaxUrl, { method: 'POST', body: form, credentials: 'same-origin' })
                 .then(function (r) { return r.json(); })
                 .then(function (resp) {
                     // Success and error replies both carry {message, status_html}
@@ -440,12 +440,12 @@
      *  74) is swapped in like a reply; any other REST error or a
      *  request that did not go through shows in the outcome line, the
      *  control enabled again. A control with data-pqm-confirm first
-     *  dispatches the cancelable pqm:confirm-action {action, element}:
+     *  dispatches the cancelable postquality:confirm-action {action, element}:
      *  a listener that prevents it (the n8n connection island, story 76)
      *  asks and posts itself; unheard, the click posts as before.
      * ================================================================ */
     function initRestActions() {
-        var i18n = pqmAdmin.i18n || {};
+        var i18n = postqualityAdmin.i18n || {};
 
         function post(el, body) {
             if (el.pqmBusy) return;
@@ -459,9 +459,9 @@
             }
             if (busy) showOutcome(busy, 'busy');
 
-            fetch(pqmAdmin.restUrl + el.dataset.pqmPost, {
+            fetch(postqualityAdmin.restUrl + el.dataset.pqmPost, {
                 method: 'POST',
-                headers: { 'X-WP-Nonce': pqmAdmin.restNonce, 'Content-Type': 'application/json' },
+                headers: { 'X-WP-Nonce': postqualityAdmin.restNonce, 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
                 body: JSON.stringify(body || {})
             })
@@ -503,7 +503,7 @@
             if (!el || el.tagName === 'FORM' || el.disabled) return;
             e.preventDefault();
             if (el.dataset.pqmConfirm) {
-                var ask = new CustomEvent('pqm:confirm-action', { cancelable: true, detail: { action: el.dataset.pqmConfirm, element: el } });
+                var ask = new CustomEvent('postquality:confirm-action', { cancelable: true, detail: { action: el.dataset.pqmConfirm, element: el } });
                 if (!document.dispatchEvent(ask)) return; // prevented: the listener asks first
                 // Unheard while the built app is on the page: its island has not mounted yet. Never post unasked.
                 if (document.getElementById('pqm-n8n-connection-root')) {
@@ -536,8 +536,8 @@
      *  while the user is away: re-read the body whenever the tab
      *  regains focus — unless the owner is typing in it. The setup
      *  dialog (src/setup/) asks for the same refresh when it closes
-     *  (pqm:setup-closed, with the element to focus in `detail`), and
-     *  the n8n connection island after an adoption (pqm:workflow-refresh).
+     *  (postquality:setup-closed, with the element to focus in `detail`), and
+     *  the n8n connection island after an adoption (postquality:workflow-refresh).
      * ================================================================ */
     function initWorkflowStatusRefresh() {
         var body = document.getElementById('pqm-workflow-body');
@@ -548,7 +548,7 @@
             if (active && body.contains(active) && active.matches('input, textarea')) return;
             refreshWorkflowStatus(undefined, true);
         });
-        ['pqm:setup-closed', 'pqm:workflow-refresh'].forEach(function (type) {
+        ['postquality:setup-closed', 'postquality:workflow-refresh'].forEach(function (type) {
             document.addEventListener(type, function (e) {
                 refreshWorkflowStatus(e.detail && e.detail.focus);
             });
@@ -577,12 +577,12 @@
     /* ================================================================
      *  COPY ROWS (workflow page): every value Set up by hand asks the
      *  reader to enter in n8n, the import URL and the webhook token
-     *  included (PQM_Admin::render_copy_value()). Clipboard refused: the
+     *  included (PostQuality_Admin::render_copy_value()). Clipboard refused: the
      *  value stays selected and the feedback says to press Ctrl+C. Runs
      *  again after each body swap; a row binds once.
      * ================================================================ */
     function initCopyRows() {
-        var i18n = pqmAdmin.i18n || {};
+        var i18n = postqualityAdmin.i18n || {};
 
         /** ok: true / false / null (cleared). */
         function setFeedback(el, ok, msg) {

@@ -1,7 +1,7 @@
 /**
  * The Workflow File section's Copy rows (n8n provisioning, entry 2): one
  * binding in pqm-admin.js over every .pqm-copy-row, the import URL row
- * included, run in jsdom. The fixture mirrors PQM_Admin::render_copy_value();
+ * included, run in jsdom. The fixture mirrors PostQuality_Admin::render_copy_value();
  * render-matrix-harness.php locks the PHP side (rows, labels, aria-live).
  */
 
@@ -49,7 +49,10 @@ function renderSection() {
 
 /** Load pqm-admin.js fresh and run its DOMContentLoaded boot once. */
 function boot() {
-	window.pqmAdmin = { ajaxUrl: '/wp-admin/admin-ajax.php', i18n: I18N };
+	window.postqualityAdmin = {
+		ajaxUrl: '/wp-admin/admin-ajax.php',
+		i18n: I18N,
+	};
 	const listen = jest.spyOn( document, 'addEventListener' );
 	jest.isolateModules( () => require( SCRIPT ) );
 	const [ , init ] = listen.mock.calls.find(

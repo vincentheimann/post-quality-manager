@@ -4,8 +4,8 @@
  * Guards the release-please annotations in the plugin main file: the header
  * still parses the way WordPress reads it (get_file_data + its
  * _cleanup_header_comment trimming), the start/end block encloses exactly the
- * Version line, and only PQM_VERSION carries the inline annotation.
- * Story 4.2 adds row 6: header Version == PQM_VERSION == package.json; the
+ * Version line, and only POSTQUALITY_VERSION carries the inline annotation.
+ * Story 4.2 adds row 6: header Version == POSTQUALITY_VERSION == package.json; the
  * release workflow runs this harness before it builds and publishes.
  * Story 4.6 adds rows 4-5: the Domain Path header and the init-time loader,
  * and the tests/i18n/ fixtures still parse and still name live strings.
@@ -44,17 +44,17 @@ check('exactly one line between them', count($starts) === 1 && count($ends) === 
 check('that line is the header Version line',
     count($starts) === 1 && preg_match('/^[ \t\/*#@]*Version:/i', $lines[$starts[0] + 1]) === 1);
 
-echo "Row 3 — inline annotation on PQM_VERSION only\n";
+echo "Row 3 — inline annotation on POSTQUALITY_VERSION only\n";
 $define = static fn($name) => array_values(array_filter($lines, static fn($l) => str_contains($l, "define('$name'")))[0] ?? '';
-check('PQM_VERSION line carries x-release-please-version', str_contains($define('PQM_VERSION'), 'x-release-please-version'));
-check('PQM_WORKFLOW_VERSION line carries no annotation', $define('PQM_WORKFLOW_VERSION') !== ''
-    && !str_contains($define('PQM_WORKFLOW_VERSION'), 'x-release-please'));
+check('POSTQUALITY_VERSION line carries x-release-please-version', str_contains($define('POSTQUALITY_VERSION'), 'x-release-please-version'));
+check('POSTQUALITY_WORKFLOW_VERSION line carries no annotation', $define('POSTQUALITY_WORKFLOW_VERSION') !== ''
+    && !str_contains($define('POSTQUALITY_WORKFLOW_VERSION'), 'x-release-please'));
 
 echo "Row 4 — translations load from languages/ on init\n";
 check('Domain Path parses as /languages', header_value($data, 'Domain Path') === '/languages');
 $src = file_get_contents($file);
-check('pqm_load_textdomain() is hooked on init',
-    preg_match("/add_action\(\s*'init'\s*,\s*'pqm_load_textdomain'\s*\)/", $src) === 1);
+check('postquality_load_textdomain() is hooked on init',
+    preg_match("/add_action\(\s*'init'\s*,\s*'postquality_load_textdomain'\s*\)/", $src) === 1);
 /* Story 54: the helper lives in includes/pqm-functions.php (the main file declares no function, see its Includes comment). */
 $functions_src = file_get_contents(dirname($file) . '/includes/pqm-functions.php');
 check('it loads the post-quality-manager domain from /languages',
@@ -80,10 +80,10 @@ foreach (array_keys($jsMessages) as $msgid) {
 }
 
 echo "Row 6 — the three release versions agree\n";
-preg_match("/define\('PQM_VERSION',\s*'([^']*)'\)/", $define('PQM_VERSION'), $m);
+preg_match("/define\('POSTQUALITY_VERSION',\s*'([^']*)'\)/", $define('POSTQUALITY_VERSION'), $m);
 $constant = $m[1] ?? null;
 $package = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/package.json'), true)['version'] ?? null;
-check("header $version == PQM_VERSION $constant == package.json $package",
+check("header $version == POSTQUALITY_VERSION $constant == package.json $package",
     $version !== null && $version === $constant && $constant === $package);
 
 echo "Row 7 — readme.txt: headers as WordPress.org parses them, in step with the plugin header\n";

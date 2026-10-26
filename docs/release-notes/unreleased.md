@@ -44,4 +44,6 @@ These changes reach a site that ran an earlier version of Post Quality Manager w
 
 **Tell us what works and what broke, from the Dashboard.** A card at the bottom of the Dashboard opens an email to hello@postquality.com with your message and the facts a report needs (plugin and workflow versions, WordPress and PHP versions, the active theme's name) already filled in, or copies that text for you; nothing is sent unless you send the email yourself. Hide puts it away for you alone; Send feedback brings it back.
 
+**The plugin's admin pages have new addresses.** They now live at `admin.php?page=postquality-dashboard`, `…postquality-posts`, `…postquality-workflow` and `…postquality-settings` (the Account page follows the menu); the menu entries are unchanged. A bookmark to an earlier address now shows WordPress's "not allowed" page: open the page from the menu and bookmark it again.
+
 **No deactivation dialog on a site that skipped the usage-data choice.** The "why are you deactivating" form no longer opens on a site that skipped the usage-data choice at activation, and such a site sends nothing to Freemius when the plugin is deactivated or deleted. A site that answered that choice sees the form as before.

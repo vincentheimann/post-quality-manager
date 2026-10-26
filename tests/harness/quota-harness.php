@@ -2,7 +2,7 @@
 /**
  * CLI harness for story 4 (author quota) — WP stubs, no WP install.
  * Exercises every row of the plan's I/O & Edge-Case Matrix against
- * PQM_Features quota helpers and PQM_REST_API::trigger_review_callback().
+ * PostQuality_Features quota helpers and PostQuality_REST_API::trigger_review_callback().
  */
 
 define('ABSPATH', __DIR__ . '/');
@@ -25,7 +25,7 @@ function current_user_can($cap) { return !empty($GLOBALS['tw']['user_caps'][$cap
 function get_current_user_id() { return $GLOBALS['tw']['user_id']; }
 function get_user_meta($uid, $key, $single) { return $GLOBALS['tw']['user_meta'][$uid][$key] ?? ''; }
 function update_user_meta($uid, $key, $value) { $GLOBALS['tw']['user_meta'][$uid][$key] = $value; return true; }
-function pqm_get_settings() {
+function postquality_get_settings() {
     return array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook', 'webhook_token' => 'tok-35', 'author_quota' => 20], $GLOBALS['tw']['settings']);
 }
 function wp_date($format, $ts = null) {
@@ -38,16 +38,16 @@ function get_role($r) { return null; }
 function get_post($id) {
     return (object)['ID' => $id, 'post_status' => 'publish', 'post_title' => 'Test Post'];
 }
-function pqm_n8n_payload($post, $command, $settings) { return ['command' => $command, 'post_id' => $post->ID]; }
+function postquality_n8n_payload($post, $command, $settings) { return ['command' => $command, 'post_id' => $post->ID]; }
 /* Same shape as the real helper (unit-tested in rest-reviews-harness.php, which loads the bootstrap). */
-function pqm_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
+function postquality_n8n_headers($settings) { return ['Content-Type' => 'application/json', 'X-PQM-Token' => (string) ($settings['webhook_token'] ?? '')]; }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_calls']++;
     $GLOBALS['tw']['webhook_args'] = $args;
     if ($GLOBALS['tw']['webhook_result'] === 'error') { return new WP_Error('http_request_failed', 'cURL error 7'); }
     return ['response' => ['code' => $GLOBALS['tw']['webhook_result']]];
 }
-/* Processing-row stubs (story 5.4): PQM_DB::save_review() runs inside the trigger callback. */
+/* Processing-row stubs (story 5.4): PostQuality_DB::save_review() runs inside the trigger callback. */
 function current_time($type, $gmt = 0) { return '2026-10-05 12:00:00'; }
 
 class PQM_Stub_WPDB {
@@ -68,7 +68,7 @@ require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, 
 $base = dirname(__DIR__, 2) . '/post-quality-manager';
 require $base . '/includes/class-pqm-license.php'; // is_pro() delegates to it (story 3)
 require $base . '/includes/class-pqm-features.php';
-require $base . '/includes/class-pqm-n8n.php'; // the trigger route's 2xx test is PQM_N8n::is_2xx() (story 77)
+require $base . '/includes/class-pqm-n8n.php'; // the trigger route's 2xx test is PostQuality_N8n::is_2xx() (story 77)
 require $base . '/includes/class-pqm-db.php';       // processing placeholder (story 5.4)
 require $base . '/includes/class-pqm-rest-api.php';
 
@@ -96,7 +96,7 @@ function trigger($command = 'review') {
     $req = new WP_REST_Request();
     $req->set_param('post_id', 7);
     $req->set_param('command', $command);
-    return PQM_REST_API::trigger_review_callback($req);
+    return PostQuality_REST_API::trigger_review_callback($req);
 }
 function stored_count() { return $GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage']['count'] ?? null; }
 
@@ -129,18 +129,18 @@ check('count unchanged', stored_count() === 20);
 check('no processing row on a quota refusal', processing_rows() === []);
 $msg = is_wp_error($r) ? $r->get_error_message() : '';
 $GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage'] = ['month' => '2026-10', 'count' => 0];
-$resets = PQM_Features::quota_state()['resets'];
+$resets = PostQuality_Features::quota_state()['resets'];
 check('copy names count and reset date', strpos($msg, '(20 of 20') !== false && strpos($msg, $resets) !== false);
 
 /* ─── Row 3: Exempt user (holds pqm_run_paid_agents) ─────────────────── */
 echo "Row 3 — Exempt user\n";
 reset_world(editor_caps(), ['month' => '2026-10', 'count' => 999]);
-check('quota_state() is null', PQM_Features::quota_state() === null);
+check('quota_state() is null', PostQuality_Features::quota_state() === null);
 $r = trigger('review');
 check('trigger succeeds', !is_wp_error($r) && $r->get_data()['success'] === true);
 check('no increment', stored_count() === 999);
 check('quota_remaining is null', $r->get_data()['quota_remaining'] === null);
-PQM_Features::consume_quota();
+PostQuality_Features::consume_quota();
 check('consume_quota() is a no-op', stored_count() === 999);
 
 /* ─── Row 4: n8n unreachable ─────────────────────────────────────────── */
@@ -164,7 +164,7 @@ check('n8n 500: no processing row', processing_rows() === []);
 /* ─── Row 5: Month rollover ──────────────────────────────────────────── */
 echo "Row 5 — Month rollover\n";
 reset_world(author_caps(), ['month' => '2026-09', 'count' => 20]);
-$s = PQM_Features::quota_state();
+$s = PostQuality_Features::quota_state();
 check('stale month reads as 0 used', $s !== null && $s['used'] === 0 && $s['remaining'] === 20);
 $r = trigger('review');
 check('trigger allowed after rollover', !is_wp_error($r));
@@ -180,7 +180,7 @@ check('cron never touches quota helpers', strpos($cron, 'consume_quota') === fal
 /* ─── Row 7: Quota raised mid-month ──────────────────────────────────── */
 echo "Row 7 — Quota raised mid-month\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 20], ['author_quota' => 50]);
-$s = PQM_Features::quota_state();
+$s = PostQuality_Features::quota_state();
 check('existing count kept, 30 more available', $s['used'] === 20 && $s['remaining'] === 30);
 $r = trigger('review');
 check('trigger allowed again', !is_wp_error($r) && stored_count() === 21);
@@ -188,7 +188,7 @@ check('trigger allowed again', !is_wp_error($r) && stored_count() === 21);
 /* ─── Decision: 0 = unlimited escape hatch ───────────────────────────── */
 echo "Extra — quota 0 means unlimited\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 500], ['author_quota' => 0]);
-check('quota_state() null at limit 0', PQM_Features::quota_state() === null);
+check('quota_state() null at limit 0', PostQuality_Features::quota_state() === null);
 $r = trigger('review');
 check('trigger allowed, no increment', !is_wp_error($r) && stored_count() === 500);
 
@@ -306,7 +306,7 @@ foreach ([
 /* ─── Reset-date formatting sanity ───────────────────────────────────── */
 echo "Extra — reset date is first of next month\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 0]);
-$s = PQM_Features::quota_state();
+$s = PostQuality_Features::quota_state();
 check('resets looks like a real date (non-empty)', is_string($s['resets']) && $s['resets'] !== '');
 echo "  info resets = {$s['resets']}\n";
 

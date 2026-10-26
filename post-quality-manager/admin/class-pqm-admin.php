@@ -21,13 +21,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class PQM_Admin
+class PostQuality_Admin
 {
 
     /**
      * Hook suffix of the Post Reviews submenu page, captured at registration
      * so the enqueue gate never depends on the translated menu title
-     * (e.g. 'post-quality_page_pqm-posts' on an English site).
+     * (e.g. 'post-quality_page_postquality-posts' on an English site).
      */
     private static ?string $posts_hook = null;
 
@@ -38,7 +38,7 @@ class PQM_Admin
     private static ?string $workflow_hook = null;
 
     /** Query arg that opens the setup dialog on load (the welcome notice's link). */
-    public const SETUP_QUERY_ARG = 'pqm_setup';
+    public const SETUP_QUERY_ARG = 'postquality_setup';
 
     /**
      * Admin menu icon (story 51): the mono mark of assets/icon.svg as a base64
@@ -56,37 +56,37 @@ class PQM_Admin
             __('Post Quality', 'post-quality-manager'),
             __('Post Quality', 'post-quality-manager'),
             'pqm_view_reviews',
-            'pqm-dashboard',
+            'postquality-dashboard',
         [__CLASS__, 'render_dashboard_app'],
             self::MENU_ICON,
             30
         ) ?: null;
 
         add_submenu_page(
-            'pqm-dashboard',
+            'postquality-dashboard',
             __('Dashboard', 'post-quality-manager'),
             __('Dashboard', 'post-quality-manager'),
             'pqm_view_reviews',
-            'pqm-dashboard',
+            'postquality-dashboard',
         [__CLASS__, 'render_dashboard_app']
         );
 
         // Story 5.1: the React shell renders this page.
         self::$posts_hook = add_submenu_page(
-            'pqm-dashboard',
+            'postquality-dashboard',
             __('Post Reviews', 'post-quality-manager'),
             __('Post Reviews', 'post-quality-manager'),
             'pqm_view_reviews',
-            'pqm-posts',
+            'postquality-posts',
         [__CLASS__, 'render_posts_app']
         ) ?: null;
 
         self::$workflow_hook = add_submenu_page(
-            'pqm-dashboard',
+            'postquality-dashboard',
             __('n8n Workflow', 'post-quality-manager'),
             __('n8n Workflow', 'post-quality-manager'),
             'pqm_manage_settings',
-            'pqm-workflow',
+            'postquality-workflow',
         [__CLASS__, 'render_workflow']
         ) ?: null;
 
@@ -96,11 +96,11 @@ class PQM_Admin
         // opens the page, so a role editor can grant access via one or the
         // other with no code change.
         add_submenu_page(
-            'pqm-dashboard',
+            'postquality-dashboard',
             __('Settings', 'post-quality-manager'),
             __('Settings', 'post-quality-manager'),
             self::settings_page_capability(),
-            'pqm-settings',
+            'postquality-settings',
         [__CLASS__, 'render_settings']
         );
     }
@@ -108,12 +108,12 @@ class PQM_Admin
     public static function admin_notices(): void
     {
         $screen = get_current_screen();
-        if (!$screen || strpos($screen->id, 'pqm-') === false) {
+        if (!$screen || strpos($screen->id, 'postquality-') === false) {
             return;
         }
 
         // The n8n Workflow page hosts the setup button — no extra banner there.
-        if (strpos($screen->id, 'pqm-workflow') !== false) {
+        if (strpos($screen->id, 'postquality-workflow') !== false) {
             return;
         }
 
@@ -125,8 +125,8 @@ class PQM_Admin
 
         // Shown until the setup is complete (story 36); a site that was
         // already connected and receiving results counts as set up.
-        if (!pqm_setup_complete()) {
-            $setup_url = admin_url('admin.php?page=pqm-workflow&' . self::SETUP_QUERY_ARG . '=1');
+        if (!postquality_setup_complete()) {
+            $setup_url = admin_url('admin.php?page=postquality-workflow&' . self::SETUP_QUERY_ARG . '=1');
             printf(
                 '<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
                 esc_html__('Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first — a guide walks you through it.', 'post-quality-manager'),
@@ -141,7 +141,7 @@ class PQM_Admin
     public static function enqueue_assets(string $hook): void
     {
         // Only load on our pages.
-        if (strpos($hook, 'pqm-') === false) {
+        if (strpos($hook, 'postquality-') === false) {
             return;
         }
 
@@ -162,45 +162,45 @@ class PQM_Admin
         }
 
         wp_enqueue_style(
-            'pqm-admin',
-            PQM_PLUGIN_URL . 'admin/css/pqm-admin.css',
+            'postquality-admin',
+            POSTQUALITY_PLUGIN_URL . 'admin/css/pqm-admin.css',
         [],
-            filemtime(PQM_PLUGIN_DIR . 'admin/css/pqm-admin.css')
+            filemtime(POSTQUALITY_PLUGIN_DIR . 'admin/css/pqm-admin.css')
         );
 
         wp_enqueue_script(
-            'pqm-admin',
-            PQM_PLUGIN_URL . 'admin/js/pqm-admin.js',
+            'postquality-admin',
+            POSTQUALITY_PLUGIN_URL . 'admin/js/pqm-admin.js',
         [],
-            filemtime(PQM_PLUGIN_DIR . 'admin/js/pqm-admin.js'),
+            filemtime(POSTQUALITY_PLUGIN_DIR . 'admin/js/pqm-admin.js'),
             true
         );
 
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
         // Story 26: preview texts in the site locale, like the payload sends them.
-        [$profile_texts, $voice_texts] = pqm_in_site_locale(static fn() => [
+        [$profile_texts, $voice_texts] = postquality_in_site_locale(static fn() => [
             array_map(static fn($p) => $p['website_context'], self::blog_profiles()),
-            array_map(static fn($p) => $p['instruction'], pqm_voice_presets()),
+            array_map(static fn($p) => $p['instruction'], postquality_voice_presets()),
         ]);
 
-        wp_localize_script('pqm-admin', 'pqmAdmin', [
+        wp_localize_script('postquality-admin', 'postqualityAdmin', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
-            'pageNonce' => wp_create_nonce('pqm_admin_action'),
+            'pageNonce' => wp_create_nonce('postquality_admin_action'),
             // The page's REST actions (story 67: Update workflow, Rotate token, Save and test, Set up by hand instead).
-            'restUrl' => rest_url(PQM_REST_NAMESPACE . '/'),
+            'restUrl' => rest_url(POSTQUALITY_REST_NAMESPACE . '/'),
             'restNonce' => wp_create_nonce('wp_rest'),
             // Effective global default model (Custom resolved like
-            // pqm_effective_model()) — the model-caps JS falls back to it when
+            // postquality_effective_model()) — the model-caps JS falls back to it when
             // the AI Model section is absent (Editor view of the Settings page).
             'defaultModel' => $settings['default_model'] === 'custom'
                 ? ($settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-4-6')
                 : $settings['default_model'],
             'blogProfiles' => $profile_texts,
-            'agentDefaults' => pqm_default_settings()['agent_prompts'],
+            'agentDefaults' => postquality_default_settings()['agent_prompts'],
             'voicePresets' => $voice_texts,
             'modelRegistry' => array_map(
                 static fn($m) => ['temperature' => $m['supports_temperature'], 'effortLevels' => $m['effort_levels']],
-                pqm_model_registry()
+                postquality_model_registry()
             ),
             'i18n' => [
                 'testing' => __('Testing the connection…', 'post-quality-manager'),
@@ -223,30 +223,30 @@ class PQM_Admin
      */
     private static function enqueue_app(): void
     {
-        $asset_path = PQM_PLUGIN_DIR . 'admin/build/index.asset.php';
+        $asset_path = POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php';
         if (!file_exists($asset_path)) {
             return;
         }
 
         $asset = require $asset_path;
-        $version = $asset['version'] ?? PQM_VERSION;
+        $version = $asset['version'] ?? POSTQUALITY_VERSION;
 
         wp_enqueue_script(
-            'pqm-app',
-            PQM_PLUGIN_URL . 'admin/build/index.js',
+            'postquality-app',
+            POSTQUALITY_PLUGIN_URL . 'admin/build/index.js',
             $asset['dependencies'] ?? [],
             $version,
             true
         );
-        wp_set_script_translations('pqm-app', 'post-quality-manager', PQM_PLUGIN_DIR . 'languages');
+        wp_set_script_translations('postquality-app', 'post-quality-manager', POSTQUALITY_PLUGIN_DIR . 'languages');
 
         // Command labels come from the PHP registry, the one label source;
         // src/kit/copy.js commandLabel() reads them.
         wp_add_inline_script(
-            'pqm-app',
-            'window.pqmCommandLabels = ' . wp_json_encode(array_map(
+            'postquality-app',
+            'window.postqualityCommandLabels = ' . wp_json_encode(array_map(
                 static fn(array $entry): string => $entry['label'],
-                PQM_Features::registry()
+                PostQuality_Features::registry()
             )) . ';',
             'before'
         );
@@ -256,15 +256,15 @@ class PQM_Admin
 
         // Kit styles (story 5.2): wp-scripts extracts src/kit/style.css
         // into the build. Versioned from the asset manifest, no filemtime.
-        if (file_exists(PQM_PLUGIN_DIR . 'admin/build/style-index.css')) {
+        if (file_exists(POSTQUALITY_PLUGIN_DIR . 'admin/build/style-index.css')) {
             wp_enqueue_style(
-                'pqm-app',
-                PQM_PLUGIN_URL . 'admin/build/style-index.css',
+                'postquality-app',
+                POSTQUALITY_PLUGIN_URL . 'admin/build/style-index.css',
                 ['wp-components'],
                 $version
             );
             // wp-scripts also emits style-index-rtl.css; WP swaps it in on RTL locales.
-            wp_style_add_data('pqm-app', 'rtl', 'replace');
+            wp_style_add_data('postquality-app', 'rtl', 'replace');
         }
     }
 
@@ -272,7 +272,7 @@ class PQM_Admin
 
     /**
      * Niche presets for Website Context (story 26): a selected profile is
-     * the setting, resolved at send time by pqm_resolved_context(); 'custom'
+     * the setting, resolved at send time by postquality_resolved_context(); 'custom'
      * sends the stored website_context.
      */
     public static function blog_profiles(): array
@@ -313,7 +313,7 @@ class PQM_Admin
 
     public static function register_settings(): void
     {
-        register_setting('pqm_settings_group', 'pqm_settings', [
+        register_setting('postquality_settings_group', 'pqm_settings', [
             'type' => 'array',
             'sanitize_callback' => [__CLASS__, 'sanitize_settings'],
         ]);
@@ -322,7 +322,7 @@ class PQM_Admin
         // with the Settings menu so a remapped role can both open and save.
         // Per-section protection lives in sanitize_settings(): keys of sections
         // the saver could not see carry their stored values.
-        add_filter('option_page_capability_pqm_settings_group', [__CLASS__, 'settings_page_capability']);
+        add_filter('option_page_capability_postquality_settings_group', [__CLASS__, 'settings_page_capability']);
     }
 
     /**
@@ -339,7 +339,7 @@ class PQM_Admin
         }
         // The agent sections exist in the Pro build only (ADR 0014): on the
         // Free build a pqm_manage_agents holder would get an empty page.
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if (current_user_can('pqm_manage_agents')) {
                 return 'pqm_manage_agents';
             }
@@ -354,12 +354,12 @@ class PQM_Admin
         // or locked) — treat it as an empty POST, not a fatal.
         $input = (array) $input;
 
-        $defaults = pqm_default_settings();
+        $defaults = postquality_default_settings();
         // Sections the saving request could not have posted — hidden by role or
         // locked by plan (disabled fieldset) — must carry their *stored* values,
         // never the defaults: the disabled-controls pitfall, applied per section.
-        $existing = pqm_get_settings();
-        $registry_keys = array_keys(pqm_model_registry());
+        $existing = postquality_get_settings();
+        $registry_keys = array_keys(postquality_model_registry());
         $clean = [];
 
         if (current_user_can('pqm_manage_settings')) {
@@ -377,7 +377,7 @@ class PQM_Admin
             $clean['webhook_token'] = $existing['webhook_token'];
             $clean['notification_url'] = esc_url_raw($input['notification_url'] ?? '');
             $clean['blog_profile'] = array_key_exists($input['blog_profile'] ?? '', self::blog_profiles()) ? $input['blog_profile'] : $defaults['blog_profile'];
-            $voice_keys = array_merge(array_keys(pqm_voice_presets()), ['custom']);
+            $voice_keys = array_merge(array_keys(postquality_voice_presets()), ['custom']);
             $clean['brand_voice_preset'] = in_array($input['brand_voice_preset'] ?? '', $voice_keys, true) ? $input['brand_voice_preset'] : $defaults['brand_voice_preset'];
             $clean['brand_voice'] = sanitize_textarea_field($input['brand_voice'] ?? '');
             $clean['website_context'] = sanitize_textarea_field($input['website_context'] ?? '');
@@ -411,10 +411,10 @@ class PQM_Admin
         // posts — not cron_enabled (the free off-switch posts it too) nor
         // cron_command (ticket 3: one of review/seo/audit, else review).
         // The Free build has neither section (ADR 0014): both always carry.
-        $can_edit_agents = current_user_can('pqm_manage_agents') && PQM_Features::is_pro();
+        $can_edit_agents = current_user_can('pqm_manage_agents') && PostQuality_Features::is_pro();
         $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
         $cron_posted = false;
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $cron_knobs = ['cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days'];
             if ($can_edit_agents && array_intersect_key($input, array_flip($cron_knobs))) {
                 $cron_posted = true;
@@ -446,7 +446,7 @@ class PQM_Admin
         }
 
         $clean['agent_prompts'] = $existing['agent_prompts'];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if ($can_edit_agents) {
                 $effort_levels = ['low', 'medium', 'high', 'xhigh', 'max'];
                 // Locked knobs (model doesn't support them) render disabled and are absent
@@ -469,7 +469,7 @@ class PQM_Admin
                         // Insert into Post pattern (Takeaways, Sources only): one of
                         // the listed user patterns, anything else is 0 (plain list).
                         if (isset($defaults['agent_prompts'][$agent]['pattern'])) {
-                            $patterns ??= PQM_Blocks::patterns();
+                            $patterns ??= PostQuality_Blocks::patterns();
                             $pattern = absint($agent_input['pattern'] ?? 0);
                             $clean['agent_prompts'][$agent]['pattern'] = isset($patterns[$pattern]) ? $pattern : 0;
                         }
@@ -484,8 +484,8 @@ class PQM_Admin
         // the tab — the marker is absent for anyone without the tab, inside
         // the locked (free) fieldset and from programmatic update_option()
         // calls, so none of those touches a role.
-        if ( pqm_fs()->is__premium_only() ) {
-            if (current_user_can('manage_options') && PQM_Features::is_pro() && !empty($input['roles_posted'])) {
+        if ( postquality_fs()->is__premium_only() ) {
+            if (current_user_can('manage_options') && PostQuality_Features::is_pro() && !empty($input['roles_posted'])) {
                 self::save_roles__premium_only((array) ($input['roles'] ?? []), (array) ($input['roles_shown'] ?? []));
             }
         }
@@ -535,7 +535,7 @@ class PQM_Admin
      */
     private static function save_roles__premium_only(array $posted, array $shown): void
     {
-        $caps = array_keys(PQM_Features::capabilities());
+        $caps = array_keys(PostQuality_Features::capabilities());
         foreach (wp_roles()->role_objects as $role_slug => $role) {
             // Pinned by capability, never by role name.
             if ($role->has_cap('manage_options')) {
@@ -577,8 +577,8 @@ class PQM_Admin
         if ($option !== 'pqm_settings') {
             return;
         }
-        if ( pqm_fs()->is__premium_only() ) {
-            PQM_Cron::schedule();
+        if ( postquality_fs()->is__premium_only() ) {
+            PostQuality_Cron::schedule();
         }
 
         if ((is_array($old_value) ? ($old_value['n8n_webhook_url'] ?? '') : '')
@@ -596,9 +596,9 @@ class PQM_Admin
      */
     public static function render_dashboard_app(): void
     {
-        if ( pqm_fs()->is__premium_only() ) {
-            if (isset($_GET['pqm_dismiss_cron_nudge'])
-                && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'pqm_dismiss_cron_nudge')
+        if ( postquality_fs()->is__premium_only() ) {
+            if (isset($_GET['postquality_dismiss_cron_nudge'])
+                && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'postquality_dismiss_cron_nudge')
                 && current_user_can('pqm_manage_agents')
             ) {
                 update_option('pqm_cron_nudge_dismissed', 1, false);
@@ -632,7 +632,7 @@ class PQM_Admin
     /** Whether the admin app is built (admin/build/, git-ignored, built by CI). */
     private static function app_built(): bool
     {
-        return file_exists(PQM_PLUGIN_DIR . 'admin/build/index.asset.php');
+        return file_exists(POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php');
     }
 
     /**
@@ -667,17 +667,17 @@ class PQM_Admin
 
     public static function render_settings(): void
     {
-        $settings = pqm_get_settings();
-        $workflow_page_url = admin_url('admin.php?page=pqm-workflow');
-        $registry = pqm_model_registry();
+        $settings = postquality_get_settings();
+        $workflow_page_url = admin_url('admin.php?page=postquality-workflow');
+        $registry = postquality_model_registry();
         // Section gates (CAP-3 access matrix): the global sections are hidden
         // without pqm_manage_settings; the agent sections (Agent-Specific
         // Overrides, Automated Reviews) are hidden without pqm_manage_agents
         // and render visible but locked on a free site. Role-hidden beats
-        // plan-locked, mirroring PQM_Features::why_not().
+        // plan-locked, mirroring PostQuality_Features::why_not().
         $can_manage_settings = current_user_can('pqm_manage_settings');
         $can_manage_agents = current_user_can('pqm_manage_agents');
-        $is_pro = PQM_Features::is_pro();
+        $is_pro = PostQuality_Features::is_pro();
         // Story 27: tabs over the one form (pqm-admin.js switches them, so
         // every save still posts every section). A tab exists only when one
         // of its sections renders; the server marks the first one active.
@@ -687,14 +687,14 @@ class PQM_Admin
             'connection' => $can_manage_settings ? __('Connection', 'post-quality-manager') : '',
             'ai'         => $can_manage_settings ? __('AI', 'post-quality-manager') : '',
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             if ($can_manage_agents) {
                 $tabs['ai']         = __('AI', 'post-quality-manager');
                 $tabs['automation'] = __('Automation', 'post-quality-manager');
             }
         }
         $tabs['usage'] = $can_manage_settings ? __('Usage & Limits', 'post-quality-manager') : '';
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             // Story 42: core manage_options, never a pqm_ cap, so the tab can't remove itself.
             if (current_user_can('manage_options')) {
                 $tabs['roles'] = __('Roles', 'post-quality-manager');
@@ -748,7 +748,7 @@ class PQM_Admin
             ?>
 
             <form method="post" action="options.php">
-                <?php settings_fields('pqm_settings_group'); ?>
+                <?php settings_fields('postquality_settings_group'); ?>
 
                 <?php if ($can_manage_settings): $panel_open('connection'); ?>
                 <!-- License (story 44): the plan as the Freemius SDK reports it; the
@@ -762,23 +762,23 @@ class PQM_Admin
                         $license_line = sprintf(
                             /* translators: %s: link to the Account page */
                             esc_html__('Your Pro license is active. Install the Pro version to use it: %s', 'post-quality-manager'),
-                            '<a href="' . esc_url(pqm_fs()->get_account_url()) . '">' . esc_html__('Open the Account page', 'post-quality-manager') . '</a>'
+                            '<a href="' . esc_url(postquality_fs()->get_account_url()) . '">' . esc_html__('Open the Account page', 'post-quality-manager') . '</a>'
                         );
                     } else {
                         $license_line = sprintf(
                             /* translators: %s: link to the pricing page */
                             esc_html__('Current plan: Free — Review and Key Takeaways are included. %s', 'post-quality-manager'),
-                            '<a href="' . esc_url(PQM_PRICING_URL) . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
+                            '<a href="' . esc_url(POSTQUALITY_PRICING_URL) . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
                         );
                     }
-                    if ( pqm_fs()->is__premium_only() ) {
+                    if ( postquality_fs()->is__premium_only() ) {
                         if ($is_pro) {
                             $license_line = esc_html__('Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.', 'post-quality-manager');
-                        } elseif (PQM_License::has_lapsed()) {
+                        } elseif (PostQuality_License::has_lapsed()) {
                             $license_line = sprintf(
                                 /* translators: %s: link to the Account page */
                                 esc_html__('Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. %s', 'post-quality-manager'),
-                                '<a href="' . esc_url(pqm_fs()->get_account_url()) . '">' . esc_html__('Renew on the Account page', 'post-quality-manager') . '</a>'
+                                '<a href="' . esc_url(postquality_fs()->get_account_url()) . '">' . esc_html__('Renew on the Account page', 'post-quality-manager') . '</a>'
                             );
                         }
                     }
@@ -817,7 +817,7 @@ class PQM_Admin
                         <th><?php esc_html_e('Webhook Token', 'post-quality-manager'); ?></th>
                         <td>
                             <a href="<?php echo esc_url($workflow_page_url); ?>"><?php esc_html_e('Shown on the n8n Workflow page', 'post-quality-manager'); ?></a>
-                            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER)); ?></p>
+                            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: WordPress sends it to start the workflow (your n8n Header Auth credential holds the same value), and n8n sends it back when posting results.', 'post-quality-manager'), PostQuality_N8n::TOKEN_HEADER)); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -881,14 +881,14 @@ class PQM_Admin
                 $profiles        = self::blog_profiles();
                 $current_profile = $settings['blog_profile'];
                 $current_preset  = $settings['brand_voice_preset'];
-                $profile_text    = pqm_resolved_context(['blog_profile' => $current_profile, 'website_context' => '']);
-                $preset_text     = pqm_resolved_voice(['brand_voice_preset' => $current_preset, 'brand_voice' => '']);
-                $preset_labels   = array_map(static fn($p) => $p['label'], pqm_voice_presets());
+                $profile_text    = postquality_resolved_context(['blog_profile' => $current_profile, 'website_context' => '']);
+                $preset_text     = postquality_resolved_voice(['brand_voice_preset' => $current_preset, 'brand_voice' => '']);
+                $preset_labels   = array_map(static fn($p) => $p['label'], postquality_voice_presets());
                 $preset_labels['custom'] = __('Custom', 'post-quality-manager');
                 // Which commands receive these texts: the Free build has Review only.
                 $profile_hint = __('Who you write for — sent as the Website Context with every Review. Custom: describe your site and readers in two or three sentences.', 'post-quality-manager');
                 $voice_hint   = __('The voice and rules every post follows: your own if you write alone, the shared ones for a team. Sent with every Review.', 'post-quality-manager');
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     $profile_hint = __('Who you write for — sent as the Website Context with every Review, Rewrite, SEO and Audit. Custom: describe your site and readers in two or three sentences.', 'post-quality-manager');
                     $voice_hint   = __('The voice and rules every post follows: your own if you write alone, the shared ones for a team. Sent with every Review and Rewrite.', 'post-quality-manager');
                 }
@@ -943,7 +943,7 @@ class PQM_Admin
                 <?php endif; // pqm_manage_settings ?>
 
                 <?php
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if ($can_manage_agents) {
                         self::render_overrides__premium_only($settings, $registry, $can_manage_settings, $is_pro);
                     }
@@ -953,7 +953,7 @@ class PQM_Admin
                 <?php endif; // AI tab ?>
 
                 <?php
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if ($can_manage_agents) {
                         self::render_automation__premium_only($panel_open, $settings, $is_pro);
                     }
@@ -973,7 +973,7 @@ class PQM_Admin
                             <p class="description"><?php
                                 // The Free build has no paid agents or schedules to name.
                                 $quota_hint = __('Monthly limit of manual AI actions for each Author; Editors and Administrators have no limit. Set 0 for unlimited.', 'post-quality-manager');
-                                if ( pqm_fs()->is__premium_only() ) {
+                                if ( postquality_fs()->is__premium_only() ) {
                                     $quota_hint = __('Monthly limit of manual AI actions for users without the paid-agents capability. Set 0 for unlimited. Scheduled reviews are not counted.', 'post-quality-manager');
                                 }
                                 echo esc_html($quota_hint);
@@ -985,7 +985,7 @@ class PQM_Admin
                 <?php endif; // pqm_manage_settings ?>
 
                 <?php
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if (isset($tabs['roles'])) {
                         self::render_roles__premium_only($panel_open, $is_pro);
                     }
@@ -1029,7 +1029,7 @@ class PQM_Admin
                 ];
                 foreach (self::agent_labels() as $key => $label):
                     $agent_data = $settings['agent_prompts'][$key];
-                    $caps       = pqm_model_caps(pqm_effective_model($key, $settings));
+                    $caps       = postquality_model_caps(postquality_effective_model($key, $settings));
                     $has_effort = !empty($caps['effort_levels']);
                 ?>
                     <details class="pqm-agent-box" data-agent="<?php echo esc_attr($key); ?>">
@@ -1100,7 +1100,7 @@ class PQM_Admin
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
                                 </td>
                             </tr>
-                            <?php if (isset($agent_data['pattern'])): $patterns ??= PQM_Blocks::patterns();
+                            <?php if (isset($agent_data['pattern'])): $patterns ??= PostQuality_Blocks::patterns();
                                 // A stored pattern that no longer qualifies is the plain list here, as in insert().
                                 $pattern_id = isset($patterns[(int) $agent_data['pattern']]) ? (int) $agent_data['pattern'] : 0; ?>
                             <tr>
@@ -1169,10 +1169,10 @@ class PQM_Admin
                 // hidden 0 makes the unchecked state post; the sanitizer only
                 // ever reads it to switch off.
                 // Only while the stored command still runs on free (ticket 3):
-                // a paid seo/audit schedule is skipped by PQM_Cron, so nothing
+                // a paid seo/audit schedule is skipped by PostQuality_Cron, so nothing
                 // "keeps running" and the section stays fully locked.
                 $cron_off_switch = !$is_pro && !empty($settings['cron_enabled'])
-                    && PQM_Features::plan_allows((string) $settings['cron_command']);
+                    && PostQuality_Features::plan_allows((string) $settings['cron_command']);
                 ?>
                 <h2 id="pqm-cron-settings" class="pqm-section-gap"><?php
                     esc_html_e('Automated Reviews (Cron)', 'post-quality-manager');
@@ -1235,7 +1235,7 @@ class PQM_Admin
                         <td>
                             <select id="pqm_cron_command" name="pqm_settings[cron_command]">
                                 <?php foreach (self::cron_commands__premium_only() as $cron_cmd): ?>
-                                <option value="<?php echo esc_attr($cron_cmd); ?>" <?php selected($settings['cron_command'], $cron_cmd); ?>><?php echo esc_html(PQM_Features::label($cron_cmd)); ?></option>
+                                <option value="<?php echo esc_attr($cron_cmd); ?>" <?php selected($settings['cron_command'], $cron_cmd); ?>><?php echo esc_html(PostQuality_Features::label($cron_cmd)); ?></option>
                                 <?php endforeach; ?>
                             </select>
                             <p class="description"><?php esc_html_e('The agent that runs on each schedule. Posts are picked by their latest result from that agent.', 'post-quality-manager'); ?></p>
@@ -1343,7 +1343,7 @@ class PQM_Admin
             'review'    => __('Review Agent', 'post-quality-manager'),
             'takeaways' => __('Key Takeaways Agent', 'post-quality-manager'),
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $labels += [
                 'sources'   => __('Sources Agent', 'post-quality-manager'),
                 'seo'       => __('SEO Agent', 'post-quality-manager'),
@@ -1361,7 +1361,7 @@ class PQM_Admin
      */
     public static function workflow_import_url(): string
     {
-        return add_query_arg('token', rawurlencode(pqm_get_settings()['webhook_token']), rest_url(PQM_REST_NAMESPACE . '/workflow'));
+        return add_query_arg('token', rawurlencode(postquality_get_settings()['webhook_token']), rest_url(POSTQUALITY_REST_NAMESPACE . '/workflow'));
     }
 
     /**
@@ -1401,7 +1401,7 @@ class PQM_Admin
      *                     that offers it (`reason`);
      *   connected       — a key with a passing check, no URL;
      *   not-set-up      — none of the above.
-     * `managed`: PQM_N8n::managed_blocked() null (Update and Rotate are
+     * `managed`: PostQuality_N8n::managed_blocked() null (Update and Rotate are
      * offered); `has_map`: the plugin set the workflow up or manages it
      * (no map = made by hand: Set up by hand stays reachable); `adopted`:
      * a map adopt() took over (story 76: Update asks before replacing it).
@@ -1410,11 +1410,11 @@ class PQM_Admin
      */
     private static function workflow_page_state(): array
     {
-        $url        = (string) pqm_get_settings()['n8n_webhook_url'];
-        $report     = pqm_workflow_report();
-        $connection = PQM_N8n::connection();
-        $managed    = PQM_N8n::managed_blocked() === null;
-        $map        = get_option(PQM_N8n::SETUP_OPTION, false);
+        $url        = (string) postquality_get_settings()['n8n_webhook_url'];
+        $report     = postquality_workflow_report();
+        $connection = PostQuality_N8n::connection();
+        $managed    = PostQuality_N8n::managed_blocked() === null;
+        $map        = get_option(PostQuality_N8n::SETUP_OPTION, false);
         $has_map    = is_array($map);
         $base       = [
             'url'        => $url,
@@ -1440,10 +1440,10 @@ class PQM_Admin
                     $problem = 'failed';
                 } elseif (($report['miswired'] ?? '') !== '') {
                     $problem = 'miswired';
-                } elseif ($report['version'] < PQM_WORKFLOW_VERSION) {
+                } elseif ($report['version'] < POSTQUALITY_WORKFLOW_VERSION) {
                     $problem = 'outdated';
                 }
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if ($problem === '' && ($report['variant'] ?? '') === 'free') {
                         $problem = 'free';
                     }
@@ -1456,10 +1456,10 @@ class PQM_Admin
                 // Pro) keeps that fix as a secondary beside Test again (`also`).
                 $fix  = in_array($problem, ['failed', 'miswired'], true) ? 'test' : ($managed ? 'update' : 'reimport');
                 $also = '';
-                if ($problem === 'miswired' && $report['version'] < PQM_WORKFLOW_VERSION) {
+                if ($problem === 'miswired' && $report['version'] < POSTQUALITY_WORKFLOW_VERSION) {
                     $also = $managed ? 'update' : 'reimport';
                 }
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if ($problem === 'miswired' && ($report['variant'] ?? '') === 'free') {
                         $also = $managed ? 'update' : 'reimport';
                     }
@@ -1468,19 +1468,19 @@ class PQM_Admin
                 return ['state' => 'needs-attention', 'problem' => $problem, 'fix' => $fix, 'also' => $also] + $base;
             }
 
-            return ['state' => 'set-up', 'has_result' => PQM_DB::has_result()] + $base;
+            return ['state' => 'set-up', 'has_result' => PostQuality_DB::has_result()] + $base;
         }
 
-        // pqm_manual_reason() hides the stored choice behind a passing key (the
+        // postquality_manual_reason() hides the stored choice behind a passing key (the
         // wizard's rule); on this page the choice wins: "Set up by hand instead"
         // on a connected site must land on the open steps, not back on state 2.
-        $reason = pqm_manual_reason() ?? (!empty(get_option(PQM_SETUP_OPTION, [])['manual']) ? ['kind' => 'choice'] : null);
+        $reason = postquality_manual_reason() ?? (!empty(get_option(POSTQUALITY_SETUP_OPTION, [])['manual']) ? ['kind' => 'choice'] : null);
         if ($reason !== null) {
             return ['state' => 'manual', 'reason' => $reason] + $base;
         }
-        if (PQM_N8n::connected()) {
+        if (PostQuality_N8n::connected()) {
             // Story 71: only a record of the connected instance is removed by the next setup (as GET /setup reads it).
-            $leftovers = get_option(PQM_N8n::LEFTOVERS_OPTION, false);
+            $leftovers = get_option(PostQuality_N8n::LEFTOVERS_OPTION, false);
 
             return ['state' => 'connected', 'leftovers' => is_array($leftovers) && ($leftovers['base_url'] ?? '') === $connection['base_url']] + $base;
         }
@@ -1504,7 +1504,7 @@ class PQM_Admin
      */
     public static function render_workflow_body(string $outcome = '', string $tone = 'success'): string
     {
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
         $state    = self::workflow_page_state();
         $report   = $state['report'];
         $kind     = $state['state'];
@@ -1558,15 +1558,15 @@ class PQM_Admin
                     case 'outdated':
                         $sentence = $report['version'] > 0
                             /* translators: 1: the workflow's version, 2: the version this plugin needs */
-                            ? sprintf(__('Your workflow is version %1$d; this plugin needs %2$d.', 'post-quality-manager'), $report['version'], PQM_WORKFLOW_VERSION)
+                            ? sprintf(__('Your workflow is version %1$d; this plugin needs %2$d.', 'post-quality-manager'), $report['version'], POSTQUALITY_WORKFLOW_VERSION)
                             /* translators: %d: the version this plugin needs */
-                            : sprintf(__('Your workflow is an older version that does not report its number; this plugin needs %d.', 'post-quality-manager'), PQM_WORKFLOW_VERSION);
+                            : sprintf(__('Your workflow is an older version that does not report its number; this plugin needs %d.', 'post-quality-manager'), POSTQUALITY_WORKFLOW_VERSION);
                         break;
                     default: // free
                         $sentence = __('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager');
                 }
                 if (in_array($state['problem'], ['outdated', 'free'], true)) {
-                    // 6 = the first version with a per-site webhook path (pqm_webhook_path()):
+                    // 6 = the first version with a per-site webhook path (postquality_webhook_path()):
                     // only an older workflow gets a new production URL on re-import; an
                     // in-place update (entry 9) keeps the URL whatever the version.
                     if ($state['managed']) {
@@ -1620,7 +1620,7 @@ class PQM_Admin
                 if (!$state['checked']) {
                     $primary = $test_button(true);
                 } elseif ($state['has_result']) {
-                    $primary = '<a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=pqm-posts')) . '">' . esc_html__('Open Post Reviews', 'post-quality-manager') . '</a>';
+                    $primary = '<a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=postquality-posts')) . '">' . esc_html__('Open Post Reviews', 'post-quality-manager') . '</a>';
                 } else {
                     $primary = $setup_button(__('Run your first review', 'post-quality-manager'), 'review');
                 }
@@ -1674,7 +1674,7 @@ class PQM_Admin
             <?php endif; ?>
         </div>
         <?php
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             self::render_rewrite_warning__premium_only($kind);
         }
         ?>
@@ -1706,7 +1706,7 @@ class PQM_Admin
             <summary><h2><?php esc_html_e('Webhook', 'post-quality-manager'); ?></h2></summary>
             <?php self::render_webhook_form($settings, false, 'disclosure'); ?>
             <?php self::render_copy_value(__('Webhook token', 'post-quality-manager'), (string) $settings['webhook_token']); ?>
-            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: this site sends it to start the workflow (the webhook credential in n8n holds the same value), and n8n sends it back with the results.', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER)); ?></p>
+            <p class="description"><?php /* translators: %s: the header name, X-PQM-Token */ echo esc_html(sprintf(__('Shared secret for both directions, always in the %s header: this site sends it to start the workflow (the webhook credential in n8n holds the same value), and n8n sends it back with the results.', 'post-quality-manager'), PostQuality_N8n::TOKEN_HEADER)); ?></p>
             <?php if ($state['managed']): ?>
             <p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="<?php esc_attr_e('Rotating the token…', 'post-quality-manager'); ?>"><?php esc_html_e('Rotate token', 'post-quality-manager'); ?></button></p>
             <p class="description"><?php esc_html_e('Writes a new token into the webhook credential in n8n and here, then tests the connection: the old token stops working at once.', 'post-quality-manager'); ?></p>
@@ -1726,12 +1726,12 @@ class PQM_Admin
      */
     private static function open_setup_steps(): array
     {
-        $steps = (array) (get_option(PQM_SETUP_OPTION, [])['steps'] ?? []);
+        $steps = (array) (get_option(POSTQUALITY_SETUP_OPTION, [])['steps'] ?? []);
         $names = [
             'profile'   => __('Blog Profile', 'post-quality-manager'),
             'standards' => __('Editorial Standards', 'post-quality-manager'),
         ];
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $names['schedule'] = __('scheduled reviews', 'post-quality-manager');
         }
 
@@ -1779,7 +1779,7 @@ class PQM_Admin
             <span class="pqm-copy-controls">
                 <input type="url" id="<?php echo esc_attr($id); ?>" name="webhook_url" class="regular-text code pqm-webhook-url-field"
                        value="<?php echo esc_attr((string) $settings['n8n_webhook_url']); ?>"
-                       placeholder="<?php echo esc_attr('https://your-n8n.example.com/webhook/' . pqm_webhook_path()); ?>" />
+                       placeholder="<?php echo esc_attr('https://your-n8n.example.com/webhook/' . postquality_webhook_path()); ?>" />
                 <button type="submit" class="button<?php echo $primary ? ' button-primary' : ''; ?> pqm-save-webhook" data-pqm-busy="<?php esc_attr_e('Saving and testing…', 'post-quality-manager'); ?>"><?php esc_html_e('Save and test', 'post-quality-manager'); ?></button>
             </span>
         </form>
@@ -1789,7 +1789,7 @@ class PQM_Admin
     /**
      * What each agent sends to Claude (story 67: on Settings → AI, beside
      * the values it reads): the effective model, effort, temperature and
-     * output budget per agent, as pqm_llm_params() resolves them.
+     * output budget per agent, as postquality_llm_params() resolves them.
      */
     private static function render_agent_table(array $settings, array $registry): void
     {
@@ -1808,7 +1808,7 @@ class PQM_Admin
                     </thead>
                     <tbody>
                         <?php foreach (self::agent_labels() as $key => $label):
-                            $params = pqm_llm_params($key, $settings);
+                            $params = postquality_llm_params($key, $settings);
                             $model_label = isset($registry[$params['model']]) ? $registry[$params['model']]['label'] : $params['model'];
                         ?>
                         <tr>
@@ -1840,11 +1840,11 @@ class PQM_Admin
      */
     private static function render_workflow_file(array $settings, bool $primary): void
     {
-        $host     = pqm_site_host(); // the template's credential names (__PQM_SITE_HOST__)
-        $names    = PQM_N8n::credential_names($host);
+        $host     = postquality_site_host(); // the template's credential names (__PQM_SITE_HOST__)
+        $names    = PostQuality_N8n::credential_names($host);
         $webhook  = $names['webhook'];
         $claude   = $names['anthropic'];
-        $download = wp_nonce_url(admin_url('admin-post.php?action=pqm_download_workflow'), 'pqm_download_workflow');
+        $download = wp_nonce_url(admin_url('admin-post.php?action=postquality_download_workflow'), 'postquality_download_workflow');
         $n8n_url  = self::n8n_editor_url((string) $settings['n8n_webhook_url']);
         $n8n      = $n8n_url !== ''
             ? '<a href="' . esc_url($n8n_url) . '">' . esc_html__('your n8n', 'post-quality-manager') . '</a>'
@@ -1860,7 +1860,7 @@ class PQM_Admin
             '<strong>' . esc_html($webhook) . '</strong>',
             '<strong>' . esc_html($claude) . '</strong>'
         );
-        if ( pqm_fs()->is__premium_only() ) {
+        if ( postquality_fs()->is__premium_only() ) {
             $claude_type = __('Type: Header Auth. Goes in the six Claude nodes.', 'post-quality-manager');
             $nodes_hint  = __('n8n marks the imported nodes "Credentials … are not set", or has already filled some (step 1). Do the Claude nodes first: double-click one, pick the Anthropic credential in its credential field and close it; n8n adds it to the other Claude nodes that have none. Then double-click the Webhook Trigger and pick the webhook credential, and Update WP Post (Rewrite) and pick the WordPress one, even if one is already set. Last, open each node — the Webhook Trigger, the six Claude nodes and Update WP Post (Rewrite) — and check the credential name.', 'post-quality-manager');
             $nodes_pick  = sprintf(
@@ -1899,7 +1899,7 @@ class PQM_Admin
                     <h4><?php echo esc_html($webhook); ?></h4>
                     <?php self::render_copy_value($name, $webhook, $webhook); ?>
                     <p><?php esc_html_e('Type: Header Auth. Goes in the Webhook Trigger only, so only this site can start the workflow.', 'post-quality-manager'); ?></p>
-                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), PQM_N8n::TOKEN_HEADER, $webhook); ?>
+                    <?php self::render_copy_value(__('Name', 'post-quality-manager'), PostQuality_N8n::TOKEN_HEADER, $webhook); ?>
                     <?php self::render_copy_value(__('Value', 'post-quality-manager'), (string) $settings['webhook_token'], $webhook); ?>
                 </div>
                 <div class="pqm-workflow-credential">
@@ -1916,7 +1916,7 @@ class PQM_Admin
                     ?></p>
                 </div>
                 <?php
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     self::render_wordpress_credential__premium_only($host, $name);
                 }
                 ?>
@@ -1934,7 +1934,7 @@ class PQM_Admin
                     printf(
                         /* translators: %s: the end of the production URL, e.g. "/webhook/pqm-execute-example-com" */
                         esc_html__('Double-click the Webhook Trigger, choose "Production URL" and copy the address: it ends in %s.', 'post-quality-manager'),
-                        '<code>' . esc_html('/webhook/' . pqm_webhook_path()) . '</code>'
+                        '<code>' . esc_html('/webhook/' . postquality_webhook_path()) . '</code>'
                     );
                 ?></p>
                 <p class="description"><?php esc_html_e('Not the Test URL: an address with /webhook-test/ only listens while the n8n editor is open, so this site refuses it.', 'post-quality-manager'); ?></p>
@@ -1952,7 +1952,7 @@ class PQM_Admin
      */
     private static function render_wordpress_credential__premium_only(string $host, string $name): void
     {
-        $credential = PQM_N8n::credential_names($host)['wordpress'];
+        $credential = PostQuality_N8n::credential_names($host)['wordpress'];
         $user       = wp_get_current_user();
 ?>
                 <div class="pqm-workflow-credential">
@@ -2011,12 +2011,12 @@ class PQM_Admin
      */
     private static function n8n_editor_url(string $webhook_url): string
     {
-        $base = PQM_N8n::connection()['base_url'];
+        $base = PostQuality_N8n::connection()['base_url'];
         if ($base !== '') {
             return $base;
         }
 
-        return PQM_N8n::origin_of($webhook_url);
+        return PostQuality_N8n::origin_of($webhook_url);
     }
 
     /**
@@ -2027,9 +2027,9 @@ class PQM_Admin
         if (!current_user_can('pqm_manage_settings')) {
             wp_die(esc_html__('Insufficient permissions.', 'post-quality-manager'));
         }
-        check_admin_referer('pqm_download_workflow');
+        check_admin_referer('postquality_download_workflow');
 
-        $json = pqm_workflow_json();
+        $json = postquality_workflow_json();
         if ($json === null) {
             wp_die(esc_html__('Workflow template not found. Please reinstall the plugin.', 'post-quality-manager'));
         }
@@ -2066,7 +2066,7 @@ class PQM_Admin
 
         // A stored test URL would finish the setup on a URL that misses
         // every real run — refuse it before saving.
-        $warning = pqm_webhook_url_warning($url);
+        $warning = postquality_webhook_url_warning($url);
         if ($warning !== '') {
             return new WP_Error('pqm_webhook_test_url', $warning, ['status' => 400]);
         }
@@ -2127,7 +2127,7 @@ class PQM_Admin
     {
         // A test URL would answer while the n8n editor listens and then miss
         // every real run — refuse before sending.
-        $warning = pqm_webhook_url_warning($url);
+        $warning = postquality_webhook_url_warning($url);
         if ($warning !== '') {
             return ['ok' => false, 'message' => $warning, 'version' => null, 'outdated' => false];
         }
@@ -2136,13 +2136,13 @@ class PQM_Admin
         // Story 67: a failed test of the saved URL is on record (the page's
         // "needs attention"); a passing one is recorded by the callers, which
         // clears it.
-        if (!$ping['ok'] && $url === pqm_get_settings()['n8n_webhook_url']) {
+        if (!$ping['ok'] && $url === postquality_get_settings()['n8n_webhook_url']) {
             // Story 71: a 404 of the URL the plugin's own workflow listened on may
             // mean that workflow was deleted in n8n — one read by its id says so.
-            if ($check_gone && $diagnose && ($ping['code'] ?? 0) === 404 && PQM_N8n::workflow_gone($url)) {
+            if ($check_gone && $diagnose && ($ping['code'] ?? 0) === 404 && PostQuality_N8n::workflow_gone($url)) {
                 $ping['message'] = __('The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.', 'post-quality-manager');
             }
-            pqm_record_workflow_failure($ping['message']);
+            postquality_record_workflow_failure($ping['message']);
         }
 
         return $ping;
@@ -2150,14 +2150,14 @@ class PQM_Admin
 
     /**
      * The test ping waiting for n8n's callback (story 2): `{id, at}`,
-     * `state` added by PQM_REST_API's /ping/{id} route (`received` with the
+     * `state` added by PostQuality_REST_API's /ping/{id} route (`received` with the
      * right token, `refused` with another); written before the request,
      * deleted after it on every path. Autoload off.
      */
     public const PING_OPTION = 'pqm_ping';
     /** Seconds the pending ping stays claimable by its callback. */
     public const PING_LIVE = 60;
-    /** Seconds sent_ping() waits for the callback (filter `pqm_ping_callback_wait`). */
+    /** Seconds sent_ping() waits for the callback (filter `postquality_ping_callback_wait`). */
     public const PING_WAIT = 8;
 
     /** ping_webhook()'s request and its reading of the answer, around the pending ping its callback may claim. */
@@ -2175,13 +2175,13 @@ class PQM_Admin
     /** The ping's request, carrying the callback's address and token as a review payload does, and its reading of the answer. */
     private static function ping_reply(string $url, array $pending, bool $diagnose): array
     {
-        $settings = pqm_get_settings();
+        $settings = postquality_get_settings();
         $response = wp_remote_post($url, [
-            'headers' => pqm_n8n_headers($settings),
+            'headers' => postquality_n8n_headers($settings),
             'body'    => wp_json_encode([
                 'command'      => 'ping',
                 'source'       => 'pqm-test-connection',
-                'callback_url' => rest_url(PQM_REST_NAMESPACE . '/ping/' . $pending['id']),
+                'callback_url' => rest_url(POSTQUALITY_REST_NAMESPACE . '/ping/' . $pending['id']),
                 'auth_token'   => $settings['webhook_token'],
             ]),
             'timeout' => 10,
@@ -2197,21 +2197,21 @@ class PQM_Admin
 
         $code = wp_remote_retrieve_response_code($response);
 
-        if (PQM_N8n::is_2xx((int) $code)) {
+        if (PostQuality_N8n::is_2xx((int) $code)) {
             // The reply says which workflow answered. Without a version (or
             // not JSON) it is a v1–v4 import, which may ignore the header:
             // its 2xx proves only the reachability.
             $body    = json_decode((string) wp_remote_retrieve_body($response), true);
             $version = is_array($body) ? absint($body['workflow_version'] ?? 0) : 0;
             $variant = is_array($body) && ($body['workflow_variant'] ?? '') === 'free' ? 'free' : 'pro';
-            if ($version >= PQM_WORKFLOW_VERSION) {
+            if ($version >= POSTQUALITY_WORKFLOW_VERSION) {
                 // Story 2: a current workflow calls this site back; the wait lets the
                 // callback claim the pending id (a v7 Free template calls back too,
                 // so the wait comes before the variant check: its callback must not
                 // meet a deleted id and fail the execution in n8n).
-                $wait     = max(0, (int) apply_filters('pqm_ping_callback_wait', self::PING_WAIT));
+                $wait     = max(0, (int) apply_filters('postquality_ping_callback_wait', self::PING_WAIT));
                 $callback = self::awaited_callback($pending, $wait);
-                if ( pqm_fs()->is__premium_only() ) {
+                if ( postquality_fs()->is__premium_only() ) {
                     if ($variant === 'free') {
                         return self::diagnosed($diagnose ? $url : null, ['ok' => true, 'message' => __('Ping OK — this site reaches n8n, but your n8n workflow is the Free variant, without the Sources, SEO, Audit and Rewrite branches: download or re-import it on the n8n Workflow page, paste the re-imported workflow\'s production URL, from its Webhook Trigger, as the n8n Webhook URL in Settings, then send another ping.', 'post-quality-manager'), 'version' => $version, 'outdated' => true, 'variant' => $variant]);
                     }
@@ -2224,7 +2224,7 @@ class PQM_Admin
                     return ['ok' => false, 'message' => sprintf(
                         /* translators: %s: the header name, X-PQM-Token */
                         __('n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its %s header to {{ $json.auth_token }}, then test again.', 'post-quality-manager'),
-                        PQM_N8n::TOKEN_HEADER
+                        PostQuality_N8n::TOKEN_HEADER
                     ), 'version' => null, 'outdated' => false, 'callback' => 'refused'];
                 }
                 return ['ok' => false, 'message' => sprintf(
@@ -2242,7 +2242,7 @@ class PQM_Admin
                 /* translators: 1: HTTP status code (401 or 403), 2: the header name, X-PQM-Token */
                 __('n8n refused the webhook credential (HTTP %1$d). In n8n, open the Webhook Trigger\'s Header Auth credential: its Name must be %2$s and its Value this site\'s webhook token. Then try again.', 'post-quality-manager'),
                 $code,
-                PQM_N8n::TOKEN_HEADER
+                PostQuality_N8n::TOKEN_HEADER
             ), 'version' => null, 'outdated' => false, 'refused' => true, 'code' => $code];
         }
 
@@ -2261,7 +2261,7 @@ class PQM_Admin
      * What the pending ping's callback did while this request waited
      * (story 2): `received`, `refused`, or `none` once $wait seconds are
      * over. One read per 500 ms, the Options cache bypassed as
-     * PQM_N8n::cache_lock() does: the callback writes the option from
+     * PostQuality_N8n::cache_lock() does: the callback writes the option from
      * n8n's own request, and get_option() would answer this request's
      * cached copy (a miss stays in `notoptions` for the whole request).
      */
@@ -2289,7 +2289,7 @@ class PQM_Admin
 
     /**
      * A passing ping, plus `miswired` (n8n provisioning, entry 7): for the
-     * saved webhook URL, PQM_N8n::diagnose()'s answer — a sentence, '' or
+     * saved webhook URL, PostQuality_N8n::diagnose()'s answer — a sentence, '' or
      * null when the check could not run; null for any other URL (with a
      * setup map, the read would describe the provisioned workflow, not the
      * URL pinged), or for null (no diagnosis asked, entry 10). A sentence
@@ -2298,7 +2298,7 @@ class PQM_Admin
      */
     private static function diagnosed(?string $url, array $ping): array
     {
-        $ping['miswired'] = $url === pqm_get_settings()['n8n_webhook_url'] ? PQM_N8n::diagnose($url) : null;
+        $ping['miswired'] = $url === postquality_get_settings()['n8n_webhook_url'] ? PostQuality_N8n::diagnose($url) : null;
         if ($ping['miswired'] !== null && $ping['miswired'] !== '') {
             $ping['message']  = $ping['miswired'];
             $ping['outdated'] = true;
@@ -2322,13 +2322,13 @@ class PQM_Admin
      */
     public static function ajax_test_connection(): void
     {
-        check_ajax_referer('pqm_admin_action');
+        check_ajax_referer('postquality_admin_action');
 
         if (!current_user_can('pqm_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
-        $saved_url = pqm_get_settings()['n8n_webhook_url'];
+        $saved_url = postquality_get_settings()['n8n_webhook_url'];
         $url       = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
         if (empty($url)) {
             $url = $saved_url;
@@ -2346,7 +2346,7 @@ class PQM_Admin
             wp_send_json_error(['message' => $ping['message'], 'status_html' => self::render_workflow_body($ping['message'], 'error')]);
         }
 
-        pqm_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null);
+        postquality_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired'] ?? null);
         wp_send_json_success([
             'message'     => $ping['message'],
             'outdated'    => $ping['outdated'],
@@ -2365,7 +2365,7 @@ class PQM_Admin
      */
     public static function ajax_workflow_status(): void
     {
-        check_ajax_referer('pqm_admin_action');
+        check_ajax_referer('postquality_admin_action');
 
         if (!current_user_can('pqm_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);

@@ -25,7 +25,7 @@ import { CONFIG_STEPS } from './config-steps';
 const CONNECT_PATH = '/post-quality/v1/setup/connect';
 const PROVISION_PATH = '/post-quality/v1/n8n/provision';
 
-/** The Set up by hand disclosure on the n8n Workflow page (PQM_Admin::render_workflow_body()). */
+/** The Set up by hand disclosure on the n8n Workflow page (PostQuality_Admin::render_workflow_body()). */
 export const BY_HAND_ID = 'pqm-by-hand';
 
 /**
@@ -547,7 +547,7 @@ export function NextSteps() {
 					'post-quality-manager'
 				) }
 			</p>
-			<Button variant="primary" href="admin.php?page=pqm-posts">
+			<Button variant="primary" href="admin.php?page=postquality-posts">
 				{ __( 'Open Post Reviews', 'post-quality-manager' ) }
 			</Button>
 		</>

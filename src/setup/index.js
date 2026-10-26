@@ -14,8 +14,8 @@
  * can verify. "Set up by hand instead" stores the choice (POST /setup
  * { manual: true }) and closes the dialog on the page's Set up by hand
  * disclosure. Every close asks the page to re-read its body
- * (pqm:setup-closed), so what the dialog did shows behind it without a
- * reload. The welcome notice links here with `pqm_setup=1`, which opens
+ * (postquality:setup-closed), so what the dialog did shows behind it without a
+ * reload. The welcome notice links here with `postquality_setup=1`, which opens
  * the dialog on load.
  *
  * After the first review, three configuration steps (story 55) save the
@@ -47,7 +47,7 @@ import './style.css';
 
 const SETUP_PATH = '/post-quality/v1/setup';
 const SETTINGS_PATH = '/post-quality/v1/setup/settings';
-const OPEN_ARG = 'pqm_setup'; // PQM_Admin::SETUP_QUERY_ARG
+const OPEN_ARG = 'postquality_setup'; // PostQuality_Admin::SETUP_QUERY_ARG
 const FINISH = 'finish';
 
 /**

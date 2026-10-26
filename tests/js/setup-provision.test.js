@@ -242,13 +242,13 @@ async function openDialog( state, answers = {} ) {
 }
 
 /**
- * Listen for the page refresh the dialog asks for on close (pqm:setup-closed).
+ * Listen for the page refresh the dialog asks for on close (postquality:setup-closed).
  *
  * @return {Object[]} The events' `detail`s, as they arrive.
  */
 function closeRequests() {
 	const details = [];
-	document.addEventListener( 'pqm:setup-closed', ( event ) =>
+	document.addEventListener( 'postquality:setup-closed', ( event ) =>
 		details.push( event.detail )
 	);
 	return details;
@@ -897,9 +897,9 @@ describe( 'The dialog and the page (story 67): opened from the status block, eve
 		expect( closed ).toEqual( [ { focus: undefined } ] );
 	} );
 
-	test( 'the island inside the dialog connects: the state re-read and the page asked for a refresh (pqm:workflow-refresh)', async () => {
+	test( 'the island inside the dialog connects: the state re-read and the page asked for a refresh (postquality:workflow-refresh)', async () => {
 		const refreshed = jest.fn();
-		document.addEventListener( 'pqm:workflow-refresh', refreshed );
+		document.addEventListener( 'postquality:workflow-refresh', refreshed );
 		await openDialog( siteState(), {
 			[ `POST ${ CONNECTION }` ]: storeKey(
 				siteState( { n8n: PASSING } )
@@ -915,7 +915,10 @@ describe( 'The dialog and the page (story 67): opened from the status block, eve
 				} )
 			);
 		} );
-		document.removeEventListener( 'pqm:workflow-refresh', refreshed );
+		document.removeEventListener(
+			'postquality:workflow-refresh',
+			refreshed
+		);
 		expect( refreshed ).toHaveBeenCalledTimes( 1 );
 		expect( setupReads() ).toBe( 2 );
 	} );

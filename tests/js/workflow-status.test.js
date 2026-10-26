@@ -3,8 +3,8 @@
  * body under the H1 (#pqm-workflow-body) that every reply swaps whole —
  * the test's (admin-ajax), the REST actions' (Update workflow, Rotate
  * token, Save and test, "Set up by hand instead") and the refresh on
- * window focus or when the setup dialog closes (pqm:setup-closed). Each
- * swap dispatches pqm:workflow-status once, moves focus sensibly and
+ * window focus or when the setup dialog closes (postquality:setup-closed). Each
+ * swap dispatches postquality:workflow-status once, moves focus sensibly and
  * leaves no detached node written. The fixture mirrors
  * render_workflow_body()'s markup; render-matrix-harness.php locks the
  * PHP side (the states, status_html, the one primary).
@@ -122,7 +122,7 @@ const documentListeners = [];
 
 /** Load pqm-admin.js fresh and run its DOMContentLoaded boot once. */
 function boot() {
-	window.pqmAdmin = {
+	window.postqualityAdmin = {
 		ajaxUrl: '/wp-admin/admin-ajax.php',
 		pageNonce: 'nonce-123',
 		restUrl: '/wp-json/post-quality/v1/',
@@ -192,11 +192,11 @@ const listener = () => heard++;
 
 beforeEach( () => {
 	heard = 0;
-	document.addEventListener( 'pqm:workflow-status', listener );
+	document.addEventListener( 'postquality:workflow-status', listener );
 } );
 
 afterEach( () => {
-	document.removeEventListener( 'pqm:workflow-status', listener );
+	document.removeEventListener( 'postquality:workflow-status', listener );
 	windowListeners
 		.splice( 0 )
 		.forEach( ( [ type, fn ] ) => window.removeEventListener( type, fn ) );
@@ -228,7 +228,7 @@ describe( 'Test the connection / Test again', () => {
 		expect( outcome().textContent ).toBe( 'Testing the connection…' );
 		await flush();
 		expect( sentAjax() ).toEqual( {
-			action: 'pqm_test_connection',
+			action: 'postquality_test_connection',
 			webhook_url: '',
 			_wpnonce: 'nonce-123',
 		} );
@@ -326,10 +326,10 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 		} );
 		// Story 76: a provisioned map's button never asks.
 		const asked = jest.fn();
-		document.addEventListener( 'pqm:confirm-action', asked );
+		document.addEventListener( 'postquality:confirm-action', asked );
 		const button = $( '.pqm-update-workflow' );
 		button.click();
-		document.removeEventListener( 'pqm:confirm-action', asked );
+		document.removeEventListener( 'postquality:confirm-action', asked );
 		expect( asked ).not.toHaveBeenCalled();
 		expect( button.disabled ).toBe( true );
 		expect( button.textContent ).toBe( 'Updating the workflow…' );
@@ -435,7 +435,7 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 		expect( calls[ 1 ][ 0 ] ).toBe( '/wp-admin/admin-ajax.php' );
 		expect(
 			Object.fromEntries( calls[ 1 ][ 1 ].body.entries() ).action
-		).toBe( 'pqm_workflow_status' );
+		).toBe( 'postquality_workflow_status' );
 		expect( bodyEl().innerHTML ).toBe( MANUAL );
 		const details = document.getElementById( 'pqm-by-hand' );
 		expect( details.open ).toBe( true );
@@ -508,15 +508,15 @@ describe( 'REST actions: Update workflow, Rotate token, Save and test, Set up by
 		expect( heard ).toBe( 1 );
 	} );
 
-	test( "story 76: an adopted map's Update dispatches the cancelable pqm:confirm-action; prevented, nothing is sent and no busy label shows", async () => {
+	test( "story 76: an adopted map's Update dispatches the cancelable postquality:confirm-action; prevented, nothing is sent and no busy label shows", async () => {
 		renderPage( ADOPTED_OUTDATED );
 		boot();
 		answerRest( 200, { updated: true, status_html: SET_UP } );
 		const asked = jest.fn( ( event ) => event.preventDefault() );
-		document.addEventListener( 'pqm:confirm-action', asked );
+		document.addEventListener( 'postquality:confirm-action', asked );
 		const button = $( '.pqm-update-workflow' );
 		button.click();
-		document.removeEventListener( 'pqm:confirm-action', asked );
+		document.removeEventListener( 'postquality:confirm-action', asked );
 		await flush();
 		expect( asked ).toHaveBeenCalledTimes( 1 );
 		const [ event ] = asked.mock.calls[ 0 ];
@@ -584,7 +584,7 @@ describe( 'Status refresh: window focus and the setup dialog', () => {
 		await flush();
 		expect( global.fetch ).toHaveBeenCalledTimes( 1 );
 		expect( sentAjax() ).toEqual( {
-			action: 'pqm_workflow_status',
+			action: 'postquality_workflow_status',
 			_wpnonce: 'nonce-123',
 		} );
 		expect( bodyEl().innerHTML ).toBe( OUTDATED );
@@ -607,7 +607,7 @@ describe( 'Status refresh: window focus and the setup dialog', () => {
 		expect( heard ).toBe( 0 );
 		// An event-driven refresh swaps even when nothing changed.
 		document.dispatchEvent(
-			new window.CustomEvent( 'pqm:workflow-refresh' )
+			new window.CustomEvent( 'postquality:workflow-refresh' )
 		);
 		await flush();
 		expect( $( '#pqm-n8n-connection-root' ) ).not.toBe( island );
@@ -635,27 +635,27 @@ describe( 'Status refresh: window focus and the setup dialog', () => {
 		expect( global.fetch ).not.toHaveBeenCalled();
 	} );
 
-	test( 'the dialog closes (pqm:setup-closed): the body re-read, the named element opened and focused', async () => {
+	test( 'the dialog closes (postquality:setup-closed): the body re-read, the named element opened and focused', async () => {
 		renderPage( NOT_SET_UP );
 		boot();
 		answer( { success: true, data: { status_html: MANUAL } } );
 		document.dispatchEvent(
-			new window.CustomEvent( 'pqm:setup-closed', {
+			new window.CustomEvent( 'postquality:setup-closed', {
 				detail: { focus: 'pqm-by-hand' },
 			} )
 		);
 		await flush();
-		expect( sentAjax().action ).toBe( 'pqm_workflow_status' );
+		expect( sentAjax().action ).toBe( 'postquality_workflow_status' );
 		expect( bodyEl().innerHTML ).toBe( MANUAL );
 		expect( document.activeElement ).toBe( $( '#pqm-by-hand summary' ) );
 	} );
 
-	test( 'the island asks for a refresh (pqm:workflow-refresh): the body re-read', async () => {
+	test( 'the island asks for a refresh (postquality:workflow-refresh): the body re-read', async () => {
 		renderPage();
 		boot();
 		answer( { success: true, data: { status_html: MANAGED_OUTDATED } } );
 		document.dispatchEvent(
-			new window.CustomEvent( 'pqm:workflow-refresh' )
+			new window.CustomEvent( 'postquality:workflow-refresh' )
 		);
 		await flush();
 		expect( bodyEl().innerHTML ).toBe( MANAGED_OUTDATED );

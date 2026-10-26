@@ -37,7 +37,7 @@ function restore_previous_locale() { return false; }
 function is_admin() { return false; }
 function home_url($p = '') { return ($GLOBALS['tw']['home'] ?? 'https://example.com') . $p; }
 function rest_url($p = '') { return 'http://example.test:8080/blog/?rest_route=/' . ltrim($p, '/'); } // plain permalinks, port, subdirectory
-/* Story 35: pqm_n8n_payload() runs for real — post 7 is a page; post 8's type is not in REST. */
+/* Story 35: postquality_n8n_payload() runs for real — post 7 is a page; post 8's type is not in REST. */
 class WP_Post {
     public function __construct(public $ID = 0, public $post_name = '', public $post_type = 'post') {}
 }
@@ -121,10 +121,10 @@ function stored_row(int $id, string $command, string $score, string $status, str
 
 /* Row: registration — /reviews/{id} unchanged: GET, view-reviews gate */
 echo "Route registration\n";
-PQM_REST_API::register_routes();
-$route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/reviews/(?P<post_id>\d+)'] ?? null;
+PostQuality_REST_API::register_routes();
+$route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/reviews/(?P<post_id>\d+)'] ?? null;
 check('/reviews/{id} registered as GET', $route !== null && $route['methods'] === WP_REST_Server::READABLE);
-check('/reviews/{id} gated by check_view_reviews', ($route['permission_callback'] ?? null) === ['PQM_REST_API', 'check_view_reviews']);
+check('/reviews/{id} gated by check_view_reviews', ($route['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_view_reviews']);
 
 /* Row: detail shape — same array as today plus int overall_score + reviewed_at_display */
 echo "Detail shape\n";
@@ -133,7 +133,7 @@ $wpdb = fresh_wpdb([[
     stored_row(2, 'takeaways', '0', 'processing', '{"summary":"Running asynchronously in n8n..."}', '2026-10-05 09:29:00'),
     stored_row(1, 'review', '41', 'needs_revision', 'not json', '2026-09-01 08:00:00'),
 ]]);
-$res = PQM_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']));
+$res = PostQuality_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']));
 check('200 response', $res instanceof WP_REST_Response && $res->get_status() === 200);
 $rows = $res->get_data();
 check('response is the plain array of rows, newest first', is_array($rows) && count($rows) === 3 && $rows[0]['id'] === '3');
@@ -161,13 +161,13 @@ check('prepared with [wp_pqm_reviews, 7, 50]', $p !== null && $p['args'] === ['w
 /* Row: no reviews — 200 with an empty array */
 echo "No reviews\n";
 fresh_wpdb([]);
-$res = PQM_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '9']));
+$res = PostQuality_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '9']));
 check('200 with []', $res->get_status() === 200 && $res->get_data() === []);
 
 /* Row: blank reviewed_at → empty display, no PHP notice */
 echo "Blank date\n";
 fresh_wpdb([[stored_row(5, 'review', '10', 'major_revision', '{}', '0000-00-00 00:00:00')]]);
-$rows = PQM_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']))->get_data();
+$rows = PostQuality_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']))->get_data();
 check('zero date → empty reviewed_at_display', $rows[0]['reviewed_at_display'] === '');
 
 /* Row: failed run as the shipped template posts it — stored as-is, the client decides */
@@ -176,7 +176,7 @@ fresh_wpdb([[
     stored_row(6, 'review', '0', 'error', '{"error":"Review Agent returned invalid JSON."}', '2026-10-05 10:00:00'),
     stored_row(5, 'seo', '0', '', '{}', '2026-10-05 09:59:00'),
 ]]);
-$rows = PQM_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']))->get_data();
+$rows = PostQuality_REST_API::get_reviews_callback(new WP_REST_Request(['post_id' => '7']))->get_data();
 check('stored error row keeps status error and its message', $rows[0]['status'] === 'error' && $rows[0]['result_data'] === ['error' => 'Review Agent returned invalid JSON.']);
 check('pre-v3 template fallback row: empty status, empty result, score 0', $rows[1]['status'] === '' && $rows[1]['result_data'] === [] && $rows[1]['overall_score'] === 0);
 
@@ -185,7 +185,7 @@ check('pre-v3 template fallback row: empty status, empty result, score 0', $rows
 /** Calls save_review_callback with a body as the template posts it; returns [response, inserted row data]. */
 function save_body(array $body): array {
     $wpdb = fresh_wpdb([]);
-    $res  = PQM_REST_API::save_review_callback(new WP_REST_Request($body));
+    $res  = PostQuality_REST_API::save_review_callback(new WP_REST_Request($body));
     return [$res, $wpdb->inserted[0]['data'] ?? null];
 }
 
@@ -203,7 +203,7 @@ check('stored result carries the message', $row['result_data'] === json_encode([
 check('score 0, command kept', $row['overall_score'] === 0 && $row['command'] === 'review');
 $seen = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
 check('workflow version recorded as {3, via command, at now}', is_array($seen) && $seen['version'] === 3 && $seen['via'] === 'command'
-    && abs($seen['at'] - time()) <= 5 && pqm_workflow_report() === $seen);
+    && abs($seen['at'] - time()) <= 5 && postquality_workflow_report() === $seen);
 
 /* Row: success — error_message '' is ignored, status/result stored as posted */
 echo "Save completed run\n";
@@ -221,51 +221,51 @@ save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status
 check('callback without workflow_version (0): last report untouched', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $ping_report);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
 check('callback with workflow_version 5: replaces a ping\'s report, via command',
-    $GLOBALS['tw']['options']['pqm_workflow_version_seen']['via'] === 'command' && pqm_workflow_report()['version'] === 5);
+    $GLOBALS['tw']['options']['pqm_workflow_version_seen']['via'] === 'command' && postquality_workflow_report()['version'] === 5);
 /* Story 54: the callback states the template variant; absent = Pro */
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'free']);
 check('callback from the Free template: recorded with variant free', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['variant'] ?? null) === 'free'
-    && pqm_workflow_report()['variant'] === 'free');
+    && postquality_workflow_report()['variant'] === 'free');
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'pro']);
 check('callback stating pro: recorded without a variant (absent = Pro)', !array_key_exists('variant', $GLOBALS['tw']['options']['pqm_workflow_version_seen'])
-    && !array_key_exists('variant', pqm_workflow_report()));
-$variant_arg = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/save-review']['args']['workflow_variant'] ?? [];
+    && !array_key_exists('variant', postquality_workflow_report()));
+$variant_arg = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/save-review']['args']['workflow_variant'] ?? [];
 check('save-review workflow_variant: optional string, enum free/pro (400 on others), default pro',
     ($variant_arg['required'] ?? null) === false && ($variant_arg['type'] ?? null) === 'string'
     && ($variant_arg['enum'] ?? null) === ['free', 'pro'] && ($variant_arg['default'] ?? null) === 'pro');
 foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
     $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $legacy]);
-    check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', pqm_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);
+    check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', postquality_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);
 }
 $GLOBALS['tw']['options'] = site_options();
-check('option absent: no report', pqm_workflow_report() === null);
+check('option absent: no report', postquality_workflow_report() === null);
 /* n8n provisioning entry 7: a test's mis-wiring sentence rides with the report; only a test clears it */
 $sentence = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then check again.';
 $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
-check('a stored sentence: the report carries miswired', pqm_workflow_report() === $ping_report + ['miswired' => $sentence]);
+check('a stored sentence: the report carries miswired', postquality_workflow_report() === $ping_report + ['miswired' => $sentence]);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
-check('a command\'s callback while a sentence is stored: via command, the sentence kept', pqm_workflow_report()['via'] === 'command'
-    && pqm_workflow_report()['miswired'] === $sentence);
+check('a command\'s callback while a sentence is stored: via command, the sentence kept', postquality_workflow_report()['via'] === 'command'
+    && postquality_workflow_report()['miswired'] === $sentence);
 $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => '']]);
-check('an empty sentence: the report carries no miswired key', pqm_workflow_report() === $ping_report);
+check('an empty sentence: the report carries no miswired key', postquality_workflow_report() === $ping_report);
 $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
-PQM_REST_API::workflow_callback();
-check('GET /workflow (a serve) forgets the report, the sentence with it', pqm_workflow_report() === null);
+PostQuality_REST_API::workflow_callback();
+check('GET /workflow (a serve) forgets the report, the sentence with it', postquality_workflow_report() === null);
 $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report]);
-$res = PQM_REST_API::workflow_callback();
+$res = PostQuality_REST_API::workflow_callback();
 check('GET /workflow (n8n Import from URL): serves the template and forgets the report',
     $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen'])
-    && pqm_workflow_report() === null);
+    && postquality_workflow_report() === null);
 
 /* Provisioning entry 3: the per-site webhook path */
 $served  = json_decode(json_encode($res->get_data()), true);
 $trigger = array_column($served['nodes'], null, 'name')['Webhook Trigger'];
 check('GET /workflow: the trigger path is pqm-execute-example-com, no __PQM_ placeholder left',
-    $trigger['parameters']['path'] === 'pqm-execute-example-com' && pqm_webhook_path() === 'pqm-execute-example-com'
+    $trigger['parameters']['path'] === 'pqm-execute-example-com' && postquality_webhook_path() === 'pqm-execute-example-com'
     && !str_contains(json_encode($served), '__PQM_'));
-check('GET /workflow: the trigger replies and Parse Input stamps PQM_WORKFLOW_VERSION',
-    json_decode($trigger['parameters']['options']['responseData'], true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]
-    && str_contains(array_column($served['nodes'], null, 'name')['Parse Input']['parameters']['jsCode'], 'workflow_version: ' . PQM_WORKFLOW_VERSION . ','));
+check('GET /workflow: the trigger replies and Parse Input stamps POSTQUALITY_WORKFLOW_VERSION',
+    json_decode($trigger['parameters']['options']['responseData'], true) === ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]
+    && str_contains(array_column($served['nodes'], null, 'name')['Parse Input']['parameters']['jsCode'], 'workflow_version: ' . POSTQUALITY_WORKFLOW_VERSION . ','));
 foreach ([
     'https://Blog.Example.com'      => 'pqm-execute-blog-example-com', // capitals
     'https://my_blog.example.com/x' => 'pqm-execute-my-blog-example-com', // a non-slug char, the path ignored
@@ -273,12 +273,12 @@ foreach ([
     '/'                             => 'pqm-execute-my-site', // host unknown, as the credential names
 ] as $home => $want) {
     $GLOBALS['tw']['home'] = $home;
-    check("webhook path for home $home: $want", pqm_webhook_path() === $want);
+    check("webhook path for home $home: $want", postquality_webhook_path() === $want);
 }
 unset($GLOBALS['tw']['home']);
 $admin_src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
 check('Download forgets the report only once the template is found (after the not-found wp_die)',
-    (bool) preg_match("/function download_workflow\(\).*?pqm_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
+    (bool) preg_match("/function download_workflow\(\).*?postquality_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
 $GLOBALS['tw']['options'] = site_options();
 
 /* ─── Template contract (static checks on templates/n8n-workflow.json) ── */
@@ -305,15 +305,15 @@ foreach ($tpl['connections'] as $from => $c) {
 }
 check('Update WP Post (Rewrite) reached only through Rewrite Parsed? (true output)', $into_update === ['Rewrite Parsed?#0']);
 preg_match_all('/workflow_version: (\d+)/', $nodes['Parse Input']['parameters']['jsCode'], $m);
-check('every Parse Input stamp === PQM_WORKFLOW_VERSION (the command item\'s and, story 2, the ping item\'s)', count($m[1]) === 2 && array_unique(array_map('intval', $m[1])) === [PQM_WORKFLOW_VERSION]);
+check('every Parse Input stamp === POSTQUALITY_WORKFLOW_VERSION (the command item\'s and, story 2, the ping item\'s)', count($m[1]) === 2 && array_unique(array_map('intval', $m[1])) === [POSTQUALITY_WORKFLOW_VERSION]);
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('PQM_WORKFLOW_VERSION is 7', PQM_WORKFLOW_VERSION === 7);
+check('POSTQUALITY_WORKFLOW_VERSION is 7', POSTQUALITY_WORKFLOW_VERSION === 7);
 $trigger = $nodes['Webhook Trigger'];
-check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":PQM_WORKFLOW_VERSION} (the ping handshake)',
+check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":POSTQUALITY_WORKFLOW_VERSION} (the ping handshake)',
     !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData
-    && json_decode($trigger['parameters']['options']['responseData'] ?? '', true) === ['ok' => true, 'workflow_version' => PQM_WORKFLOW_VERSION]);
+    && json_decode($trigger['parameters']['options']['responseData'] ?? '', true) === ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
 check('Webhook Trigger checks Header Auth with the per-site credential',
     ($trigger['parameters']['authentication'] ?? null) === 'headerAuth'
     && ($trigger['credentials'] ?? null) === ['httpHeaderAuth' => ['name' => 'Post Quality webhook - __PQM_SITE_HOST__']]);
@@ -329,12 +329,12 @@ check('Ping OK is wired to POST Result to WordPress and passes the item through 
     ($tpl['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress'
     && str_contains($nodes['Ping OK']['parameters']['jsCode'], "return [{ json: { ...d, overall_score: 0, status: '', result: '{}' } }];"));
 check('Parse Input\'s ping item carries callback_url, auth_token and the stamp (one line)',
-    (bool) preg_match("/^  return \[\{ json: \{ command: 'ping', ping: true, error: false, callback_url: callbackUrl, auth_token: authToken, notification_url: '', workflow_version: " . PQM_WORKFLOW_VERSION . " \} \}\];$/m", $nodes['Parse Input']['parameters']['jsCode']));
-$ping_route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/ping/(?P<id>[A-Za-z0-9]{20})'] ?? null;
+    (bool) preg_match("/^  return \[\{ json: \{ command: 'ping', ping: true, error: false, callback_url: callbackUrl, auth_token: authToken, notification_url: '', workflow_version: " . POSTQUALITY_WORKFLOW_VERSION . " \} \}\];$/m", $nodes['Parse Input']['parameters']['jsCode']));
+$ping_route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/ping/(?P<id>[A-Za-z0-9]{20})'] ?? null;
 check('POST /ping/{id} registered: a 20-character id, check_ping_token, ping_callback', is_array($ping_route) && $ping_route['methods'] === 'POST'
-    && $ping_route['permission_callback'] === ['PQM_REST_API', 'check_ping_token'] && $ping_route['callback'] === ['PQM_REST_API', 'ping_callback']);
-check('the pending ping lives in PQM_Admin::PING_OPTION = pqm_ping, claimable for PING_LIVE = 60 s, waited for PING_WAIT = 8 s',
-    PQM_Admin::PING_OPTION === 'pqm_ping' && PQM_Admin::PING_LIVE === 60 && PQM_Admin::PING_WAIT === 8);
+    && $ping_route['permission_callback'] === ['PostQuality_REST_API', 'check_ping_token'] && $ping_route['callback'] === ['PostQuality_REST_API', 'ping_callback']);
+check('the pending ping lives in PostQuality_Admin::PING_OPTION = pqm_ping, claimable for PING_LIVE = 60 s, waited for PING_WAIT = 8 s',
+    PostQuality_Admin::PING_OPTION === 'pqm_ping' && PostQuality_Admin::PING_LIVE === 60 && PostQuality_Admin::PING_WAIT === 8);
 $GLOBALS['tw']['options'] = site_options(['pqm_settings' => ['webhook_token' => 'tok-2']]);
 $ping_id   = 'abcdefghij0123456789';
 $pending   = ['id' => $ping_id, 'at' => time()];
@@ -378,22 +378,22 @@ check('uninstall removes the pending ping option', str_contains(file_get_content
 $GLOBALS['tw']['options'] = site_options();
 
 /* Payload: the post's own REST address, '' when its type is not in REST */
-$payload = pqm_n8n_payload(new WP_Post(7, 'a-page', 'page'), 'rewrite', pqm_get_settings());
+$payload = postquality_n8n_payload(new WP_Post(7, 'a-page', 'page'), 'rewrite', postquality_get_settings());
 check('payload post_rest_url = rest_url() of the post\'s own route (page, plain permalinks, port, subdirectory)',
     $payload['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
-$payload = pqm_n8n_payload(new WP_Post(8, 'hidden', 'pqm_private_type'), 'rewrite', pqm_get_settings());
+$payload = postquality_n8n_payload(new WP_Post(8, 'hidden', 'pqm_private_type'), 'rewrite', postquality_get_settings());
 check('post type not in REST → post_rest_url \'\'', $payload['post_rest_url'] === '');
 
 /* Headers: one home for the token header, used by Run, cron and ping */
-check('pqm_n8n_headers(): JSON content type + X-PQM-Token = the webhook token',
-    pqm_n8n_headers(['webhook_token' => 'tok-35']) === ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']);
+check('postquality_n8n_headers(): JSON content type + X-PQM-Token = the webhook token',
+    postquality_n8n_headers(['webhook_token' => 'tok-35']) === ['Content-Type' => 'application/json', 'X-PQM-Token' => 'tok-35']);
 $sources = implode('', array_map(static fn($f) => file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/' . $f),
     ['includes/class-pqm-rest-api.php', 'includes/class-pqm-cron.php', 'admin/class-pqm-admin.php']));
-check('every wp_remote_post to n8n sends pqm_n8n_headers() (Run, cron, ping)',
-    substr_count($sources, 'wp_remote_post(') === 3 && substr_count($sources, 'pqm_n8n_headers(') === 3
+check('every wp_remote_post to n8n sends postquality_n8n_headers() (Run, cron, ping)',
+    substr_count($sources, 'wp_remote_post(') === 3 && substr_count($sources, 'postquality_n8n_headers(') === 3
     && !str_contains($sources, "'headers' => ['Content-Type'") && !str_contains($sources, "'headers' => [ 'Content-Type'"));
 
-/* ─── in_flight derivation (PQM_DB::get_in_flight_for_posts) ─────────── */
+/* ─── in_flight derivation (PostQuality_DB::get_in_flight_for_posts) ─────────── */
 
 /* Row: list in-flight — latest row per post+command is processing → in_flight */
 echo "In flight\n";
@@ -402,7 +402,7 @@ $wpdb = fresh_wpdb([[
     ['post_id' => '7', 'command' => 'review'],
     ['post_id' => '9', 'command' => 'seo'],
 ]]);
-$map = PQM_DB::get_in_flight_for_posts([7, 9, 11]);
+$map = PostQuality_DB::get_in_flight_for_posts([7, 9, 11]);
 check('map keyed by post_id → commands, posts with nothing in flight absent',
     $map === [7 => ['takeaways', 'review'], 9 => ['seo']]);
 $sql = $wpdb->results_sql[0];
@@ -418,11 +418,11 @@ check('post ids prepared as %d placeholders',
 /* Row: empty id list — no query at all */
 echo "In flight, no posts\n";
 $wpdb = fresh_wpdb([]);
-check('[] → [] without touching wpdb', PQM_DB::get_in_flight_for_posts([]) === [] && $wpdb->results_sql === []);
+check('[] → [] without touching wpdb', PostQuality_DB::get_in_flight_for_posts([]) === [] && $wpdb->results_sql === []);
 
 /* Row: nothing processing — empty map */
 echo "In flight, none\n";
 fresh_wpdb([[]]);
-check('no processing rows → []', PQM_DB::get_in_flight_for_posts([7]) === []);
+check('no processing rows → []', PostQuality_DB::get_in_flight_for_posts([7]) === []);
 
 harness_exit();

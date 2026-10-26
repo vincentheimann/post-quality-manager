@@ -2,7 +2,7 @@
 /**
  * Template guard harness for story 4.3 (CAP-4) — fails, naming the cause,
  * when post-quality-manager/templates/n8n-workflow.json is invalid JSON,
- * carries a placeholder pqm_workflow_json() does not fill (or lacks one it
+ * carries a placeholder postquality_workflow_json() does not fill (or lacks one it
  * fills), contains a site-specific string or any literal URL but the Claude
  * API's, or has a Code node whose jsCode does not parse.
  * Code nodes are compiled by Node.js, never run. Needs Node.js on PATH;
@@ -19,7 +19,7 @@
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
 
-/** Must match the str_replace() in pqm_workflow_json() (includes/pqm-functions.php). */
+/** Must match the str_replace() in postquality_workflow_json() (includes/pqm-functions.php). */
 const FILLED_PLACEHOLDERS = ['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'];
 
 /** Hosts the template may name literally; every WordPress address arrives at runtime. */
@@ -62,11 +62,11 @@ foreach (['n8n-workflow.json' => 'Pro', 'n8n-workflow-free.json' => 'Free'] as $
     echo "Placeholders\n";
     preg_match_all('/__PQM_[A-Z0-9_]+__/', $raw, $m);
     $unknown = array_values(array_diff(array_unique($m[0]), FILLED_PLACEHOLDERS));
-    check('every placeholder is one pqm_workflow_json() fills'
-        . ($unknown ? ' — unknown: ' . implode(', ', $unknown) . ' (fill it in pqm_workflow_json() and list it in FILLED_PLACEHOLDERS)' : ''),
+    check('every placeholder is one postquality_workflow_json() fills'
+        . ($unknown ? ' — unknown: ' . implode(', ', $unknown) . ' (fill it in postquality_workflow_json() and list it in FILLED_PLACEHOLDERS)' : ''),
         !$unknown);
     $absent = array_values(array_diff(FILLED_PLACEHOLDERS, $m[0]));
-    check('every placeholder pqm_workflow_json() fills is in the template'
+    check('every placeholder postquality_workflow_json() fills is in the template'
         . ($absent ? ' — missing: ' . implode(', ', $absent) : ''),
         !$absent);
 

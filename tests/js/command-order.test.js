@@ -1,6 +1,6 @@
 /**
  * Story 54 (ADR 0014): the React pages take their command list from the
- * registry labels PHP prints before the bundle (window.pqmCommandLabels),
+ * registry labels PHP prints before the bundle (window.postqualityCommandLabels),
  * so the Free build — whose registry has no paid command — renders no paid
  * pill, tab or button. The modules read the print at import, so each case
  * loads them in isolation after setting it.
@@ -27,11 +27,11 @@ const viewer = {
 /**
  * Load the kit modules fresh with this label print.
  *
- * @param {Object|undefined} labels window.pqmCommandLabels, or none.
+ * @param {Object|undefined} labels window.postqualityCommandLabels, or none.
  * @return {Object} { COMMAND_ORDER, canRender, ProgressPills }.
  */
 function load( labels ) {
-	window.pqmCommandLabels = labels;
+	window.postqualityCommandLabels = labels;
 	let kit;
 	jest.isolateModules( () => {
 		const copy = require( '../../src/kit/copy' );
@@ -51,7 +51,7 @@ beforeAll( () => {
 } );
 
 afterEach( () => {
-	delete window.pqmCommandLabels;
+	delete window.postqualityCommandLabels;
 	document.body.innerHTML = '';
 } );
 

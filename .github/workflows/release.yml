@@ -59,7 +59,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
-      # Header Version, PQM_VERSION and package.json must agree before
+      # Header Version, POSTQUALITY_VERSION and package.json must agree before
       # anything is built or published; on a mismatch the release stays a
       # draft. PHP ships on ubuntu-latest.
       - name: Versions agree

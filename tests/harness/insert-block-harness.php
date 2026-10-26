@@ -2,8 +2,8 @@
 /**
  * Insert-block harness for story 23 (Takeaways / Sources into the post
  * through a pattern the site owner picks) — every I/O & Edge-Case Matrix
- * row: PQM_Blocks::place() output serialized with core's own serializer,
- * PQM_Blocks::patterns(), and the POST /insert-block route (permission,
+ * row: PostQuality_Blocks::place() output serialized with core's own serializer,
+ * PostQuality_Blocks::patterns(), and the POST /insert-block route (permission,
  * gate, 409, pattern resolution, save). WP stubs, no WP install. The
  * serialize_block* functions are copied verbatim from WordPress 7.1.2
  * (wp-includes/blocks.php) so the markup checked here is the markup
@@ -34,7 +34,7 @@ $GLOBALS['pqm_routes'] = [];
 /* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 function is_admin() { return false; }
-function apply_filters($tag, $value, ...$a) { return $tag === 'pqm_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
+function apply_filters($tag, $value, ...$a) { return $tag === 'postquality_is_pro' ? $GLOBALS['tw']['pro'] : $value; }
 function current_user_can($cap, ...$args) {
     if ($cap === 'edit_post') {
         return in_array((int) ($args[0] ?? 0), $GLOBALS['tw']['can_edit'], true);
@@ -193,7 +193,7 @@ function marked(array $block, string $command = 'takeaways'): array {
     return $block;
 }
 function place(array $blocks, array $items, array $copy, string $command): string {
-    return serialize_blocks(PQM_Blocks::place($blocks, $items, $copy, $command));
+    return serialize_blocks(PostQuality_Blocks::place($blocks, $items, $copy, $command));
 }
 
 $four  = ['Sleep 8 hours.', 'Walk daily.', 'Eat fiber.', 'Drink water.'];
@@ -271,7 +271,7 @@ check('a copy without a List → plain list', place([], ['A'], [para('No list')]
 
 /* Row: pattern re-insert */
 echo "Pattern re-insert\n";
-$first = PQM_Blocks::place([$intro, ws(), $outro], $three, $pattern, 'takeaways');
+$first = PostQuality_Blocks::place([$intro, ws(), $outro], $three, $pattern, 'takeaways');
 $again = place($first, ['New one.'], $pattern, 'takeaways');
 check('earlier Group + Spacer replaced by one new copy, no duplicate Spacer',
     $again === owner_html(['New one.']) . "\n\n" . serialize_blocks([$intro, ws(), $outro]) && substr_count($again, '<!-- wp:spacer') === 1);
@@ -315,11 +315,11 @@ check('unmarked "Key Takeaways" Group not at the edge is left alone; the copy is
 echo "Sources\n";
 check('plain list: 3 sources appended last after block whitespace',
     place([$intro, ws(), $outro], $three, [], 'sources') === serialize_blocks([$intro, ws(), $outro]) . "\n\n" . list_html($three, 'sources'));
-$tk_only = PQM_Blocks::place([], $four, $pattern, 'takeaways');
+$tk_only = PostQuality_Blocks::place([], $four, $pattern, 'takeaways');
 $out = place($tk_only, $three, $pattern, 'sources');
 check('same pattern for Sources, post holds only the Takeaways copy → Sources copy appended last, Takeaways copy untouched',
     $out === owner_html($four) . "\n\n" . owner_html($three, 'sources'));
-$both = PQM_Blocks::place($tk_only, $three, $pattern, 'sources');
+$both = PostQuality_Blocks::place($tk_only, $three, $pattern, 'sources');
 check('a second Sources insert replaces its own copy and leaves Takeaways alone',
     place($both, ['Only one.'], $pattern, 'sources') === owner_html($four) . "\n\n" . owner_html(['Only one.'], 'sources'));
 check('a second Takeaways insert replaces its own copy and leaves Sources alone',
@@ -333,7 +333,7 @@ echo "HTML in an item\n";
 check('escaped text in the <li>', str_contains(place([], ['<b>x</b> & y'], [], 'takeaways'), '<li>&lt;b&gt;x&lt;/b&gt; &amp; y</li>'));
 check('…in a pattern copy too', str_contains(place([], ['<b>x</b> & y'], $pattern, 'takeaways'), '<li>&lt;b&gt;x&lt;/b&gt; &amp; y</li>'));
 
-/* Row: settings list — PQM_Blocks::patterns() */
+/* Row: settings list — PostQuality_Blocks::patterns() */
 echo "Pattern list\n";
 $pattern_html = serialize_blocks($pattern);
 $GLOBALS['tw']['parsed'] = [
@@ -348,20 +348,20 @@ $GLOBALS['tw']['patterns'] = [
     33 => ['Draft list', 'draft', 'draft-list'],
 ];
 check('3 user patterns, 1 without a List, 1 draft → only the published one with a List (nested at any depth)',
-    PQM_Blocks::patterns() === [31 => 'Key Takeaways']);
+    PostQuality_Blocks::patterns() === [31 => 'Key Takeaways']);
 $q = $GLOBALS['tw']['query'];
 check('query: all published wp_block posts by title (no cap: the list gates insert() and the sanitizer)',
     $q['post_type'] === 'wp_block' && $q['post_status'] === 'publish' && $q['orderby'] === 'title' && $q['numberposts'] === -1);
 $GLOBALS['tw']['patterns'][34] = ['A list', 'publish', 'top-list'];
-check('ordered by title', array_values(PQM_Blocks::patterns()) === ['A list', 'Key Takeaways']);
+check('ordered by title', array_values(PostQuality_Blocks::patterns()) === ['A list', 'Key Takeaways']);
 unset($GLOBALS['tw']['patterns'][34]);
 
 /* ─── Route ──────────────────────────────────────────────────────────── */
 echo "Route registration\n";
-PQM_REST_API::register_routes();
-$route = $GLOBALS['pqm_routes'][PQM_REST_NAMESPACE . '/insert-block'] ?? null;
+PostQuality_REST_API::register_routes();
+$route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/insert-block'] ?? null;
 check('POST /insert-block registered', $route !== null && $route['methods'] === WP_REST_Server::CREATABLE);
-check('permission_callback = check_can_insert', ($route['permission_callback'] ?? null) === ['PQM_REST_API', 'check_can_insert']);
+check('permission_callback = check_can_insert', ($route['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_can_insert']);
 check('args: post_id integer, command enum takeaways|sources',
     $route['args']['post_id']['type'] === 'integer' && $route['args']['command']['enum'] === ['takeaways', 'sources']);
 check('no sanitize_callback on the args (PHP internals fatal on WP\'s 3 args)',
@@ -379,26 +379,26 @@ function req(int $post_id, string $command): WP_REST_Request { return new WP_RES
 /* Row: no edit rights */
 echo "No edit rights\n";
 as_user($editor, [], true);
-check('cannot edit_post → false (WP answers 403)', PQM_REST_API::check_can_insert(req(7, 'takeaways')) === false);
+check('cannot edit_post → false (WP answers 403)', PostQuality_REST_API::check_can_insert(req(7, 'takeaways')) === false);
 as_user($editor, [8], true);
-check('edit rights are per post', PQM_REST_API::check_can_insert(req(7, 'takeaways')) === false
-    && PQM_REST_API::check_can_insert(req(8, 'takeaways')) === true);
+check('edit rights are per post', PostQuality_REST_API::check_can_insert(req(7, 'takeaways')) === false
+    && PostQuality_REST_API::check_can_insert(req(8, 'takeaways')) === true);
 
 /* Row: sources on a free site */
 echo "Sources on a free site\n";
 as_user($editor, [7], false);
-$gate = PQM_REST_API::check_can_insert(req(7, 'sources'));
+$gate = PostQuality_REST_API::check_can_insert(req(7, 'sources'));
 check('403 with the upgrade copy, as for trigger', $gate instanceof WP_Error && $gate->error_data['status'] === 403
     && $gate->message === 'Sources is a Pro agent. Upgrade to unlock it — Review and Takeaways stay free.');
-check('Takeaways still allowed on a free site', PQM_REST_API::check_can_insert(req(7, 'takeaways')) === true);
+check('Takeaways still allowed on a free site', PostQuality_REST_API::check_can_insert(req(7, 'takeaways')) === true);
 as_user($author, [7], true);
-$gate = PQM_REST_API::check_can_insert(req(7, 'sources'));
+$gate = PostQuality_REST_API::check_can_insert(req(7, 'sources'));
 check('role without paid agents → 403 role copy', $gate instanceof WP_Error && $gate->error_data['status'] === 403
     && str_contains($gate->message, 'not available for your role'));
 as_user($editor, [7], false);
 $GLOBALS['tw']['options']['pqm_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook'];
-$trigger = PQM_REST_API::trigger_review_callback(req(7, 'sources'));
-$insert  = PQM_REST_API::check_can_insert(req(7, 'sources'));
+$trigger = PostQuality_REST_API::trigger_review_callback(req(7, 'sources'));
+$insert  = PostQuality_REST_API::check_can_insert(req(7, 'sources'));
 check('trigger-review refuses with the identical gate error (shared helper)',
     $trigger instanceof WP_Error && $insert instanceof WP_Error && $trigger == $insert);
 $GLOBALS['tw']['options']['pqm_settings'] = [];
@@ -414,7 +414,7 @@ function run_insert(string $command, array $rows, string $content, array $parsed
     $GLOBALS['tw']['posts'] = [7 => $content];
     $GLOBALS['tw']['parsed'][$content] = $parsed; // pattern fixtures stay parseable
     $GLOBALS['tw']['updates'] = [];
-    return PQM_REST_API::insert_block_callback(req(7, $command));
+    return PostQuality_REST_API::insert_block_callback(req(7, $command));
 }
 function written(): string { return stripslashes($GLOBALS['tw']['updates'][0]['post_content'] ?? ''); }
 function with_pattern(string $command, $id): void { $GLOBALS['tw']['options']['pqm_settings'] = ['agent_prompts' => [$command => ['pattern' => $id]]]; }

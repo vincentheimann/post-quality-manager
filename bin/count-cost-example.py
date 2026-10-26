@@ -50,17 +50,17 @@ FIXTURES = REPO / "docs" / "cost-example"
 TEMPLATE = REPO / "post-quality-manager" / "templates" / "n8n-workflow.json"
 ORDER = ("short", "average", "long")
 ENDPOINT = "https://api.anthropic.com/v1/messages/count_tokens"
-DEFAULT_MODEL = "claude-sonnet-4-6"  # pqm_default_settings()['default_model']
-REVIEW_OUTPUT_CAP = 2500  # pqm_agent_max_tokens()['review']
-TAKEAWAYS_OUTPUT_CAP = 1000  # pqm_agent_max_tokens()['takeaways']
+DEFAULT_MODEL = "claude-sonnet-4-6"  # postquality_default_settings()['default_model']
+REVIEW_OUTPUT_CAP = 2500  # postquality_agent_max_tokens()['review']
+TAKEAWAYS_OUTPUT_CAP = 1000  # postquality_agent_max_tokens()['takeaways']
 
-# PQM_Admin::blog_profiles()['technical']['website_context']
+# PostQuality_Admin::blog_profiles()['technical']['website_context']
 WEBSITE_CONTEXT = (
     "A technical blog for software developers and IT professionals. Readers expect accurate, in-depth content: "
     "working code examples, references to official documentation, and honest trade-off discussions. Domain jargon "
     "is fine; marketing fluff is not."
 )
-# pqm_voice_presets()['professional']['instruction']
+# postquality_voice_presets()['professional']['instruction']
 BRAND_VOICE = (
     "Professional and authoritative: precise, confident wording; active voice; back claims with evidence; no hype "
     "or filler."

@@ -5,11 +5,11 @@ Two hand-written files that prove the plugin loads translations from its own `la
 | File | Read by | Strings |
 |---|---|---|
 | `post-quality-manager-de_DE.l10n.php` | PHP admin pages (WordPress 6.5+ reads this format before `.mo`) | Post Reviews → Beitragsprüfungen, Settings → Einstellungen |
-| `post-quality-manager-de_DE-pqm-app.json` | the React bundle (handle `pqm-app`, so no md5 file name is needed) | Average score → Durchschnittliche Bewertung |
+| `post-quality-manager-de_DE-pqm-app.json` | the React bundle (WordPress reads `{text domain}-{locale}-{handle}.json`, so no md5 file name is needed; the handle is `postquality-app` since story 88, so copy the fixture as `post-quality-manager-de_DE-postquality-app.json` on the site) | Average score → Durchschnittliche Bewertung |
 
 ## Check on a site
 
-1. Copy both files into `wp-content/plugins/post-quality-manager/languages/` (create the folder).
+1. Copy both files into `wp-content/plugins/post-quality-manager/languages/` (create the folder); name the JSON copy `post-quality-manager-de_DE-postquality-app.json`, after the script handle.
 2. Settings → General → Site Language: Deutsch. Install the language when WordPress asks.
 3. With `WP_DEBUG` on, open the plugin's menu. The submenu shows **Einstellungen** and **Beitragsprüfungen**, the Post Reviews page heading reads **Beitragsprüfungen**, and the Dashboard tile reads **Durchschnittliche Bewertung**. No notice appears.
 4. Delete the `languages/` folder and reload: the same labels are English again, still without a notice.

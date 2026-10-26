@@ -1,12 +1,12 @@
 <?php
 /**
  * License provider (spec CAP-2) — the single swappable seam behind
- * PQM_Features::is_pro().
+ * PostQuality_Features::is_pro().
  *
  * Reads the Freemius SDK's license state (ADR 0013, story 44): the SDK is
- * initialised by pqm_fs() in the main plugin file, and its own screens
+ * initialised by postquality_fs() in the main plugin file, and its own screens
  * (license activation, Account) carry the key. Gate callers keep reading
- * PQM_Features::is_pro(), and the pqm_is_pro filter stays the dev override
+ * PostQuality_Features::is_pro(), and the postquality_is_pro filter stays the dev override
  * on top. The stored `license_key` setting of the stub era is never read.
  */
 
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class PQM_License {
+class PostQuality_License {
 
     /**
      * Whether this site may run Pro: a trial or a license whose features are
@@ -23,7 +23,7 @@ class PQM_License {
      * state, so nothing is cached here.
      */
     public static function is_pro(): bool {
-        return function_exists( 'pqm_fs' ) && pqm_fs()->can_use_premium_code();
+        return function_exists( 'postquality_fs' ) && postquality_fs()->can_use_premium_code();
     }
 
     /**
@@ -33,8 +33,8 @@ class PQM_License {
      * stay as they are; the License section points to the Account page.
      */
     public static function has_lapsed(): bool {
-        return function_exists( 'pqm_fs' )
-            && is_object( pqm_fs()->_get_license() )
-            && ! pqm_fs()->can_use_premium_code();
+        return function_exists( 'postquality_fs' )
+            && is_object( postquality_fs()->_get_license() )
+            && ! postquality_fs()->can_use_premium_code();
     }
 }

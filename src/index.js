@@ -3,11 +3,11 @@
  *
  * One bundle for the React pages: mounts the Post Reviews table or the
  * Dashboard on whichever root div the PHP shell rendered
- * (PQM_Admin::render_app_shell()), and the setup dialog and n8n connection
+ * (PostQuality_Admin::render_app_shell()), and the setup dialog and n8n connection
  * islands on the PHP n8n Workflow page. The n8n connection island sits
  * inside the page's body (#pqm-workflow-body), which every reply swaps
  * whole (story 67): it is mounted at load and again on every
- * pqm:workflow-status, on the fresh root node, reading its state anew.
+ * postquality:workflow-status, on the fresh root node, reading its state anew.
  * React and all @wordpress/* dependencies are served by WordPress core via
  * dependency extraction — nothing is bundled beyond this app's own code.
  */
