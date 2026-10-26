@@ -1,7 +1,7 @@
 ---
 title: 'Build 2: the pricing and documentation pages, both launch states'
 type: 'feature'
-ticket: '86'
+build_of: '86'
 created: '2026-10-23'
 status: 'built'
 baseline_revision: 'a9899bcffec1fc667a20a5e2740234889af2c536'

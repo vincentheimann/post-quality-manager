@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89]
+after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89, 91]
 assignee: ""
 refined: false
 hitl: true
@@ -53,7 +53,7 @@ UV7 proper (A1–A2: discoverability and the update channel). Once the plugin ha
 
 ## Boundaries
 
-- Must not change: the feature gate (ADR 0003), the stored settings keys (story 88 renames them before this story; this story keeps the names it finds).
+- Must not change: the feature gate (ADR 0003), the stored settings keys (story 91 renames them before this story; this story keeps the names it finds).
 - Out of scope: translations content (language packs come from translate.wordpress.org once listed — bundled `languages/` becomes unnecessary for directory installs); Freemius SDK integration (deferred-work) unless the review requires the license flow to be visible; a workflow that updates the readme or assets between releases (D4); a Live Preview blueprint (D5).
 
 ## References

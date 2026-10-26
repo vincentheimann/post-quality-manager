@@ -1,7 +1,7 @@
 ---
 title: 'The first review gives up on time and says why nothing came back'
 type: 'feature'
-ticket: '2'
+build_of: '2'
 created: '2026-10-22'
 status: 'done'
 baseline_revision: '01a2bb7f2a448b95a48b9e3214d68edf081b2460'

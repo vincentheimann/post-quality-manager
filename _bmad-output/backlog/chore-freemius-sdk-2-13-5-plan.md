@@ -3,7 +3,7 @@ title: 'The vendored Freemius SDK is 2.13.5, unmodified'
 type: 'chore'
 ticket: '89'
 created: '2026-10-24'
-status: 'built'
+status: done
 baseline_revision: 'a4ab38df7dd03d83643ca2ff217eecf90e558ff6'
 route: 'full'
 route_source: 'auto'

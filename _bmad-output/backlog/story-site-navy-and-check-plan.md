@@ -1,7 +1,7 @@
 ---
 title: 'Build 1: the site gets its own layouts, the Navy and check home page and the policy edits'
 type: 'feature'
-ticket: '86'
+build_of: '86'
 created: '2026-10-23'
 status: 'built'
 baseline_revision: 'b41ba057809a81013fa285f8a5c2dd39175d1a76'

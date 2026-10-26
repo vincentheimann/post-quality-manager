@@ -1,6 +1,6 @@
 ---
 id: 87
-type: chore
+type: story
 title: "At the public go-live, the repository's history names the project only by its new name"
 parent: none
 covers: [O9]

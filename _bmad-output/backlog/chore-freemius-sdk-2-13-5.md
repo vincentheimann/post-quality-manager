@@ -1,6 +1,6 @@
 ---
 id: 89
-type: chore
+type: story
 title: "The vendored Freemius SDK is 2.13.5, unmodified"
 parent: none
 covers: [O9]

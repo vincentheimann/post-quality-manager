@@ -1,6 +1,6 @@
 ---
 id: 81
-type: chore
+type: story
 title: "No secret handed to an agent outlives the plugin's development"
 parent: none
 covers: [O9]

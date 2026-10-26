@@ -6,7 +6,7 @@ parent: none
 covers: [O9]
 after: [89]
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: medium
 severity: P2
@@ -20,7 +20,7 @@ An admin who skipped the Freemius opt-in, then deactivates the plugin and answer
 
 ## Reproduction
 
-Read in the vendored SDK 2.13.4 code (2026-10-24); not yet run on a site.
+Read in the vendored SDK 2.13.4 code (2026-10-24), re-read in 2.13.5 on main 02c9151 (2026-10-26): the same path; not yet run on a site.
 
 1. A WordPress site with the Free build; at activation, click Skip on the Freemius opt-in.
 2. Plugins → Deactivate. The feedback form opens. Pick a reason, type a line, leave "Anonymous feedback" unticked, and deactivate.
