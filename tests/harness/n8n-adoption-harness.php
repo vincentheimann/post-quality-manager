@@ -19,7 +19,7 @@ require __DIR__ . '/lib/n8n-world.php';
 /* ─── Entry 7: the handshake reports a mis-wired workflow ───────────── */
 echo "Diagnosis: one row per line of the plan's matrix\n";
 $stored = static fn() => postquality_workflow_report()['miswired'] ?? null;
-$a_sentence = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]];
+$a_sentence = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]];
 
 // Row: the 2026-10-13 shape — no setup map, the v5 path, the trigger's Header Auth credential spread to every Claude node.
 connected([resp(200, ['data' => [stored_workflow('wf-other', with_path(wired(), 'pqm-execute-other-example')), stored_workflow('wf-prod', $oct13)], 'nextCursor' => null])]);
@@ -78,7 +78,7 @@ connected($miswired_map(wired(['WordPress - example.com' => null] + WIRED, ['Upd
 check('disabled node without a credential: not reported', diagnosed() === '');
 
 // Row: no key stored — the stored sentence clears on the next test, zero n8n calls.
-site(['pqm_settings' => ['webhook_token' => TOKEN]] + $a_sentence);
+site(['postquality_settings' => ['webhook_token' => TOKEN]] + $a_sentence);
 $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
 $r = connect_ping(HOOK);
 check('no key stored: diagnose answers \'\', zero calls; the sentence clears, the handshake is ping-only', PostQuality_N8n::diagnose(HOOK) === '' && calls() === []
@@ -117,7 +117,7 @@ postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION, 'test', 'pro',
 check('... a test that could not diagnose (null): kept', $stored() === SHARED_SENTENCE);
 postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION, 'test', 'pro', '');
 check('... a clean test (\'\'): cleared, the stored report back to its shape before entry 7',
-    $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => $GLOBALS['tw']['options']['pqm_workflow_version_seen']['at']]);
+    $GLOBALS['tw']['options']['postquality_workflow_version_seen'] === ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => $GLOBALS['tw']['options']['postquality_workflow_version_seen']['at']]);
 
 // Row: fixed in n8n, published, Test again — the status shows the version line.
 connected($miswired_map(wired()), $setup_map + $a_sentence);
@@ -128,7 +128,7 @@ check('... the body: set up, the version line, one primary (the first review)', 
 
 // The Settings field pings an unsaved URL: not diagnosed.
 connected([LIST_OK]);
-$GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = HOOK;
+$GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] = HOOK;
 $ping = PostQuality_Admin::ping_webhook(BASE . '/webhook/pqm-execute-unsaved');
 check('a ping of an unsaved URL: miswired null, no n8n call', array_key_exists('miswired', $ping) && $ping['miswired'] === null && calls() === []);
 $ping = PostQuality_Admin::ping_webhook(HOOK);
@@ -162,7 +162,7 @@ check('offer: a passing key, the URL saved, no map — adoptable, no setup; zero
 foreach ([
     'no key' => static function () { unset($GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['api_key']); },
     'a key without a passing check' => static function () { $GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['probe'] = null; },
-    'no URL saved' => static function () { unset($GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url']); },
+    'no URL saved' => static function () { unset($GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url']); },
 ] as $label => $change) {
     hand_made([]);
     $change();
@@ -186,7 +186,7 @@ check('a custom trigger path: found by it, the path as the trigger carries it (s
 
 echo "Adoption: not adoptable — zero calls\n";
 foreach (['proposal' => static fn() => proposal(), 'confirm' => static fn() => adopt_post('wf-hand')] as $which => $run) {
-    site(['pqm_settings' => ['n8n_webhook_url' => V5_HOOK]]);
+    site(['postquality_settings' => ['n8n_webhook_url' => V5_HOOK]]);
     $GLOBALS['tw']['pings'] = [];
     check("$which, no key: 400 pqm_n8n_not_connected", refused($run(), 'pqm_n8n_not_connected', 400) && calls() === []);
     hand_made([]);

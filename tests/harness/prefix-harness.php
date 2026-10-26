@@ -12,15 +12,16 @@
  * Each must start with the prefix of its kind and carry no `pqm` in any
  * case; a failure names the offender.
  *
- * Two lists stay `pqm`. Stored names (options, user meta, capabilities, the
- * cron hook and schedule, the table, the form field names) until story 91
- * moves them with a one-time upgrade: Row 10 proves each is still in the
- * tree and that no `postquality_` twin of one appeared (a half rename would
- * read an empty option or a capability nobody holds). Permanent exceptions
- * (owner, 2026-10-26: the webhook header, the REST namespace, the template
- * placeholders, the block marker, the per-site webhook path prefix, the
- * REST error codes) in Row 11, the same way. Story 91 edits STORED_LITERALS
- * when it moves them; PERMANENT_LITERALS never changes.
+ * Stored names (options, user meta, capabilities, the cron hook and
+ * schedule, the table, the form field names) moved to `postquality_` with
+ * story 91 (2026-10-26) and a one-time upgrade: Row 10 proves each new name
+ * is in the tree and that every old `pqm_` name lives only in the legacy
+ * map of PostQuality_Activator (a stray old name would read an empty option
+ * or a capability nobody holds after the upgrade). One list stays `pqm`:
+ * the permanent exceptions (owner, 2026-10-26: the webhook header, the REST
+ * namespace, the template placeholders, the block marker, the per-site
+ * webhook path prefix, the REST error codes) in Row 11, the same way.
+ * PERMANENT_LITERALS never changes.
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -41,17 +42,26 @@ const CORE_GLOBALS = ['$wpdb', '$post'];
 /** Query args WordPress itself sets on the plugin's pages. */
 const CORE_QUERY_ARGS = ['page', 'action', '_wpnonce', '_wp_http_referer', 'settings-updated', 'tab'];
 
-/** Stored names of the baseline (main 9b8ac0f): `pqm` until story 91 moves them with a one-time upgrade. */
+/** Stored names since story 91 (the new names the plugin writes; the one-time upgrade's own flag included). */
 const STORED_LITERALS = [
     // options
+    'postquality_settings', 'postquality_db_version', 'postquality_workflow_version_seen', 'postquality_cron_nudge_dismissed', 'postquality_caps_version',
+    'postquality_setup_progress', 'postquality_n8n_api', 'postquality_n8n_setup', 'postquality_n8n_leftovers', 'postquality_n8n_provisioning', 'postquality_ping',
+    'postquality_names_version',
+    // user meta
+    'postquality_monthly_usage', 'postquality_feedback_dismissed',
+    // capabilities
+    'postquality_view_reviews', 'postquality_run_free_agents', 'postquality_run_paid_agents', 'postquality_manage_agents', 'postquality_manage_settings',
+    // cron hook and schedule, table, form field names
+    'postquality_cron_review_posts', 'postquality_weekly', 'postquality_reviews', 'postquality_settings[',
+];
+/** The stored names of release 3.9.0 (main 9b8ac0f): read only by the upgrade and the uninstall, from PostQuality_Activator::LEGACY_NAMES. */
+const LEGACY_LITERALS = [
     'pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen', 'pqm_cron_nudge_dismissed', 'pqm_caps_version',
     'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers', 'pqm_n8n_provisioning', 'pqm_ping',
-    // user meta
     'pqm_monthly_usage', 'pqm_feedback_dismissed', 'pqm_view_as',
-    // capabilities
     'pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings',
-    // cron hook and schedule, table, form field names
-    'pqm_cron_review_posts', 'pqm_weekly', 'pqm_reviews', 'pqm_settings[',
+    'pqm_cron_review_posts', 'pqm_weekly', 'pqm_reviews',
 ];
 /** Names kept as they are (owner, 2026-10-26): the wire and what sites and workflows already hold. */
 const PERMANENT_LITERALS = [
@@ -338,11 +348,17 @@ $tree = $php_all . "\n" . $js_all . "\n" . (string) file_get_contents($plugin . 
 /* A whole token; a literal ending in `[` or `-` is a prefix (form field names, the webhook path) and may continue. */
 $present = static fn(string $lit): bool => (bool) preg_match('/(?<![A-Za-z0-9_-])' . preg_quote($lit, '/') . (preg_match('/[A-Za-z0-9_]$/', $lit) ? '(?![A-Za-z0-9_])' : '') . '/', $tree);
 
-echo "Row 10 — stored names stay pqm until story 91 (options, user meta, capabilities, cron, table, form fields)\n";
+echo "Row 10 — stored names carry postquality_ (options, user meta, capabilities, cron, table, form fields); the old names live only in the legacy map\n";
 $missing = array_values(array_filter(STORED_LITERALS, static fn(string $lit) => !$present($lit)));
-check(count(STORED_LITERALS) . ' stored literals still in the tree' . ($missing ? ' — missing: ' . implode(', ', $missing) : ''), !$missing);
-$twins = array_values(array_filter(array_map(static fn(string $lit) => str_replace('pqm_', 'postquality_', rtrim($lit, '[')), STORED_LITERALS), $present));
-check('no postquality_ twin of a stored name in the plugin PHP/JS (a half rename reads an empty option or a capability nobody holds)' . describe($twins), !$twins);
+check(count(STORED_LITERALS) . ' stored literals in the tree' . ($missing ? ' — missing: ' . implode(', ', $missing) : ''), !$missing);
+preg_match('/private const LEGACY_NAMES = \[.*?\n    \];/s', $php_files['includes/class-pqm-activator.php'] ?? '', $m);
+$legacy_map = $m[0] ?? '';
+$in_map = static fn(string $lit): bool => (bool) preg_match('/\'' . preg_quote($lit, '/') . '\'/', $legacy_map);
+$missing = array_values(array_filter(LEGACY_LITERALS, static fn(string $lit) => !$in_map($lit)));
+check(count(LEGACY_LITERALS) . ' legacy literals named in PostQuality_Activator::LEGACY_NAMES' . ($missing ? ' — missing: ' . implode(', ', $missing) : ''), $legacy_map !== '' && !$missing);
+$outside_map = str_replace($legacy_map, '', $tree);
+$strays = array_values(array_filter(LEGACY_LITERALS, static fn(string $lit): bool => (bool) preg_match('/(?<![A-Za-z0-9_-])' . preg_quote($lit, '/') . '(?![A-Za-z0-9_])/', $outside_map)));
+check('no pqm_ stored name anywhere else in the plugin PHP/JS and the template (an old name read after the upgrade finds nothing)' . describe($strays), !$strays);
 
 echo "Row 11 — permanent exceptions (the wire, the block marker, the REST error codes) are untouched\n";
 $missing = array_values(array_filter(PERMANENT_LITERALS, static fn(string $lit) => !$present($lit)));

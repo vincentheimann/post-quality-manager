@@ -362,7 +362,7 @@ function postquality_workflow_json(?string $path = null): ?string
  */
 function postquality_workflow_report(): ?array
 {
-    $report = get_option('pqm_workflow_version_seen', null);
+    $report = get_option('postquality_workflow_version_seen', null);
     if (is_numeric($report) && (int) $report > 0) {
         return ['version' => (int) $report, 'via' => 'command', 'at' => 0];
     }
@@ -401,7 +401,7 @@ function postquality_record_workflow_version(int $version, string $via, string $
     if ($miswired !== '') {
         $report['miswired'] = $miswired;
     }
-    update_option('pqm_workflow_version_seen', $report, false);
+    update_option('postquality_workflow_version_seen', $report, false);
 }
 
 /**
@@ -413,13 +413,13 @@ function postquality_record_workflow_version(int $version, string $via, string $
  */
 function postquality_record_workflow_failure(string $message): void
 {
-    $stored = get_option('pqm_workflow_version_seen', null);
+    $stored = get_option('postquality_workflow_version_seen', null);
     if (is_numeric($stored) && (int) $stored > 0) {
         $stored = ['version' => (int) $stored, 'via' => 'command', 'at' => 0];
     }
     $stored           = is_array($stored) ? $stored : [];
     $stored['failed'] = ['message' => $message, 'at' => time()];
-    update_option('pqm_workflow_version_seen', $stored, false);
+    update_option('postquality_workflow_version_seen', $stored, false);
 }
 
 /* ─── Helper: Get plugin settings with defaults ──────────────────────── */
@@ -427,7 +427,7 @@ function postquality_get_settings(): array
 {
     $defaults = postquality_default_settings();
 
-    $saved = get_option('pqm_settings', []);
+    $saved = get_option('postquality_settings', []);
 
     $merged = wp_parse_args($saved, $defaults);
     if (isset($saved['agent_prompts']) && is_array($saved['agent_prompts'])) {
@@ -453,7 +453,7 @@ function postquality_n8n_payload(WP_Post $post, string $command, array $settings
 {
     $post_id       = $post->ID;
     $content_html  = get_post_field('post_content', $post_id);
-    $content_plain = wp_strip_all_tags(apply_filters('the_content', $content_html));
+    $content_plain = wp_strip_all_tags(apply_filters('the_content', $content_html)); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
     $yoast_active  = defined('WPSEO_VERSION');
 
     $excerpt = has_excerpt($post_id)
@@ -534,7 +534,7 @@ function postquality_webhook_url_warning(string $url): string
  * on uninstall (PostQuality_Activator::uninstall() names it literally: the harnesses
  * load that class without this file).
  */
-define('POSTQUALITY_SETUP_OPTION', 'pqm_setup_progress');
+define('POSTQUALITY_SETUP_OPTION', 'postquality_setup_progress');
 
 /**
  * Whether the site is set up: the dialog's first review marked it, or —

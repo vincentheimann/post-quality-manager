@@ -30,7 +30,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class PostQuality_REST_API {
 
     /** User meta: the Dashboard's feedback card hidden by this user (story 79). The uninstall deletes it for every user. */
-    const FEEDBACK_META = 'pqm_feedback_dismissed';
+    const FEEDBACK_META = 'postquality_feedback_dismissed';
 
     /* ─── Route Registration ─────────────────────────────────────────── */
 
@@ -251,7 +251,7 @@ class PostQuality_REST_API {
      * Read access to scores and stored reviews (Dashboard / Post Reviews).
      */
     public static function check_view_reviews(): bool {
-        return current_user_can( 'pqm_view_reviews' );
+        return current_user_can( 'postquality_view_reviews' );
     }
 
     /**
@@ -259,7 +259,7 @@ class PostQuality_REST_API {
      * Admin's, like the n8n Workflow page that hosts the dialog.
      */
     public static function check_manage_settings(): bool {
-        return current_user_can( 'pqm_manage_settings' );
+        return current_user_can( 'postquality_manage_settings' );
     }
 
     /**
@@ -326,7 +326,7 @@ class PostQuality_REST_API {
      */
     public static function check_webhook_token( WP_REST_Request $request ): bool {
         // Allow standard WP auth (Application Passwords).
-        if ( current_user_can( 'pqm_run_free_agents' ) ) {
+        if ( current_user_can( 'postquality_run_free_agents' ) ) {
             return true;
         }
 
@@ -365,7 +365,7 @@ class PostQuality_REST_API {
      * arg instead of a header. Logged-in admins pass too.
      */
     public static function check_workflow_token( WP_REST_Request $request ): bool {
-        if ( current_user_can( 'pqm_manage_settings' ) ) {
+        if ( current_user_can( 'postquality_manage_settings' ) ) {
             return true;
         }
 
@@ -444,7 +444,7 @@ class PostQuality_REST_API {
         setup_postdata( $post );
 
         $content_html  = get_post_field( 'post_content', $id );
-        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) );
+        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
 
         $excerpt = has_excerpt( $id )
             ? wp_strip_all_tags( get_the_excerpt( $id ) )
@@ -661,8 +661,8 @@ class PostQuality_REST_API {
         $settings = postquality_get_settings();
 
         // Every failed-start message names a step the clicker can take:
-        // only pqm_manage_settings holders can fix the n8n connection.
-        $can_manage = current_user_can( 'pqm_manage_settings' );
+        // only postquality_manage_settings holders can fix the n8n connection.
+        $can_manage = current_user_can( 'postquality_manage_settings' );
 
         // Not connected: admins are sent to the n8n Workflow page.
         if ( empty( $settings['n8n_webhook_url'] ) ) {
@@ -799,7 +799,7 @@ class PostQuality_REST_API {
 
         // n8n is importing it: the last report no longer says what runs
         // there, so the n8n Workflow page shows "not checked yet" until a ping.
-        delete_option( 'pqm_workflow_version_seen' );
+        delete_option( 'postquality_workflow_version_seen' );
 
         $response = new WP_REST_Response( json_decode( $json ) );
         // Older n8n versions fetch import URLs from the browser, not the server.
@@ -1000,7 +1000,7 @@ class PostQuality_REST_API {
                 // Ticket 32: the not-connected notice and disabled Run
                 // buttons — the same two flags as GET /dashboard.
                 'connected'           => ! empty( $settings['n8n_webhook_url'] ),
-                'can_manage_settings' => current_user_can( 'pqm_manage_settings' ),
+                'can_manage_settings' => current_user_can( 'postquality_manage_settings' ),
             ],
             'yoast_active' => $yoast_active,
         ], 200 );
@@ -1045,7 +1045,7 @@ class PostQuality_REST_API {
         $settings  = postquality_get_settings();
         $trend     = PostQuality_DB::get_score_trend();
         $average   = $trend ? $trend[ count( $trend ) - 1 ]['average'] : null;
-        $can_admin = current_user_can( 'pqm_manage_settings' );
+        $can_admin = current_user_can( 'postquality_manage_settings' );
 
         $data = [
             'average_score'       => $average,
@@ -1063,12 +1063,12 @@ class PostQuality_REST_API {
         // Habit-loop nudge: first result is in, cron still off. Pro build
         // only (ADR 0014), and only on a licensed site — on an unlicensed one
         // the Automated Reviews section is locked. Shown to whoever can see
-        // that section (pqm_manage_agents, ticket 16).
+        // that section (postquality_manage_agents, ticket 16).
         if ( postquality_fs()->is__premium_only() ) {
             $data['cron_nudge'] = null !== $average
                 && empty( $settings['cron_enabled'] )
-                && ! get_option( 'pqm_cron_nudge_dismissed' )
-                && current_user_can( 'pqm_manage_agents' )
+                && ! get_option( 'postquality_cron_nudge_dismissed' )
+                && current_user_can( 'postquality_manage_agents' )
                 && PostQuality_Features::is_pro();
 
             if ( $data['cron_nudge'] ) {
@@ -1180,9 +1180,9 @@ class PostQuality_REST_API {
 
     /**
      * Settings the wizard may write (POST /setup/settings): the Blog Profile
-     * and Editorial Standards keys of the pqm_manage_settings section, and,
+     * and Editorial Standards keys of the postquality_manage_settings section, and,
      * in the Pro build only (ADR 0014), `cron_enabled`, the switch of
-     * scheduled reviews (pqm_manage_agents + pro, like the Settings form's
+     * scheduled reviews (postquality_manage_agents + pro, like the Settings form's
      * Automated Reviews section). Any other key is refused.
      */
     private const SETUP_SETTING_KEYS = [ 'blog_profile', 'website_context', 'brand_voice_preset', 'brand_voice' ];
@@ -1309,7 +1309,7 @@ class PostQuality_REST_API {
         }
 
         $state += [
-            'can_manage_agents'  => current_user_can( 'pqm_manage_agents' ),
+            'can_manage_agents'  => current_user_can( 'postquality_manage_agents' ),
             'is_pro'             => PostQuality_Features::is_pro(),
             // Which build runs (story 54): the dialog leaves out the steps
             // the Free template has no node for.
@@ -1406,10 +1406,10 @@ class PostQuality_REST_API {
      * The configuration steps' save (story 55): a merge-save of the posted
      * keys alone, like save_webhook_url() — sanitize_settings() rebuilds the
      * whole array from a full form post, so it is not called; each key is
-     * checked here the way it would sanitize it. Every other pqm_settings key
+     * checked here the way it would sanitize it. Every other postquality_settings key
      * stays as stored. An unknown key or an invalid value refuses the whole
      * request (400, nothing stored); the scheduled-reviews switch needs
-     * pqm_manage_agents on a pro site (403), the gate of the Settings form's
+     * postquality_manage_agents on a pro site (403), the gate of the Settings form's
      * Automated Reviews section. Answers the fresh setup state.
      */
     public static function setup_settings_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
@@ -1428,7 +1428,7 @@ class PostQuality_REST_API {
         }
         if ( postquality_fs()->is__premium_only() ) {
             if ( array_key_exists( 'cron_enabled', $input )
-                && ! ( current_user_can( 'pqm_manage_agents' ) && PostQuality_Features::is_pro() ) ) {
+                && ! ( current_user_can( 'postquality_manage_agents' ) && PostQuality_Features::is_pro() ) ) {
                 return new WP_Error(
                     'pqm_setup_cron_forbidden',
                     __( 'Scheduled reviews need Pro and the right to manage agents. Ask an administrator.', 'post-quality-manager' ),
@@ -1462,9 +1462,9 @@ class PostQuality_REST_API {
             $clean[ $key ] = $value;
         }
 
-        $settings = get_option( 'pqm_settings', [] );
+        $settings = get_option( 'postquality_settings', [] );
         $settings = array_merge( is_array( $settings ) ? $settings : [], $clean );
-        update_option( 'pqm_settings', $settings );
+        update_option( 'postquality_settings', $settings );
 
         // The updated_option hook that reschedules cron is registered for
         // admin requests only; a REST save schedules it itself.

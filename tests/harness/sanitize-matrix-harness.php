@@ -97,12 +97,12 @@ $CRON_KEYS  = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_sc
 function setup($caps, $pro, $stored) {
     $GLOBALS['pqm_test_caps'] = $caps;
     $GLOBALS['pqm_test_pro'] = $pro;
-    $GLOBALS['tw']['options'] = ['pqm_settings' => $stored];
+    $GLOBALS['tw']['options'] = ['postquality_settings' => $stored];
 }
 
 /* ─── Case 1: Editor, licensed — overrides + cron POST, globals absent ── */
-echo "\nCase 1: Editor (pqm_manage_agents), pro site\n";
-setup(['pqm_manage_agents'], true, $stored_option);
+echo "\nCase 1: Editor (postquality_manage_agents), pro site\n";
+setup(['postquality_manage_agents'], true, $stored_option);
 $input = [
     // The two visible sections only.
     'cron_enabled'   => '1',
@@ -125,8 +125,8 @@ check('editor override change applied', $out['agent_prompts']['review']['instruc
     && $out['agent_prompts']['review']['temperature'] === 0.5);
 
 /* ─── Case 2: Editor, free site — nothing POSTs (both sections locked) ── */
-echo "\nCase 2: Editor (pqm_manage_agents), free site — empty POST\n";
-setup(['pqm_manage_agents'], false, $stored_option);
+echo "\nCase 2: Editor (postquality_manage_agents), free site — empty POST\n";
+setup(['postquality_manage_agents'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings([]);
 $expected_stored = postquality_get_settings();
 foreach (array_merge($ADMIN_ONLY, $CRON_KEYS) as $key) {
@@ -137,9 +137,9 @@ check('agent_prompts carried wholesale', $out['agent_prompts'] === $expected_sto
 check('stored values are not the defaults (fixture sanity)', $out['cron_frequency'] === 'weekly'
     && $out['default_model'] === 'claude-opus-4-8' && $out['author_quota'] === 12);
 
-/* ─── Case 2b: options.php passes null when no pqm_settings field posted ── */
+/* ─── Case 2b: options.php passes null when no postquality_settings field posted ── */
 echo "\nCase 2b: Editor, free site — null input (options.php update_option(null))\n";
-setup(['pqm_manage_agents'], false, $stored_option);
+setup(['postquality_manage_agents'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(null);
 $expected_stored = postquality_get_settings();
 check('null input does not fatal and returns an array', is_array($out));
@@ -150,7 +150,7 @@ check('null input: agent_prompts carried wholesale', $out['agent_prompts'] === $
 
 /* ─── Case 3: Admin, free site — globals POST, locked sections absent ── */
 echo "\nCase 3: Admin (both caps), free site — globals-only POST\n";
-setup(['pqm_manage_agents', 'pqm_manage_settings'], false, $stored_option);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], false, $stored_option);
 $input = [
     'n8n_webhook_url' => 'https://new-n8n.example.com/webhook/pqm',
     'webhook_token' => 'stored-token',
@@ -178,7 +178,7 @@ check('carried override is the stored one, not the default',
 
 /* ─── Case 4: Admin, licensed — full POST behaves as today ───────────── */
 echo "\nCase 4: Admin (both caps), pro site — full POST\n";
-setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], true, $stored_option);
 $input = [
     'n8n_webhook_url' => 'https://n8n.example.com/webhook/pqm',
     'webhook_token' => 'stored-token',
@@ -224,14 +224,14 @@ check('stored temperature (0.7) and effort (low) carried per knob',
 /* ─── Case 5: cron_enabled false stays false on a free save ──────────── */
 echo "\nCase 5: free-site save with stored cron_enabled=false stays false\n";
 $stored_off = array_merge($stored_option, ['cron_enabled' => false]);
-setup(['pqm_manage_agents', 'pqm_manage_settings'], false, $stored_off);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], false, $stored_off);
 $out = PostQuality_Admin::sanitize_settings(['n8n_webhook_url' => 'https://n8n.example.com/webhook/pqm']);
 check('cron_enabled false carried (not re-enabled)', $out['cron_enabled'] === false);
 
 /* ─── Case 5b (story 3): license_key sanitize + trim + carry — unread
        since story 44, but the stored settings contract is unchanged ────── */
 echo "\nCase 5b: license_key — admin saver sanitizes + trims, non-admin carries\n";
-setup(['pqm_manage_agents', 'pqm_manage_settings'], false, $stored_option);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['license_key' => '  PQM-NEW-KEY  ']);
 check('admin key trimmed and stored', $out['license_key'] === 'PQM-NEW-KEY');
 $out = PostQuality_Admin::sanitize_settings(['license_key' => '   ']);
@@ -240,7 +240,7 @@ $out = PostQuality_Admin::sanitize_settings(['license_key' => '<b>PQM-KEY</b>'])
 check('key passes sanitize_text_field (tags stripped)', $out['license_key'] === 'PQM-KEY');
 $out = PostQuality_Admin::sanitize_settings(['license_key' => '']);
 check('admin posting an empty key empties it', $out['license_key'] === '');
-setup(['pqm_manage_agents'], false, $stored_option);
+setup(['postquality_manage_agents'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['license_key' => 'EDITOR-SMUGGLED-KEY']);
 check('non-admin saver cannot set the key — stored key survives byte-identical',
     $out['license_key'] === 'PQM-STORED-KEY');
@@ -249,14 +249,14 @@ check('non-admin saver cannot set the key — stored key survives byte-identical
        SDK's license, never from a stored or posted license_key ─────────── */
 echo "\nCase 5c: filter pass-through — plan state during sanitize comes from the SDK license\n";
 $stored_free = array_merge($stored_option, ['license_key' => '']);
-setup(['pqm_manage_agents', 'pqm_manage_settings'], null, $stored_option);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], null, $stored_option);
 postquality_fs()->pro = false;
 $out = PostQuality_Admin::sanitize_settings(['license_key' => 'PQM-NEW-KEY', 'cron_batch_size' => '99']);
 check('stub-era key stored + key posted, no SDK license: cron still carried (site is free)',
     $out['cron_batch_size'] === 7 && $out['cron_enabled'] === true);
 $out = PostQuality_Admin::sanitize_settings(['n8n_webhook_url' => 'https://n8n.example.com/webhook/pqm']);
 check('the next admin save clears the stub-era key (no License Key field posts it)', $out['license_key'] === '');
-setup(['pqm_manage_agents', 'pqm_manage_settings'], null, $stored_free);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], null, $stored_free);
 postquality_fs()->pro = true;
 $out = PostQuality_Admin::sanitize_settings([
     'cron_enabled' => '1', 'cron_frequency' => 'weekly',
@@ -269,13 +269,13 @@ postquality_fs()->pro = false;
 /* ─── Case 6: result is always a complete settings array ─────────────── */
 echo "\nCase 6: every default key present in every branch's output\n";
 foreach ([
-    [['pqm_manage_agents'], true],
-    [['pqm_manage_agents'], false],
-    [['pqm_manage_agents', 'pqm_manage_settings'], true],
-    [['pqm_manage_agents', 'pqm_manage_settings'], false],
+    [['postquality_manage_agents'], true],
+    [['postquality_manage_agents'], false],
+    [['postquality_manage_agents', 'postquality_manage_settings'], true],
+    [['postquality_manage_agents', 'postquality_manage_settings'], false],
 ] as [$caps, $pro]) {
     setup($caps, $pro, $stored_option);
-    $out = PostQuality_Admin::sanitize_settings($pro && in_array('pqm_manage_settings', $caps, true) ? $input : []);
+    $out = PostQuality_Admin::sanitize_settings($pro && in_array('postquality_manage_settings', $caps, true) ? $input : []);
     $missing = array_diff(array_keys(postquality_default_settings()), array_keys($out));
     check('caps=[' . implode(',', $caps) . '] pro=' . var_export($pro, true) . ' → no missing keys', $missing === []);
 }
@@ -293,7 +293,7 @@ check('defaults: pattern 0 for takeaways and sources only',
     && postquality_default_settings()['agent_prompts']['sources']['pattern'] === 0
     && !isset(postquality_default_settings()['agent_prompts']['review']['pattern']));
 check('no typed block-name key left in the defaults', !isset(postquality_default_settings()['agent_prompts']['takeaways']['block']));
-setup(['pqm_manage_agents'], true, $stored_option);
+setup(['postquality_manage_agents'], true, $stored_option);
 $agent = static fn($pattern) => ['instructions' => '', 'temperature' => '0.3', 'model' => '', 'effort' => 'medium', 'pattern' => $pattern];
 $out = PostQuality_Admin::sanitize_settings(['agent_prompts' => [
     'takeaways' => $agent('31'),
@@ -311,7 +311,7 @@ $no_pattern = $agent('31');
 unset($no_pattern['pattern']);
 $out = PostQuality_Admin::sanitize_settings(['agent_prompts' => ['takeaways' => $no_pattern]]);
 check('takeaways posted without a pattern field → 0', $out['agent_prompts']['takeaways']['pattern'] === 0);
-setup(['pqm_manage_agents'], false, array_merge($stored_option, ['agent_prompts' => [
+setup(['postquality_manage_agents'], false, array_merge($stored_option, ['agent_prompts' => [
     'takeaways' => ['instructions' => '', 'temperature' => 0.3, 'model' => '', 'effort' => 'medium', 'pattern' => 31],
 ]]));
 $out = PostQuality_Admin::sanitize_settings([]);
@@ -324,7 +324,7 @@ check('read side: merged settings keep pattern on takeaways/sources only',
        POST (form rendered while free, or a direct POST) carry stored ───── */
 echo "\nCase 8: pro site, cron + overrides not posted — stored values carry\n";
 $GLOBALS['pqm_test_patterns'] = [];
-foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+foreach (['Admin' => ['postquality_manage_agents', 'postquality_manage_settings'], 'Editor' => ['postquality_manage_agents']] as $who => $caps) {
     foreach (['license_key only' => ['license_key' => 'PQM-STORED-KEY'], 'empty POST' => [], 'null input' => null] as $what => $post) {
         setup($caps, true, $stored_option);
         $out = PostQuality_Admin::sanitize_settings($post);
@@ -339,12 +339,12 @@ check('carried values are the stored ones, not the defaults', $out['cron_enabled
 /* Story 67: the Settings form posts neither the webhook URL nor the token (both live on the n8n Workflow
  * page); whatever the admin save posts, the stored values carry. */
 foreach (['absent' => [], 'posted anyway' => ['n8n_webhook_url' => 'https://forged.example/webhook/x', 'webhook_token' => 'forged']] as $what => $post) {
-    setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
+    setup(['postquality_manage_agents', 'postquality_manage_settings'], true, $stored_option);
     $out = PostQuality_Admin::sanitize_settings($post + ['blog_profile' => 'marketing']);
     check("Admin, URL and token $what: both kept as stored", $out['n8n_webhook_url'] === 'https://n8n.example.com/webhook/pqm'
         && $out['webhook_token'] === 'stored-token' && $out['blog_profile'] === 'marketing');
 }
-setup(['pqm_manage_agents'], true, $stored_option);
+setup(['postquality_manage_agents'], true, $stored_option);
 $out = PostQuality_Admin::sanitize_settings([
     'cron_frequency' => 'daily', 'cron_batch_size' => '3', 'cron_min_score' => '80', 'cron_max_age_days' => '10',
     'agent_prompts'  => ['seo' => ['instructions' => 'seo instr', 'model' => '']],
@@ -357,9 +357,9 @@ check('an agent the POST omits carries its stored entry',
 check('the posted agent is applied', $out['agent_prompts']['seo']['instructions'] === 'seo instr');
 
 /* ─── Case 9 (ticket 16): settings-only saver — the agent sections need
-       pqm_manage_agents, so a posted cron + overrides section carries ───── */
-echo "\nCase 9: settings-only saver (pqm_manage_settings), pro site — cron + overrides posted\n";
-setup(['pqm_manage_settings'], true, $stored_option);
+       postquality_manage_agents, so a posted cron + overrides section carries ───── */
+echo "\nCase 9: settings-only saver (postquality_manage_settings), pro site — cron + overrides posted\n";
+setup(['postquality_manage_settings'], true, $stored_option);
 $out = PostQuality_Admin::sanitize_settings([
     'n8n_webhook_url' => 'https://other-n8n.example.com/webhook/pqm',
     'webhook_token' => 'new-token',
@@ -382,7 +382,7 @@ foreach ($CRON_KEYS as $key) {
 }
 check('cron_enabled true survives the posted empty checkbox', $out['cron_enabled'] === true);
 check('agent_prompts carried byte-identically from stored', $out['agent_prompts'] === $expected_stored['agent_prompts']);
-setup(['pqm_manage_settings'], false, $stored_option);
+setup(['postquality_manage_settings'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['cron_batch_size' => '3', 'agent_prompts' => ['review' => ['instructions' => 'smuggled']]]);
 $expected_stored = postquality_get_settings();
 check('free site: cron + agent_prompts carried too',
@@ -392,7 +392,7 @@ check('free site: cron + agent_prompts carried too',
        only switch stored cron off; everything else still carries ───────── */
 echo "\nCase 10: free site, cron_enabled off-switch\n";
 $stored_off = array_merge($stored_option, ['cron_enabled' => false]);
-foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+foreach (['Admin' => ['postquality_manage_agents', 'postquality_manage_settings'], 'Editor' => ['postquality_manage_agents']] as $who => $caps) {
     setup($caps, false, $stored_option);
     $out = PostQuality_Admin::sanitize_settings(['cron_enabled' => '0']);
     $expected_stored = postquality_get_settings();
@@ -418,16 +418,16 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
         && $out['cron_batch_size'] === 7 && $out['cron_frequency'] === 'weekly'
         && $out['cron_min_score'] === 55 && $out['cron_max_age_days'] === 45 && $out['cron_command'] === 'review');
 }
-setup(['pqm_manage_settings'], false, $stored_option);
+setup(['postquality_manage_settings'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['cron_enabled' => '0']);
 check('no agents cap: settings-only saver posting 0 → carried (true)', $out['cron_enabled'] === true);
-setup(['pqm_manage_agents'], false, $stored_option);
+setup(['postquality_manage_agents'], false, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['cron_enabled' => '']);
 check('empty string posted counts as unchecked → false', $out['cron_enabled'] === false);
 
 /* Stale off-switch form (rendered free) saved after the site turned pro:
    cron_enabled alone is not "the section posted" — the knobs carry. */
-setup(['pqm_manage_agents'], true, $stored_option);
+setup(['postquality_manage_agents'], true, $stored_option);
 $out = PostQuality_Admin::sanitize_settings(['cron_enabled' => '1']);
 $expected_stored = postquality_get_settings();
 $carried = array_filter($CRON_KEYS, static fn($key) => $out[$key] === $expected_stored[$key]);
@@ -440,8 +440,8 @@ check('…and every other cron key carried', $carried === $others);
 
 /* ─── Case 11 (ticket 12): free site, an agents-holder POSTs agent_prompts
        with new values (direct POST past the locked fieldset) — stored wins ── */
-echo "\nCase 11: free site, pqm_manage_agents saver smuggles agent_prompts\n";
-foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+echo "\nCase 11: free site, postquality_manage_agents saver smuggles agent_prompts\n";
+foreach (['Admin' => ['postquality_manage_agents', 'postquality_manage_settings'], 'Editor' => ['postquality_manage_agents']] as $who => $caps) {
     setup($caps, false, $stored_option);
     $out = PostQuality_Admin::sanitize_settings(['agent_prompts' => [
         'review'    => ['instructions' => 'smuggled', 'temperature' => '0.1', 'model' => 'claude-sonnet-5', 'effort' => 'max'],
@@ -456,7 +456,7 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
 echo "\nCase 12: cron_command whitelist (review / seo / audit)\n";
 $cron_section = ['cron_enabled' => '1', 'cron_frequency' => 'daily', 'cron_batch_size' => '3',
     'cron_min_score' => '70', 'cron_max_age_days' => '10'];
-foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+foreach (['Admin' => ['postquality_manage_agents', 'postquality_manage_settings'], 'Editor' => ['postquality_manage_agents']] as $who => $caps) {
     foreach (['review' => 'review', 'seo' => 'seo', 'audit' => 'audit', 'rewrite' => 'review',
               'takeaways' => 'review', 'foo' => 'review', '' => 'review'] as $posted => $want) {
         setup($caps, true, $stored_option);
@@ -468,12 +468,12 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
     check("$who, pro, array posted → review", $out['cron_command'] === 'review');
 }
 $stored_audit = array_merge($stored_option, ['cron_command' => 'audit']);
-setup(['pqm_manage_agents'], true, $stored_audit);
+setup(['postquality_manage_agents'], true, $stored_audit);
 $out = PostQuality_Admin::sanitize_settings(['license_key' => 'PQM-STORED-KEY']);
 check('pro, section absent: stored audit carried (bug 19)', $out['cron_command'] === 'audit');
 $out = PostQuality_Admin::sanitize_settings($cron_section);
 check('pro, section posted without cron_command → review', $out['cron_command'] === 'review');
-foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => ['pqm_manage_agents']] as $who => $caps) {
+foreach (['Admin' => ['postquality_manage_agents', 'postquality_manage_settings'], 'Editor' => ['postquality_manage_agents']] as $who => $caps) {
     setup($caps, false, $stored_audit);
     $out = PostQuality_Admin::sanitize_settings($cron_section + ['cron_command' => 'seo']);
     check("$who, free site, posted seo: stored audit carried (locked)", $out['cron_command'] === 'audit');
@@ -481,7 +481,7 @@ foreach (['Admin' => ['pqm_manage_agents', 'pqm_manage_settings'], 'Editor' => [
     check("$who, free off-switch with seo smuggled: off, audit carried",
         $out['cron_enabled'] === false && $out['cron_command'] === 'audit');
 }
-setup(['pqm_manage_settings'], true, $stored_audit);
+setup(['postquality_manage_settings'], true, $stored_audit);
 $out = PostQuality_Admin::sanitize_settings($cron_section + ['cron_command' => 'seo']);
 check('settings-only saver, pro, posted seo: stored audit carried (story 16)', $out['cron_command'] === 'audit');
 
@@ -501,7 +501,7 @@ foreach ([
     check(($warn ? 'warns' : 'no warning') . ": '$url'", $warn ? str_starts_with($copy, 'This is an n8n test URL') : $copy === '');
 }
 $test_url = 'https://acme.app.n8n.cloud/webhook-test/pqm-execute';
-setup(['pqm_manage_agents', 'pqm_manage_settings'], true, $stored_option);
+setup(['postquality_manage_agents', 'postquality_manage_settings'], true, $stored_option);
 $GLOBALS['pqm_test_settings_errors'] = [];
 $out = PostQuality_Admin::sanitize_settings(['n8n_webhook_url' => $test_url]);
 // Story 67: the form no longer posts the URL; a posted test URL is ignored and raises no notice
@@ -511,7 +511,7 @@ check('... and no notice', $GLOBALS['pqm_test_settings_errors'] === []);
 $GLOBALS['pqm_test_settings_errors'] = [];
 PostQuality_Admin::sanitize_settings(['n8n_webhook_url' => 'https://acme.app.n8n.cloud/webhook/pqm-execute']);
 check('production URL: no notice', $GLOBALS['pqm_test_settings_errors'] === []);
-setup(['pqm_manage_agents'], true, array_merge($stored_option, ['n8n_webhook_url' => $test_url]));
+setup(['postquality_manage_agents'], true, array_merge($stored_option, ['n8n_webhook_url' => $test_url]));
 PostQuality_Admin::sanitize_settings(['n8n_webhook_url' => 'https://other.example.com/webhook/x']);
 check('Editor save (URL carried, not posted): no notice', $GLOBALS['pqm_test_settings_errors'] === []);
 
@@ -560,13 +560,13 @@ $all_keys = array_keys(postquality_default_settings());
 sort($all_keys);
 check('every settings key sits in exactly one tab, or is page-local', $tab_keys === $all_keys);
 foreach ([
-    'Admin'  => [['pqm_manage_agents', 'pqm_manage_settings'], false, [
+    'Admin'  => [['postquality_manage_agents', 'postquality_manage_settings'], false, [
         'connection' => [['notification_url' => ''], static fn($o) => $o['notification_url'] === ''],
         'ai'         => [['blog_profile' => 'marketing'], static fn($o) => $o['blog_profile'] === 'marketing'],
         'automation' => [['cron_batch_size' => '3'], static fn($o) => $o['cron_batch_size'] === 3],
         'usage'      => [['author_quota' => '30'], static fn($o) => $o['author_quota'] === 30],
     ]],
-    'Editor' => [['pqm_manage_agents'], true, [
+    'Editor' => [['postquality_manage_agents'], true, [
         'ai'         => [['agent_prompts' => ['seo' => ['instructions' => 'editor seo']]],
                          static fn($o) => $o['agent_prompts']['seo']['instructions'] === 'editor seo'],
         'automation' => [['cron_frequency' => 'daily'], static fn($o) => $o['cron_frequency'] === 'daily'],
@@ -628,17 +628,17 @@ function roles_post(array $overrides = []) {
     }
     return ['roles_posted' => '1', 'roles_shown' => $shown, 'roles' => array_replace($roles, $overrides)];
 }
-$SITE_ADMIN = ['manage_options', 'pqm_manage_agents', 'pqm_manage_settings'];
+$SITE_ADMIN = ['manage_options', 'postquality_manage_agents', 'postquality_manage_settings'];
 
 roles_world();
 setup($SITE_ADMIN, true, $stored_option);
 $before = roles_snapshot();
-$out = PostQuality_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+$out = PostQuality_Admin::sanitize_settings(roles_post(['author' => ['postquality_run_free_agents']]));
 $expect = $before;
-unset($expect['author']['pqm_view_reviews']);
-check('Admin, pro, uncheck Author · View reviews: Author lacks it', !$GLOBALS['pqm_test_roles']['author']->has_cap('pqm_view_reviews'));
+unset($expect['author']['postquality_view_reviews']);
+check('Admin, pro, uncheck Author · View reviews: Author lacks it', !$GLOBALS['pqm_test_roles']['author']->has_cap('postquality_view_reviews'));
 check('… every other role byte-identical, Author otherwise unchanged', roles_snapshot() === $expect);
-check('… exactly one role call: remove author pqm_view_reviews', $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_view_reviews']);
+check('… exactly one role call: remove author postquality_view_reviews', $GLOBALS['pqm_test_role_calls'] === ['remove author postquality_view_reviews']);
 check('… none of roles, roles_shown, roles_posted stored in the option',
     !array_key_exists('roles', $out) && !array_key_exists('roles_shown', $out) && !array_key_exists('roles_posted', $out));
 $out_keys = array_keys($out);
@@ -652,16 +652,16 @@ setup($SITE_ADMIN, true, $stored_option);
 $before = roles_snapshot();
 PostQuality_Admin::sanitize_settings(roles_post());
 check('untouched tab saved: no role call at all', $GLOBALS['pqm_test_role_calls'] === [] && roles_snapshot() === $before);
-PostQuality_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+PostQuality_Admin::sanitize_settings(roles_post(['author' => ['postquality_run_free_agents']]));
 $GLOBALS['pqm_test_role_calls'] = [];
-PostQuality_Admin::sanitize_settings(roles_post(['author' => ['pqm_run_free_agents']]));
+PostQuality_Admin::sanitize_settings(roles_post(['author' => ['postquality_run_free_agents']]));
 check('the sanitizer running twice (first save of the option): second run makes no role call', $GLOBALS['pqm_test_role_calls'] === []);
 
 /* Pinned rows: capability-keyed, whatever the POST says. */
 foreach ([
     'omits the Administrator row'            => ['roles_posted' => '1', 'roles' => []],
     'posts the Administrator row unchecked'  => ['roles_posted' => '1', 'roles' => ['administrator' => []]],
-    'posts only View reviews for it'         => ['roles_posted' => '1', 'roles' => ['administrator' => ['pqm_view_reviews']]],
+    'posts only View reviews for it'         => ['roles_posted' => '1', 'roles' => ['administrator' => ['postquality_view_reviews']]],
 ] as $label => $post) {
     roles_world();
     setup($SITE_ADMIN, true, $stored_option);
@@ -671,13 +671,13 @@ foreach ([
 }
 roles_world();
 setup($SITE_ADMIN, true, $stored_option);
-$GLOBALS['pqm_test_roles']['administrator']->remove_cap('pqm_manage_agents'); // a role editor removed it
+$GLOBALS['pqm_test_roles']['administrator']->remove_cap('postquality_manage_agents'); // a role editor removed it
 $GLOBALS['pqm_test_roles']['writer']->add_cap('manage_options');               // a custom site-admin role
 $GLOBALS['pqm_test_role_calls'] = [];
 $post = roles_post();
 $post['roles'] = []; // every enabled box cleared
 PostQuality_Admin::sanitize_settings($post);
-check('pinned: Save re-grants a missing cap to the Administrator', $GLOBALS['pqm_test_roles']['administrator']->has_cap('pqm_manage_agents'));
+check('pinned: Save re-grants a missing cap to the Administrator', $GLOBALS['pqm_test_roles']['administrator']->has_cap('postquality_manage_agents'));
 check('pinned by capability, not role name: the custom manage_options role gets all five',
     array_values(array_filter($PQM_CAPS, [$GLOBALS['pqm_test_roles']['writer'], 'has_cap'])) === $PQM_CAPS);
 check('every box cleared: Editor, Author hold no pqm cap; their core caps stay',
@@ -688,15 +688,15 @@ check('every box cleared: Editor, Author hold no pqm cap; their core caps stay',
 roles_world();
 setup($SITE_ADMIN, true, $stored_option);
 $before = roles_snapshot();
-PostQuality_Admin::sanitize_settings(roles_post(['writer' => ['pqm_run_free_agents']]));
-check('custom role: writer gains pqm_run_free_agents only', roles_snapshot()['writer'] === ['read' => true, 'pqm_run_free_agents' => true]);
+PostQuality_Admin::sanitize_settings(roles_post(['writer' => ['postquality_run_free_agents']]));
+check('custom role: writer gains postquality_run_free_agents only', roles_snapshot()['writer'] === ['read' => true, 'postquality_run_free_agents' => true]);
 check('custom role: the other roles byte-identical', array_diff_key(roles_snapshot(), ['writer' => 1]) === array_diff_key($before, ['writer' => 1]));
 
 roles_world();
 setup($SITE_ADMIN, true, $stored_option);
-PostQuality_Admin::sanitize_settings(roles_post(['author' => ['pqm_view_reviews', 'manage_options', 'edit_others_posts', ['nested']], 'ghost' => $PQM_CAPS]));
+PostQuality_Admin::sanitize_settings(roles_post(['author' => ['postquality_view_reviews', 'manage_options', 'edit_others_posts', ['nested']], 'ghost' => $PQM_CAPS]));
 check('only the five pqm caps are written: a posted core cap is ignored, an unknown role skipped',
-    $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_run_free_agents'] && !isset($GLOBALS['pqm_test_roles']['ghost']));
+    $GLOBALS['pqm_test_role_calls'] === ['remove author postquality_run_free_agents'] && !isset($GLOBALS['pqm_test_roles']['ghost']));
 
 /* Stale page (review loop 1): the panel is in the one form, so every pro
  * Administrator save posts it, from any tab. Only the cells that differ
@@ -704,38 +704,38 @@ check('only the five pqm caps are written: a posted core cap is ignored, an unkn
 roles_world();
 setup($SITE_ADMIN, true, $stored_option);
 $loaded = roles_post(); // the page as it loaded
-$GLOBALS['pqm_test_roles']['author']->add_cap('pqm_run_paid_agents');      // granted elsewhere after load
-$GLOBALS['pqm_test_roles']['editor']->remove_cap('pqm_manage_agents');     // removed elsewhere after load
-$GLOBALS['pqm_test_roles']['reviewer'] = new WP_Role('reviewer', ['read' => true, 'pqm_view_reviews' => true]); // created after load
+$GLOBALS['pqm_test_roles']['author']->add_cap('postquality_run_paid_agents');      // granted elsewhere after load
+$GLOBALS['pqm_test_roles']['editor']->remove_cap('postquality_manage_agents');     // removed elsewhere after load
+$GLOBALS['pqm_test_roles']['reviewer'] = new WP_Role('reviewer', ['read' => true, 'postquality_view_reviews' => true]); // created after load
 $GLOBALS['pqm_test_role_calls'] = [];
 $before = roles_snapshot();
 PostQuality_Admin::sanitize_settings($loaded);
 check('stale page, no box changed: no role call, every role as it is now',
     $GLOBALS['pqm_test_role_calls'] === [] && roles_snapshot() === $before);
 check('stale page: a cap granted elsewhere after load survives a save that did not touch that cell',
-    $GLOBALS['pqm_test_roles']['author']->has_cap('pqm_run_paid_agents'));
+    $GLOBALS['pqm_test_roles']['author']->has_cap('postquality_run_paid_agents'));
 check('stale page: a cap removed elsewhere after load stays removed',
-    !$GLOBALS['pqm_test_roles']['editor']->has_cap('pqm_manage_agents'));
+    !$GLOBALS['pqm_test_roles']['editor']->has_cap('postquality_manage_agents'));
 check('stale page: a role absent from the POST (created since) keeps its caps',
-    $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'pqm_view_reviews' => true]);
+    $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'postquality_view_reviews' => true]);
 $changed = $loaded;
-$changed['roles']['author'] = array_values(array_diff($changed['roles']['author'], ['pqm_view_reviews']));
+$changed['roles']['author'] = array_values(array_diff($changed['roles']['author'], ['postquality_view_reviews']));
 PostQuality_Admin::sanitize_settings($changed);
 check('stale page: an Administrator who unchecks a box still removes it, and only that cell is written',
-    $GLOBALS['pqm_test_role_calls'] === ['remove author pqm_view_reviews']
-    && $GLOBALS['pqm_test_roles']['author']->has_cap('pqm_run_paid_agents'));
+    $GLOBALS['pqm_test_role_calls'] === ['remove author postquality_view_reviews']
+    && $GLOBALS['pqm_test_roles']['author']->has_cap('postquality_run_paid_agents'));
 $GLOBALS['pqm_test_role_calls'] = [];
 $forged = $loaded;
 $forged['roles']['reviewer'] = $PQM_CAPS; // boxes for a row the page never rendered
 PostQuality_Admin::sanitize_settings($forged);
 check('stale page: a row with no roles_shown entry (forged) is never touched',
-    $GLOBALS['pqm_test_role_calls'] === [] && $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'pqm_view_reviews' => true]);
+    $GLOBALS['pqm_test_role_calls'] === [] && $GLOBALS['pqm_test_roles']['reviewer']->capabilities === ['read' => true, 'postquality_view_reviews' => true]);
 $GLOBALS['pqm_test_role_calls'] = [];
 $checked_box = $loaded;
-$checked_box['roles']['contributor'] = ['pqm_view_reviews']; // contributor rendered with nothing checked
+$checked_box['roles']['contributor'] = ['postquality_view_reviews']; // contributor rendered with nothing checked
 PostQuality_Admin::sanitize_settings($checked_box);
 check('stale page: a box checked on a row that rendered empty is granted',
-    $GLOBALS['pqm_test_role_calls'] === ['add contributor pqm_view_reviews']);
+    $GLOBALS['pqm_test_role_calls'] === ['add contributor postquality_view_reviews']);
 
 /* A role pinned at load (no roles_shown posted) that lost manage_options before Save is skipped. */
 roles_world();
@@ -755,8 +755,8 @@ roles_world();
 $all_cleared = roles_post();
 $all_cleared['roles'] = [];
 foreach ([
-    'Editor (pqm_manage_agents, no manage_options), tab forged'  => [['pqm_manage_agents'], true, $all_cleared],
-    'settings-only (pqm_manage_settings), tab forged'             => [['pqm_manage_settings'], true, $all_cleared],
+    'Editor (postquality_manage_agents, no manage_options), tab forged'  => [['postquality_manage_agents'], true, $all_cleared],
+    'settings-only (postquality_manage_settings), tab forged'             => [['postquality_manage_settings'], true, $all_cleared],
     'Admin, free site, tab forged'                                => [$SITE_ADMIN, false, $all_cleared],
     'Admin, free site, locked tab (nothing posted)'               => [$SITE_ADMIN, false, []],
     'Admin, pro, boxes without the marker'                        => [$SITE_ADMIN, true, ['roles' => []]],

@@ -21,7 +21,7 @@ $GLOBALS['tw'] = [
     'caps'     => [],
     'can_edit' => [],   // post ids the user may edit_post
     'pro'      => true,
-    'options'  => ['pqm_settings' => []], // the stored settings (the pattern per command)
+    'options'  => ['postquality_settings' => []], // the stored settings (the pattern per command)
     'posts'    => [],   // id => post_content
     'parsed'   => [],   // post_content => parse_blocks() fixture
     'updates'  => [],   // wp_update_post() calls (raw, slashed)
@@ -367,8 +367,8 @@ check('args: post_id integer, command enum takeaways|sources',
 check('no sanitize_callback on the args (PHP internals fatal on WP\'s 3 args)',
     !isset($route['args']['post_id']['sanitize_callback']) && !isset($route['args']['command']['sanitize_callback']));
 
-$author = ['pqm_view_reviews', 'pqm_run_free_agents'];
-$editor = ['pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents'];
+$author = ['postquality_view_reviews', 'postquality_run_free_agents'];
+$editor = ['postquality_view_reviews', 'postquality_run_free_agents', 'postquality_run_paid_agents'];
 function as_user(array $caps, array $can_edit, bool $pro): void {
     $GLOBALS['tw']['caps'] = $caps;
     $GLOBALS['tw']['can_edit'] = $can_edit;
@@ -396,12 +396,12 @@ $gate = PostQuality_REST_API::check_can_insert(req(7, 'sources'));
 check('role without paid agents → 403 role copy', $gate instanceof WP_Error && $gate->error_data['status'] === 403
     && str_contains($gate->message, 'not available for your role'));
 as_user($editor, [7], false);
-$GLOBALS['tw']['options']['pqm_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook'];
+$GLOBALS['tw']['options']['postquality_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook'];
 $trigger = PostQuality_REST_API::trigger_review_callback(req(7, 'sources'));
 $insert  = PostQuality_REST_API::check_can_insert(req(7, 'sources'));
 check('trigger-review refuses with the identical gate error (shared helper)',
     $trigger instanceof WP_Error && $insert instanceof WP_Error && $trigger == $insert);
-$GLOBALS['tw']['options']['pqm_settings'] = [];
+$GLOBALS['tw']['options']['postquality_settings'] = [];
 
 /* ─── Callback: insert() end to end ──────────────────────────────────── */
 function stored(string $command, string $status, array $result): array {
@@ -417,11 +417,11 @@ function run_insert(string $command, array $rows, string $content, array $parsed
     return PostQuality_REST_API::insert_block_callback(req(7, $command));
 }
 function written(): string { return stripslashes($GLOBALS['tw']['updates'][0]['post_content'] ?? ''); }
-function with_pattern(string $command, $id): void { $GLOBALS['tw']['options']['pqm_settings'] = ['agent_prompts' => [$command => ['pattern' => $id]]]; }
+function with_pattern(string $command, $id): void { $GLOBALS['tw']['options']['postquality_settings'] = ['agent_prompts' => [$command => ['pattern' => $id]]]; }
 
 echo "Insert end to end\n";
 as_user($editor, [7], true);
-$GLOBALS['tw']['options']['pqm_settings'] = [];
+$GLOBALS['tw']['options']['postquality_settings'] = [];
 $content = '<!-- wp:paragraph --><p>Intro</p><!-- /wp:paragraph -->';
 $res = run_insert('takeaways', [stored('review', 'ship', []), stored('takeaways', 'ship', ['rewritten_items' => $four])], $content, [$intro]);
 check('200 { success, message }', $res instanceof WP_REST_Response && $res->get_status() === 200 && $res->data['success'] === true
@@ -453,7 +453,7 @@ $tk_content = 'post-with-takeaways';
 run_insert('sources', [stored('sources', 'needs_revision', ['rewritten_sources' => $three, 'rewritten_items' => ['nope']])], $tk_content, $tk_only);
 check('sources read rewritten_sources and append the pattern copy last, Takeaways copy untouched',
     written() === owner_html($four) . "\n\n" . owner_html($three, 'sources'));
-$GLOBALS['tw']['options']['pqm_settings'] = [];
+$GLOBALS['tw']['options']['postquality_settings'] = [];
 run_insert('sources', [stored('sources', 'ship', ['rewritten_sources' => $three])], $content, [$intro]);
 check('sources default: plain list appended last', written() === serialize_blocks([$intro]) . "\n\n" . list_html($three, 'sources'));
 run_insert('takeaways', [stored('takeaways', 'ship', ['rewritten_items' => ['  A  ', '', '   ', 'B', ['nested']]])], $content, [$intro]);

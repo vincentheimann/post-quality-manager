@@ -55,7 +55,7 @@ class PostQuality_Admin
         self::$dashboard_hook = add_menu_page(
             __('Post Quality', 'post-quality-manager'),
             __('Post Quality', 'post-quality-manager'),
-            'pqm_view_reviews',
+            'postquality_view_reviews',
             'postquality-dashboard',
         [__CLASS__, 'render_dashboard_app'],
             self::MENU_ICON,
@@ -66,7 +66,7 @@ class PostQuality_Admin
             'postquality-dashboard',
             __('Dashboard', 'post-quality-manager'),
             __('Dashboard', 'post-quality-manager'),
-            'pqm_view_reviews',
+            'postquality_view_reviews',
             'postquality-dashboard',
         [__CLASS__, 'render_dashboard_app']
         );
@@ -76,7 +76,7 @@ class PostQuality_Admin
             'postquality-dashboard',
             __('Post Reviews', 'post-quality-manager'),
             __('Post Reviews', 'post-quality-manager'),
-            'pqm_view_reviews',
+            'postquality_view_reviews',
             'postquality-posts',
         [__CLASS__, 'render_posts_app']
         ) ?: null;
@@ -85,14 +85,14 @@ class PostQuality_Admin
             'postquality-dashboard',
             __('n8n Workflow', 'post-quality-manager'),
             __('n8n Workflow', 'post-quality-manager'),
-            'pqm_manage_settings',
+            'postquality_manage_settings',
             'postquality-workflow',
         [__CLASS__, 'render_workflow']
         ) ?: null;
 
-        // Editors (pqm_manage_agents) reach the page for the overrides and
+        // Editors (postquality_manage_agents) reach the page for the overrides and
         // Automated Reviews sections; the global sections inside stay
-        // pqm_manage_settings-only (CAP-3 access matrix). Either capability
+        // postquality_manage_settings-only (CAP-3 access matrix). Either capability
         // opens the page, so a role editor can grant access via one or the
         // other with no code change.
         add_submenu_page(
@@ -118,8 +118,8 @@ class PostQuality_Admin
         }
 
         // The banner routes to the Admin-only Workflow page — only users who
-        // can act on it (pqm_manage_settings) should see it.
-        if (!current_user_can('pqm_manage_settings')) {
+        // can act on it (postquality_manage_settings) should see it.
+        if (!current_user_can('postquality_manage_settings')) {
             return;
         }
 
@@ -313,7 +313,7 @@ class PostQuality_Admin
 
     public static function register_settings(): void
     {
-        register_setting('postquality_settings_group', 'pqm_settings', [
+        register_setting('postquality_settings_group', 'postquality_settings', [
             'type' => 'array',
             'sanitize_callback' => [__CLASS__, 'sanitize_settings'],
         ]);
@@ -327,21 +327,21 @@ class PostQuality_Admin
 
     /**
      * Capability that opens (and saves) the Settings page for the current
-     * user: pqm_manage_settings if held, else pqm_manage_agents if held, else
+     * user: postquality_manage_settings if held, else postquality_manage_agents if held, else
      * core manage_options — so a site administrator whose role lost both
      * plugin caps still reaches the Roles tab (story 42: never behind a
      * plugin capability). The sections inside follow their own gates.
      */
     public static function settings_page_capability(): string
     {
-        if (current_user_can('pqm_manage_settings')) {
-            return 'pqm_manage_settings';
+        if (current_user_can('postquality_manage_settings')) {
+            return 'postquality_manage_settings';
         }
         // The agent sections exist in the Pro build only (ADR 0014): on the
-        // Free build a pqm_manage_agents holder would get an empty page.
+        // Free build a postquality_manage_agents holder would get an empty page.
         if ( postquality_fs()->is__premium_only() ) {
-            if (current_user_can('pqm_manage_agents')) {
-                return 'pqm_manage_agents';
+            if (current_user_can('postquality_manage_agents')) {
+                return 'postquality_manage_agents';
             }
         }
         return 'manage_options';
@@ -349,7 +349,7 @@ class PostQuality_Admin
 
     public static function sanitize_settings($input): array
     {
-        // options.php passes null when a save posts no pqm_settings fields at
+        // options.php passes null when a save posts no postquality_settings fields at
         // all (e.g. the free-site Editor view, where every section is hidden
         // or locked) — treat it as an empty POST, not a fatal.
         $input = (array) $input;
@@ -362,7 +362,7 @@ class PostQuality_Admin
         $registry_keys = array_keys(postquality_model_registry());
         $clean = [];
 
-        if (current_user_can('pqm_manage_settings')) {
+        if (current_user_can('postquality_manage_settings')) {
             // Admin-only sections: License, n8n Connection, AI Model,
             // AI Prompts & Context, Monthly Quota.
             // license_key is unused since story 44 (the SDK holds the license):
@@ -401,17 +401,17 @@ class PostQuality_Admin
         }
 
         // Agent sections: Automated Reviews + Agent-Specific Overrides. They
-        // come from the request only when the saver has pqm_manage_agents, the
+        // come from the request only when the saver has postquality_manage_agents, the
         // site is pro and the request posted the section; otherwise they carry
         // their stored values wholesale (never per field: an absent
         // cron_enabled must not read as "unchecked") — hidden for a role
-        // without pqm_manage_agents, locked on a free site (disabled fieldset),
+        // without postquality_manage_agents, locked on a free site (disabled fieldset),
         // or missing on a pro site from a form rendered while the site was
         // free, or a direct POST. "Posted" means the knobs the pro form always
         // posts — not cron_enabled (the free off-switch posts it too) nor
         // cron_command (ticket 3: one of review/seo/audit, else review).
         // The Free build has neither section (ADR 0014): both always carry.
-        $can_edit_agents = current_user_can('pqm_manage_agents') && PostQuality_Features::is_pro();
+        $can_edit_agents = current_user_can('postquality_manage_agents') && PostQuality_Features::is_pro();
         $cron_keys = ['cron_enabled', 'cron_frequency', 'cron_batch_size', 'cron_min_score', 'cron_max_age_days', 'cron_command'];
         $cron_posted = false;
         if ( postquality_fs()->is__premium_only() ) {
@@ -438,7 +438,7 @@ class PostQuality_Admin
             // carried section never sets cron_enabled true, and nothing else is
             // read. Plan-independent, so an off-switch form rendered while free
             // and saved after the site turned pro still switches off.
-            if (current_user_can('pqm_manage_agents')
+            if (current_user_can('postquality_manage_agents')
                 && !empty($existing['cron_enabled'])
                 && isset($input['cron_enabled']) && empty($input['cron_enabled'])) {
                 $clean['cron_enabled'] = false;
@@ -504,16 +504,16 @@ class PostQuality_Admin
 
     /**
      * Plugin capability => its Roles-tab column label, in capabilities()
-     * order. Plain actions only: a pqm_ slug never reaches the screen.
+     * order. Plain actions only: a postquality_ slug never reaches the screen.
      */
     private static function role_cap_labels__premium_only(): array
     {
         return [
-            'pqm_view_reviews'    => __('View reviews', 'post-quality-manager'),
-            'pqm_run_free_agents' => __('Run Review and Key Takeaways', 'post-quality-manager'),
-            'pqm_run_paid_agents' => __('Run paid agents', 'post-quality-manager'),
-            'pqm_manage_agents'   => __('Manage agents', 'post-quality-manager'),
-            'pqm_manage_settings' => __('Manage settings', 'post-quality-manager'),
+            'postquality_view_reviews'    => __('View reviews', 'post-quality-manager'),
+            'postquality_run_free_agents' => __('Run Review and Key Takeaways', 'post-quality-manager'),
+            'postquality_run_paid_agents' => __('Run paid agents', 'post-quality-manager'),
+            'postquality_manage_agents'   => __('Manage agents', 'post-quality-manager'),
+            'postquality_manage_settings' => __('Manage settings', 'post-quality-manager'),
         ];
     }
 
@@ -525,7 +525,7 @@ class PostQuality_Admin
      * posted box differs from what that row rendered (roles_shown), and a
      * role with no roles_shown entry (created after the page loaded, or a
      * forged row) is never touched. A role holding manage_options holds all
-     * five whatever was posted. Only the five pqm_ caps on roles are touched
+     * five whatever was posted. Only the five postquality_ caps on roles are touched
      * (never core caps, never per-user grants), and only where the role's
      * state changes — idempotent, so options.php running the sanitizer twice
      * on a first save is harmless.
@@ -574,7 +574,7 @@ class PostQuality_Admin
      */
     public static function on_settings_updated(string $option, $old_value = null, $value = null): void
     {
-        if ($option !== 'pqm_settings') {
+        if ($option !== 'postquality_settings') {
             return;
         }
         if ( postquality_fs()->is__premium_only() ) {
@@ -583,7 +583,7 @@ class PostQuality_Admin
 
         if ((is_array($old_value) ? ($old_value['n8n_webhook_url'] ?? '') : '')
             !== (is_array($value) ? ($value['n8n_webhook_url'] ?? '') : '')) {
-            delete_option('pqm_workflow_version_seen');
+            delete_option('postquality_workflow_version_seen');
         }
     }
 
@@ -599,9 +599,9 @@ class PostQuality_Admin
         if ( postquality_fs()->is__premium_only() ) {
             if (isset($_GET['postquality_dismiss_cron_nudge'])
                 && wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'] ?? '')), 'postquality_dismiss_cron_nudge')
-                && current_user_can('pqm_manage_agents')
+                && current_user_can('postquality_manage_agents')
             ) {
-                update_option('pqm_cron_nudge_dismissed', 1, false);
+                update_option('postquality_cron_nudge_dismissed', 1, false);
             }
         }
 
@@ -671,12 +671,12 @@ class PostQuality_Admin
         $workflow_page_url = admin_url('admin.php?page=postquality-workflow');
         $registry = postquality_model_registry();
         // Section gates (CAP-3 access matrix): the global sections are hidden
-        // without pqm_manage_settings; the agent sections (Agent-Specific
-        // Overrides, Automated Reviews) are hidden without pqm_manage_agents
+        // without postquality_manage_settings; the agent sections (Agent-Specific
+        // Overrides, Automated Reviews) are hidden without postquality_manage_agents
         // and render visible but locked on a free site. Role-hidden beats
         // plan-locked, mirroring PostQuality_Features::why_not().
-        $can_manage_settings = current_user_can('pqm_manage_settings');
-        $can_manage_agents = current_user_can('pqm_manage_agents');
+        $can_manage_settings = current_user_can('postquality_manage_settings');
+        $can_manage_agents = current_user_can('postquality_manage_agents');
         $is_pro = PostQuality_Features::is_pro();
         // Story 27: tabs over the one form (pqm-admin.js switches them, so
         // every save still posts every section). A tab exists only when one
@@ -717,7 +717,7 @@ class PostQuality_Admin
             <?php
             // Notices the sanitizer raised (e.g. an n8n test URL). Core shows
             // these only under Settings → *, so this page prints its own.
-            settings_errors('pqm_settings');
+            settings_errors('postquality_settings');
             ?>
             <?php endif; ?>
 
@@ -795,7 +795,7 @@ class PostQuality_Admin
                     );
                 ?></p>
                 <table class="form-table">
-                    <?php // Story 67: read-only here; the fields and their saves are on the n8n Workflow page (no name="pqm_settings[…]", so the save keeps the stored values). ?>
+                    <?php // Story 67: read-only here; the fields and their saves are on the n8n Workflow page (no name="postquality_settings[…]", so the save keeps the stored values). ?>
                     <tr>
                         <th><?php esc_html_e('n8n Webhook URL', 'post-quality-manager'); ?></th>
                         <td>
@@ -823,7 +823,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_notification_url"><?php esc_html_e('Notification URL', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <input type="url" id="pqm_notification_url" name="pqm_settings[notification_url]"
+                            <input type="url" id="pqm_notification_url" name="postquality_settings[notification_url]"
                                    value="<?php echo esc_attr($settings['notification_url']); ?>"
                                    class="regular-text" placeholder="https://your-chat.example.com/hooks/..." />
                             <p class="description"><?php esc_html_e('Optional. kChat/Slack/Teams webhook for formatted reports.', 'post-quality-manager'); ?></p>
@@ -831,7 +831,7 @@ class PostQuality_Admin
                     </tr>
                 </table>
                 </div><!-- #pqm-panel-connection -->
-                <?php endif; // pqm_manage_settings ?>
+                <?php endif; // postquality_manage_settings ?>
 
                 <?php if (isset($tabs['ai'])): $panel_open('ai'); ?>
                 <?php if ($can_manage_settings): ?>
@@ -842,7 +842,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_default_model"><?php esc_html_e('Default Model', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <select id="pqm_default_model" name="pqm_settings[default_model]">
+                            <select id="pqm_default_model" name="postquality_settings[default_model]">
                                 <?php foreach ($registry as $model_id => $model): ?>
                                     <option value="<?php echo esc_attr($model_id); ?>" <?php selected($settings['default_model'], $model_id); ?>>
                                         <?php
@@ -856,7 +856,7 @@ class PostQuality_Admin
                                 <?php endforeach; ?>
                                 <option value="custom" <?php selected($settings['default_model'], 'custom'); ?>><?php esc_html_e('Custom model ID…', 'post-quality-manager'); ?></option>
                             </select>
-                            <input type="text" id="pqm_custom_model" name="pqm_settings[custom_model]"
+                            <input type="text" id="pqm_custom_model" name="postquality_settings[custom_model]"
                                    value="<?php echo esc_attr($settings['custom_model']); ?>"
                                    class="regular-text code<?php echo $settings['default_model'] === 'custom' ? '' : ' pqm-hidden'; ?>"
                                    placeholder="claude-…"
@@ -901,7 +901,7 @@ class PostQuality_Admin
                                 <legend class="screen-reader-text"><?php esc_html_e('Blog Profile', 'post-quality-manager'); ?></legend>
                                 <?php foreach ($profiles as $val => $profile): ?>
                                     <label class="pqm-radio-label">
-                                        <input type="radio" name="pqm_settings[blog_profile]" value="<?php echo esc_attr($val); ?>" <?php checked($current_profile, $val); ?> class="pqm-blog-profile" />
+                                        <input type="radio" name="postquality_settings[blog_profile]" value="<?php echo esc_attr($val); ?>" <?php checked($current_profile, $val); ?> class="pqm-blog-profile" />
                                         <?php echo esc_html($profile['label']); ?>
                                     </label>
                                 <?php endforeach; ?>
@@ -909,7 +909,7 @@ class PostQuality_Admin
                             <p class="description"><?php echo esc_html($profile_hint); ?></p>
                             <p class="description pqm-preset-text" id="pqm_profile_text" aria-live="polite"<?php echo $profile_text === '' ? ' hidden' : ''; ?>><?php echo esc_html($profile_text); ?></p>
                             <div class="pqm-custom-field" id="pqm_context_field"<?php echo $profile_text === '' ? '' : ' hidden'; ?>>
-                                <textarea id="pqm_website_context" name="pqm_settings[website_context]" rows="4" class="large-text"
+                                <textarea id="pqm_website_context" name="postquality_settings[website_context]" rows="4" class="large-text"
                                           aria-label="<?php esc_attr_e('Website Context', 'post-quality-manager'); ?>" aria-describedby="pqm_website_context_empty"
                                           placeholder="<?php esc_attr_e('e.g. A blog about home automation for tech-savvy homeowners. Readers want hands-on tutorials, honest product experiences, and privacy-friendly setups.', 'post-quality-manager'); ?>"><?php echo esc_textarea($settings['website_context']); ?></textarea>
                                 <p class="description" id="pqm_website_context_empty"><?php esc_html_e('Empty: the AI assumes "a general audience blog".', 'post-quality-manager'); ?></p>
@@ -923,7 +923,7 @@ class PostQuality_Admin
                                 <legend class="screen-reader-text"><?php esc_html_e('Editorial Standards', 'post-quality-manager'); ?></legend>
                                 <?php foreach ($preset_labels as $val => $lbl): ?>
                                     <label class="pqm-radio-label">
-                                        <input type="radio" name="pqm_settings[brand_voice_preset]" value="<?php echo esc_attr($val); ?>" <?php checked($current_preset, $val); ?> class="pqm-voice-preset" />
+                                        <input type="radio" name="postquality_settings[brand_voice_preset]" value="<?php echo esc_attr($val); ?>" <?php checked($current_preset, $val); ?> class="pqm-voice-preset" />
                                         <?php echo esc_html($lbl); ?>
                                     </label>
                                 <?php endforeach; ?>
@@ -931,7 +931,7 @@ class PostQuality_Admin
                             <p class="description"><?php echo esc_html($voice_hint); ?></p>
                             <p class="description pqm-preset-text" id="pqm_voice_text" aria-live="polite"<?php echo $preset_text === '' ? ' hidden' : ''; ?>><?php echo esc_html($preset_text); ?></p>
                             <div class="pqm-custom-field" id="pqm_voice_field"<?php echo $preset_text === '' ? '' : ' hidden'; ?>>
-                                <textarea id="pqm_brand_voice" name="pqm_settings[brand_voice]" rows="4" class="large-text"
+                                <textarea id="pqm_brand_voice" name="postquality_settings[brand_voice]" rows="4" class="large-text"
                                           aria-label="<?php esc_attr_e('Editorial Standards', 'post-quality-manager'); ?>" aria-describedby="pqm_brand_voice_empty"
                                           placeholder="<?php esc_attr_e('e.g. Active voice, short paragraphs, no buzzwords. Back every statistic with a source.', 'post-quality-manager'); ?>"><?php echo esc_textarea($settings['brand_voice']); ?></textarea>
                                 <p class="description" id="pqm_brand_voice_empty"><?php esc_html_e('Empty: the AI falls back to "professional yet accessible, active voice".', 'post-quality-manager'); ?></p>
@@ -940,7 +940,7 @@ class PostQuality_Admin
                     </tr>
                 </table>
                 <?php self::render_agent_table($settings, $registry); // story 67: beside the values it reads ?>
-                <?php endif; // pqm_manage_settings ?>
+                <?php endif; // postquality_manage_settings ?>
 
                 <?php
                 if ( postquality_fs()->is__premium_only() ) {
@@ -967,7 +967,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_author_quota"><?php esc_html_e('AI Actions per User', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <input type="number" id="pqm_author_quota" name="pqm_settings[author_quota]"
+                            <input type="number" id="pqm_author_quota" name="postquality_settings[author_quota]"
                                    value="<?php echo esc_attr($settings['author_quota']); ?>"
                                    min="0" step="1" class="small-text" />
                             <p class="description"><?php
@@ -982,7 +982,7 @@ class PostQuality_Admin
                     </tr>
                 </table>
                 </div><!-- #pqm-panel-usage -->
-                <?php endif; // pqm_manage_settings ?>
+                <?php endif; // postquality_manage_settings ?>
 
                 <?php
                 if ( postquality_fs()->is__premium_only() ) {
@@ -1042,7 +1042,7 @@ class PostQuality_Admin
                                 <th><label for="pqm_agent_model_<?php echo esc_attr($key); ?>"><?php esc_html_e('Model', 'post-quality-manager'); ?></label></th>
                                 <td>
                                     <select id="pqm_agent_model_<?php echo esc_attr($key); ?>"
-                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][model]"
+                                            name="postquality_settings[agent_prompts][<?php echo esc_attr($key); ?>][model]"
                                             class="pqm-agent-model">
                                         <option value=""><?php
                                         // The "above" wording only makes sense when the AI Model section is on the page.
@@ -1062,7 +1062,7 @@ class PostQuality_Admin
                                 <th><label for="pqm_agent_effort_<?php echo esc_attr($key); ?>"><?php esc_html_e('Reasoning Effort', 'post-quality-manager'); ?></label></th>
                                 <td>
                                     <select id="pqm_agent_effort_<?php echo esc_attr($key); ?>"
-                                            name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][effort]"
+                                            name="postquality_settings[agent_prompts][<?php echo esc_attr($key); ?>][effort]"
                                             class="pqm-agent-effort"<?php disabled(!$has_effort); ?>>
                                         <?php foreach ($effort_labels as $level => $level_label): ?>
                                             <option value="<?php echo esc_attr($level); ?>"
@@ -1082,7 +1082,7 @@ class PostQuality_Admin
                                     <div class="pqm-temp-row<?php echo $caps['supports_temperature'] ? '' : ' pqm-locked'; ?>">
                                         <input type="range" step="0.1" min="0" max="1"
                                                id="pqm_agent_temp_<?php echo esc_attr($key); ?>"
-                                               name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
+                                               name="postquality_settings[agent_prompts][<?php echo esc_attr($key); ?>][temperature]"
                                                value="<?php echo esc_attr(number_format((float)$agent_data['temperature'], 1)); ?>"
                                                class="pqm-temp-range"<?php disabled(!$caps['supports_temperature']); ?> />
                                         <span class="pqm-temp-value"><?php echo esc_html(number_format((float)$agent_data['temperature'], 1)); ?></span>
@@ -1095,7 +1095,7 @@ class PostQuality_Admin
                                 <th><label for="pqm_agent_inst_<?php echo esc_attr($key); ?>"><?php esc_html_e('Additional Instructions', 'post-quality-manager'); ?></label></th>
                                 <td>
                                     <textarea id="pqm_agent_inst_<?php echo esc_attr($key); ?>"
-                                              name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]"
+                                              name="postquality_settings[agent_prompts][<?php echo esc_attr($key); ?>][instructions]"
                                               rows="4" class="large-text"><?php echo esc_textarea($agent_data['instructions']); ?></textarea>
                                     <p class="description"><?php esc_html_e('Added to the agent\'s core JSON instructions.', 'post-quality-manager'); ?></p>
                                 </td>
@@ -1108,7 +1108,7 @@ class PostQuality_Admin
                                 <td>
                                     <div class="pqm-pattern-row">
                                         <select id="pqm_agent_pattern_<?php echo esc_attr($key); ?>"
-                                                name="pqm_settings[agent_prompts][<?php echo esc_attr($key); ?>][pattern]"
+                                                name="postquality_settings[agent_prompts][<?php echo esc_attr($key); ?>][pattern]"
                                                 class="pqm-pattern-select">
                                             <option value="0"><?php esc_html_e('Plain list', 'post-quality-manager'); ?></option>
                                             <?php if ($patterns): ?>
@@ -1187,9 +1187,9 @@ class PostQuality_Admin
                     <tr>
                         <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
                         <td>
-                            <input type="hidden" name="pqm_settings[cron_enabled]" value="0" />
+                            <input type="hidden" name="postquality_settings[cron_enabled]" value="0" />
                             <label>
-                                <input type="checkbox" name="pqm_settings[cron_enabled]" value="1" checked />
+                                <input type="checkbox" name="postquality_settings[cron_enabled]" value="1" checked />
                                 <?php esc_html_e('Automatically run an agent on a schedule', 'post-quality-manager'); ?>
                             </label>
                             <p class="description"><?php esc_html_e('On the free plan, scheduled reviews can be switched off but not back on.', 'post-quality-manager'); ?></p>
@@ -1205,7 +1205,7 @@ class PostQuality_Admin
                         <th><?php esc_html_e('Enable', 'post-quality-manager'); ?></th>
                         <td>
                             <label>
-                                <input type="checkbox" name="pqm_settings[cron_enabled]" value="1"
+                                <input type="checkbox" name="postquality_settings[cron_enabled]" value="1"
                                        <?php checked($settings['cron_enabled']); ?> />
                                 <?php esc_html_e('Automatically run an agent on a schedule', 'post-quality-manager'); ?>
                             </label>
@@ -1215,7 +1215,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_cron_frequency"><?php esc_html_e('Frequency', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <select id="pqm_cron_frequency" name="pqm_settings[cron_frequency]">
+                            <select id="pqm_cron_frequency" name="postquality_settings[cron_frequency]">
                                 <option value="daily" <?php selected($settings['cron_frequency'], 'daily'); ?>><?php esc_html_e('Daily', 'post-quality-manager'); ?></option>
                                 <option value="weekly" <?php selected($settings['cron_frequency'], 'weekly'); ?>><?php esc_html_e('Weekly', 'post-quality-manager'); ?></option>
                             </select>
@@ -1224,7 +1224,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_cron_batch_size"><?php esc_html_e('Batch Size', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <input type="number" id="pqm_cron_batch_size" name="pqm_settings[cron_batch_size]"
+                            <input type="number" id="pqm_cron_batch_size" name="postquality_settings[cron_batch_size]"
                                    value="<?php echo esc_attr($settings['cron_batch_size']); ?>"
                                    min="1" max="20" class="small-text" />
                             <p class="description"><?php esc_html_e('Number of posts per scheduled run.', 'post-quality-manager'); ?></p>
@@ -1233,7 +1233,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_cron_command"><?php esc_html_e('Command', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <select id="pqm_cron_command" name="pqm_settings[cron_command]">
+                            <select id="pqm_cron_command" name="postquality_settings[cron_command]">
                                 <?php foreach (self::cron_commands__premium_only() as $cron_cmd): ?>
                                 <option value="<?php echo esc_attr($cron_cmd); ?>" <?php selected($settings['cron_command'], $cron_cmd); ?>><?php echo esc_html(PostQuality_Features::label($cron_cmd)); ?></option>
                                 <?php endforeach; ?>
@@ -1244,7 +1244,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_cron_min_score"><?php esc_html_e('Min Score Threshold', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <input type="number" id="pqm_cron_min_score" name="pqm_settings[cron_min_score]"
+                            <input type="number" id="pqm_cron_min_score" name="postquality_settings[cron_min_score]"
                                    value="<?php echo esc_attr($settings['cron_min_score']); ?>"
                                    min="0" max="100" class="small-text" />
                             <p class="description"><?php esc_html_e('Re-run posts whose result from this agent scores below this value.', 'post-quality-manager'); ?></p>
@@ -1253,7 +1253,7 @@ class PostQuality_Admin
                     <tr>
                         <th><label for="pqm_cron_max_age_days"><?php esc_html_e('Max Result Age (days)', 'post-quality-manager'); ?></label></th>
                         <td>
-                            <input type="number" id="pqm_cron_max_age_days" name="pqm_settings[cron_max_age_days]"
+                            <input type="number" id="pqm_cron_max_age_days" name="postquality_settings[cron_max_age_days]"
                                    value="<?php echo esc_attr($settings['cron_max_age_days']); ?>"
                                    min="1" max="365" class="small-text" />
                             <p class="description"><?php esc_html_e('Re-run posts whose latest result from this agent is older than this.', 'post-quality-manager'); ?></p>
@@ -1285,7 +1285,7 @@ class PostQuality_Admin
                 <p class="description"><?php esc_html_e('Saving applies these choices to every user with that role. Locked rows belong to roles that run the whole site, such as Administrator: you cannot take anything away from them.', 'post-quality-manager'); ?></p>
                 <?php /* Tells "tab posted with every box cleared" from "tab not
                        posted"; inert (never posted) inside the locked fieldset. */ ?>
-                <input type="hidden" name="pqm_settings[roles_posted]" value="1" />
+                <input type="hidden" name="postquality_settings[roles_posted]" value="1" />
                 <table class="widefat striped pqm-roles-table">
                     <thead>
                         <tr>
@@ -1313,13 +1313,13 @@ class PostQuality_Admin
                                 /* What this row rendered checked: Save writes only the cells that differ.
                                    None for a pinned row, so one that loses manage_options before Save is skipped. */
                                 if (!$pinned): ?>
-                                <input type="hidden" name="pqm_settings[roles_shown][<?php echo esc_attr($role_slug); ?>]" value="<?php echo esc_attr(implode(',', $row_checked)); ?>" /><?php endif; ?></th>
+                                <input type="hidden" name="postquality_settings[roles_shown][<?php echo esc_attr($role_slug); ?>]" value="<?php echo esc_attr(implode(',', $row_checked)); ?>" /><?php endif; ?></th>
                             <?php foreach (self::role_cap_labels__premium_only() as $cap => $cap_label): ?>
-                            <td><input type="checkbox" name="pqm_settings[roles][<?php echo esc_attr($role_slug); ?>][]" value="<?php echo esc_attr($cap); ?>"
+                            <td><input type="checkbox" name="postquality_settings[roles][<?php echo esc_attr($role_slug); ?>][]" value="<?php echo esc_attr($cap); ?>"
                                        aria-label="<?php echo esc_attr($role_label . ': ' . $cap_label); ?>"<?php
-                                if ($cap === 'pqm_view_reviews'): ?> aria-describedby="<?php echo esc_attr($hint_id); ?>"<?php endif;
+                                if ($cap === 'postquality_view_reviews'): ?> aria-describedby="<?php echo esc_attr($hint_id); ?>"<?php endif;
                                 checked(in_array($cap, $row_checked, true)); disabled($pinned); ?> /><?php
-                                if ($cap === 'pqm_view_reviews'): ?><span class="pqm-role-hint" id="<?php echo esc_attr($hint_id); ?>"><?php esc_html_e('Without this, the role does not see Dashboard or Post Reviews.', 'post-quality-manager'); ?></span><?php endif; ?></td>
+                                if ($cap === 'postquality_view_reviews'): ?><span class="pqm-role-hint" id="<?php echo esc_attr($hint_id); ?>"><?php esc_html_e('Without this, the role does not see Dashboard or Post Reviews.', 'post-quality-manager'); ?></span><?php endif; ?></td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
@@ -1767,7 +1767,7 @@ class PostQuality_Admin
      * by hand (primary, the manual path's one action) and the Webhook
      * disclosure (secondary). pqm-admin.js posts the form's field to
      * POST /setup/connect (save_webhook_url(), then the ping) and swaps the
-     * body its reply carries. No name="pqm_settings[…]": never a second
+     * body its reply carries. No name="postquality_settings[…]": never a second
      * Settings form.
      */
     private static function render_webhook_form(array $settings, bool $primary, string $place): void
@@ -2024,7 +2024,7 @@ class PostQuality_Admin
      */
     public static function download_workflow(): void
     {
-        if (!current_user_can('pqm_manage_settings')) {
+        if (!current_user_can('postquality_manage_settings')) {
             wp_die(esc_html__('Insufficient permissions.', 'post-quality-manager'));
         }
         check_admin_referer('postquality_download_workflow');
@@ -2036,7 +2036,7 @@ class PostQuality_Admin
 
         // The user is about to re-import: the last report no longer says
         // what runs in n8n, so the page shows "not checked yet" until a ping.
-        delete_option('pqm_workflow_version_seen');
+        delete_option('postquality_workflow_version_seen');
 
         $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'my-site';
 
@@ -2071,23 +2071,23 @@ class PostQuality_Admin
             return new WP_Error('pqm_webhook_test_url', $warning, ['status' => 400]);
         }
 
-        $settings = get_option('pqm_settings', []);
+        $settings = get_option('postquality_settings', []);
         $settings['n8n_webhook_url'] = $url;
-        update_option('pqm_settings', $settings); // updated_option hook reschedules cron.
+        update_option('postquality_settings', $settings); // updated_option hook reschedules cron.
 
         return true;
     }
 
     /**
      * Merge-save only the webhook token, as save_webhook_url() saves the
-     * URL: one write of pqm_settings, every other key as stored. Used by the
+     * URL: one write of postquality_settings, every other key as stored. Used by the
      * token rotation (n8n provisioning, entry 10) once n8n holds the token.
      */
     public static function save_webhook_token(string $token): void
     {
-        $settings = get_option('pqm_settings', []);
+        $settings = get_option('postquality_settings', []);
         $settings['webhook_token'] = $token;
-        update_option('pqm_settings', $settings);
+        update_option('postquality_settings', $settings);
     }
 
     /**
@@ -2154,7 +2154,7 @@ class PostQuality_Admin
      * right token, `refused` with another); written before the request,
      * deleted after it on every path. Autoload off.
      */
-    public const PING_OPTION = 'pqm_ping';
+    public const PING_OPTION = 'postquality_ping';
     /** Seconds the pending ping stays claimable by its callback. */
     public const PING_LIVE = 60;
     /** Seconds sent_ping() waits for the callback (filter `postquality_ping_callback_wait`). */
@@ -2324,7 +2324,7 @@ class PostQuality_Admin
     {
         check_ajax_referer('postquality_admin_action');
 
-        if (!current_user_can('pqm_manage_settings')) {
+        if (!current_user_can('postquality_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 
@@ -2367,7 +2367,7 @@ class PostQuality_Admin
     {
         check_ajax_referer('postquality_admin_action');
 
-        if (!current_user_can('pqm_manage_settings')) {
+        if (!current_user_can('postquality_manage_settings')) {
             wp_send_json_error(__('Insufficient permissions.', 'post-quality-manager'), 403);
         }
 

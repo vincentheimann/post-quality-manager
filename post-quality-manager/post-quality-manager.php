@@ -161,6 +161,6 @@ if (is_admin()) {
 if ( postquality_fs()->is__premium_only() ) {
     require_once POSTQUALITY_PLUGIN_DIR . 'includes/class-pqm-cron.php';
     register_deactivation_hook(__FILE__, ['PostQuality_Cron', 'clear_scheduled_events']);
-    add_action('pqm_cron_review_posts', ['PostQuality_Cron', 'run_scheduled_review']);
+    add_action('postquality_cron_review_posts', ['PostQuality_Cron', 'run_scheduled_review']);
     add_filter('cron_schedules', ['PostQuality_Cron', 'add_custom_schedules']);
 }

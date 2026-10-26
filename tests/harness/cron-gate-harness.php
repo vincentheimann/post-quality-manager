@@ -85,8 +85,8 @@ function reset_world($settings = [], $is_pro = false) {
     $GLOBALS['tw']['db_command'] = null;
     $GLOBALS['tw']['sent_commands'] = [];
     $GLOBALS['tw']['user_meta'] = [
-        42 => ['pqm_monthly_usage' => ['month' => '2026-10', 'count' => 5]],
-        43 => ['pqm_monthly_usage' => ['month' => '2026-09', 'count' => 20]],
+        42 => ['postquality_monthly_usage' => ['month' => '2026-10', 'count' => 5]],
+        43 => ['postquality_monthly_usage' => ['month' => '2026-09', 'count' => 20]],
     ];
 }
 
@@ -134,17 +134,17 @@ echo "Row 5 — Quota neutrality\n";
 reset_world(['cron_command' => 'review'], false);
 $before = serialize($GLOBALS['tw']['user_meta']);
 PostQuality_Cron::run_scheduled_review();
-check('free batch leaves pqm_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
+check('free batch leaves postquality_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
 reset_world(['cron_command' => 'seo'], false);
 $before = serialize($GLOBALS['tw']['user_meta']);
 PostQuality_Cron::run_scheduled_review();
-check('skipped batch leaves pqm_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
+check('skipped batch leaves postquality_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
 reset_world(['cron_command' => 'audit'], true);
 $before = serialize($GLOBALS['tw']['user_meta']);
 PostQuality_Cron::run_scheduled_review();
-check('pro batch leaves pqm_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
+check('pro batch leaves postquality_monthly_usage byte-identical', serialize($GLOBALS['tw']['user_meta']) === $before);
 $cron = file_get_contents($base . '/includes/class-pqm-cron.php');
-check('cron source never touches quota helpers', strpos($cron, 'consume_quota') === false && strpos($cron, 'quota_state') === false && strpos($cron, 'pqm_monthly_usage') === false);
+check('cron source never touches quota helpers', strpos($cron, 'consume_quota') === false && strpos($cron, 'quota_state') === false && strpos($cron, 'postquality_monthly_usage') === false);
 
 /* ─── Row 6: No webhook URL ──────────────────────────────────────────── */
 echo "Row 6 — No webhook URL\n";
@@ -158,10 +158,10 @@ echo "Row 7 — schedule() with cron_enabled false clears the event
 reset_world(['cron_enabled' => true, 'cron_frequency' => 'daily'], false);
 $GLOBALS['tw']['events'] = [];
 PostQuality_Cron::schedule();
-check('fixture: cron on schedules pqm_cron_review_posts', wp_next_scheduled('pqm_cron_review_posts') !== false);
+check('fixture: cron on schedules postquality_cron_review_posts', wp_next_scheduled('postquality_cron_review_posts') !== false);
 $GLOBALS['tw']['settings']['cron_enabled'] = false;
 PostQuality_Cron::schedule();
-check('cron off: pqm_cron_review_posts cleared, nothing scheduled', $GLOBALS['tw']['events'] === []);
+check('cron off: postquality_cron_review_posts cleared, nothing scheduled', $GLOBALS['tw']['events'] === []);
 
 /* ─── Row 8 (ticket 3): the batch selects by the scheduled command ───── */
 echo "Row 8 — selection per scheduled command\n";
@@ -182,7 +182,7 @@ check('audit on a lapsed (free) site: skipped before the query', $GLOBALS['tw'][
 
 /* ─── why_not() refactor is pure (hidden/locked behavior unchanged) ──── */
 echo "Extra — why_not() unchanged after the plan_allows refactor\n";
-$GLOBALS['tw']['user_caps'] = ['pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true];
+$GLOBALS['tw']['user_caps'] = ['postquality_run_free_agents' => true, 'postquality_run_paid_agents' => true];
 $GLOBALS['tw']['is_pro'] = false;
 check("why_not(seo) is 'plan' (capable user, free site)", PostQuality_Features::why_not('seo') === 'plan');
 check('why_not(review) is null', PostQuality_Features::why_not('review') === null);

@@ -16,7 +16,7 @@ define('ABSPATH', __DIR__ . '/');
 define('ARRAY_A', 'ARRAY_A');
 
 $GLOBALS['tw'] = [
-    'caps'      => ['pqm_view_reviews'],
+    'caps'      => ['postquality_view_reviews'],
     'user_id'   => 42,
     'user_meta' => [],
     'options'   => site_options(),
@@ -26,7 +26,7 @@ $GLOBALS['pqm_routes'] = [];
 /* ─── Harness-specific WP stubs (the shared world is lib/wp-stubs.php) ── */
 function plugin_dir_url($f) { return ''; }
 /* The site's options every row starts from (the bootstrap's store); a row replaces tw.options through this. */
-function site_options(array $extra = []): array { return $extra + ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'pqm_settings' => []]; }
+function site_options(array $extra = []): array { return $extra + ['date_format' => 'Y-m-d', 'time_format' => 'H:i', 'postquality_settings' => []]; }
 function get_post($id) { return (int) $id === 7 ? (object) ['ID' => 7] : null; }
 function current_time($type, $gmt = 0) { return '2026-10-06 12:00:00'; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
@@ -156,7 +156,7 @@ foreach ($wpdb->prepared as $q) {
     if (strpos($q['sql'], 'ORDER BY reviewed_at DESC LIMIT %d') !== false) { $p = $q; }
 }
 check('query is FROM %i WHERE post_id = %d ... ORDER BY reviewed_at DESC LIMIT %d', $p !== null && strpos($p['sql'], 'FROM %i WHERE post_id = %d') !== false);
-check('prepared with [wp_pqm_reviews, 7, 50]', $p !== null && $p['args'] === ['wp_pqm_reviews', 7, 50]);
+check('prepared with [wp_postquality_reviews, 7, 50]', $p !== null && $p['args'] === ['wp_postquality_reviews', 7, 50]);
 
 /* Row: no reviews — 200 with an empty array */
 echo "No reviews\n";
@@ -201,7 +201,7 @@ check('201 response', $res instanceof WP_REST_Response && $res->get_status() ===
 check('stored status is error', $row['status'] === 'error');
 check('stored result carries the message', $row['result_data'] === json_encode(['error' => 'Review Agent could not get an answer from the model: Your credit balance is too low.']));
 check('score 0, command kept', $row['overall_score'] === 0 && $row['command'] === 'review');
-$seen = $GLOBALS['tw']['options']['pqm_workflow_version_seen'] ?? null;
+$seen = $GLOBALS['tw']['options']['postquality_workflow_version_seen'] ?? null;
 check('workflow version recorded as {3, via command, at now}', is_array($seen) && $seen['version'] === 3 && $seen['via'] === 'command'
     && abs($seen['at'] - time()) <= 5 && postquality_workflow_report() === $seen);
 
@@ -216,45 +216,45 @@ check('stored row identical to a body without error_message', $with === $without
 /* Rows: the workflow version report — callback writer, legacy read, forget on serve */
 echo "Workflow version report\n";
 $ping_report = ['version' => 5, 'via' => 'test', 'at' => 1700000000];
-$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report]);
+$GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $ping_report]);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result]);
-check('callback without workflow_version (0): last report untouched', $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $ping_report);
+check('callback without workflow_version (0): last report untouched', $GLOBALS['tw']['options']['postquality_workflow_version_seen'] === $ping_report);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
 check('callback with workflow_version 5: replaces a ping\'s report, via command',
-    $GLOBALS['tw']['options']['pqm_workflow_version_seen']['via'] === 'command' && postquality_workflow_report()['version'] === 5);
+    $GLOBALS['tw']['options']['postquality_workflow_version_seen']['via'] === 'command' && postquality_workflow_report()['version'] === 5);
 /* Story 54: the callback states the template variant; absent = Pro */
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'free']);
-check('callback from the Free template: recorded with variant free', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['variant'] ?? null) === 'free'
+check('callback from the Free template: recorded with variant free', ($GLOBALS['tw']['options']['postquality_workflow_version_seen']['variant'] ?? null) === 'free'
     && postquality_workflow_report()['variant'] === 'free');
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5, 'workflow_variant' => 'pro']);
-check('callback stating pro: recorded without a variant (absent = Pro)', !array_key_exists('variant', $GLOBALS['tw']['options']['pqm_workflow_version_seen'])
+check('callback stating pro: recorded without a variant (absent = Pro)', !array_key_exists('variant', $GLOBALS['tw']['options']['postquality_workflow_version_seen'])
     && !array_key_exists('variant', postquality_workflow_report()));
 $variant_arg = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/save-review']['args']['workflow_variant'] ?? [];
 check('save-review workflow_variant: optional string, enum free/pro (400 on others), default pro',
     ($variant_arg['required'] ?? null) === false && ($variant_arg['type'] ?? null) === 'string'
     && ($variant_arg['enum'] ?? null) === ['free', 'pro'] && ($variant_arg['default'] ?? null) === 'pro');
 foreach ([4, '4'] as $legacy) { // WP returns a stored scalar as a string
-    $GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $legacy]);
+    $GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $legacy]);
     check('legacy int option (' . gettype($legacy) . ') read as {4, via command, at 0}', postquality_workflow_report() === ['version' => 4, 'via' => 'command', 'at' => 0]);
 }
 $GLOBALS['tw']['options'] = site_options();
 check('option absent: no report', postquality_workflow_report() === null);
 /* n8n provisioning entry 7: a test's mis-wiring sentence rides with the report; only a test clears it */
 $sentence = 'In n8n, no credential is set on Update WP Post (Rewrite): add one there, publish the workflow, then check again.';
-$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
+$GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
 check('a stored sentence: the report carries miswired', postquality_workflow_report() === $ping_report + ['miswired' => $sentence]);
 save_body(['post_id' => 7, 'command' => 'review', 'overall_score' => 72, 'status' => 'ship', 'result' => $result, 'workflow_version' => 5]);
 check('a command\'s callback while a sentence is stored: via command, the sentence kept', postquality_workflow_report()['via'] === 'command'
     && postquality_workflow_report()['miswired'] === $sentence);
-$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => '']]);
+$GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $ping_report + ['miswired' => '']]);
 check('an empty sentence: the report carries no miswired key', postquality_workflow_report() === $ping_report);
-$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
+$GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $ping_report + ['miswired' => $sentence]]);
 PostQuality_REST_API::workflow_callback();
 check('GET /workflow (a serve) forgets the report, the sentence with it', postquality_workflow_report() === null);
-$GLOBALS['tw']['options'] = site_options(['pqm_workflow_version_seen' => $ping_report]);
+$GLOBALS['tw']['options'] = site_options(['postquality_workflow_version_seen' => $ping_report]);
 $res = PostQuality_REST_API::workflow_callback();
 check('GET /workflow (n8n Import from URL): serves the template and forgets the report',
-    $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['pqm_workflow_version_seen'])
+    $res instanceof WP_REST_Response && isset($res->get_data()->nodes) && !isset($GLOBALS['tw']['options']['postquality_workflow_version_seen'])
     && postquality_workflow_report() === null);
 
 /* Provisioning entry 3: the per-site webhook path */
@@ -278,7 +278,7 @@ foreach ([
 unset($GLOBALS['tw']['home']);
 $admin_src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
 check('Download forgets the report only once the template is found (after the not-found wp_die)',
-    (bool) preg_match("/function download_workflow\(\).*?postquality_workflow_json\(\).*?wp_die\(.*?delete_option\('pqm_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
+    (bool) preg_match("/function download_workflow\(\).*?postquality_workflow_json\(\).*?wp_die\(.*?delete_option\('postquality_workflow_version_seen'\).*?echo \\\$json/s", $admin_src));
 $GLOBALS['tw']['options'] = site_options();
 
 /* ─── Template contract (static checks on templates/n8n-workflow.json) ── */
@@ -333,9 +333,9 @@ check('Parse Input\'s ping item carries callback_url, auth_token and the stamp (
 $ping_route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/ping/(?P<id>[A-Za-z0-9]{20})'] ?? null;
 check('POST /ping/{id} registered: a 20-character id, check_ping_token, ping_callback', is_array($ping_route) && $ping_route['methods'] === 'POST'
     && $ping_route['permission_callback'] === ['PostQuality_REST_API', 'check_ping_token'] && $ping_route['callback'] === ['PostQuality_REST_API', 'ping_callback']);
-check('the pending ping lives in PostQuality_Admin::PING_OPTION = pqm_ping, claimable for PING_LIVE = 60 s, waited for PING_WAIT = 8 s',
-    PostQuality_Admin::PING_OPTION === 'pqm_ping' && PostQuality_Admin::PING_LIVE === 60 && PostQuality_Admin::PING_WAIT === 8);
-$GLOBALS['tw']['options'] = site_options(['pqm_settings' => ['webhook_token' => 'tok-2']]);
+check('the pending ping lives in PostQuality_Admin::PING_OPTION = postquality_ping, claimable for PING_LIVE = 60 s, waited for PING_WAIT = 8 s',
+    PostQuality_Admin::PING_OPTION === 'postquality_ping' && PostQuality_Admin::PING_LIVE === 60 && PostQuality_Admin::PING_WAIT === 8);
+$GLOBALS['tw']['options'] = site_options(['postquality_settings' => ['webhook_token' => 'tok-2']]);
 $ping_id   = 'abcdefghij0123456789';
 $pending   = ['id' => $ping_id, 'at' => time()];
 $callback  = static function (string $id, string $token) use ($ping_route) {
@@ -344,37 +344,37 @@ $callback  = static function (string $id, string $token) use ($ping_route) {
     if (!call_user_func($ping_route['permission_callback'], $request)) { return 'refused'; }
     return call_user_func($ping_route['callback'], $request);
 };
-$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+$GLOBALS['tw']['options']['postquality_ping'] = $pending;
 $res = $callback($ping_id, 'tok-2');
 check('right token, the pending id: 200 {ok: true}, the pending ping marked received (id and at kept)', $res instanceof WP_REST_Response && $res->get_status() === 200
-    && $res->get_data() === ['ok' => true] && $GLOBALS['tw']['options']['pqm_ping'] === ['state' => 'received'] + $pending && $GLOBALS['tw']['writes'] === ['pqm_ping']);
-$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+    && $res->get_data() === ['ok' => true] && $GLOBALS['tw']['options']['postquality_ping'] === ['state' => 'received'] + $pending && $GLOBALS['tw']['writes'] === ['postquality_ping']);
+$GLOBALS['tw']['options']['postquality_ping'] = $pending;
 $res = $callback($ping_id, 'not-this-sites-token');
 check('wrong token, the pending id: refused, the pending ping marked refused (the waiting test names the token)', $res === 'refused'
-    && $GLOBALS['tw']['options']['pqm_ping'] === ['state' => 'refused'] + $pending && $GLOBALS['tw']['writes'] === ['pqm_ping']);
-$GLOBALS['tw']['options']['pqm_ping'] = $pending;
+    && $GLOBALS['tw']['options']['postquality_ping'] === ['state' => 'refused'] + $pending && $GLOBALS['tw']['writes'] === ['postquality_ping']);
+$GLOBALS['tw']['options']['postquality_ping'] = $pending;
 $res = $callback('zzzzzzzzzzzzzzzzzzzz', 'not-this-sites-token');
-check('wrong token, another id: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['pqm_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
+check('wrong token, another id: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['postquality_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
 $res = $callback('zzzzzzzzzzzzzzzzzzzz', 'tok-2');
 check('right token, an unknown id: 404 pqm_ping_unknown, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown'
-    && $res->get_error_data() === ['status' => 404] && $GLOBALS['tw']['options']['pqm_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
+    && $res->get_error_data() === ['status' => 404] && $GLOBALS['tw']['options']['postquality_ping'] === $pending && $GLOBALS['tw']['writes'] === []);
 $stale = ['id' => $ping_id, 'at' => time() - 61];
-$GLOBALS['tw']['options']['pqm_ping'] = $stale;
+$GLOBALS['tw']['options']['postquality_ping'] = $stale;
 $res = $callback($ping_id, 'tok-2');
 check('right token, the id of a ping older than 60 s: 404, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown'
-    && $GLOBALS['tw']['options']['pqm_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
+    && $GLOBALS['tw']['options']['postquality_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
 $res = $callback($ping_id, 'not-this-sites-token');
-check('wrong token, the id of a stale ping: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['pqm_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
-unset($GLOBALS['tw']['options']['pqm_ping']);
+check('wrong token, the id of a stale ping: refused, nothing written', $res === 'refused' && $GLOBALS['tw']['options']['postquality_ping'] === $stale && $GLOBALS['tw']['writes'] === []);
+unset($GLOBALS['tw']['options']['postquality_ping']);
 $res = $callback($ping_id, 'tok-2');
 check('no pending ping at all: 404, nothing written', $res instanceof WP_Error && $res->get_error_code() === 'pqm_ping_unknown' && $GLOBALS['tw']['writes'] === []);
-$GLOBALS['tw']['options']['pqm_ping'] = $pending;
-$GLOBALS['tw']['caps'][] = 'pqm_run_free_agents';
+$GLOBALS['tw']['options']['postquality_ping'] = $pending;
+$GLOBALS['tw']['caps'][] = 'postquality_run_free_agents';
 $res = $callback($ping_id, '');
 check('a logged-in user who may run agents passes without the header, as on /save-review', $res instanceof WP_REST_Response && $res->get_status() === 200);
-$GLOBALS['tw']['caps'] = ['pqm_view_reviews'];
+$GLOBALS['tw']['caps'] = ['postquality_view_reviews'];
 check('/ping/{id} ignores workflow_variant and every other field: no args schema', !isset($ping_route['args']));
-check('uninstall removes the pending ping option', str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-activator.php'), "delete_option( 'pqm_ping' );"));
+check('uninstall removes the pending ping option', str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-activator.php'), "'postquality_ping'") && str_contains(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-activator.php'), 'delete_option( $new );')); // story 91: every mapped option, new and old
 $GLOBALS['tw']['options'] = site_options();
 
 /* Payload: the post's own REST address, '' when its type is not in REST */

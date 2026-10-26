@@ -25,7 +25,7 @@ echo "Provisioning: route\n";
 $route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/n8n/provision'] ?? [];
 check('/n8n/provision: POST, gated by check_manage_settings, anthropic_key required', ($route['methods'] ?? null) === 'POST'
     && ($route['permission_callback'] ?? null) === $gate && ($route['args']['anthropic_key']['required'] ?? null) === true);
-check('the setup map has its own option, pqm_n8n_setup', PostQuality_N8n::SETUP_OPTION === 'pqm_n8n_setup');
+check('the setup map has its own option, postquality_n8n_setup', PostQuality_N8n::SETUP_OPTION === 'postquality_n8n_setup');
 
 $raw_template   = json_decode((string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow.json'), true); // placeholders unfilled
 $template_names = array_values(array_unique(array_merge(...array_map(static fn($n) => array_column($n['credentials'] ?? [], 'name'), $raw_template['nodes']))));
@@ -77,11 +77,11 @@ check('bug 72: the lock claimed before the first call (bug 82: INSERT IGNORE, au
     $GLOBALS['tw']['writes'][0] === PostQuality_N8n::LOCK_OPTION
     && $GLOBALS['tw']['writes'][array_search(PostQuality_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true) + 1] === '-' . PostQuality_N8n::LOCK_OPTION
     && $GLOBALS['tw']['autoload'][PostQuality_N8n::LOCK_OPTION] === 'off' && lock_free()
-    && PostQuality_N8n::LOCK_OPTION === 'pqm_n8n_provisioning');
-check('webhook URL saved: connected origin + /webhook/ + the path; the token kept', $GLOBALS['tw']['options']['pqm_settings'] === ['webhook_token' => TOKEN, 'n8n_webhook_url' => HOOK]);
+    && PostQuality_N8n::LOCK_OPTION === 'postquality_n8n_provisioning');
+check('webhook URL saved: connected origin + /webhook/ + the path; the token kept', $GLOBALS['tw']['options']['postquality_settings'] === ['webhook_token' => TOKEN, 'n8n_webhook_url' => HOOK]);
 check('pinged that URL once, with the token', count($GLOBALS['tw']['pings']) === 1 && $GLOBALS['tw']['pings'][0][0] === HOOK
     && $GLOBALS['tw']['pings'][0][1]['headers']['X-PQM-Token'] === TOKEN);
-check('replied version recorded', ($GLOBALS['tw']['options']['pqm_workflow_version_seen']['version'] ?? null) === POSTQUALITY_WORKFLOW_VERSION);
+check('replied version recorded', ($GLOBALS['tw']['options']['postquality_workflow_version_seen']['version'] ?? null) === POSTQUALITY_WORKFLOW_VERSION);
 check('the ping recorded as the connect route does (autoload off): Set up the workflow reads done', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] ?? null) === true
     && $GLOBALS['tw']['autoload'][POSTQUALITY_SETUP_OPTION] === false);
 check('reply: {provisioned, ping_ok, workflow_id, webhook_url, message, rewrite_ready, status_html}; neither the uuid nor the password in it', array_keys($r) === ['provisioned', 'ping_ok', 'workflow_id', 'webhook_url', 'message', 'rewrite_ready', 'status_html']
@@ -95,7 +95,7 @@ check('the provider key travels in the models request and the Anthropic credenti
     && !str_contains(json_encode($GLOBALS['tw']['calls'][2][1]['headers']), PROVIDER_KEY) && !str_contains(json_encode($GLOBALS['tw']['pings']), PROVIDER_KEY));
 
 echo "Provisioning: acceptance — the provider key is in neither read reply\n";
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
 $conn        = json_encode(get_state());
 $setup_reply = json_encode(PostQuality_REST_API::get_setup_callback()->get_data());
 $replies[]   = $setup_reply;
@@ -148,7 +148,7 @@ foreach (['a WP_Error' => new WP_Error('http_request_failed', 'cURL error 28: ti
 }
 
 echo "Provisioning: not connected, already provisioned\n";
-site(['pqm_settings' => ['webhook_token' => TOKEN]]);
+site(['postquality_settings' => ['webhook_token' => TOKEN]]);
 $GLOBALS['tw']['pings'] = [];
 $GLOBALS['tw']['app_created'] = [];
 $r = provision();
@@ -161,7 +161,7 @@ check('a setup map exists: 409 pqm_already_provisioned, zero calls', $r instance
 
 /* ─── Entry 5: a failed run leaves nothing behind ────────────────────── */
 echo "Rollback: the option and the instance model\n";
-check('what a rollback could not remove has its own option, pqm_n8n_leftovers', PostQuality_N8n::LEFTOVERS_OPTION === 'pqm_n8n_leftovers');
+check('what a rollback could not remove has its own option, postquality_n8n_leftovers', PostQuality_N8n::LEFTOVERS_OPTION === 'postquality_n8n_leftovers');
 
 /* ─── Bug 72: one run at a time ──────────────────────────────────────── */
 echo "Provisioning: two runs started together (bug 72)\n";
@@ -333,7 +333,7 @@ foreach ([
         && $r->data === ['status' => 502, 'step' => 'activate'] && count(calls()) === count(CREATE_ALL) + $undone
         && calls() === array_merge(CREATE_ALL, array_slice(UNDO_ALL, 0, $undone)) && $GLOBALS['tw']['queue'] === []);
     check('... the Application Password revoked all the same', revoked());
-    check('... pqm_n8n_leftovers = {base_url, the workflow, every credential id, at}, autoload off', $record === [
+    check('... postquality_n8n_leftovers = {base_url, the workflow, every credential id, at}, autoload off', $record === [
         'base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp'], 'at' => $record['at'] ?? null]
         && abs($record['at'] - time()) <= 5 && $GLOBALS['tw']['autoload'][PostQuality_N8n::LEFTOVERS_OPTION] === false);
     check('... the model holds exactly what the record names', on_instance() === ['credentials/c-anthropic', 'credentials/c-webhook', 'credentials/c-wp', 'workflows/wf1']);
@@ -413,7 +413,7 @@ $r = provision();
 check('404 three times: 3 pings, no more; 200 {provisioned, ping_ok false, message}: set up and active, the webhook did not answer yet, Test again first, the editor-address hint second',
     count($GLOBALS['tw']['pings']) === 3 && $r['provisioned'] === true && $r['ping_ok'] === false && $r['message'] === EARLY_404);
 check('... everything kept: map stored, URL saved, no version recorded; the failure on record is that sentence (story 67)', isset($GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION])
-    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === HOOK && postquality_workflow_report()['version'] === 0
+    && $GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] === HOOK && postquality_workflow_report()['version'] === 0
     && (postquality_workflow_report()['failed']['message'] ?? '') === EARLY_404);
 check('... the failed ping recorded, so Set up the workflow stays open (setup incomplete); status_html needs attention, the message its outcome line', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] ?? null) === false
     && str_contains($r['status_html'], 'data-state="failing"') && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>') && !postquality_setup_complete());

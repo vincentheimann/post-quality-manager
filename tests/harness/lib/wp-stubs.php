@@ -117,11 +117,14 @@ if (!function_exists('plugin_dir_path')) { function plugin_dir_path($f) { return
 /* ─── Hooks (no-ops) ─────────────────────────────────────────────────── */
 if (!function_exists('add_action')) { function add_action(...$a) {} }
 if (!function_exists('add_filter')) { function add_filter(...$a) {} }
+if (!function_exists('has_filter')) { function has_filter($tag, $cb = false) { return false; } }
+if (!function_exists('remove_filter')) { function remove_filter(...$a) { return false; } }
 if (!function_exists('do_action')) { function do_action(...$a) {} }
 if (!function_exists('register_activation_hook')) { function register_activation_hook(...$a) {} }
 if (!function_exists('register_deactivation_hook')) { function register_deactivation_hook(...$a) {} }
 
 /* ─── Options store on $GLOBALS['tw']['options'] ─────────────────────── */
+if (!function_exists('wp_load_alloptions')) { function wp_load_alloptions($force_cache = false) { return $GLOBALS['tw']['options'] ?? []; } }
 if (!function_exists('get_option')) {
     function get_option($k, $d = false) {
         $options = $GLOBALS['tw']['options'] ?? [];

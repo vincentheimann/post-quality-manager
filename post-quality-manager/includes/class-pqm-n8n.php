@@ -4,7 +4,7 @@
  *
  * Holds the connection an Administrator set on the n8n Workflow page — the
  * instance's base URL and an n8n API key — in its own option, autoload off,
- * never in pqm_settings (the Settings save rebuilds that array from the
+ * never in postquality_settings (the Settings save rebuilds that array from the
  * posted form). The key never leaves the server: no REST reply or page
  * source carries it, and the plugin never logs the keys itself; only its
  * last four characters are shown, so an owner can tell which key is stored
@@ -36,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class PostQuality_N8n {
 
     /** Own option (autoload off, deleted on uninstall): base_url, api_key, probe, failed. */
-    const OPTION = 'pqm_n8n_api';
+    const OPTION = 'postquality_n8n_api';
 
     /** The n8n public API, below the instance's base URL. */
     const API_PATH = '/api/v1';
@@ -66,7 +66,7 @@ class PostQuality_N8n {
      * none and counts as the connected instance's, D3). Not in OPTION:
      * save() and forget() rewrite that one whole.
      */
-    const SETUP_OPTION = 'pqm_n8n_setup';
+    const SETUP_OPTION = 'postquality_n8n_setup';
 
     /** The active workflows, one page of 250 (n8n's maximum `limit`): the diagnosis and the adoption read them. */
     const ACTIVE_WORKFLOWS = '/workflows?active=true&limit=250&excludePinnedData=true';
@@ -77,7 +77,7 @@ class PostQuality_N8n {
      * credentials: [id, …], at} (entry 5, D1). The next provision() removes
      * it first.
      */
-    const LEFTOVERS_OPTION = 'pqm_n8n_leftovers';
+    const LEFTOVERS_OPTION = 'postquality_n8n_leftovers';
 
     /**
      * Own option (autoload off, deleted on uninstall): {at} while a
@@ -87,7 +87,7 @@ class PostQuality_N8n {
      * map, which would turn the page "set up" during the run. See
      * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
      */
-    const LOCK_OPTION = 'pqm_n8n_provisioning';
+    const LOCK_OPTION = 'postquality_n8n_provisioning';
 
     /** A lock older than this (seconds) is a run PHP killed mid-way: the next run takes it over. */
     const LOCK_TTL = 300;
@@ -1482,12 +1482,12 @@ class PostQuality_N8n {
             self::revoke_setup_password__premium_only();
         }
         delete_option( self::SETUP_OPTION );
-        delete_option( 'pqm_workflow_version_seen' );
-        $settings = get_option( 'pqm_settings', [] );
+        delete_option( 'postquality_workflow_version_seen' );
+        $settings = get_option( 'postquality_settings', [] );
         $settings = is_array( $settings ) ? $settings : [];
 
         $settings['n8n_webhook_url'] = '';
-        update_option( 'pqm_settings', $settings );
+        update_option( 'postquality_settings', $settings );
 
         return [ 'removed' => $remove && null === $left, 'left' => null !== $left ] + ( '' === $dropped ? [] : [ 'dropped_leftovers' => $dropped ] );
     }

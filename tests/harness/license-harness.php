@@ -44,7 +44,7 @@ function reset_world($pro = false, $has_license = false, $settings = [], $filter
     postquality_fs()->pro = $pro;
     postquality_fs()->has_license = $has_license;
 }
-$all_run_caps = ['pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true];
+$all_run_caps = ['postquality_run_free_agents' => true, 'postquality_run_paid_agents' => true];
 $paid_commands = ['rewrite', 'sources', 'seo', 'audit'];
 
 /* ─── Row 1: Valid license → pro ─────────────────────────────────────── */

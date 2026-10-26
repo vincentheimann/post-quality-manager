@@ -314,7 +314,7 @@ describe( 'Setup dialog configuration steps', () => {
 		expect( button( 'Skip' ) ).toBeDefined();
 	} );
 
-	test( 'no pqm_manage_agents, even on a pro site: the schedule step explains, offers no switch', async () => {
+	test( 'no postquality_manage_agents, even on a pro site: the schedule step explains, offers no switch', async () => {
 		await openDialog(
 			completedState( {
 				// eslint-disable-next-line camelcase -- REST field name.

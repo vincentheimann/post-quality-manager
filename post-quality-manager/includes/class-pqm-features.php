@@ -5,7 +5,7 @@
  * One registry declares each agent's tier (free/paid) and the plugin
  * capability it requires; one call — PostQuality_Features::can( $command ) — at
  * the trigger chokepoint decides whether the current user on this site may
- * run it. The five pqm_* capabilities and their default role map live here
+ * run it. The five postquality_* capabilities and their default role map live here
  * too, so activation, the versioned upgrade and uninstall share one list.
  * Licensing lives in PostQuality_License; is_pro() only delegates to it.
  */
@@ -30,11 +30,11 @@ class PostQuality_Features {
      */
     public static function capabilities(): array {
         return [
-            'pqm_view_reviews'    => [ 'administrator', 'editor', 'author' ],
-            'pqm_run_free_agents' => [ 'administrator', 'editor', 'author' ],
-            'pqm_run_paid_agents' => [ 'administrator', 'editor' ],
-            'pqm_manage_agents'   => [ 'administrator', 'editor' ],
-            'pqm_manage_settings' => [ 'administrator' ],
+            'postquality_view_reviews'    => [ 'administrator', 'editor', 'author' ],
+            'postquality_run_free_agents' => [ 'administrator', 'editor', 'author' ],
+            'postquality_run_paid_agents' => [ 'administrator', 'editor' ],
+            'postquality_manage_agents'   => [ 'administrator', 'editor' ],
+            'postquality_manage_settings' => [ 'administrator' ],
         ];
     }
 
@@ -68,13 +68,16 @@ class PostQuality_Features {
     }
 
     /**
-     * Strip every pqm_* capability from every role and every user's direct
-     * grants (uninstall only — a remapped role must keep its grant across
-     * deactivation). Unconditional: an explicit deny (cap => false) fails
-     * has_cap() yet must go too, and remove_cap() is safe on a missing key.
+     * Strip every postquality_* capability from every role and every user's
+     * direct grants (uninstall only — a remapped role must keep its grant
+     * across deactivation). Unconditional: an explicit deny (cap => false)
+     * fails has_cap() yet must go too, and remove_cap() is safe on a missing
+     * key. Uninstall passes the capabilities of both prefixes (story 91).
+     *
+     * @param string[]|null $caps  The capabilities to strip; the current map when null.
      */
-    public static function remove_capabilities(): void {
-        $caps = array_keys( self::capabilities() );
+    public static function remove_capabilities( ?array $caps = null ): void {
+        $caps = $caps ?? array_keys( self::capabilities() );
 
         foreach ( wp_roles()->role_objects as $role ) {
             foreach ( $caps as $cap ) {
@@ -98,32 +101,32 @@ class PostQuality_Features {
      * copy, and the React pages via window.postqualityCommandLabels). The REST
      * `command` enums are its keys, and a command missing here is refused
      * (fail closed). score and apply are free-tier entries on
-     * pqm_run_free_agents, the 1:1 successor of the old edit_posts check.
+     * postquality_run_free_agents, the 1:1 successor of the old edit_posts check.
      * The paid entries exist in the Pro build only (ADR 0014): the Free
      * build has nothing paid to gate, list or accept.
      */
     public static function registry(): array {
         $registry = [
-            'review'    => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Review', 'post-quality-manager' ) ],
-            'takeaways' => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Takeaways', 'post-quality-manager' ) ],
+            'review'    => [ 'tier' => 'free', 'capability' => 'postquality_run_free_agents', 'label' => __( 'Review', 'post-quality-manager' ) ],
+            'takeaways' => [ 'tier' => 'free', 'capability' => 'postquality_run_free_agents', 'label' => __( 'Takeaways', 'post-quality-manager' ) ],
         ];
         if ( postquality_fs()->is__premium_only() ) {
             $registry += self::paid_registry__premium_only();
         }
 
         return $registry + [
-            'score'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Score', 'post-quality-manager' ) ],
-            'apply'     => [ 'tier' => 'free', 'capability' => 'pqm_run_free_agents', 'label' => __( 'Apply', 'post-quality-manager' ) ],
+            'score'     => [ 'tier' => 'free', 'capability' => 'postquality_run_free_agents', 'label' => __( 'Score', 'post-quality-manager' ) ],
+            'apply'     => [ 'tier' => 'free', 'capability' => 'postquality_run_free_agents', 'label' => __( 'Apply', 'post-quality-manager' ) ],
         ];
     }
 
     /** The paid agents' registry entries, in the order the pages list them. */
     private static function paid_registry__premium_only(): array {
         return [
-            'rewrite'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Rewrite', 'post-quality-manager' ) ],
-            'sources'   => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Sources', 'post-quality-manager' ) ],
-            'seo'       => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'SEO', 'post-quality-manager' ) ],
-            'audit'     => [ 'tier' => 'paid', 'capability' => 'pqm_run_paid_agents', 'label' => __( 'Audit', 'post-quality-manager' ) ],
+            'rewrite'   => [ 'tier' => 'paid', 'capability' => 'postquality_run_paid_agents', 'label' => __( 'Rewrite', 'post-quality-manager' ) ],
+            'sources'   => [ 'tier' => 'paid', 'capability' => 'postquality_run_paid_agents', 'label' => __( 'Sources', 'post-quality-manager' ) ],
+            'seo'       => [ 'tier' => 'paid', 'capability' => 'postquality_run_paid_agents', 'label' => __( 'SEO', 'post-quality-manager' ) ],
+            'audit'     => [ 'tier' => 'paid', 'capability' => 'postquality_run_paid_agents', 'label' => __( 'Audit', 'post-quality-manager' ) ],
         ];
     }
 
@@ -195,15 +198,15 @@ class PostQuality_Features {
      * from the current one reads as zero and is overwritten on the next
      * increment — no cron, no usage table.
      */
-    const USAGE_META_KEY = 'pqm_monthly_usage';
+    const USAGE_META_KEY = 'postquality_monthly_usage';
 
     /**
      * Quota applies to users who cannot run paid agents. Granting a role
-     * (or user) pqm_run_paid_agents therefore lifts the quota too — no
+     * (or user) postquality_run_paid_agents therefore lifts the quota too — no
      * extra capability, CAPS_VERSION unchanged.
      */
     public static function is_quota_subject(): bool {
-        return ! current_user_can( 'pqm_run_paid_agents' );
+        return ! current_user_can( 'postquality_run_paid_agents' );
     }
 
     /**

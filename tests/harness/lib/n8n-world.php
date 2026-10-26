@@ -255,7 +255,7 @@ $stored_conn = [PostQuality_N8n::OPTION => [
 
 /* ─── The routes, the right, the gate every route section reads ──────── */
 PostQuality_REST_API::register_routes();
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
 $gate  = ['PostQuality_REST_API', 'check_manage_settings'];
 
 /* ─── Provisioning (entry 4): constants and builders ─────────────────── */
@@ -312,7 +312,7 @@ define('PRO_OK', [MODELS_OK, created('c-webhook'), created('c-anthropic'), creat
 /** A connected site, nothing provisioned, the given answers scripted; the ping answers the current version. */
 function connected(array $queue, array $extra = []): void {
     site([PostQuality_N8n::OPTION => ['base_url' => BASE, 'api_key' => KEY, 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1700000000]],
-        'pqm_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
+        'postquality_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
     $GLOBALS['tw']['pings']         = [];
     $GLOBALS['tw']['ping_queue']    = [];
     $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
@@ -423,7 +423,7 @@ function writes(): array {
 
 /** Nothing of a provisioned site saved, nothing pinged. */
 function nothing_saved(): bool {
-    return !array_intersect([PostQuality_N8n::SETUP_OPTION, 'pqm_settings', POSTQUALITY_SETUP_OPTION], $GLOBALS['tw']['writes']) && $GLOBALS['tw']['pings'] === [];
+    return !array_intersect([PostQuality_N8n::SETUP_OPTION, 'postquality_settings', POSTQUALITY_SETUP_OPTION], $GLOBALS['tw']['writes']) && $GLOBALS['tw']['pings'] === [];
 }
 
 /** The message names the step in plain words and never repeats n8n's reply body. */
@@ -501,7 +501,7 @@ function hand_list(array $nodes, string $path = 'pqm-execute'): array {
 /** A site set up by hand: a passing key, the webhook URL saved, no setup map. */
 function hand_made(array $queue, string $url = V5_HOOK, array $extra = []): void {
     connected($queue, $extra);
-    $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = $url;
+    $GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] = $url;
     $GLOBALS['tw']['writes'] = [];
 }
 function proposal() {
@@ -540,7 +540,7 @@ $adopted_map   = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf-hand', 
 /** A managed site: a passing key, a setup map (the provisioned one by default), the saved URL on its path (D3). */
 function managed(array $queue, ?array $map = null, string $url = HOOK): void {
     connected($queue, $map ?? $GLOBALS['setup_map']);
-    $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = $url;
+    $GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] = $url;
     $GLOBALS['tw']['writes'] = [];
 }
 function rotate() {
@@ -551,7 +551,7 @@ function rotate() {
     return $r instanceof WP_Error ? $r : $r->get_data();
 }
 /** The stored webhook token. */
-function token_now(): ?string { return $GLOBALS['tw']['options']['pqm_settings']['webhook_token'] ?? null; }
+function token_now(): ?string { return $GLOBALS['tw']['options']['postquality_settings']['webhook_token'] ?? null; }
 
 /* ─── Update (entry 9): constants and update() ───────────────────────── */
 const PUT_WF         = 'PUT ' . BASE . '/api/v1/workflows/wf1';
@@ -560,7 +560,7 @@ const UPDATE_BUTTON  = '<button type="button" class="button button-primary pqm-u
 const IN_PLACE       = 'The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.'; // story 76 (D3)
 const WORKFLOW_GONE  = 'The workflow the plugin manages is no longer in n8n. Set the workflow up again, or let the plugin manage the one at your n8n Webhook URL, then try again. Choose Start over in the n8n connection section to set it up again.';
 define('UPDATED', resp(200, ['id' => 'wf1', 'name' => 'Post Quality — example.com', 'active' => true, 'versionId' => 'v-new']));
-$older_report = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
+$older_report = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000]];
 $update_runs  = []; // [reply, options, calls, pings] after every update, for the leak scan
 function update() {
     $r     = PostQuality_REST_API::update_n8n_workflow_callback();
@@ -582,7 +582,7 @@ const START_OVER_CLAUSE = 'Choose Start over in the n8n connection section to se
 const GONE_PING         = 'The workflow the plugin set up is no longer in n8n. Choose Start over in the n8n connection section, then set n8n up again.';
 const PLAIN_404         = 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.';
 $state_keys = ['base_url', 'key_set', 'key_hint', 'probe', 'connected', 'setup', 'adoptable', 'rotatable'];
-$report     = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
+$report     = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
 $elsewhere  = [PostQuality_N8n::SETUP_OPTION => array_replace(pro_map(1), ['base_url' => OTHER_INSTANCE])];
 function start_over(bool $remove) {
     $r = PostQuality_REST_API::start_over_n8n_callback(new WP_REST_Request(['remove_from_n8n' => $remove]));
@@ -592,8 +592,8 @@ function start_over(bool $remove) {
 /** The site after a start over: no map, no report, the URL '' and the token kept, the key stored. */
 function started_over(): bool {
     $o = $GLOBALS['tw']['options'];
-    return !isset($o[PostQuality_N8n::SETUP_OPTION]) && !isset($o['pqm_workflow_version_seen']) && ($o['pqm_settings']['n8n_webhook_url'] ?? null) === ''
-        && ($o['pqm_settings']['webhook_token'] ?? null) === TOKEN && ($o[PostQuality_N8n::OPTION]['api_key'] ?? null) === KEY;
+    return !isset($o[PostQuality_N8n::SETUP_OPTION]) && !isset($o['postquality_workflow_version_seen']) && ($o['postquality_settings']['n8n_webhook_url'] ?? null) === ''
+        && ($o['postquality_settings']['webhook_token'] ?? null) === TOKEN && ($o[PostQuality_N8n::OPTION]['api_key'] ?? null) === KEY;
 }
 
 /* ─── Story 74: sentences, the stored connections, refusal_stored() ──── */

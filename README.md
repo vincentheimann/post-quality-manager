@@ -51,32 +51,32 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 | Route | Method | Auth | Purpose |
 |---|---|---|---|
-| `/post-score` | GET | `pqm_view_reviews` | Post content, metadata, and SEO data for the workflow |
-| `/trigger-review` | POST | any `pqm_run_*` capability (per-command gate inside) | Fire the n8n workflow for a post |
+| `/post-score` | GET | `postquality_view_reviews` | Post content, metadata, and SEO data for the workflow |
+| `/trigger-review` | POST | any `postquality_run_*` capability (per-command gate inside) | Fire the n8n workflow for a post |
 | `/insert-block` | POST | `edit_post` on the post + the agent's gate | Insert the latest Takeaways (first) or Sources (last) into the post, in the chosen pattern |
 | `/save-review` | POST | webhook token (`X-PQM-Token`) | Callback where n8n stores review results |
-| `/reviews/{post_id}` | GET | `pqm_view_reviews` | Stored review history for a post |
-| `/setup` | GET, POST | `pqm_manage_settings` | Setup guide state (progress, the n8n connection and path); tick a configuration step, mark the setup complete, or store the manual-path choice (`{manual: true}`) |
-| `/setup/connect` | POST | `pqm_manage_settings` | Save the n8n webhook URL and ping it |
-| `/setup/settings` | POST | `pqm_manage_settings` (+ `pqm_manage_agents` on a Pro site to turn on scheduled reviews) | Save the guide's Blog Profile, Editorial Standards or scheduled-reviews choice; only those settings |
+| `/reviews/{post_id}` | GET | `postquality_view_reviews` | Stored review history for a post |
+| `/setup` | GET, POST | `postquality_manage_settings` | Setup guide state (progress, the n8n connection and path); tick a configuration step, mark the setup complete, or store the manual-path choice (`{manual: true}`) |
+| `/setup/connect` | POST | `postquality_manage_settings` | Save the n8n webhook URL and ping it |
+| `/setup/settings` | POST | `postquality_manage_settings` (+ `postquality_manage_agents` on a Pro site to turn on scheduled reviews) | Save the guide's Blog Profile, Editorial Standards or scheduled-reviews choice; only those settings |
 
 ## Admin pages & capabilities
 
-Access is driven entirely by five `pqm_*` capabilities, remappable on the Settings → Roles tab or with any role editor — no code change needed. Activation grants them to these roles by default (Contributor gets none):
+Access is driven entirely by five `postquality_*` capabilities, remappable on the Settings → Roles tab or with any role editor — no code change needed. Activation grants them to these roles by default (Contributor gets none):
 
 | Capability | Default roles |
 |---|---|
-| `pqm_view_reviews` | Administrator, Editor, Author |
-| `pqm_run_free_agents` | Administrator, Editor, Author |
-| `pqm_run_paid_agents` | Administrator, Editor |
-| `pqm_manage_agents` | Administrator, Editor |
-| `pqm_manage_settings` | Administrator |
+| `postquality_view_reviews` | Administrator, Editor, Author |
+| `postquality_run_free_agents` | Administrator, Editor, Author |
+| `postquality_run_paid_agents` | Administrator, Editor |
+| `postquality_manage_agents` | Administrator, Editor |
+| `postquality_manage_settings` | Administrator |
 
 | Page | Capability |
 |---|---|
-| Dashboard, Post Reviews | `pqm_view_reviews` |
-| n8n Workflow | `pqm_manage_settings` |
-| Settings | `pqm_manage_agents` or `pqm_manage_settings` — the page shows only the sections the user may manage: License, n8n Connection, AI Model, AI Prompts & Context, and Monthly Quota need `pqm_manage_settings`; Agent-Specific Overrides and Automated Reviews need `pqm_manage_agents` and stay locked until the site is on the Pro plan (one exception: on a free site with scheduled reviews still on, the Automated Reviews Enable toggle stays live, but only to switch them off) |
+| Dashboard, Post Reviews | `postquality_view_reviews` |
+| n8n Workflow | `postquality_manage_settings` |
+| Settings | `postquality_manage_agents` or `postquality_manage_settings` — the page shows only the sections the user may manage: License, n8n Connection, AI Model, AI Prompts & Context, and Monthly Quota need `postquality_manage_settings`; Agent-Specific Overrides and Automated Reviews need `postquality_manage_agents` and stay locked until the site is on the Pro plan (one exception: on a free site with scheduled reviews still on, the Automated Reviews Enable toggle stays live, but only to switch them off) |
 
 **Roles tab.** Administrators (users with WordPress's `manage_options`) set what each role can do under Settings → Roles: one row per role on the site, custom roles included, and one checkbox per capability above (View reviews, Run Review and Key Takeaways, Run paid agents, Manage agents, Manage settings). Saving the Settings form writes the boxes changed on the form to the roles themselves (a role change made elsewhere since the page loaded is kept), so menus, Settings sections, buttons and REST refusals follow on the role's next request; nothing is stored in the plugin's settings, and per-user grants and WordPress's own capabilities are never touched. Rows of roles holding `manage_options` cannot be changed on the tab, and each Pro save gives those roles all five. The tab is a Pro feature: on a free site it shows the current grants, locked, and saving changes no role. Activation and upgrades grant a capability's defaults only while no `manage_options` role holds it yet (a fresh install, or a capability new in a version), so the roles as set are never reset. The former toolbar "View as" switch is retired; a stored view choice is ignored.
 

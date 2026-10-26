@@ -1,6 +1,6 @@
 <?php
 /**
- * Database CRUD operations for the pqm_reviews table.
+ * Database CRUD operations for the postquality_reviews table.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -14,7 +14,7 @@ class PostQuality_DB {
      */
     public static function table_name(): string {
         global $wpdb;
-        return $wpdb->prefix . 'pqm_reviews';
+        return $wpdb->prefix . 'postquality_reviews';
     }
 
     /**

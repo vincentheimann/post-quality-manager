@@ -282,7 +282,7 @@ check('output budgets = review, takeaways', array_keys(postquality_agent_max_tok
 check('Insert into Post keys = takeaways', array_keys(PostQuality_Blocks::item_keys()) === ['takeaways']);
 check('no cron class is loaded, no cron hook registered (a stale schedule runs nothing)', !class_exists('PostQuality_Cron', false)
     && !str_contains((string) file_get_contents($free . '/post-quality-manager.php'), 'PostQuality_Cron'));
-$GLOBALS['tw']['caps'] = ['pqm_run_free_agents'];
+$GLOBALS['tw']['caps'] = ['postquality_run_free_agents'];
 check('Post Reviews viewer: nothing locked, nothing paid hidden', PostQuality_Features::gated_commands() === []
     && !array_intersect(PostQuality_Features::hidden_commands(), PAID_COMMANDS));
 
@@ -299,7 +299,7 @@ check('the n8n connection routes are there, as on Pro (provisioning is free): GE
 
 /* ─── Row: setup dialog and dashboard ────────────────────────────────── */
 echo "Row — setup state and dashboard carry no schedule\n";
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings', 'pqm_manage_agents'];
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings', 'postquality_manage_agents'];
 $state = PostQuality_REST_API::get_setup_callback()->get_data();
 check('setup state has no cron_* key', !preg_grep('/^cron_/', array_keys($state)));
 check("setup state names the build: 'free'", ($state['build'] ?? null) === 'free');
@@ -309,10 +309,10 @@ check('the same n8n steps as Pro (provisioning is free, entry 6): n8n, provision
 check('no application_password_user (bug 73, Pro only: the Free build creates no Application Password)', !array_key_exists('application_password_user', $state));
 $by_hand = PostQuality_REST_API::update_setup_callback(new WP_REST_Request(['manual' => true]));
 check('... and "Set up by hand instead" stores the choice there too', $by_hand instanceof WP_REST_Response && $by_hand->get_data()['manual'] === true);
-unset($GLOBALS['tw']['options']['pqm_setup_progress']); // the rows below start from a site without the choice
+unset($GLOBALS['tw']['options']['postquality_setup_progress']); // the rows below start from a site without the choice
 $options_before = $GLOBALS['tw']['options'];
-$GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
-unset($GLOBALS['tw']['options']['pqm_n8n_setup'], $GLOBALS['tw']['options']['pqm_n8n_api']);
+$GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
+unset($GLOBALS['tw']['options']['postquality_n8n_setup'], $GLOBALS['tw']['options']['postquality_n8n_api']);
 $hand_made = PostQuality_REST_API::get_setup_callback()->get_data();
 check('... a hand-made site (a URL, no setup map, no key) takes the manual path there too: Set up by hand done, neither Connect your n8n nor Set up the workflow',
     $hand_made['manual'] === true && $hand_made['provisioned'] === false
@@ -343,7 +343,7 @@ foreach (['Free template' => ',"workflow_variant":"free"', 'Pro template' => '']
     check('... and no re-import button', !str_contains(PostQuality_Admin::render_workflow_body(), 'pqm-reimport'));
 }
 /* Story 67: the page's state machine on the Free build — a URL saved, no map: an older report needs attention, its fix the re-import. */
-$GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
+$GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] = 'https://n8n.example/webhook/pqm-execute-example-com';
 postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION - 1, 'test', 'free');
 $body = PostQuality_Admin::render_workflow_body();
 check('an older Free template, hand-made: needs attention, "this plugin needs N", the one primary is Re-import the workflow',
@@ -356,10 +356,10 @@ check('... no locked or empty section: the Set up by hand, n8n connection and We
 postquality_record_workflow_version(POSTQUALITY_WORKFLOW_VERSION, 'test', 'free');
 $wpdb->has_result = '1';
 $built_free = is_file(POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php');
-$GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => [], 'complete' => true];
+$GLOBALS['tw']['options']['postquality_setup_progress'] = ['steps' => [], 'complete' => true];
 check('set up, results, nothing ticked: "Finish setting up: Blog Profile, Editorial Standards" — no scheduled reviews on Free' . ($built_free ? '' : ' (unbuilt: no link at all)'),
     $built_free ? str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up: Blog Profile, Editorial Standards</button>') : !str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up'));
-$GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => ['profile' => true, 'standards' => true], 'complete' => true];
+$GLOBALS['tw']['options']['postquality_setup_progress'] = ['steps' => ['profile' => true, 'standards' => true], 'complete' => true];
 check('... profile and standards ticked: the link is gone (schedule is no Free step)', !str_contains(PostQuality_Admin::render_workflow_body(), 'Finish setting up'));
 $wpdb->has_result = null;
 $GLOBALS['tw']['options'] = $options_before;
@@ -380,8 +380,8 @@ $ok = static fn(array $json) => ['response' => ['code' => 200], 'body' => json_e
 $options_before = $GLOBALS['tw']['options'];
 // Story 74: provisioning needs a connected key (a stored key whose last probe passed).
 $GLOBALS['tw']['options'] = [
-    'pqm_n8n_api'  => ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1]],
-    'pqm_settings' => ['webhook_token' => 'free-token'],
+    'postquality_n8n_api'  => ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1]],
+    'postquality_settings' => ['webhook_token' => 'free-token'],
 ];
 $GLOBALS['tw']['calls'] = [];
 /* Entry 7: the Free template as n8n stores it, ids rewired — what the passing ping's diagnosis reads back. */
@@ -421,8 +421,8 @@ check('... the Free template, its 3 credentialed nodes linked by id', !in_array(
 ]);
 check('... reply provisioned and pinged, no rewrite_ready; map without a WordPress credential', $reply !== null
     && $reply['provisioned'] === true && $reply['ping_ok'] === true && !array_key_exists('rewrite_ready', $reply)
-    && $GLOBALS['tw']['options']['pqm_n8n_setup']['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
-    && $GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url'] === 'https://n8n.example/webhook/pqm-execute-example-com');
+    && $GLOBALS['tw']['options']['postquality_n8n_setup']['credentials'] === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']
+    && $GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url'] === 'https://n8n.example/webhook/pqm-execute-example-com');
 check('... the provider key in no option and not in the reply', !str_contains(json_encode([$GLOBALS['tw']['options'], $reply]), 'sk-ant-free-provider-key'));
 
 /* ─── Row: the mis-wiring diagnosis on the Free build (entry 7) ──────── */
@@ -450,8 +450,8 @@ check('... fixed, Test again: clean, set up ("Your workflow answers."), the sent
 /* ─── Row: adoption on the Free build (entry 8) ──────────────────────── */
 echo "Row — Free build: a hand-made Free workflow adopted, no WordPress credential, no rewrite_ready\n";
 $before_adoption = $GLOBALS['tw']['options'];
-unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
-$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+unset($GLOBALS['tw']['options']['postquality_n8n_setup']);
+$GLOBALS['tw']['options']['postquality_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
 $GLOBALS['tw']['calls'] = [];
 $hand      = $free_wired(['Post Quality webhook - example.com' => ['id' => 'c-h1', 'name' => 'Header Auth account'], 'Anthropic - Claude' => ['id' => 'c-k1', 'name' => 'my claude key']]);
 $hand_list = $ok(['data' => [['id' => 'wf-hand', 'name' => 'My reviews', 'active' => true, 'nodes' => $hand, 'activeVersion' => ['nodes' => $hand]]], 'nextCursor' => null]);
@@ -465,7 +465,7 @@ check('offered; the proposal names the webhook and Anthropic credentials, no wor
 ]);
 $adopted = PostQuality_REST_API::adopt_n8n_callback(new WP_REST_Request(['workflow_id' => 'wf-hand']));
 $adopted = $adopted instanceof WP_REST_Response ? $adopted->get_data() : null;
-$map     = $GLOBALS['tw']['options']['pqm_n8n_setup'] ?? [];
+$map     = $GLOBALS['tw']['options']['postquality_n8n_setup'] ?? [];
 check('... confirmed: the map without wordpress, wizard_created false; the reply has no rewrite_ready; GET calls only', $adopted !== null
     && !array_key_exists('rewrite_ready', $adopted) && $adopted['setup'] === ['wizard_created' => false, 'at' => $map['at'] ?? null, 'host' => 'n8n.example', 'same_instance' => true]
     && array_diff_key($map, ['at' => 0]) === ['workflow_id' => 'wf-hand', 'credentials' => ['webhook' => 'c-h1', 'anthropic' => 'c-k1'], 'path' => 'pqm-execute-example-com', 'base_url' => 'https://n8n.example', 'wizard_created' => false]
@@ -474,7 +474,7 @@ $GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: token rotation on the Free build (entry 10) ───────────────── */
 echo "Row — Free build: the webhook token rotates the same way (provisioning is free)\n";
-$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+$GLOBALS['tw']['options']['postquality_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
 $GLOBALS['tw']['uuid']  = 'free-rotated-token';
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$ok(['id' => 'c-webhook', 'type' => 'httpHeaderAuth'])];
@@ -485,7 +485,7 @@ check('the provisioned Free site: offered; one PATCH of its webhook credential w
     $offered === true && $rotated !== null
     && array_map(static fn($c) => $c[1]['method'] . ' ' . $c[0], $GLOBALS['tw']['calls']) === ['PATCH https://n8n.example/api/v1/credentials/c-webhook']
     && json_decode($GLOBALS['tw']['calls'][0][1]['body'] ?? 'null', true) === ['data' => ['name' => 'X-PQM-Token', 'value' => 'free-rotated-token']]
-    && $GLOBALS['tw']['options']['pqm_settings']['webhook_token'] === 'free-rotated-token'
+    && $GLOBALS['tw']['options']['postquality_settings']['webhook_token'] === 'free-rotated-token'
     && $rotated['rotated'] === true && $rotated['ping_ok'] === true && isset($rotated['status_html'])
     && !str_contains(json_encode(array_diff_key($rotated, ['status_html' => 1])), 'free-rotated-token')); // story 67: the body carries the page's own token row
 check('... the token route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/token']['methods'] ?? null) === 'POST'
@@ -495,8 +495,8 @@ $GLOBALS['tw']['options'] = $before_adoption;
 
 /* ─── Row: the workflow update on the Free build (entry 9) ───────────── */
 echo "Row — Free build: Update workflow PUTs the Free template the same way, no WordPress credential\n";
-$GLOBALS['tw']['options']['pqm_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
-$GLOBALS['tw']['options']['pqm_workflow_version_seen'] = ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1];
+$GLOBALS['tw']['options']['postquality_n8n_api']['probe'] = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1];
+$GLOBALS['tw']['options']['postquality_workflow_version_seen'] = ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1];
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$free_stored($free_clean), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
 $GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
@@ -528,8 +528,8 @@ $client = (string) file_get_contents($free . '/includes/class-pqm-n8n.php');
 check('the Free n8n client names no Application Password symbol (create and revoke are Pro only)', !preg_match('/WP_Application_Passwords|application_password/i', $client));
 check('... nor the Free activator (bug 73: the revoke on uninstall is Pro only); it still deletes the provisioning lock option',
     !preg_match('/WP_Application_Passwords|application_password|revoke_setup_password/i', (string) file_get_contents($free . '/includes/class-pqm-activator.php'))
-    && str_contains((string) file_get_contents($free . '/includes/class-pqm-activator.php'), "delete_option( 'pqm_n8n_provisioning' )"));
-unset($GLOBALS['tw']['options']['pqm_n8n_setup']);
+    && str_contains((string) file_get_contents($free . '/includes/class-pqm-activator.php'), "'postquality_n8n_provisioning'") && str_contains((string) file_get_contents($free . '/includes/class-pqm-activator.php'), 'delete_option( $new );')); // story 91: every mapped option, new and old
+unset($GLOBALS['tw']['options']['postquality_n8n_setup']);
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$ok(['data' => []]), $ok(['id' => 'c-webhook']), $ok(['id' => 'c-anthropic']), $ok(['id' => 'wf-free']),
     ['response' => ['code' => 400], 'body' => '{"message":"Workflow has no node to start the workflow"}'],
@@ -544,13 +544,13 @@ check('502, step activate; deactivate → DELETE the workflow → DELETE the 2 c
     'DELETE https://n8n.example/api/v1/credentials/c-webhook',
     'DELETE https://n8n.example/api/v1/credentials/c-anthropic',
 ] && $GLOBALS['tw']['queue'] === []);
-check('... nothing left: no setup map, no leftovers record; the message says so', !isset($GLOBALS['tw']['options']['pqm_n8n_setup'])
-    && !isset($GLOBALS['tw']['options']['pqm_n8n_leftovers']) && str_contains($failed->message, 'Nothing was left in n8n.'));
+check('... nothing left: no setup map, no leftovers record; the message says so', !isset($GLOBALS['tw']['options']['postquality_n8n_setup'])
+    && !isset($GLOBALS['tw']['options']['postquality_n8n_leftovers']) && str_contains($failed->message, 'Nothing was left in n8n.'));
 $GLOBALS['tw']['options'] = $options_before; // the screens below start from the site as it was
 
 /* ─── Row: the screens an Administrator opens ────────────────────────── */
 echo "Row — Settings and n8n Workflow: nothing locked, one Get Pro, no paid agent named\n";
-$GLOBALS['tw']['caps'] = ['manage_options', 'pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents', 'pqm_manage_agents', 'pqm_manage_settings'];
+$GLOBALS['tw']['caps'] = ['manage_options', 'postquality_view_reviews', 'postquality_run_free_agents', 'postquality_run_paid_agents', 'postquality_manage_agents', 'postquality_manage_settings'];
 ob_start();
 PostQuality_Admin::render_settings();
 $settings_html = ob_get_clean();
@@ -559,10 +559,10 @@ check('tabs: Connection, AI, Usage & Limits', $m[1] === ['Connection', 'AI', 'Us
 check('no locked section, no disabled control', !str_contains($settings_html, 'pqm-locked') && !str_contains($settings_html, ' disabled'));
 check('"Pro" appears once, in the one Get Pro link', preg_match_all('/\bPro\b/', strip_tags($settings_html)) === 1
     && substr_count($settings_html, '>Get Pro</a>') === 1);
-$GLOBALS['tw']['options']['pqm_n8n_api'] = ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => null];
+$GLOBALS['tw']['options']['postquality_n8n_api'] = ['base_url' => 'https://n8n.example', 'api_key' => 'free-build-n8n-key-secret', 'probe' => null];
 // Story 67: the manual steps live in the Set up by hand disclosure, open on the manual path (the owner's choice here).
-$GLOBALS['tw']['options']['pqm_setup_progress'] = ['steps' => [], 'manual' => true];
-unset($GLOBALS['tw']['options']['pqm_settings']['n8n_webhook_url']);
+$GLOBALS['tw']['options']['postquality_setup_progress'] = ['steps' => [], 'manual' => true];
+unset($GLOBALS['tw']['options']['postquality_settings']['n8n_webhook_url']);
 ob_start();
 PostQuality_Admin::render_workflow();
 $workflow_html = ob_get_clean();
@@ -595,11 +595,11 @@ $visible = strip_tags($settings_html . $workflow_html);
 check('no paid agent is named on either screen', !preg_match('/\b(Rewrite|Sources|SEO|Audit)\b/', $visible));
 
 /* ─── Row: Settings access and the License section per plan state ────── */
-echo "Row — Settings needs pqm_manage_settings (or core manage_options); a license on the Free build points to the Pro download\n";
-$GLOBALS['tw']['caps'] = ['pqm_manage_agents'];
-check('pqm_manage_agents alone: no Settings page (core manage_options)', PostQuality_Admin::settings_page_capability() === 'manage_options');
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
-check('pqm_manage_settings: the Settings page', PostQuality_Admin::settings_page_capability() === 'pqm_manage_settings');
+echo "Row — Settings needs postquality_manage_settings (or core manage_options); a license on the Free build points to the Pro download\n";
+$GLOBALS['tw']['caps'] = ['postquality_manage_agents'];
+check('postquality_manage_agents alone: no Settings page (core manage_options)', PostQuality_Admin::settings_page_capability() === 'manage_options');
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
+check('postquality_manage_settings: the Settings page', PostQuality_Admin::settings_page_capability() === 'postquality_manage_settings');
 postquality_fs()->pro = true;
 ob_start();
 PostQuality_Admin::render_settings();

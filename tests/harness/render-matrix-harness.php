@@ -19,9 +19,9 @@ function add_filter($hook_name, $callback, $priority = 10, $accepted_args = 1) {
 function register_setting($option_group, $option_name, $args = []) {}
 function plugin_dir_url($f) { return ''; }
 function plugin_basename($f) { return basename($f); }
-/* Kept local: the rows mutate two globals the checks read — tw_settings (merged over the stored pqm_settings) and tw_options
+/* Kept local: the rows mutate two globals the checks read — tw_settings (merged over the stored postquality_settings) and tw_options
    (the other options, written by update_option()/delete_option() below). */
-function get_option($k, $d = false) { if (isset($GLOBALS['tw_options'][$k])) { return $GLOBALS['tw_options'][$k]; } return $k === 'pqm_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
+function get_option($k, $d = false) { if (isset($GLOBALS['tw_options'][$k])) { return $GLOBALS['tw_options'][$k]; } return $k === 'postquality_settings' ? array_merge(['n8n_webhook_url' => 'https://n8n.example/webhook'], $GLOBALS['tw_settings']) : $d; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function apply_filters($tag, $value) { return $tag === 'postquality_is_pro' ? $GLOBALS['tw']['pro'] : ($tag === 'postquality_ping_callback_wait' ? 0 : $value); } // story 2: the stub plays the callback before the reply
 function get_locale() { return 'en_US'; }
@@ -60,7 +60,7 @@ function human_time_diff($from, $to = 0) { return round((($to ?: time()) - $from
 
 /* Story 23: the Pattern field lists published wp_block posts holding a List. */
 $GLOBALS['tw_patterns'] = []; // id => [title, status, content]
-$GLOBALS['tw_settings'] = []; // merged over the stored pqm_settings
+$GLOBALS['tw_settings'] = []; // merged over the stored postquality_settings
 function get_posts($args) {
     $out = [];
     foreach ($GLOBALS['tw_patterns'] as $id => [$title, $status, $content]) {
@@ -117,8 +117,8 @@ $editor_sections = ['Agent-Specific Overrides', 'Automated Reviews (Cron)'];
 $locked_fieldset = '<fieldset disabled class="pqm-locked-section">';
 $upgrade_overrides = 'Available with Pro. Upgrade to unlock per-agent overrides';
 $upgrade_cron      = 'Upgrade to let reviews run on a schedule';
-$admin_caps  = ['pqm_manage_agents', 'pqm_manage_settings', 'pqm_run_paid_agents', 'pqm_run_free_agents', 'pqm_view_reviews'];
-$editor_caps = ['pqm_manage_agents', 'pqm_run_paid_agents', 'pqm_run_free_agents', 'pqm_view_reviews'];
+$admin_caps  = ['postquality_manage_agents', 'postquality_manage_settings', 'postquality_run_paid_agents', 'postquality_run_free_agents', 'postquality_view_reviews'];
+$editor_caps = ['postquality_manage_agents', 'postquality_run_paid_agents', 'postquality_run_free_agents', 'postquality_view_reviews'];
 
 /* Row: Editor, licensed — exactly the two sections, editable */
 echo "Editor, licensed\n";
@@ -154,8 +154,8 @@ $get_pro = '<a href="' . POSTQUALITY_PRICING_URL . '">Get Pro</a>';
 $html = render_for($admin_caps, true);
 check('Pro: plan line says Pro, no Get Pro, no lapse copy',
     strpos($html, 'Current plan: Pro') !== false && strpos($html, $get_pro) === false && strpos($html, 'has lapsed') === false);
-check('no License Key field in any plan', strpos($html, 'pqm_settings[license_key]') === false
-    && strpos(render_for($admin_caps, false), 'pqm_settings[license_key]') === false);
+check('no License Key field in any plan', strpos($html, 'postquality_settings[license_key]') === false
+    && strpos(render_for($admin_caps, false), 'postquality_settings[license_key]') === false);
 postquality_fs()->has_license = false;
 $html = render_for($admin_caps, false);
 check('Free: plan line says Free + the one Get Pro link to the pricing page',
@@ -188,22 +188,22 @@ check("the setup dialog's Get Pro link uses the same address (src/setup/config-s
         "const PRICING_URL = '" . POSTQUALITY_PRICING_URL . "';"));
 
 /* Row (ticket 16): settings-only role — the agent sections need
- * pqm_manage_agents: no heading, no fieldset, no field; admin sections stay */
+ * postquality_manage_agents: no heading, no fieldset, no field; admin sections stay */
 foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
-    echo "Settings-only (pqm_manage_settings), $plan\n";
-    $html = render_for(['pqm_manage_settings'], $pro);
+    echo "Settings-only (postquality_manage_settings), $plan\n";
+    $html = render_for(['postquality_manage_settings'], $pro);
     foreach ($admin_sections as $s) { check("shows: $s", strpos($html, $s) !== false); }
     foreach ($editor_sections as $s) { check("hides: $s", strpos($html, $s) === false); }
     check('no locked fieldset', strpos($html, $locked_fieldset) === false);
     check('no upgrade copy', strpos($html, $upgrade_overrides) === false && strpos($html, $upgrade_cron) === false);
-    check('no agent or cron field', strpos($html, 'pqm_settings[agent_prompts]') === false
-        && strpos($html, 'pqm_settings[cron_') === false);
+    check('no agent or cron field', strpos($html, 'postquality_settings[agent_prompts]') === false
+        && strpos($html, 'postquality_settings[cron_') === false);
 }
 
 /* Ticket 13: free-site off-switch — the Enable toggle leaves the lock only
  * while stored cron is on; the rest of Automated Reviews stays locked */
-$cron_checkbox = 'type="checkbox" name="pqm_settings[cron_enabled]"';
-$cron_hidden   = 'type="hidden" name="pqm_settings[cron_enabled]" value="0"';
+$cron_checkbox = 'type="checkbox" name="postquality_settings[cron_enabled]"';
+$cron_hidden   = 'type="hidden" name="postquality_settings[cron_enabled]" value="0"';
 $off_note      = 'On the free plan, scheduled reviews can be switched off but not back on.';
 /** [cron section start, its locked fieldset open, that fieldset's close] or false. */
 function cron_fieldset(string $html, string $locked_fieldset) {
@@ -222,15 +222,15 @@ foreach (['Editor' => $editor_caps, 'Admin' => $admin_caps] as $who => $caps) {
     check('exactly one cron_enabled checkbox', substr_count($html, $cron_checkbox) === 1);
     check('the checkbox is checked and sits outside (before) the locked cron fieldset',
         $box !== false && $box > $h2 && $box < $open
-        && (bool) preg_match('/type="checkbox" name="pqm_settings\[cron_enabled\]" value="1" checked/', $html));
+        && (bool) preg_match('/type="checkbox" name="postquality_settings\[cron_enabled\]" value="1" checked/', $html));
     check('the hidden 0 precedes the checkbox', $hidden !== false && $hidden < $box && $hidden > $h2);
     check('the off-switch line sits under the toggle, outside the lock',
         ($note = strpos($html, $off_note)) !== false && $note > $box && $note < $open);
     $inside = substr($html, $open, $close - $open);
     $other_cron = ['cron_frequency', 'cron_batch_size', 'cron_command', 'cron_min_score', 'cron_max_age_days'];
     check('the other cron inputs remain inside the locked fieldset', array_filter($other_cron,
-        static fn($k) => str_contains($inside, "name=\"pqm_settings[$k]\"")) === $other_cron
-        && substr_count($html, 'name="pqm_settings[cron_') === 2 + count($other_cron));
+        static fn($k) => str_contains($inside, "name=\"postquality_settings[$k]\"")) === $other_cron
+        && substr_count($html, 'name="postquality_settings[cron_') === 2 + count($other_cron));
     check('locked note says the scheduled reviews keep running (not "upgrade to let them run")',
         strpos($html, 'Available with Pro. Your scheduled reviews keep running; upgrade to change their settings.') !== false
         && strpos($html, $upgrade_cron) === false);
@@ -248,7 +248,7 @@ $GLOBALS['tw_settings'] = ['cron_enabled' => true];
 $html = render_for($editor_caps, true);
 check('pro: one checked checkbox, no hidden 0, no off-switch line',
     substr_count($html, $cron_checkbox) === 1 && strpos($html, $cron_hidden) === false && strpos($html, $off_note) === false
-    && (bool) preg_match('/type="checkbox" name="pqm_settings\[cron_enabled\]" value="1"\s+checked/', $html));
+    && (bool) preg_match('/type="checkbox" name="postquality_settings\[cron_enabled\]" value="1"\s+checked/', $html));
 $GLOBALS['tw_settings'] = [];
 
 /* Ticket 3: the cron Command select offers Review, SEO, Audit */
@@ -261,8 +261,8 @@ echo "Editor, licensed, stored cron_command audit (ticket 3)\n";
 $GLOBALS['tw_settings'] = ['cron_command' => 'audit'];
 $html   = render_for($editor_caps, true);
 $select = cron_command_select($html);
-check('enabled select named pqm_settings[cron_command]', $select !== ''
-    && strpos($select, 'name="pqm_settings[cron_command]"') !== false && strpos($select, 'disabled') === false);
+check('enabled select named postquality_settings[cron_command]', $select !== ''
+    && strpos($select, 'name="postquality_settings[cron_command]"') !== false && strpos($select, 'disabled') === false);
 check('options review, seo, audit in order', preg_match_all('/<option value="([a-z]+)"/', $select, $values) === 3
     && $values[1] === ['review', 'seo', 'audit']);
 check('labels from the registry', strpos($select, '>Review</option>') !== false
@@ -301,8 +301,8 @@ $GLOBALS['tw_patterns'] = [
 $GLOBALS['tw_settings'] = ['agent_prompts' => ['takeaways' => ['pattern' => 31]]];
 $html = render_for($editor_caps, true);
 check('Pattern select for Takeaways and Sources', strpos($html, '<select id="pqm_agent_pattern_takeaways"') !== false
-    && strpos($html, 'name="pqm_settings[agent_prompts][takeaways][pattern]"') !== false
-    && strpos($html, 'name="pqm_settings[agent_prompts][sources][pattern]"') !== false);
+    && strpos($html, 'name="postquality_settings[agent_prompts][takeaways][pattern]"') !== false
+    && strpos($html, 'name="postquality_settings[agent_prompts][sources][pattern]"') !== false);
 check('no Pattern field for the other agents', substr_count($html, '[pattern]"') === 2);
 check('no typed block-name field or datalist left', strpos($html, '[block]"') === false && strpos($html, '<datalist') === false);
 preg_match('/<select id="pqm_agent_pattern_takeaways".*?<\/select>/s', $html, $m);
@@ -370,9 +370,9 @@ check('free site: no Edit pattern / Manage patterns links and no Create a patter
 $GLOBALS['tw_settings'] = [];
 
 /* Row: remap — capability set is the only driver (an "Author" granted
- * pqm_manage_agents gets the Editor view; roles never checked directly) */
-echo "Remap: author granted pqm_manage_agents\n";
-$html = render_for(['pqm_manage_agents', 'pqm_run_free_agents', 'pqm_view_reviews'], true);
+ * postquality_manage_agents gets the Editor view; roles never checked directly) */
+echo "Remap: author granted postquality_manage_agents\n";
+$html = render_for(['postquality_manage_agents', 'postquality_run_free_agents', 'postquality_view_reviews'], true);
 check('overrides visible after remap', strpos($html, 'Agent-Specific Overrides') !== false);
 check('admin sections still hidden', strpos($html, 'n8n Connection') === false);
 $src = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php');
@@ -383,18 +383,18 @@ check('render gates on capabilities, never on role names', strpos($src, "get_rol
  * the settings_page_capability() body and the menu cap stay static checks */
 echo "Author refusal (option_page_capability executed; menu cap + settings_page_capability body static)\n";
 /* Review fix 3: both gates resolve the capability dynamically so a role
- * granted either pqm_manage_settings or pqm_manage_agents gets access. */
+ * granted either postquality_manage_settings or postquality_manage_agents gets access. */
 check('settings_page_capability() prefers manage_settings, falls back to manage_agents',
-    (bool) preg_match("/function settings_page_capability\\(\\).*?pqm_manage_settings.*?pqm_manage_agents/s", $src));
+    (bool) preg_match("/function settings_page_capability\\(\\).*?postquality_manage_settings.*?postquality_manage_agents/s", $src));
 $GLOBALS['tw_filters'] = [];
 PostQuality_Admin::register_settings();
 check('option save uses settings_page_capability (register_settings() hooks option_page_capability_postquality_settings_group)',
     $GLOBALS['tw_filters'] === [['option_page_capability_postquality_settings_group', ['PostQuality_Admin', 'settings_page_capability'], 10, 1]]);
 check('Settings menu uses settings_page_capability', (bool) preg_match("/self::settings_page_capability\\(\\),\\s*'postquality-settings'/", $src));
-$GLOBALS['tw'] = ['caps' => ['pqm_manage_settings'], 'pro' => true];
-check('settings-only role resolves to pqm_manage_settings', PostQuality_Admin::settings_page_capability() === 'pqm_manage_settings');
-$GLOBALS['tw'] = ['caps' => ['pqm_manage_agents'], 'pro' => true];
-check('agents-only role resolves to pqm_manage_agents', PostQuality_Admin::settings_page_capability() === 'pqm_manage_agents');
+$GLOBALS['tw'] = ['caps' => ['postquality_manage_settings'], 'pro' => true];
+check('settings-only role resolves to postquality_manage_settings', PostQuality_Admin::settings_page_capability() === 'postquality_manage_settings');
+$GLOBALS['tw'] = ['caps' => ['postquality_manage_agents'], 'pro' => true];
+check('agents-only role resolves to postquality_manage_agents', PostQuality_Admin::settings_page_capability() === 'postquality_manage_agents');
 $GLOBALS['tw'] = ['caps' => ['manage_options'], 'pro' => true];
 check('neither pqm cap (story 42): resolves to manage_options, so the Roles tab stays reachable', PostQuality_Admin::settings_page_capability() === 'manage_options');
 
@@ -658,7 +658,7 @@ check('postquality_manual_reason(): {kind: choice}', postquality_manual_reason()
 $GLOBALS['tw_options'] = [];
 check('postquality_manual_reason(): null on a fresh site', postquality_manual_reason() === null);
 // Row 4: set up (and 4a)
-$current = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
+$current = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
 $page = $render_workflow(['webhook_token' => 'tok-35'], $current);
 $webhook_disclosure = static fn(string $html): string => preg_match('/<details class="pqm-disclosure" id="pqm-webhook">(.*?)<\/details>/s', $html, $m) ? $m[1] : '';
 check('4 set up, no result: "Your workflow answers.", success accent, "Version N · checked just now by a test.", primary Run your first review (the wizard\'s review step), Test again secondary',
@@ -694,47 +694,47 @@ check('4a saved, not checked: "Saved, not checked yet.", info accent, primary Te
     && $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
 // Row 5: needs attention
 $failed_report = $current;
-$failed_report['pqm_workflow_version_seen']['failed'] = ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => time() - 7200];
+$failed_report['postquality_workflow_version_seen']['failed'] = ['message' => 'n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.', 'at' => time() - 7200];
 $page = $render_workflow([], $failed_report);
 check('5 ping fails: "The last test {when} did not pass: {message}", error accent, primary Test again, the last passing version kept under it, the three disclosures',
     $state_of($page) === 'failing' && $sentence_of($page) === 'The last test 2 hours ago did not pass: n8n responded with 404. Check the URL and make sure the workflow is activated in n8n.'
     && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test again</button></p>') && $primaries($page) === 1
     && str_contains($page, 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.') && $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
-$page = $render_workflow([], ['pqm_workflow_version_seen' => ['failed' => $failed_report['pqm_workflow_version_seen']['failed']]]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => ['failed' => $failed_report['postquality_workflow_version_seen']['failed']]]);
 check('... a failure before any passing check: the same, without a version line', $state_of($page) === 'failing' && !str_contains($page, 'pqm-workflow-version') && $primaries($page) === 1);
 $sentence = 'In n8n, the webhook credential “Header Auth account” is set on Claude - Review Agent instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.';
-$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['miswired' => $sentence]]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => $current['postquality_workflow_version_seen'] + ['miswired' => $sentence]]);
 check('5 mis-wired: the diagnosis sentence is the status sentence, error accent, primary Test again, no other fix', $state_of($page) === 'failing' && $sentence_of($page) === $sentence
     && str_contains($block_of($page), 'button button-primary pqm-test-connection">Test again</button>') && $primaries($page) === 1 && !str_contains($page, 'pqm-reimport') && !str_contains($page, 'pqm-update-workflow'));
 check('... the sentence is escaped once, where it renders (stored raw)', substr_count($src, "esc_html(\$sentence)") === 1 && str_contains($src, "\$sentence = \$report['miswired']; // raw"));
-$page = $render_workflow([], ['pqm_workflow_version_seen' => 5]); // 5: the last version before the per-site webhook path
+$page = $render_workflow([], ['postquality_workflow_version_seen' => 5]); // 5: the last version before the per-site webhook path
 check('5 outdated (a legacy int, hand-made): "Your workflow is version 5; this plugin needs N.", warning accent, the new-production-URL note (pre-v6), primary Re-import the workflow (to #pqm-by-hand), Test again secondary',
     $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version 5; this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.'
     && str_contains($block_of($page), '<p>A re-import gives it a new production URL.</p>') && str_contains($block_of($page), '<p class="description pqm-workflow-version">Version 5 · reported by a command.</p>')
     && str_contains($block_of($page), '<p class="pqm-workflow-actions"><a class="button button-primary pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a> <button type="button" class="button pqm-test-connection">Test again</button></p>')
     && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === false);
-$page = $render_workflow([], ['pqm_workflow_version_seen' => 6]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => 6]);
 check('... a version 6 workflow (the per-site path already): outdated, no new-production-URL note (a re-import keeps its URL)',
     $state_of($page) === 'outdated' && $sentence_of($page) === 'Your workflow is version 6; this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.' && !str_contains($block_of($page), 'A re-import gives it a new production URL.'));
 // 6 = the first version with a per-site webhook path: a report of version 6 or later keeps its path, asserted on the source too.
 check('... the new-production-URL note only for a workflow older than version 6 (source)',
     (bool) preg_match("/\\\$state\\['problem'\\] === 'outdated' && \\\$report\\['version'\\] < 6\\) \\{\\s*\\\$details\\[\\] = __\\('A re-import gives it a new production URL\\.'/", $src));
-$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => 0, 'via' => 'test', 'at' => time()]]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => ['version' => 0, 'via' => 'test', 'at' => time()]]);
 check('5 outdated (a v1–v4 import): "an older version that does not report its number; this plugin needs N."',
     $sentence_of($page) === 'Your workflow is an older version that does not report its number; this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.' && $state_of($page) === 'outdated');
-$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['variant' => 'free']]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => $current['postquality_workflow_version_seen'] + ['variant' => 'free']]);
 check('5 Free variant on Pro: the Free-variant sentence, warning accent, Re-import primary', $state_of($page) === 'outdated'
     && $sentence_of($page) === 'Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.' && str_contains($page, 'button-primary pqm-reimport') && $primaries($page) === 1);
-$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
 check('... older and Free at once: the version sentence wins, one primary', str_starts_with($sentence_of($page), 'Your workflow is version ') && $primaries($page) === 1);
-$page = $render_workflow([], ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
 check('... mis-wired and older at once (hand-made): the mis-wiring first, Test again the one primary, Re-import the workflow secondary after it, Set up by hand present',
     $sentence_of($page) === $sentence && $primaries($page) === 1
     && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-test-connection">Test again</button> <a class="button pqm-reimport" href="#pqm-by-hand">Re-import the workflow</a></p>')
     && ($disclosures_of($page)['pqm-by-hand'] ?? null) === false);
-$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['variant' => 'free', 'miswired' => $sentence]]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => $current['postquality_workflow_version_seen'] + ['variant' => 'free', 'miswired' => $sentence]]);
 check('... mis-wired and the Free variant at once: the same, Re-import secondary', $sentence_of($page) === $sentence && $primaries($page) === 1 && str_contains($page, '<a class="button pqm-reimport" href="#pqm-by-hand">'));
-$page = $render_workflow([], ['pqm_workflow_version_seen' => $current['pqm_workflow_version_seen'] + ['miswired' => '']]);
+$page = $render_workflow([], ['postquality_workflow_version_seen' => $current['postquality_workflow_version_seen'] + ['miswired' => '']]);
 check('an empty sentence: set up', $state_of($page) === 'set-up');
 $GLOBALS['tw_options'] = [];
 $GLOBALS['tw_settings'] = [];
@@ -750,34 +750,34 @@ $update      = '<button type="button" class="button button-primary pqm-update-wo
 $rotate      = '<p><button type="button" class="button pqm-rotate-token" data-pqm-post="n8n/token" data-pqm-busy="Rotating the token…">Rotate token</button></p>';
 $in_place    = 'The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.'; // story 76 (D3)
 $older       = ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time()];
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $older]);
 check('older, managed: the primary Update workflow (POST n8n/workflow), the in-place sentence; no re-import, no "new production URL", no Set up by hand',
     str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $update . ' <button type="button" class="button pqm-test-connection">Test again</button></p>') && !str_contains($page, 'pqm-reimport')
     && $primaries($page) === 1 && str_contains($block_of($page), '<p>' . $in_place . '</p>') && !str_contains($page, 'new production URL')
     && $disclosures_of($page) === ['pqm-n8n-connection' => false, 'pqm-webhook' => false]);
 check('... Webhook: Rotate token (POST n8n/token) under the token row', str_contains($webhook_disclosure($page), $rotate)
     && strpos($webhook_disclosure($page), $rotate) > strpos($webhook_disclosure($page), '<span class="pqm-copy-label">Webhook token</span>'));
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1]);
 check('... a pre-v6 report (a legacy int): no "new production URL" sentence either, the update keeps the URL', str_contains($page, $update)
     && str_contains($page, $in_place) && !str_contains($page, 'new production URL'));
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free']]);
 check('Free variant on Pro, managed: the same button', str_contains($sentence_of($page), 'Free variant') && str_contains($page, $update) && !str_contains($page, 'pqm-reimport') && $primaries($page) === 1);
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $older + ['miswired' => $sentence]]);
 check('sentence stored and older, managed: Test again the one primary, Update workflow secondary after it', $sentence_of($page) === $sentence
     && str_contains($block_of($page), '<button type="button" class="button button-primary pqm-test-connection">Test again</button> <button type="button" class="button pqm-update-workflow" data-pqm-post="n8n/workflow"')
     && $primaries($page) === 1 && ($disclosures_of($page)['pqm-by-hand'] ?? null) === null);
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'miswired' => $sentence]]);
 check('sentence stored, current, managed: Test again the one primary, no Update workflow (nothing to update)', $primaries($page) === 1 && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-reimport'));
 // Story 76: an adopted map's Update asks first (the island's Modal); a provisioned one keeps its one click.
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => $older]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $older]);
 check('story 76, provisioned: the Update button carries no data-pqm-confirm, the same in-place sentence', str_contains($page, $update) && !str_contains($page, 'data-pqm-confirm') && str_contains($page, $in_place));
 $adopted_site = [PostQuality_N8n::SETUP_OPTION => ['wizard_created' => false] + $managed_site[PostQuality_N8n::SETUP_OPTION]] + $managed_site;
 $update_asks  = str_replace('data-pqm-post="n8n/workflow"', 'data-pqm-post="n8n/workflow" data-pqm-confirm="update"', $update);
-$page = $render_workflow($managed_url, $adopted_site + ['pqm_workflow_version_seen' => $older]);
+$page = $render_workflow($managed_url, $adopted_site + ['postquality_workflow_version_seen' => $older]);
 check('story 76, adopted and older: the primary Update workflow carries data-pqm-confirm="update", still one primary, the same in-place sentence',
     str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $update_asks . ' <button type="button" class="button pqm-test-connection">Test again</button></p>')
     && $primaries($page) === 1 && str_contains($block_of($page), '<p>' . $in_place . '</p>'));
-$page = $render_workflow($managed_url, $adopted_site + ['pqm_workflow_version_seen' => $older + ['miswired' => $sentence]]);
+$page = $render_workflow($managed_url, $adopted_site + ['postquality_workflow_version_seen' => $older + ['miswired' => $sentence]]);
 check('... adopted, mis-wired and older: the secondary Update workflow asks too, Test again the one primary', $primaries($page) === 1
     && str_contains($block_of($page), '<button type="button" class="button pqm-update-workflow" data-pqm-post="n8n/workflow" data-pqm-confirm="update" data-pqm-busy="'));
 foreach ([
@@ -789,7 +789,7 @@ foreach ([
     'the map made on another instance (story 71)' => static function () { $GLOBALS['tw_options'][PostQuality_N8n::SETUP_OPTION]['base_url'] = 'https://other.example'; },
 ] as $label => $change) {
     $GLOBALS['tw_settings'] = $managed_url;
-    $GLOBALS['tw_options']  = $managed_site + ['pqm_workflow_version_seen' => $older];
+    $GLOBALS['tw_options']  = $managed_site + ['postquality_workflow_version_seen' => $older];
     $change();
     $page = $render_workflow($GLOBALS['tw_settings']);
     check("gate fails ($label): Re-import the workflow as before, no Update workflow, no Rotate token; its target, the Set up by hand disclosure, is on the page", str_contains($page, 'button-primary pqm-reimport" href="#pqm-by-hand"')
@@ -797,7 +797,7 @@ foreach ([
         && str_contains($page, '<details class="pqm-disclosure" id="pqm-by-hand">'));
 }
 $GLOBALS['tw_settings'] = $managed_url;
-$page = $render_workflow($managed_url, $managed_site + ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
 check('up to date, managed: set up, no update button, no Set up by hand, Rotate token still there', $state_of($page) === 'set-up' && !str_contains($page, 'pqm-update-workflow')
     && !str_contains($page, 'id="pqm-by-hand"') && str_contains($page, $rotate));
 /* Without the built assets, nothing can open the dialog: the setup button is left out, the build warning says why. */
@@ -815,7 +815,7 @@ $GLOBALS['tw_settings'] = [];
 
 /* Story 35: the token's reach, both directions */
 echo "n8n Workflow page — secured connection copy (story 35)\n";
-$settings_html = render_for(['pqm_manage_settings'], true);
+$settings_html = render_for(['postquality_manage_settings'], true);
 check('Settings token description says both directions',
     str_contains($settings_html, 'Shared secret for both directions, always in the X-PQM-Token header: WordPress sends it to start the workflow'));
 $GLOBALS['tw_settings'] = [];
@@ -845,7 +845,7 @@ function ping(string $url): PQM_Json_Exit {
     try { PostQuality_Admin::ajax_test_connection(); } catch (PQM_Json_Exit $e) { return $e; }
     return new PQM_Json_Exit(false, 'no response sent');
 }
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
 $GLOBALS['tw_settings'] = ['webhook_token' => 'tok-35'];
 foreach (['https://n8n.example.com/webhook-test/pqm-execute', 'https://acme.app.n8n.cloud/webhook-test/pqm-execute'] as $url) {
     $r = ping($url);
@@ -876,7 +876,7 @@ $GLOBALS['tw_settings'] = [];
 /* Workflow version handshake (v5): the status block and the ping that refreshes it (story 67: the whole body) */
 echo "Workflow version status and the ping handshake\n";
 $saved  = 'https://n8n.example/webhook'; // the stub's stored n8n_webhook_url
-$seen   = static fn() => $GLOBALS['tw_options']['pqm_workflow_version_seen'] ?? null;
+$seen   = static fn() => $GLOBALS['tw_options']['postquality_workflow_version_seen'] ?? null;
 
 /* Row: fresh / just served — option absent (the stub saves a URL: not checked yet) */
 $GLOBALS['tw_options'] = [];
@@ -890,22 +890,22 @@ check('fresh: "Saved, not checked yet.", no version line', $state_of($page) === 
 check('the page renders the body through the one renderer', str_contains($page, PostQuality_Admin::render_workflow_body()));
 
 /* Row: legacy int option from a pre-v5 plugin — needs attention for N < current, no time */
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
 $block = $block_of(PostQuality_Admin::render_workflow_body());
 check('legacy int ' . (POSTQUALITY_WORKFLOW_VERSION - 1) . ': outdated, "Version N · reported by a command.", no time',
     str_contains($block, 'this plugin needs ' . POSTQUALITY_WORKFLOW_VERSION . '.') && str_contains($block, 'Version ' . (POSTQUALITY_WORKFLOW_VERSION - 1) . ' · reported by a command.')
     && !str_contains($block, 'ago') && !str_contains($block, 'just now'));
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => (string) POSTQUALITY_WORKFLOW_VERSION];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => (string) POSTQUALITY_WORKFLOW_VERSION];
 check('legacy int = current (stored as a string by WP): set up', $state_of(PostQuality_Admin::render_workflow_body()) === 'set-up');
 
 /* Row: a command's report, hours old */
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200]];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200]];
 $block = $block_of(PostQuality_Admin::render_workflow_body());
 check('command report, 2 h old: set up, "Version N · checked 2 hours ago by a command."', str_contains($block, 'data-state="set-up"')
     && str_contains($block, 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked 2 hours ago by a command.'));
 
 /* Row: ping, v5 reply, saved URL — starting from the "needs attention" state */
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
 check('before the ping: outdated', $state_of($render_workflow([])) === 'outdated');
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . '}';
 $r = ping(''); // the n8n Workflow page sends no URL: the saved one is pinged
@@ -916,7 +916,7 @@ check('v5 reply, the callback received: message says reachable, credential right
     && $r->data['message'] === 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.');
 check('... the ping body carried callback_url = /ping/{id} and auth_token = the webhook token; the pending ping is gone',
     (bool) preg_match('#^/wp-json/post-quality/v1/ping/[A-Za-z0-9]{20}$#', json_decode($GLOBALS['tw_pings'][0][1]['body'], true)['callback_url'] ?? '')
-    && json_decode($GLOBALS['tw_pings'][0][1]['body'], true)['auth_token'] === postquality_get_settings()['webhook_token'] && !isset($GLOBALS['tw_options']['pqm_ping']));
+    && json_decode($GLOBALS['tw_pings'][0][1]['body'], true)['auth_token'] === postquality_get_settings()['webhook_token'] && !isset($GLOBALS['tw_options']['postquality_ping']));
 check('v5 reply: outdated false (the page shows a success)', ($r->data['outdated'] ?? null) === false);
 check('v5 reply: the shape unchanged by entry 7 (no miswired key; no n8n key stored, so no diagnosis)', array_keys($r->data) === ['message', 'outdated', 'status_html']
     && !isset($seen()['miswired']));
@@ -951,7 +951,7 @@ check('reply with a pre-v6 number: message and block say the re-import gives a n
     str_ends_with($r->data['message'], 'A workflow older than version 6 gets a new production URL: from version 6, each site\'s workflow has its own.') && str_contains($r->data['status_html'], 'A re-import gives it a new production URL.'));
 
 /* Row (story 2): the callback refused or missing — a failed test, recorded, the page needs attention */
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000]];
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . '}';
 $GLOBALS['tw_ping_callback'] = 'refused';
 $r = ping('');
@@ -960,12 +960,12 @@ check('current reply, the callback refused (wrong token): error, the message nam
 check('... recorded as the failure, the version kept; the body needs attention with "did not pass", Test again the one primary; no pending ping left',
     (postquality_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
     && $state_of($r->data['status_html']) === 'failing' && $outcome_of($r->data['status_html']) === 'is-error: ' . $r->data['message']
-    && $sentence_of($r->data['status_html']) === 'The last test just now did not pass: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1 && !isset($GLOBALS['tw_options']['pqm_ping']));
+    && $sentence_of($r->data['status_html']) === 'The last test just now did not pass: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1 && !isset($GLOBALS['tw_options']['postquality_ping']));
 $GLOBALS['tw_ping_callback'] = 'none';
 $r = ping('');
 check('current reply, no callback within the wait: error, the message names the wait, this site\'s REST address and the execution log', $r->ok === false
     && $r->data['message'] === 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach /wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.'
-    && $state_of($r->data['status_html']) === 'failing' && (postquality_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && !isset($GLOBALS['tw_options']['pqm_ping']));
+    && $state_of($r->data['status_html']) === 'failing' && (postquality_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && !isset($GLOBALS['tw_options']['postquality_ping']));
 $GLOBALS['tw_ping_callback'] = 'received';
 $r = ping('');
 check('... the next ping with the callback received clears the failure: set up, the round trip proven', $r->ok === true && !isset(postquality_workflow_report()['failed']) && $state_of($r->data['status_html']) === 'set-up');
@@ -974,7 +974,7 @@ check('the wait is the filter postquality_ping_callback_wait, PING_WAIT = 8 s by
     && (bool) preg_match("/wp_cache_delete\(self::PING_OPTION, 'options'\);.*?usleep\(500000\);/s", $src));
 
 /* Row: ping, unsaved URL (a posted URL ≠ saved) — message only */
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => POSTQUALITY_WORKFLOW_VERSION - 1];
 $GLOBALS['tw_ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . '}';
 $r = ping('https://other.example/webhook/pqm-execute');
 check('unsaved URL: up-to-date message, outdated false, nothing stored, no status_html', $r->ok === true
@@ -1003,7 +1003,7 @@ check('a reply stating pro: stored without a variant, up to date', !isset($seen(
 /* Row: ping fails — the failure recorded on the report (story 67), the version kept; the body needs attention */
 $before = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'command', 'at' => 1700000000];
 foreach ([401, 403, 404, 500] as $code) {
-    $GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $before];
+    $GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => $before];
     $GLOBALS['tw_ping_code'] = $code;
     $r = ping('');
     check("ping fails (HTTP $code): error {message, status_html}, the failure recorded with its message, the version kept", $r->ok === false && is_array($r->data)
@@ -1038,19 +1038,19 @@ $status_read = static function (): PQM_Json_Exit {
     return new PQM_Json_Exit(false, 'no response sent');
 };
 $stored = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'command', 'at' => time() - 7200];
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $stored];
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => $stored];
 $r = $status_read();
 check('status read: checks the page nonce (postquality_admin_action)', $GLOBALS['tw_referer'] === ['postquality_admin_action']);
 check('status read: answers {status_html} = the renderer\'s body, no outcome line, nothing else', $r->ok === true
     && $r->data === ['status_html' => PostQuality_Admin::render_workflow_body()] && str_contains($r->data['status_html'], 'checked 2 hours ago by a command')
     && !str_contains($r->data['status_html'], 'pqm-workflow-outcome'));
-check('status read: never pings n8n, writes nothing', $GLOBALS['tw_pings'] === [] && $GLOBALS['tw_options'] === ['pqm_workflow_version_seen' => $stored]);
-unset($GLOBALS['tw_options']['pqm_workflow_version_seen']);
+check('status read: never pings n8n, writes nothing', $GLOBALS['tw_pings'] === [] && $GLOBALS['tw_options'] === ['postquality_workflow_version_seen' => $stored]);
+unset($GLOBALS['tw_options']['postquality_workflow_version_seen']);
 check('status read after a serve (option gone): "Saved, not checked yet."', str_contains($status_read()->data['status_html'], 'Saved, not checked yet.'));
-$GLOBALS['tw']['caps'] = ['pqm_manage_agents', 'pqm_view_reviews'];
+$GLOBALS['tw']['caps'] = ['postquality_manage_agents', 'postquality_view_reviews'];
 $r = $status_read();
-check('status read without pqm_manage_settings: 403 error, no body', $r->ok === false && $r->status === 403 && is_string($r->data));
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
+check('status read without postquality_manage_settings: 403 error, no body', $r->ok === false && $r->status === 403 && is_string($r->data));
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
 $GLOBALS['tw_bad_nonce'] = true;
 $r = $status_read();
 check('status read with a bad or expired nonce: dies (-1, 403) before any body', $r->ok === false && $r->data === -1 && $r->status === 403);
@@ -1062,11 +1062,11 @@ check('the status read is hooked as wp_ajax_postquality_workflow_status, beside 
 /* Row: the webhook URL changes — the report described the old URL's workflow */
 $report = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()];
 $old = ['n8n_webhook_url' => 'https://old.example/webhook/pqm-execute', 'cron_enabled' => false];
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report];
-PostQuality_Admin::on_settings_updated('pqm_settings', $old, ['n8n_webhook_url' => 'https://new.example/webhook/pqm-execute'] + $old);
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => $report];
+PostQuality_Admin::on_settings_updated('postquality_settings', $old, ['n8n_webhook_url' => 'https://new.example/webhook/pqm-execute'] + $old);
 check('settings saved with another webhook URL: report forgotten ("not checked yet")', $seen() === null);
-$GLOBALS['tw_options'] = ['pqm_workflow_version_seen' => $report];
-PostQuality_Admin::on_settings_updated('pqm_settings', $old, ['cron_enabled' => true] + $old);
+$GLOBALS['tw_options'] = ['postquality_workflow_version_seen' => $report];
+PostQuality_Admin::on_settings_updated('postquality_settings', $old, ['cron_enabled' => true] + $old);
 check('settings saved with the same webhook URL: report kept', $seen() === $report);
 PostQuality_Admin::on_settings_updated('blogname', 'a', 'b');
 check('another option updated: report untouched', $seen() === $report);
@@ -1153,7 +1153,7 @@ $notice_for = static function (array $caps, array $settings, array $options): st
 };
 /* postquality_setup_complete() asks PostQuality_DB::has_result(): one get_var, stubbed per row */
 $wpdb = new class { public $prefix = 'wp_'; public $has_result = null; public function get_var($sql) { return $this->has_result; } };
-$manager = ['pqm_manage_settings'];
+$manager = ['postquality_manage_settings'];
 $link = 'href="/wp-admin/admin.php?page=postquality-workflow&postquality_setup=1"';
 $html = $notice_for($manager, ['n8n_webhook_url' => ''], []);
 check('fresh site: notice offers "Set up the workflow", linked to the auto-opening dialog',
@@ -1163,9 +1163,9 @@ $wpdb->has_result = '1';
 check('legacy connected + a result stored, no progress option: no notice', $notice_for($manager, [], []) === '');
 check('result stored but URL emptied since: notice shows again', str_contains($notice_for($manager, ['n8n_webhook_url' => ''], []), $link));
 $wpdb->has_result = null;
-check('version handshake seen (a ping\'s report) but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]), $link));
+check('version handshake seen (a ping\'s report) but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]), $link));
 check('progress complete (the dialog\'s first review): no notice', $notice_for($manager, ['n8n_webhook_url' => ''], [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]]) === '');
-check('non-manager: no notice', $notice_for(['pqm_manage_agents', 'pqm_view_reviews'], ['n8n_webhook_url' => ''], []) === '');
+check('non-manager: no notice', $notice_for(['postquality_manage_agents', 'postquality_view_reviews'], ['n8n_webhook_url' => ''], []) === '');
 $GLOBALS['tw_screen'] = 'post-quality_page_postquality-workflow';
 check('n8n Workflow page itself: no notice (the button is there)', $notice_for($manager, ['n8n_webhook_url' => ''], []) === '');
 $GLOBALS['tw']['caps'] = [];
@@ -1175,9 +1175,9 @@ echo "Settings save notice (story 35)
 ";
 $_GET['settings-updated'] = 'true';
 $GLOBALS['tw_settings_errors_for'] = [];
-render_for(['pqm_manage_settings'], true);
+render_for(['postquality_manage_settings'], true);
 unset($_GET['settings-updated']);
-check('after a save, render_settings() prints settings_errors(pqm_settings)', $GLOBALS['tw_settings_errors_for'] === ['pqm_settings']);
+check('after a save, render_settings() prints settings_errors(postquality_settings)', $GLOBALS['tw_settings_errors_for'] === ['postquality_settings']);
 
 /* Story 26: the radio is the setting — muted preview vs. Custom-only field */
 echo "AI Prompts & Context rows (story 26)\n";
@@ -1200,7 +1200,7 @@ check('preset: previews shown', !$is_hidden($tag_of($html, 'pqm_profile_text')) 
 check('preset: Custom wrappers hidden', $is_hidden($tag_of($html, 'pqm_context_field')) && $is_hidden($tag_of($html, 'pqm_voice_field')));
 foreach (['pqm_website_context' => 'website_context', 'pqm_brand_voice' => 'brand_voice'] as $id => $key) {
     $tag = $tag_of($html, $id);
-    check("preset: hidden $id keeps name pqm_settings[$key]", strpos($tag, 'name="pqm_settings[' . $key . ']"') !== false);
+    check("preset: hidden $id keeps name postquality_settings[$key]", strpos($tag, 'name="postquality_settings[' . $key . ']"') !== false);
     check("preset: hidden $id is not disabled", strpos($tag, 'disabled') === false);
 }
 check('preset: hidden textareas keep the stored custom text',
@@ -1245,7 +1245,7 @@ $tab_cases = [
     'Admin'         => [$admin_caps, ['connection' => ['License', 'n8n Connection'],
         'ai' => ['AI Model', 'AI Prompts & Context', 'What Each Agent Sends to Claude', 'Agent-Specific Overrides'], 'automation' => ['Automated Reviews'], 'usage' => ['Monthly Quota']]],
     'Editor'        => [$editor_caps, ['ai' => ['Agent-Specific Overrides'], 'automation' => ['Automated Reviews']]],
-    'Settings-only' => [['pqm_manage_settings'], ['connection' => ['License', 'n8n Connection'],
+    'Settings-only' => [['postquality_manage_settings'], ['connection' => ['License', 'n8n Connection'],
         'ai' => ['AI Model', 'AI Prompts & Context', 'What Each Agent Sends to Claude'], 'usage' => ['Monthly Quota']]],
     // Story 42: core manage_options adds Roles, last.
     'Site admin'    => [array_merge($admin_caps, ['manage_options']), ['connection' => ['License', 'n8n Connection'],
@@ -1314,9 +1314,9 @@ check('Settings → AI: the per-agent table, after the AI Prompts & Context tabl
 check('Settings → Connection: the URL read-only with "Change it on the n8n Workflow page", no field, no Send test ping; the token row a link to the page; Notification URL kept',
     str_contains($connection_panel, '<code class="pqm-settings-readonly">https://n8n.example/webhook</code>')
     && str_contains($connection_panel, 'Change it on the <a href="/wp-admin/admin.php?page=postquality-workflow">n8n Workflow page</a>.')
-    && !str_contains($connection_panel, 'pqm_settings[n8n_webhook_url]') && !str_contains($connection_panel, 'pqm_settings[webhook_token]') && !str_contains($connection_panel, 'pqm-test-connection')
+    && !str_contains($connection_panel, 'postquality_settings[n8n_webhook_url]') && !str_contains($connection_panel, 'postquality_settings[webhook_token]') && !str_contains($connection_panel, 'pqm-test-connection')
     && str_contains($connection_panel, '<a href="/wp-admin/admin.php?page=postquality-workflow">Shown on the n8n Workflow page</a>')
-    && str_contains($connection_panel, 'name="pqm_settings[notification_url]"'));
+    && str_contains($connection_panel, 'name="postquality_settings[notification_url]"'));
 $GLOBALS['tw_settings'] = ['n8n_webhook_url' => ''];
 $n = render_for($admin_caps, true);
 check('... no URL saved: "Not set."', str_contains(tab_panels($n)['connection'] ?? '', '<span class="pqm-settings-readonly">Not set.</span>'));
@@ -1330,15 +1330,15 @@ echo "Roles tab (story 42)\n";
 $site_admin_caps = array_merge($admin_caps, ['manage_options']);
 $GLOBALS['tw_roles'] = [
     // A role editor left the Administrator without two caps: the pinned row still shows all five.
-    'administrator' => ['Administrator', ['manage_options' => true, 'pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_manage_settings' => true]],
-    'editor'        => ['Editor', ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true, 'pqm_manage_agents' => true]],
-    'author'        => ['Author', ['pqm_run_free_agents' => true]], // View reviews removed on the tab
-    'writer'        => ['Writer', ['pqm_view_reviews' => false]],   // custom role, an explicit deny
+    'administrator' => ['Administrator', ['manage_options' => true, 'postquality_view_reviews' => true, 'postquality_run_free_agents' => true, 'postquality_manage_settings' => true]],
+    'editor'        => ['Editor', ['postquality_view_reviews' => true, 'postquality_run_free_agents' => true, 'postquality_run_paid_agents' => true, 'postquality_manage_agents' => true]],
+    'author'        => ['Author', ['postquality_run_free_agents' => true]], // View reviews removed on the tab
+    'writer'        => ['Writer', ['postquality_view_reviews' => false]],   // custom role, an explicit deny
 ];
 $role_columns = ['View reviews', 'Run Review and Key Takeaways', 'Run paid agents', 'Manage agents', 'Manage settings'];
 $role_hint_text = 'Without this, the role does not see Dashboard or Post Reviews.</span>';
 $quota_note = 'A role with Run paid agents is not subject to the monthly quota';
-$marker = '<input type="hidden" name="pqm_settings[roles_posted]" value="1" />';
+$marker = '<input type="hidden" name="postquality_settings[roles_posted]" value="1" />';
 check('tab labels with manage_options: Connection, AI, Automation, Usage & Limits, Roles',
     preg_match_all('/class="nav-tab(?: nav-tab-active)?">([^<]+)<\/a>/', render_for($site_admin_caps, true), $m) === 5
     && $m[1] === ['Connection', 'AI', 'Automation', 'Usage & Limits', 'Roles']);
@@ -1351,12 +1351,12 @@ foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
     preg_match_all('/<th scope="row">([^<]+)/', $panel, $m);
     check("$plan: one row per site role, translated display names, custom role included", array_map('trim', $m[1]) === ['[Administrator]', '[Editor]', '[Author]', '[Writer]']);
     $visible = strip_tags($panel);
-    check("$plan: no pqm_ slug in the visible text", !str_contains($visible, 'pqm_'));
+    check("$plan: no pqm_ or postquality_ slug in the visible text", !str_contains($visible, 'pqm_') && !str_contains($visible, 'postquality_'));
     check("$plan: no \"rights\" or manage_options wording in the visible text (brand.md jargon rule)",
         !preg_match('/\bright(s)?\b/i', $visible) && !str_contains($visible, 'manage_options') && !str_contains($visible, "site's options"));
     check("$plan: the intro explains locked rows in plain words",
         str_contains($panel, 'Saving applies these choices to every user with that role. Locked rows belong to roles that run the whole site, such as Administrator: you cannot take anything away from them.'));
-    preg_match_all('/<input type="checkbox" name="pqm_settings\[roles\]\[([a-z_]+)\]\[\]" value="(pqm_[a-z_]+)"\s+aria-label="([^"]*)"(?: aria-describedby="([^"]*)")?( checked)?( disabled)? \/>/', $panel, $boxes, PREG_SET_ORDER);
+    preg_match_all('/<input type="checkbox" name="postquality_settings\[roles\]\[([a-z_]+)\]\[\]" value="(postquality_[a-z_]+)"\s+aria-label="([^"]*)"(?: aria-describedby="([^"]*)")?( checked)?( disabled)? \/>/', $panel, $boxes, PREG_SET_ORDER);
     $grid = [];
     foreach ($boxes as $box) { $grid[$box[1]][$box[2]] = [!empty($box[5]), !empty($box[6]), $box[3], $box[4] ?? '']; }
     check("$plan: 4 rows × 5 checkboxes, columns in capabilities() order",
@@ -1367,26 +1367,26 @@ foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
     } else {
         check('free site: the manage_options row is disabled and shows its current grants, like every row',
             array_map(static fn($c) => [$c[0], $c[1]], $grid['administrator'] ?? []) === [
-                'pqm_view_reviews' => [true, true], 'pqm_run_free_agents' => [true, true], 'pqm_run_paid_agents' => [false, true],
-                'pqm_manage_agents' => [false, true], 'pqm_manage_settings' => [true, true]]);
+                'postquality_view_reviews' => [true, true], 'postquality_run_free_agents' => [true, true], 'postquality_run_paid_agents' => [false, true],
+                'postquality_manage_agents' => [false, true], 'postquality_manage_settings' => [true, true]]);
     }
-    preg_match_all('/<input type="hidden" name="pqm_settings\[roles_shown\]\[([a-z_]+)\]" value="([^"]*)" \/>/', $panel, $m);
+    preg_match_all('/<input type="hidden" name="postquality_settings\[roles_shown\]\[([a-z_]+)\]" value="([^"]*)" \/>/', $panel, $m);
     $shown = array_combine($m[1], $m[2]);
     $checked_in = static fn($slug) => implode(',', array_keys(array_filter($grid[$slug] ?? [], static fn($c) => $c[0])));
     check("$plan: each unpinned row posts roles_shown = exactly the caps it rendered checked; the pinned row posts none",
         array_keys($shown) === ['editor', 'author', 'writer']
         && $shown === array_combine(array_keys($shown), array_map($checked_in, array_keys($shown)))
-        && $shown['writer'] === '' && $shown['author'] === 'pqm_run_free_agents');
+        && $shown['writer'] === '' && $shown['author'] === 'postquality_run_free_agents');
     $held = static fn($slug) => array_map(static fn($c) => $c[0], $grid[$slug] ?? []);
     check("$plan: other rows checked exactly where the role holds the cap now, none disabled",
-        $held('editor') === ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => true, 'pqm_manage_agents' => true, 'pqm_manage_settings' => false]
-        && $held('author') === ['pqm_view_reviews' => false, 'pqm_run_free_agents' => true, 'pqm_run_paid_agents' => false, 'pqm_manage_agents' => false, 'pqm_manage_settings' => false]
+        $held('editor') === ['postquality_view_reviews' => true, 'postquality_run_free_agents' => true, 'postquality_run_paid_agents' => true, 'postquality_manage_agents' => true, 'postquality_manage_settings' => false]
+        && $held('author') === ['postquality_view_reviews' => false, 'postquality_run_free_agents' => true, 'postquality_run_paid_agents' => false, 'postquality_manage_agents' => false, 'postquality_manage_settings' => false]
         && !in_array(true, $held('writer'), true)
         && array_filter(array_merge(...array_map('array_values', array_values(array_diff_key($grid, ['administrator' => 1])))), static fn($c) => $c[1]) === []);
-    check("$plan: each box is named by role and column (aria-label)", ($grid['author']['pqm_run_paid_agents'][2] ?? '') === '[Author]: Run paid agents');
+    check("$plan: each box is named by role and column (aria-label)", ($grid['author']['postquality_run_paid_agents'][2] ?? '') === '[Author]: Run paid agents');
     check("$plan: the hint sits right after each row's View reviews box, nowhere else, linked by aria-describedby",
         substr_count($panel, $role_hint_text) === 4
-        && preg_match_all('/value="pqm_view_reviews"[^>]*aria-describedby="(pqm-role-hint-[a-z_]+)"[^>]*\/><span class="pqm-role-hint" id="\1">' . preg_quote($role_hint_text, '/') . '/', $panel) === 4
+        && preg_match_all('/value="postquality_view_reviews"[^>]*aria-describedby="(pqm-role-hint-[a-z_]+)"[^>]*\/><span class="pqm-role-hint" id="\1">' . preg_quote($role_hint_text, '/') . '/', $panel) === 4
         && count(array_filter(array_merge(...array_map('array_values', array_values($grid))), static fn($c) => $c[3] !== '')) === 4);
     check("$plan: the paid-agents quota note sits under the table",
         ($note = strpos($panel, $quota_note)) !== false && $note > strpos($panel, '</table>'));
@@ -1400,15 +1400,15 @@ foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
             (bool) preg_match('/>What each role can do <span class="dashicons dashicons-lock pqm-section-lock" aria-hidden="true"><\/span><\/h2>/', $panel)
             && ($up = strpos($panel, '<p class="description pqm-locked-note">Available with Pro. Upgrade to choose what each role can do — until then, every role keeps what is shown here.</p>')) !== false && $up < $open);
         check('free site: one disabled fieldset wraps the marker, roles_shown, the table and the note (nothing posts)',
-            $open !== false && $open < strpos($panel, $marker) && $open < strpos($panel, 'pqm_settings[roles_shown]')
+            $open !== false && $open < strpos($panel, $marker) && $open < strpos($panel, 'postquality_settings[roles_shown]')
             && strpos($panel, '</fieldset>', $open) > strpos($panel, $quota_note));
     }
 }
-foreach (['Admin without manage_options' => $admin_caps, 'Editor' => $editor_caps, 'Settings-only' => ['pqm_manage_settings']] as $who => $caps) {
+foreach (['Admin without manage_options' => $admin_caps, 'Editor' => $editor_caps, 'Settings-only' => ['postquality_manage_settings']] as $who => $caps) {
     foreach ([true, false] as $pro) {
         $html = render_for($caps, $pro);
         check("$who, " . ($pro ? 'licensed' : 'free site') . ': no Roles tab, panel or field in the markup',
-            !str_contains($html, 'tab-roles') && !str_contains($html, 'pqm-panel-roles') && !str_contains($html, 'pqm_settings[roles')
+            !str_contains($html, 'tab-roles') && !str_contains($html, 'pqm-panel-roles') && !str_contains($html, 'postquality_settings[roles')
             && !str_contains($html, 'What each role can do'));
     }
 }

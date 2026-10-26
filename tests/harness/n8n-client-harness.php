@@ -28,10 +28,10 @@ echo "Routes and permission\n";
 $route = $GLOBALS['pqm_routes'][POSTQUALITY_REST_NAMESPACE . '/n8n/connection'] ?? [];
 check('/n8n/connection: GET, POST and DELETE endpoints', array_column($route, 'methods') === ['GET', 'POST', 'DELETE']);
 check('... every one gated by check_manage_settings', count($route) === 3 && array_unique(array_column($route, 'permission_callback'), SORT_REGULAR) === [$gate]);
-$GLOBALS['tw']['caps'] = ['pqm_manage_agents', 'pqm_view_reviews', 'pqm_run_free_agents', 'pqm_run_paid_agents'];
-check('user without pqm_manage_settings: refused (WP answers 403)', PostQuality_REST_API::check_manage_settings() === false);
-$GLOBALS['tw']['caps'] = ['pqm_manage_settings'];
-check('pqm_manage_settings: allowed', PostQuality_REST_API::check_manage_settings() === true);
+$GLOBALS['tw']['caps'] = ['postquality_manage_agents', 'postquality_view_reviews', 'postquality_run_free_agents', 'postquality_run_paid_agents'];
+check('user without postquality_manage_settings: refused (WP answers 403)', PostQuality_REST_API::check_manage_settings() === false);
+$GLOBALS['tw']['caps'] = ['postquality_manage_settings'];
+check('postquality_manage_settings: allowed', PostQuality_REST_API::check_manage_settings() === true);
 
 /* ─── Row: Connected ─────────────────────────────────────────────────── */
 echo "Connected\n";
@@ -51,9 +51,9 @@ check('every call: plugin User-Agent, no redirect, the key (trimmed)', calls_sig
 check('the route probes carry an empty JSON object (a body-less PATCH gets 415 before the route is known)',
     array_map(static fn($c) => [$c[1]['headers']['Content-Type'] ?? null, $c[1]['body'] ?? null], array_slice($GLOBALS['tw']['calls'], 1))
     === [['application/json', '{}'], ['application/json', '{}']]);
-check('stored in pqm_n8n_api: origin, key, probe — autoload off', $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] === ['base_url' => BASE, 'api_key' => KEY, 'probe' => $r['probe']]
+check('stored in postquality_n8n_api: origin, key, probe — autoload off', $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] === ['base_url' => BASE, 'api_key' => KEY, 'probe' => $r['probe']]
     && $GLOBALS['tw']['autoload'][PostQuality_N8n::OPTION] === false);
-check('... and only there: pqm_settings never written', $GLOBALS['tw']['writes'] === [PostQuality_N8n::OPTION]);
+check('... and only there: postquality_settings never written', $GLOBALS['tw']['writes'] === [PostQuality_N8n::OPTION]);
 
 /* Acceptance: a reload shows the stored state without calling n8n. */
 $GLOBALS['tw']['calls'] = [];
@@ -288,7 +288,7 @@ check('route 403 with JSON (on PATCH /credentials): cause scoped, the scoped sen
     && refusal_stored('scoped') && $GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['probe']['message'] === $r['probe']['message']);
 check('... the Workflow File section says so after a reload: the manual reason is the scoped sentence, the page on the manual path', postquality_manual_reason() === ['kind' => 'probe', 'message' => SCOPED_SENTENCE, 'at' => gmdate('F j, Y', $r['probe']['at'])]
     && state_of($block = PostQuality_Admin::render_workflow_body()) === 'manual' && str_contains($block, SCOPED_SENTENCE));
-site($passing_conn + ['pqm_settings' => ['webhook_token' => TOKEN]], [UNAUTHORIZED]);
+site($passing_conn + ['postquality_settings' => ['webhook_token' => TOKEN]], [UNAUTHORIZED]);
 $GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['failed'] = ['cause' => 'proxy', 'message' => 'n8n did not answer as expected.', 'at' => 1700000100];
 post([]);
 check('an older proxy record, then a re-check refused (401): no manual reason (the record predates the refusal), the page not set up (not manual), GET /setup not manual',
@@ -322,7 +322,7 @@ managed([CLEAN_WF, UNAUTHORIZED], $setup_map + $older_report);
 $r = update();
 check('... the PUT answers 401: "could not finish updating the workflow: n8n refused the API key…"; recorded; the version record untouched',
     $r->message === 'The plugin could not finish updating the workflow: ' . REFUSED_FIX && calls() === [READ_WF, PUT_WF] && refusal_stored('key')
-    && $GLOBALS['tw']['options']['pqm_workflow_version_seen'] === $older_report['pqm_workflow_version_seen']);
+    && $GLOBALS['tw']['options']['postquality_workflow_version_seen'] === $older_report['postquality_workflow_version_seen']);
 hand_made([UNAUTHORIZED]);
 $r = proposal();
 check('the adoption read answers 401: 502 pqm_adoption_failed, could_not(\'read\') with the same cause; recorded; the offer gone', $r instanceof WP_Error && $r->code === 'pqm_adoption_failed'
@@ -364,13 +364,13 @@ check('a probe passes again: connected, rotatable — Update and Rotate back on 
     && $GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['probe']['ok'] === true);
 
 echo "Story 74: the mis-wired workflow — Update stays the repair\n";
-managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + ['pqm_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]]);
+managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE]]);
 $r = update();
 check('mis-wired, Update (D3): allowed — GET, PUT, the ping\'s read; the clean read clears the sentence', is_array($r) && $r['updated'] === true
     && calls() === [READ_WF, PUT_WF, READ_WF] && !isset(postquality_workflow_report()['miswired']));
 
 echo "Story 74: one predicate\n";
-site($refused_conn + ['pqm_settings' => ['webhook_token' => TOKEN]]);
+site($refused_conn + ['postquality_settings' => ['webhook_token' => TOKEN]]);
 check('a stored refusal: connected() false; public_state().connected false; postquality_manual_reason() null (cause key: no manual path); the page state not connected; GET /setup\'s n8n step open',
     PostQuality_N8n::connected() === false && PostQuality_N8n::public_state()['connected'] === false && postquality_manual_reason() === null
     && state_of(PostQuality_Admin::render_workflow_body()) === 'not-set-up' && PostQuality_REST_API::get_setup_callback()->get_data()['steps']['n8n'] === false);

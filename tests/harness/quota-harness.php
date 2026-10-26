@@ -73,11 +73,11 @@ require $base . '/includes/class-pqm-db.php';       // processing placeholder (s
 require $base . '/includes/class-pqm-rest-api.php';
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
-function author_caps() { return ['pqm_view_reviews' => true, 'pqm_run_free_agents' => true]; }
-function editor_caps() { return author_caps() + ['pqm_run_paid_agents' => true]; }
+function author_caps() { return ['postquality_view_reviews' => true, 'postquality_run_free_agents' => true]; }
+function editor_caps() { return author_caps() + ['postquality_run_paid_agents' => true]; }
 function reset_world($caps, $meta = null, $settings = []) {
     $GLOBALS['tw']['user_caps'] = $caps;
-    $GLOBALS['tw']['user_meta'] = $meta === null ? [] : [42 => ['pqm_monthly_usage' => $meta]];
+    $GLOBALS['tw']['user_meta'] = $meta === null ? [] : [42 => ['postquality_monthly_usage' => $meta]];
     $GLOBALS['tw']['settings'] = $settings;
     $GLOBALS['tw']['webhook_result'] = 200;
     $GLOBALS['tw']['webhook_calls'] = 0;
@@ -98,7 +98,7 @@ function trigger($command = 'review') {
     $req->set_param('command', $command);
     return PostQuality_REST_API::trigger_review_callback($req);
 }
-function stored_count() { return $GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage']['count'] ?? null; }
+function stored_count() { return $GLOBALS['tw']['user_meta'][42]['postquality_monthly_usage']['count'] ?? null; }
 
 /* ─── Row 1: Author under quota (5 of 20 used) ───────────────────────── */
 echo "Row 1 — Author under quota\n";
@@ -113,7 +113,7 @@ check('quota_remaining is 14', $r->get_data()['quota_remaining'] === 14);
 check('one processing row for post 7 / review (story 5.4)', processing_rows() === [[7, 'review', 'processing']]);
 check('processing row carries score 0 and a JSON summary',
     $GLOBALS['wpdb']->inserts[0]['data']['overall_score'] === 0
-    && $GLOBALS['wpdb']->inserts[0]['table'] === 'wp_pqm_reviews'
+    && $GLOBALS['wpdb']->inserts[0]['table'] === 'wp_postquality_reviews'
     && json_decode($GLOBALS['wpdb']->inserts[0]['data']['result_data'], true) === ['summary' => 'Running asynchronously in n8n...']);
 check('response keys unchanged: {success,message,n8n_status,quota_remaining}',
     array_keys($r->get_data()) === ['success', 'message', 'n8n_status', 'quota_remaining']);
@@ -128,11 +128,11 @@ check('no webhook call', $GLOBALS['tw']['webhook_calls'] === 0);
 check('count unchanged', stored_count() === 20);
 check('no processing row on a quota refusal', processing_rows() === []);
 $msg = is_wp_error($r) ? $r->get_error_message() : '';
-$GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage'] = ['month' => '2026-10', 'count' => 0];
+$GLOBALS['tw']['user_meta'][42]['postquality_monthly_usage'] = ['month' => '2026-10', 'count' => 0];
 $resets = PostQuality_Features::quota_state()['resets'];
 check('copy names count and reset date', strpos($msg, '(20 of 20') !== false && strpos($msg, $resets) !== false);
 
-/* ─── Row 3: Exempt user (holds pqm_run_paid_agents) ─────────────────── */
+/* ─── Row 3: Exempt user (holds postquality_run_paid_agents) ─────────────────── */
 echo "Row 3 — Exempt user\n";
 reset_world(editor_caps(), ['month' => '2026-10', 'count' => 999]);
 check('quota_state() is null', PostQuality_Features::quota_state() === null);
@@ -168,14 +168,14 @@ $s = PostQuality_Features::quota_state();
 check('stale month reads as 0 used', $s !== null && $s['used'] === 0 && $s['remaining'] === 20);
 $r = trigger('review');
 check('trigger allowed after rollover', !is_wp_error($r));
-$meta = $GLOBALS['tw']['user_meta'][42]['pqm_monthly_usage'];
+$meta = $GLOBALS['tw']['user_meta'][42]['postquality_monthly_usage'];
 check('old value overwritten on increment', $meta['month'] === '2026-10' && $meta['count'] === 1);
 
 /* ─── Row 6: Cron stays outside the chokepoint (static check) ────────── */
 echo "Row 6 — Cron batch untouched\n";
 $cron = file_get_contents($base . '/includes/class-pqm-cron.php');
 check('cron never calls trigger_review_callback', strpos($cron, 'trigger_review_callback') === false);
-check('cron never touches quota helpers', strpos($cron, 'consume_quota') === false && strpos($cron, 'quota_state') === false && strpos($cron, 'pqm_monthly_usage') === false);
+check('cron never touches quota helpers', strpos($cron, 'consume_quota') === false && strpos($cron, 'quota_state') === false && strpos($cron, 'postquality_monthly_usage') === false);
 
 /* ─── Row 7: Quota raised mid-month ──────────────────────────────────── */
 echo "Row 7 — Quota raised mid-month\n";
@@ -195,7 +195,7 @@ check('trigger allowed, no increment', !is_wp_error($r) && stored_count() === 50
 /* ─── Decision: gate refusals keep priority over quota ───────────────── */
 echo "Extra — feature gate fires before quota\n";
 reset_world(author_caps(), ['month' => '2026-10', 'count' => 20]);
-$r = trigger('rewrite'); // paid agent, author lacks pqm_run_paid_agents AND is at quota
+$r = trigger('rewrite'); // paid agent, author lacks postquality_run_paid_agents AND is at quota
 check('role refusal wins over quota', is_wp_error($r) && $r->get_error_code() === 'pqm_feature_gated');
 check('no processing row on a gate refusal', processing_rows() === []);
 
@@ -261,13 +261,13 @@ $GLOBALS['tw']['webhook_result'] = 500;
 $r = trigger('takeaways');
 $msg = !is_wp_error($r) ? $r->get_data()['message'] : '';
 check('non-2xx: 200 body with success false (unchanged), n8n_status 500', !is_wp_error($r) && $r->get_data()['success'] === false && $r->get_data()['n8n_status'] === 500);
-check('non-2xx: message names the n8n status and says the run did not start (editor: no pqm_manage_settings, ticket 33)',
+check('non-2xx: message names the n8n status and says the run did not start (editor: no postquality_manage_settings, ticket 33)',
     $msg === 'Takeaways could not start — n8n answered HTTP 500. Ask an administrator to check the workflow in n8n, then try again.');
 
 /* ─── Ticket 32: not configured — role-aware copy, nothing spent ─────── */
 echo "Extra — webhook URL unset: 400 pqm_not_configured, copy names the next step per role\n";
 foreach ([
-    'admin'  => [editor_caps() + ['pqm_manage_settings' => true], 'n8n is not connected yet. Set up the workflow on the Post Quality → n8n Workflow page, then try again.'],
+    'admin'  => [editor_caps() + ['postquality_manage_settings' => true], 'n8n is not connected yet. Set up the workflow on the Post Quality → n8n Workflow page, then try again.'],
     'author' => [author_caps(), 'n8n is not connected yet. Ask an administrator to connect the n8n workflow, then try again.'],
 ] as $who => [$caps, $copy]) {
     reset_world($caps, ['month' => '2026-10', 'count' => 5], ['n8n_webhook_url' => '']);
@@ -281,7 +281,7 @@ foreach ([
 /* ─── Ticket 33: failed-start copy names a step the clicker can take ─── */
 echo "Extra — n8n unreachable / non-2xx: copy per role, response shape unchanged\n";
 foreach ([
-    'admin'  => [editor_caps() + ['pqm_manage_settings' => true],
+    'admin'  => [editor_caps() + ['postquality_manage_settings' => true],
         'Could not connect to n8n (cURL error 7). Check your Webhook URL in Settings.',
         'Review could not start — n8n answered HTTP 500. Check that the workflow is active in n8n, then try again.'],
     'author' => [author_caps(),

@@ -9,13 +9,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class PostQuality_Cron {
 
-    const HOOK = 'pqm_cron_review_posts';
+    const HOOK = 'postquality_cron_review_posts';
 
     /**
      * Add custom cron schedules.
      */
     public static function add_custom_schedules( array $schedules ): array {
-        $schedules['pqm_weekly'] = [
+        $schedules['postquality_weekly'] = [
             'interval' => WEEK_IN_SECONDS,
             'display'  => __( 'Once Weekly (Post Quality)', 'post-quality-manager' ),
         ];
@@ -35,7 +35,7 @@ class PostQuality_Cron {
             return;
         }
 
-        $recurrence = $settings['cron_frequency'] === 'weekly' ? 'pqm_weekly' : 'daily';
+        $recurrence = $settings['cron_frequency'] === 'weekly' ? 'postquality_weekly' : 'daily';
 
         if ( ! wp_next_scheduled( self::HOOK ) ) {
             wp_schedule_event( time(), $recurrence, self::HOOK );

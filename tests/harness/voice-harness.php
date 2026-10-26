@@ -111,12 +111,12 @@ $GLOBALS['pqm_locale_stack'] = ['en_US'];
 
 /* ─── Row 8: round trip through a preset ────────────────────────────── */
 echo "\nRow 8: Custom text saved, switch to a preset, Save, switch back\n";
-$GLOBALS['pqm_test_caps'] = ['pqm_manage_settings'];
+$GLOBALS['pqm_test_caps'] = ['postquality_manage_settings'];
 $saved = settings([
     'blog_profile' => 'custom', 'website_context' => $custom_context,
     'brand_voice_preset' => 'custom', 'brand_voice' => $custom_voice,
 ]);
-$GLOBALS['tw']['options'] = ['pqm_settings' => $saved];
+$GLOBALS['tw']['options'] = ['postquality_settings' => $saved];
 // The hidden Custom textareas still post their stored text.
 $on_preset = PostQuality_Admin::sanitize_settings([
     'blog_profile'       => 'technical',
@@ -129,7 +129,7 @@ check('preset saved: payload sends the Direct instruction', postquality_resolved
 check('preset saved: custom context kept', $on_preset['website_context'] === $custom_context);
 check('preset saved: custom standards kept', $on_preset['brand_voice'] === $custom_voice);
 
-$GLOBALS['tw']['options'] = ['pqm_settings' => $on_preset];
+$GLOBALS['tw']['options'] = ['postquality_settings' => $on_preset];
 $back = PostQuality_Admin::sanitize_settings([
     'blog_profile'       => 'custom',
     'brand_voice_preset' => 'custom',

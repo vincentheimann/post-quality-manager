@@ -536,7 +536,7 @@ export default function SetupIsland() {
 function StepStatus( { step, state, done } ) {
 	if ( step.config ) {
 		// The schedule lives on the Automation tab, hidden without
-		// pqm_manage_agents and locked on a free site: no Settings promise there.
+		// postquality_manage_agents and locked on a free site: no Settings promise there.
 		const inSettings =
 			step.key !== 'schedule' ||
 			// eslint-disable-next-line camelcase -- REST field names.
