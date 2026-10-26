@@ -3,7 +3,7 @@ title: 'Every stored name carries the postquality prefix, and existing sites kee
 type: 'feature'
 ticket: '91'
 created: '2026-10-26'
-status: 'built'
+status: done
 baseline_revision: '40366cfd383cd44dbc6b482b2e4d13440b2947a4'
 route: 'full'
 route_source: 'auto'

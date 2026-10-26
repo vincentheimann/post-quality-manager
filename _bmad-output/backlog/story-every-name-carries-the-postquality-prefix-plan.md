@@ -3,7 +3,7 @@ title: 'Every name the plugin defines in code carries the postquality prefix'
 type: 'refactor'
 ticket: '88'
 created: '2026-10-26'
-status: 'built'
+status: done
 baseline_revision: '9b8ac0f143aaadb01669392906ba27b31d2ef424'
 route: 'full'
 route_source: 'auto'
