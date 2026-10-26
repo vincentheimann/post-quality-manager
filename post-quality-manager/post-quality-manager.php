@@ -122,6 +122,17 @@ pqm_fs()->add_filter('plugin_icon', static fn() => PQM_PLUGIN_DIR . 'admin/img/p
 // asks this filter with null whether a custom URL replaces its page: answering null keeps that page,
 // and the license-aware renewal checkout built on it, registered. See memory/freemium-and-roles.md.
 pqm_fs()->add_filter('pricing_url', static fn($url) => null === $url ? null : PQM_PRICING_URL);
+// The deactivation feedback form opens only on a site that opted in (bug 90). Without this the SDK
+// shows it on a site that skipped the opt-in too, and answering it with "Anonymous feedback" unticked
+// (the default) opts the site in at uninstall and sends the admin's name and email, which the privacy
+// policy rules out. A skipped site stores no reason, so its uninstall sends nothing. With a filter
+// registered the SDK no longer reads its own snooze, so the callback keeps it: "temporary
+// deactivation" still hides the form on an opted-in site. See memory/freemium-and-roles.md.
+pqm_fs()->add_filter('show_deactivation_feedback_form', static function () {
+    $fs = pqm_fs();
+
+    return $fs->is_registered() && !$fs::is_deactivation_snoozed();
+});
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PQM_Activator', 'maybe_upgrade']);
 

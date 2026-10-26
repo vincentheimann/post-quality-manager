@@ -19,6 +19,10 @@ class PQM_FS_Stub {
     public $pro = false;
     /** _get_license(): this site's license, valid or not. */
     public $has_license = false;
+    /** is_registered(): the site opted in or activated a license (false = skipped or never answered). */
+    public $registered = false;
+    /** is_deactivation_snoozed(): the SDK's "temporary deactivation" period is running (bug 90). */
+    public static $snoozed = false;
     /** Hooks added through the SDK: tag => [callback, …]. */
     public $actions = [];
     public $filters = [];
@@ -26,6 +30,8 @@ class PQM_FS_Stub {
     public function can_use_premium_code() { return $this->pro; }
     public function is__premium_only() { return true; }
     public function _get_license() { return $this->has_license ? (object) ['id' => 1] : null; }
+    public function is_registered() { return $this->registered; }
+    public static function is_deactivation_snoozed() { return self::$snoozed; }
     public function get_account_url() { return 'https://example.test/wp-admin/admin.php?page=pqm-dashboard-account'; }
     public function get_upgrade_url() { return 'https://example.test/wp-admin/admin.php?page=pqm-dashboard-pricing'; }
     public function add_action($tag, $callback) { $this->actions[$tag][] = $callback; }

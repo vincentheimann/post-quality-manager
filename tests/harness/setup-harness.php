@@ -675,4 +675,23 @@ check('uninstall deletes the provisioning lock option (PQM_N8n::LOCK_OPTION, bug
 check('uninstall deletes the pending test ping option (PQM_Admin::PING_OPTION, story 2)', PQM_Admin::PING_OPTION === 'pqm_ping'
     && in_array(PQM_Admin::PING_OPTION, $GLOBALS['tw_deleted'], true));
 
+/* Rows (bug 90): the deactivation feedback form opens only on an opted-in site, so a site that skipped
+ * the opt-in stores no reason and its uninstall sends nothing. The SDK passes true and, once a filter is
+ * registered, no longer reads its own snooze — the callback must keep it. Every row fails (null) when
+ * no callback is registered. */
+echo "Deactivation feedback form (bug 90)\n";
+$form_cb = (pqm_fs()->filters['show_deactivation_feedback_form'] ?? [null])[0];
+$form_shows = static function (bool $registered, bool $snoozed, bool $pro = false) use ($form_cb) {
+    pqm_fs()->registered = $registered;
+    pqm_fs()->pro = $pro;
+    PQM_FS_Stub::$snoozed = $snoozed;
+    return is_callable($form_cb) ? $form_cb(true) : null;
+};
+check('skipped site (not registered): the filter answers false — no form, no reason stored, nothing sent at uninstall',
+    $form_shows(false, false) === false);
+check('opted-in site, not snoozed: the filter answers true — the form shows as before', $form_shows(true, false) === true);
+check('opted-in site, snoozed: the filter answers false, as the SDK does without the filter', $form_shows(true, true) === false);
+check('registered site on a Pro plan: still the form — the plan does not change the answer', $form_shows(true, false, true) === true);
+$form_shows(false, false); // back to the harness default: a free site that never opted in
+
 harness_exit();
