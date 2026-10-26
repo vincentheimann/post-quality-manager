@@ -19,7 +19,7 @@ class PQM_FS_Stub {
     public $pro = false;
     /** _get_license(): this site's license, valid or not. */
     public $has_license = false;
-    /** is_registered(): the site opted in or activated a license (false = skipped or never answered); stays true after an opt-out. */
+    /** is_registered(): the site opted in or activated a license (false = skipped or never answered); what an opt-out does to it is in memory/freemium-and-roles.md. */
     public $registered = false;
     /** is_tracking_allowed(): the site shares usage data now (false = skipped, or opted out since) (bug 90). */
     public $tracking = false;
