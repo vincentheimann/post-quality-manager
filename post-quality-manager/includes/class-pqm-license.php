@@ -37,4 +37,31 @@ class PostQuality_License {
             && is_object( postquality_fs()->_get_license() )
             && ! postquality_fs()->can_use_premium_code();
     }
+
+    /**
+     * Whether this site shares usage data now: it opted in and has not opted
+     * out since. The one definition behind the deactivation feedback form and
+     * the stored answer (bug 90, see memory/freemium-and-roles.md).
+     */
+    public static function shares_usage_data(): bool {
+        if ( ! function_exists( 'postquality_fs' ) ) {
+            return false;
+        }
+        $fs = postquality_fs();
+
+        return $fs->is_registered() && $fs->is_tracking_allowed();
+    }
+
+    /**
+     * At deletion, a site that does not share usage data now drops any stored
+     * deactivation feedback answer, so none is sent; a site that shares keeps
+     * it, as agreed. Only the SDK's public storage is touched, and only this
+     * one key (bug 90, see memory/freemium-and-roles.md).
+     */
+    public static function forget_feedback_unless_sharing(): void {
+        if ( ! function_exists( 'postquality_fs' ) || self::shares_usage_data() ) {
+            return;
+        }
+        postquality_fs()->get_storage()->remove( 'uninstall_reason' );
+    }
 }

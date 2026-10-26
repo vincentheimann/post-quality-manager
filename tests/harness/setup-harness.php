@@ -72,6 +72,8 @@ const PING_PROVEN = 'Ping OK — this site reaches n8n, the webhook credential i
 /* Story 2: every read of the pending ping during the wait bypasses the cache with wp_cache_delete(); counted here, so a
    row can tell whether a branch waited at all (declared before the lib, whose own stub yields). */
 function wp_cache_delete($k, $group = '') { $GLOBALS['tw_cache_deletes'][$k] = ($GLOBALS['tw_cache_deletes'][$k] ?? 0) + 1; return true; }
+/* Bug 90: the main file's WP hooks are recorded (tag, callback, priority), so a row can prove the uninstall hook's registration. */
+function add_action($tag, $cb, $priority = 10, $accepted_args = 1) { $GLOBALS['tw']['actions'][] = [$tag, $cb, $priority]; }
 require __DIR__ . '/lib/wp-stubs.php'; // runner, WP classes, the common stubs, fs-stub.php
 require dirname(__DIR__, 2) . '/post-quality-manager/post-quality-manager.php';
 
@@ -676,23 +678,49 @@ check('uninstall deletes the provisioning lock option (PostQuality_N8n::LOCK_OPT
 check('uninstall deletes the pending test ping option (PostQuality_Admin::PING_OPTION, story 2)', PostQuality_Admin::PING_OPTION === 'postquality_ping'
     && in_array(PostQuality_Admin::PING_OPTION, $GLOBALS['tw_deleted'], true));
 
-/* Rows (bug 90): the deactivation feedback form opens only on an opted-in site, so a site that skipped
- * the opt-in stores no reason and its uninstall sends nothing. The SDK passes true and, once a filter is
- * registered, no longer reads its own snooze — the callback must keep it. Every row fails (null) when
- * no callback is registered. */
+/* Rows (bug 90): the deactivation feedback form opens only on a site that shares usage data now
+ * (registered and tracking allowed), so a site that skipped the opt-in, or opted out since, stores no
+ * reason. The SDK passes true and, once a filter is registered, no longer reads its own snooze — the
+ * callback must keep it. Every row fails (null) when no callback is registered. */
 echo "Deactivation feedback form (bug 90)\n";
 $form_cb = (postquality_fs()->filters['show_deactivation_feedback_form'] ?? [null])[0];
-$form_shows = static function (bool $registered, bool $snoozed, bool $pro = false) use ($form_cb) {
+$form_shows = static function (bool $registered, bool $tracking, bool $snoozed, bool $pro = false) use ($form_cb) {
     postquality_fs()->registered = $registered;
+    postquality_fs()->tracking = $tracking;
     postquality_fs()->pro = $pro;
     PQM_FS_Stub::$snoozed = $snoozed;
     return is_callable($form_cb) ? $form_cb(true) : null;
 };
-check('skipped site (not registered): the filter answers false — no form, no reason stored, nothing sent at uninstall',
-    $form_shows(false, false) === false);
-check('opted-in site, not snoozed: the filter answers true — the form shows as before', $form_shows(true, false) === true);
-check('opted-in site, snoozed: the filter answers false, as the SDK does without the filter', $form_shows(true, true) === false);
-check('registered site on a Pro plan: still the form — the plan does not change the answer', $form_shows(true, false, true) === true);
-$form_shows(false, false); // back to the harness default: a free site that never opted in
+check('skipped site (not registered, tracking not allowed): the filter answers false — no form, no reason stored, nothing sent at uninstall',
+    $form_shows(false, false, false) === false);
+check('opted-out site (registered, tracking not allowed, not snoozed): the filter answers false — no form, no reason stored',
+    $form_shows(true, false, false) === false);
+check('site sharing usage data, not snoozed: the filter answers true — the form shows as before', $form_shows(true, true, false) === true);
+check('site sharing usage data, snoozed: the filter answers false, as the SDK does without the filter', $form_shows(true, true, true) === false);
+check('licensed Pro site sharing usage data: still the form — the plan does not change the answer', $form_shows(true, true, false, true) === true);
+
+/* Rows (bug 90): at deletion, a stored feedback answer is removed through the SDK's storage before its
+ * uninstall step reads it, unless the site shares usage data now; the hook runs at priority 9 (the
+ * SDK's own callback sits at 10) on the plugin's uninstall tag. */
+$uninstall_cb = null;
+foreach ($GLOBALS['tw']['actions'] as [$tag, $cb, $priority]) {
+    if ($tag === 'uninstall_post-quality-manager.php' && $priority === 9) { $uninstall_cb = $cb; }
+}
+$forget = static function (bool $registered, bool $tracking) use ($form_shows, $uninstall_cb) {
+    $form_shows($registered, $tracking, false);
+    postquality_fs()->storage->removed = [];
+    if (!is_callable($uninstall_cb)) { return null; } // every deletion row fails when the hook is not registered
+    $uninstall_cb();
+    return postquality_fs()->storage->removed;
+};
+check('deletion on a site that opted out (registered, tracking not allowed): the stored answer is removed — no reason, name or email sent',
+    $forget(true, false) === ['uninstall_reason']);
+check('deletion on a site not registered (a skipped site holding a pre-fix answer): the stored answer is removed',
+    $forget(false, false) === ['uninstall_reason']);
+check('deletion on a site sharing usage data: the answer is kept and goes with the deletion update, as agreed',
+    $forget(true, true) === []);
+check('the removal is hooked on uninstall_<plugin file> at priority 9, before the SDK\'s own uninstall step',
+    in_array(['uninstall_post-quality-manager.php', ['PostQuality_License', 'forget_feedback_unless_sharing'], 9], $GLOBALS['tw']['actions'], true));
+$form_shows(false, false, false); // back to the harness default: a free site that never opted in
 
 harness_exit();

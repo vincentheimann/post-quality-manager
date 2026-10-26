@@ -113,6 +113,7 @@ if (!function_exists('wp_generate_uuid4')) { function wp_generate_uuid4() { retu
 if (!function_exists('untrailingslashit')) { function untrailingslashit($v) { return rtrim((string) $v, '/\\'); } }
 if (!function_exists('trailingslashit')) { function trailingslashit($v) { return untrailingslashit($v) . '/'; } }
 if (!function_exists('plugin_dir_path')) { function plugin_dir_path($f) { return dirname($f) . '/'; } }
+if (!function_exists('plugin_basename')) { function plugin_basename($f) { return basename($f); } } // the main file names its uninstall hook with it (bug 90)
 
 /* ─── Hooks (no-ops) ─────────────────────────────────────────────────── */
 if (!function_exists('add_action')) { function add_action(...$a) {} }

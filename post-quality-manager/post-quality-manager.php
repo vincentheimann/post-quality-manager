@@ -122,17 +122,17 @@ postquality_fs()->add_filter('plugin_icon', static fn() => POSTQUALITY_PLUGIN_DI
 // asks this filter with null whether a custom URL replaces its page: answering null keeps that page,
 // and the license-aware renewal checkout built on it, registered. See memory/freemium-and-roles.md.
 postquality_fs()->add_filter('pricing_url', static fn($url) => null === $url ? null : POSTQUALITY_PRICING_URL);
-// The deactivation feedback form opens only on a site that opted in (bug 90). Without this the SDK
-// shows it on a site that skipped the opt-in too, and answering it with "Anonymous feedback" unticked
-// (the default) opts the site in at uninstall and sends the admin's name and email, which the privacy
-// policy rules out. A skipped site stores no reason, so its uninstall sends nothing. With a filter
-// registered the SDK no longer reads its own snooze, so the callback keeps it: "temporary
-// deactivation" still hides the form on an opted-in site. See memory/freemium-and-roles.md.
+// The deactivation feedback form opens only on a site that shares usage data now, so a site that
+// skipped the opt-in or opted out since sees no form and stores no answer (bug 90, the privacy
+// policy's promise). See memory/freemium-and-roles.md.
 postquality_fs()->add_filter('show_deactivation_feedback_form', static function () {
     $fs = postquality_fs();
 
-    return $fs->is_registered() && !$fs::is_deactivation_snoozed();
+    return PostQuality_License::shares_usage_data() && !$fs::is_deactivation_snoozed();
 });
+// At deletion, a site that does not share usage data now drops any stored feedback answer before
+// the SDK's own uninstall step runs (bug 90). See memory/freemium-and-roles.md.
+add_action('uninstall_' . plugin_basename(__FILE__), ['PostQuality_License', 'forget_feedback_unless_sharing'], 9);
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PostQuality_Activator', 'maybe_upgrade']);
 
