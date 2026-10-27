@@ -8,13 +8,15 @@ http://127.0.0.1:<port>/<any path>. Listens on 127.0.0.1 only, so post content
 never leaves the machine; answers every POST with 200 and `{}`, so the plugin
 sees n8n accept the call; appends one JSON line per request to --out:
 {"time", "path", "headers", "body"}, the body parsed when it is JSON, else
-kept as text. Prints each request on stderr; Ctrl+C stops it.
+kept as text. Prints each request on stderr; Ctrl+C stops it. A port another
+socket already holds: exit 2, `Cannot listen on 127.0.0.1:<port>`.
 
 The capture holds what the plugin sends n8n: the post's content and the
 site's webhook token (`X-PQM-Token`, `auth_token`). Write it outside the
 repository (the session's scratchpad) and delete it when the walk ends.
-How a walk uses it: docs/local-verification.md. Standard library only.
-Repository tooling: not in the zip.
+How a walk uses it: docs/local-verification.md; offline checks:
+tests/harness/local-wp-harness.py. Standard library only. Repository tooling:
+not in the zip.
 """
 from __future__ import annotations
 
@@ -53,8 +55,11 @@ def main() -> int:
             self.end_headers()
             self.wfile.write(b'{}')
 
+    class Server(HTTPServer):
+        allow_reuse_address = False  # a busy port fails here, on Windows too (memory/local-verification.md)
+
     try:
-        server = HTTPServer(('127.0.0.1', args.port), Capture)
+        server = Server(('127.0.0.1', args.port), Capture)
     except OSError as error:
         print(f'Cannot listen on 127.0.0.1:{args.port}: {error}', file=sys.stderr)
         return 2

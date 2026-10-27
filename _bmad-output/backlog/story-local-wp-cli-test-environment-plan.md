@@ -3,14 +3,14 @@ title: 'An agent verifies the plugin on a local WordPress through WP-CLI'
 type: 'chore'
 ticket: '9'
 created: '2026-10-26'
-status: 'in-review'
+status: 'built'
 baseline_revision: '810c15547a7d0d8cc25b015cb6a03c4bd43e023a'
 route: 'full'
-route_source: 'auto'
+route_source: 'pinned'
 review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
-review_loop_iteration: 0
+review_loop_iteration: 1
 context: ['{project-root}/memory/lessons.md']
 ---
 
@@ -33,10 +33,12 @@ context: ['{project-root}/memory/lessons.md']
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
 | Known site | `--site "Post Quality Showcase" plugin list` | WP-CLI's output, the imagick warning filtered | No error expected |
-| Unknown or ambiguous name | a name absent from, or twice in, Local's list | exit 2, the names Local knows | No WP-CLI call |
+| Unknown or ambiguous name | a name absent from, or twice in, Local's list | exit 2; the message names no other Local site (owner 2026-10-27: other projects' and clients' site names stay out of agent output) | No WP-CLI call |
 | Local's PHP or MySQL missing | the version folder the site names is absent | exit 2, the missing path | No WP-CLI call |
-| DB import | `--site … import <dump.sql>` | imported through Local's MySQL client on the site's port; table count printed | non-zero exit on a client error |
+| A `db` command that skips the port | any `wp db` subcommand WP-CLI runs through the MySQL binaries (`import`, `query`, `reset`, `cli`, `check`…), all but `export` | exit 2, naming `import <dump.sql>` and `eval` | No WP-CLI call |
+| DB import | `--site … import <dump.sql>` | imported through Local's MySQL client on the site's port; table count printed | non-zero exit on a client error; a file not named `*.sql` or holding no `CREATE TABLE`: exit 2, nothing dropped |
 | Webhook captured | listener running, plugin pointed at it, review triggered | one JSON line per request in the capture file; the plugin sees 200 | No error expected |
+| Busy listener port | another socket already listens on `--port` | exit 2, `Cannot listen on 127.0.0.1:<port>` | Nothing captured |
 
 </frozen-after-approval>
 
@@ -50,6 +52,11 @@ context: ['{project-root}/memory/lessons.md']
 - `WP_DEBUG_LOG` is not defined on the showcase today; `wp config set WP_DEBUG true --raw` and `WP_DEBUG_LOG true --raw` write it, the log is `wp-content/debug.log`.
 - `AGENTS.md` "Running and verifying" -- the bullet that says real WP Admin behaviour is verified manually: one sentence pointing to the new doc.
 - `memory/agent-conventions.md` L21 -- the real-site verification rule names story 9 as the future run; point it to the doc and memory file.
+- Loop 1 (2026-10-27), on build 1 (c65c01f): `bin/local-wp.py` `find_site()` L68–72 prints the sought name and the count only. L163–166: a `db` subcommand passes only when it is `export` (port added) or one WP-CLI answers through `$wpdb` (`tables`, `size`, `prefix`, `columns`, `search`; PHP reaches the site's port through Local's `php.ini`); every other exits 2, since WP-CLI runs `mysql`/`mysqlcheck` for it with `DB_HOST` alone, i.e. `localhost:3306` (nothing listens there on the owner's PC, checked 2026-10-27). `import_dump()` L105–109 refuses a path not ending in `.sql` before reading it (the verb shadows WP-CLI's own WXR `import`). Docstrings L13–17 and L77 say what the script does; the Local and WP-CLI behaviour behind it is named in `memory/local-verification.md` only (lessons 2026-10-16).
+- `bin/webhook-capture.py` L57: `HTTPServer` sets `allow_reuse_address`, and on Windows `SO_REUSEADDR` lets a second socket bind a port another one listens on (Python 3.13.1, 2026-10-27: the second bind succeeds; with `allow_reuse_address = False` it fails with WinError 10048). Bind through a subclass with `allow_reuse_address = False`.
+- New `tests/harness/local-wp-harness.py`: standard library, Windows only (it exits 2 elsewhere, like the scripts), the PHP runner's output (`  ok  <label>` / `  FAIL <label>`, then `<n> passed, <m> failed`, exit 1 on a failure; `tests/harness/lib/wp-stubs.php` L25–38). It runs both scripts as subprocesses (`sys.executable -I`) with `APPDATA` and `LOCALAPPDATA` pointed at a fake Local tree in a temporary folder (`sites.json`, empty `php.exe`/`mysql.exe`/`php.ini`/`wp-cli.phar`, an `app\public` folder), so every row below Local ends before a binary runs: no `--site`; unknown name and doubled name (exit 2, no other fake site's name in the output); missing PHP version; no MySQL port; each refused `db` subcommand; `import` of a `.xml` and of a missing `.sql`; the listener on a port a socket already holds (exit 2) and on a free one (a JSON POST answers 200 `{}` and writes one line). The PHP sweep (`tests/harness/*.php`) does not run it; the doc and the memory file name it.
+- `docs/local-verification.md`: "Start the site in Local" moves from the one-time setup to the walk (each walk needs the site running; a stopped site answers "Error establishing a database connection": ask the owner to start it). Variables start with `cd "<repository root>"` (the workspace root is not the repository, and a subagent's shell starts elsewhere on every call). L37 "step 8" → step 9. L50 and L192: `npm run zip` turns every character of the branch outside `A–Z a–z 0–9 . _ -` into `-` (`bin/zip.js` L63); install the path it prints. Steps 1 and 11 also compare a checksum list of the plugin folder's files and `wp-config.php` (every build carries the same `Version:`, so `plugin list` cannot tell a Free from a Pro build). Exit codes, `db` and `import` lines follow the script.
+- `memory/local-verification.md`: the exit-2 line; the Local app version and `lwp cli version` beside L14's versions; L15 gains the `db` allow-list reason and the Windows port-reuse fact.
 
 ## Tasks & Acceptance
 
@@ -58,9 +65,12 @@ context: ['{project-root}/memory/lessons.md']
 - [x] `bin/webhook-capture.py` -- `--port`, `--out <file.jsonl>`: answers every POST with 200 `{}`, appends `{time, path, headers, body}` as one JSON line, binds 127.0.0.1 only, stops on Ctrl+C -- AC3.
 - [x] `docs/local-verification.md` -- the owner's one-time setup (the HITL steps, already done for the showcase), the entry point, installing a Free or Pro build, the smoke sequence with the expected output of each step (option write, four role users, one REST call per role, the trigger with capture, the cron run on a Pro build, `debug.log`), backup and restore, the cleanup list, the rules (showcase only, nothing site-specific committed) -- AC2, AC3.
 - [x] `memory/local-verification.md` + `memory/MEMORY.md` index line; `memory/agent-conventions.md` L21; `AGENTS.md` one sentence -- AC4.
+- [x] Loop 1: `bin/local-wp.py` (name-free errors, `db` allow-list, `.sql` guard, docstrings), `bin/webhook-capture.py` (no port reuse), `tests/harness/local-wp-harness.py` (new), `docs/local-verification.md` and `memory/local-verification.md` as the Code Map's loop-1 lines say; then the walk again on the showcase, restore checked with the new comparisons.
+
+Skipped: starting a stopped site from the script (Local's own API) — add when walks must run while the owner is away.
 
 **Acceptance Criteria:**
-- Given the showcase site, when an agent runs `python -I bin/local-wp.py --site "Post Quality Showcase" plugin list`, then `post-quality-manager` is listed active, with no browser and no human step.
+- Given the showcase site running in Local, when an agent runs `python -I bin/local-wp.py --site "Post Quality Showcase" plugin list`, then `post-quality-manager` is listed active, with no browser and no human step.
 - Given the doc's smoke sequence run on the showcase after an export, when each step runs, then each completes headlessly with the output the doc names, the capture file holds the trigger's payload, and the restore leaves the site as it was.
 - Given a fresh session that reads `memory/MEMORY.md`, when it looks for how to check the plugin on a real WordPress, then the index leads it to the memory file and the doc, and it can run the three checks above from them alone.
 
@@ -76,17 +86,57 @@ context: ['{project-root}/memory/lessons.md']
 - On a Free build a Pro command answers 400 `rest_invalid_param` (the enum is the Free registry), not 403 `pqm_feature_gated`; the doc says so.
 - The Pro build of the walk came from `npm run zip` with the four untracked story files stashed around it (`git stash push -u`, popped right after; the zip refuses an unclean tree).
 - Walked twice on the showcase (the second run copy-pasting the doc's blocks), both restored and checked; the junction option and the 6.6 downgrade are documented as not exercised.
+- Loop 1 (2026-10-27, session on Opus 5.5; `bmad-build` registered in the Skill tool mid-session and ran from its render): the step-4 lens re-ran (pass 1). Deviation: build 1 was not reverted; the re-derivation edits it under the amended plan (KEEP in the Plan Change Log), since the intent change is one message and the rest are local corrections. Implementer and lenses on Opus 5.5 (owner rule 2026-10-26).
+- Built loop 1 (2026-10-27, implementer on Opus 5.5, on c65c01f, uncommitted): `bin/local-wp.py` (name-free messages for an unknown and a doubled name; `DB_ALLOWED` = `export`, `tables`, `size`, `prefix`, `columns`, `search`, every other `db` subcommand exit 2 naming `import <dump.sql>` and `eval`; `import` refuses a path not ending in `.sql` before reading it; docstrings point to `memory/local-verification.md` for the Local and WP-CLI behaviour), `bin/webhook-capture.py` (an `HTTPServer` subclass with `allow_reuse_address = False`), new `tests/harness/local-wp-harness.py` (34 checks), `docs/local-verification.md` and `memory/local-verification.md` per the Code Map's loop-1 lines. No plugin file touched; `AGENTS.md` unchanged (the doc and the memory file name the harness, as the Code Map says).
+- Facts checked live before writing them (2026-10-27): `db tables`, `size`, `prefix`, `columns`, `search` answer on the showcase; `db check` answers `ERROR 2003 … 'localhost:3306'`; Local's `php.ini` sets `mysqli.default_port` (why `$wpdb` reaches the site); Local 10.2.0 (`Local.exe` product version), WP-CLI 2.12.0 (`lwp cli version`); a listener restarted on the port it just freed still binds without `SO_REUSEADDR`.
+- Review pass 2 patch round (2026-10-27, the same Opus 5.5 implementer re-engaged): findings 1, 2, 3, 5; harness 36 passed, 0 failed; then the plan's Verification re-run by the orchestrator (harness 36/0, `plugin list` active, unknown name exit 2, every id, other name, domain, folder and port of Local's list searched in the ten story files: no match).
+- Matrix audit (orchestrator, 2026-10-27): the row "Local's PHP or MySQL missing" had a harness check for PHP only; added a `Harness No MySQL` fake site and its check (35 passed, 0 failed). Live rows (known site, the import's count, the capture) rest on walk 3; the showcase read afterwards: 13 tables, 30 review rows, one user, no `debug.log`, `WP_DEBUG_LOG` absent from `wp-config.php`, the Free build.
+- Harness: 34 passed, 0 failed on the loop-1 scripts; run against build 1's two scripts it fails 15 (both name rows, the ten refused `db` subcommands plus the one after a global flag, the `.xml` import, the busy port), so each row checks the change.
+- Walk 3 on the showcase (2026-10-27, the doc's blocks as written): every step's documented output (`GET /posts` 200/200/200/403 `rest_forbidden`; trigger 200 with one capture line `/webhook review <id> True <n> chars`; Pro build from `npm run zip` with the tree stashed around it and popped, the diff checked identical after; cron: five more capture lines; `debug.log` only WP-CLI's own lines); a second listener on the walk's port exited 2 with `Cannot listen on 127.0.0.1:8765`. Restore: `13 tables dropped first, 13 tables now.`; step 11's three comparisons all "same". The checksum list is what sees a build: the tree's Free build against the restored plugin is 214 files each side and 36 differing lines, where `plugin list` reads the same.
+- Live error rows on the owner's real Local list: `--site "No Such Site"` exit 2, none of the list's names in the output (checked by script, names not printed); `db check`, `db query` and `import <x>.xml` exit 2.
+- Hygiene search (the private pattern, plus every name but the showcase's, domain, id, folder and port in Local's list) over the nine story files: one match, plan L21's "the Local sites (stories 2, 67, 91)" inside the frozen intent, the folder pattern matching an ordinary phrase: false positive.
 
 ## Plan Change Log
 
+- Loop 1 (2026-10-27, intent_gap finding 1, bad_plan findings 6 and 10 of review pass 1; patches 2–4, 7–9, 11, 12 carried as amendments): an unknown or doubled `--site` printed every Local site's name, other projects' and clients' included, as the frozen row asked; the owner chose "name no other site" (2026-10-27). The plan's Verification named live runs only, so the matrix had no harness (AGENTS.md), and its restore check ("same plugin list, same review count") could not see a build left installed or `wp-config.php`. Amended: the frozen matrix (row 2 per the owner; three rows proposed for the checkpoint: the `db` subcommands that skip the port, the `.sql` guard, the busy port), Code Map loop-1 lines, a loop-1 task, AC1 "running in Local" (starting the site stays the owner's step), a Skipped line, Verification (harness, name-free exit, restore comparisons). Known-bad states avoided: a site list in agent output; a walk that prints "same" with the Pro build or `WP_DEBUG` left on the showcase; a capture silently taken by a stale listener; tables dropped for a file that is not a dump. KEEP: build 1 (c65c01f) is the base the re-derivation edits, not an empty tree (the intent change is one message; every other entry is a local correction): its Local facts in Implementation Notes held on two walks; the walk's eleven steps, expected outputs, the restore order (plugin files first with `--skip-plugins`, then the database) and the drop-then-import restore stay; the junction section and the "Not covered" section stay as written.
+
 ## Review Triage Log
+
+**Pass 1 (2026-10-27, lens `quick` on c65c01f; the 2026-10-26 run of the lens was cut off by that session's end and left no record).** Verdicts: high 0 · medium 4 · low 8 · false 1 · maybe-false 0. Routes: intent_gap 1 entry (finding 1), bad_plan 2 (findings 6, 10), patch 8 (findings 2, 3, 4, 7, 8, 9, 11, 12; moot under the loopback, carried as amendments), rejected 2 (findings 5, 13). Finding 1 came from the 2026-10-26 handoff, the other twelve from the lens.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | `bin/local-wp.py` L70–72: an unknown or doubled name prints every site name Local knows | medium | intent_gap | Real: the message joins every `name` of `sites.json`, other projects' and clients' sites included, into agent output (lessons 2026-10-14, 2026-10-24). The frozen row asked for it; the owner chose "name no other site" on 2026-10-27. |
+| 2 | `bin/webhook-capture.py` L57: a busy port binds without an error on Windows | medium | patch (moot) | Real, run 2026-10-27 on Python 3.13.1: a second `HTTPServer` on a held port binds; with `allow_reuse_address = False` it fails with WinError 10048. A stale or other session's listener can take the walk's payload (post content, token) and step 7 reads an empty capture. Carried. |
+| 3 | `bin/local-wp.py` L164: only `db import`/`db query` refused; `reset`, `drop`, `create`, `clean`, `cli`, `check`, `optimize`, `repair` also skip the port | low | patch (moot) | Real by the script's own reasoning (WP-CLI runs the MySQL binaries with `DB_HOST` alone); nothing listens on 3306 here (checked), so today they fail loudly with ERROR 2003 instead of the clear exit 2. Carried as an allow-list. |
+| 4 | `bin/local-wp.py` L108, L158: `import` shadows WP-CLI's WXR `import`; the guard is a substring test | low | patch (moot) | Real: a `.xml` export of a post quoting SQL passes `CREATE TABLE`, every table is dropped and the client fails, leaving an empty database (the walk's export is the way back). Carried as a `.sql` check. |
+| 5 | `bin/local-wp.py` L80–83: `+9` sorts after `+10` | low | rejected | Real but met only when Local keeps two builds of one PHP version, and either build runs the site; a numeric sort adds logic for no user-visible gain. |
+| 6 | No harness although the plan carries an I/O matrix | medium | bad_plan | Real: AGENTS.md "Running and verifying" and the DoD ask for one; the rows below Local (names, missing PHP, refusals, the listener) run offline on a fake `%APPDATA%` tree, and the owner's row-2 decision would otherwise have no regression check. The plan's Verification named live runs only. |
+| 7 | Docstrings restate Local and WP-CLI behaviour; the memory file names no Local or WP-CLI version | low | patch (moot) | Real: `local-wp.py` L13–17 and L77 restate the port, ImageMagick and `+<build>` facts; `memory/local-verification.md` L14 says "Local's WP-CLI" only (lessons 2026-10-16). Carried. |
+| 8 | `docs/local-verification.md` L37: "step 8 leaves them out" | low | patch (moot) | Real: step 8 is the cron run, step 9 reads `debug.log`. Carried. |
+| 9 | Variables block has no `cd` to the repository | low | patch (moot) | Real: sessions start at the workspace root (workspace CLAUDE.md, 2026-10-16) and a subagent's shell does not keep `cd`; `bin/local-wp.py` is relative. Carried. |
+| 10 | Step 11 cannot see the plugin files or `wp-config.php` | medium | bad_plan | Real: every build carries the same `Version:` (release-please), so `plugin list` matches with the walk's build still installed; `wp-config.php` is copied back, never compared, while the memory file says "as before". The plan's Verification asked only for the same plugin list and review count. |
+| 11 | `docs/local-verification.md` L50, L192: `dist/post-quality-manager-<branch>.zip` | low | patch (moot) | Real: `bin/zip.js` L63 replaces `/` (every branch here has one) with `-`. Carried. |
+| 12 | "Start the site" is a per-walk human step filed under one-time setup | low | patch (moot) | Real: Local runs a site only while started; AC1 holds only for a running site. Carried: the doc moves it into the walk; AC1 reads "running in Local"; starting from the script is a Skipped line. |
+| 13 | A build install syncs version and premium flags to Freemius; the cleanup list omits it | false | rejected | Read on the showcase 2026-10-27: `is_registered()` false, `is_anonymous()` true, `is_tracking_allowed()` false; the SDK syncs registered installs only (`memory/freemium-and-roles.md`). |
+
+**Pass 2 (2026-10-27, lens `quick` on loop 1, the full diff from the baseline).** Verdicts: high 0 · medium 0 · low 5 · false 0 · maybe-false 0. Routes: patch 4 (findings 1, 2, 3, 5; implementer re-engaged), defer 1 (finding 4). No loopback. The lens ran the harness (35/0) and found every matrix row and task met as written.
+
+| # | Finding | Verdict | Route | Evidence / action |
+|---|---------|---------|-------|-------------------|
+| 1 | `bin/local-wp.py` L170: `import` caught only as `rest[0]`, so `--skip-plugins import x.sql` reaches WP-CLI's own WXR importer | low | patch | Real: the `db` refusal reads the flag-stripped `commands`, `import` read `rest[0]`; the refusal message, the docstring and the doc's bullet said WP-CLI's import is unreachable. It fails loudly (the importer plugin is absent), no data loss. Patched: detected on `commands`, one file after it; harness row "import after a global flag". |
+| 2 | `docs/local-verification.md` Pro build bullet tells every session to "commit first" | low | patch | Real: AGENTS.md Policy, never commit without asking; the sprint's commit right is not standing guidance. Patched: stash around `npm run zip` (as walk 3 did), or commit when the owner has said so. |
+| 3 | Nothing stops two sessions walking one site; the busy-port line said to pick another port and go on | low | patch | Real: a second walk's backup would hold the first's half-done state and its step 11 would print "same". Patched as wording, no new command: a Rules bullet "One walk per site at a time" (a busy 8765 or `pq-smoke-*` users: stop and ask the owner), step 3's busy-port sentence the same; "Any free port does" became "Keep port 8765" (orchestrator, raised by the implementer: another port would not see a running walk). |
+| 4 | AGENTS.md L34 and DoD L38 describe `tests/harness/` as PHP only; the Python harness is outside the loop and CI | low | defer | Real: `for f in tests/harness/*.php`, `ci.yml` L159 globs `*.php`. The fix edits AGENTS.md, deferred by rule: entry in `deferred-work.md` with the one-clause fix. |
+| 5 | `tests/harness/local-wp-harness.py` L62 writes `root`/`root`, Local's default credentials | low | patch | Real against the frozen Always ("no database credential"), though Local's public defaults on localhost. Patched: `harness-db` / `harness-user` / `harness-pass`. `bin/local-wp.py`'s fallbacks (user `root`, database `local`, no password) stay: never used while `sites.json` carries the fields, and no password. |
 
 ## Verification
 
 **Commands:**
+- `python -I tests/harness/local-wp-harness.py` -- expected: `<n> passed, 0 failed`
 - `python -I bin/local-wp.py --site "Post Quality Showcase" plugin list` -- expected: the plugin listed active
-- `python -I bin/local-wp.py --site "No Such Site" plugin list` -- expected: exit 2, the known names
-- the doc's smoke sequence on the showcase, export first and restore last -- expected: every step's documented output; the site restored (same plugin list, same review count)
+- `python -I bin/local-wp.py --site "No Such Site" plugin list` -- expected: exit 2, no other site's name in the output
+- the doc's smoke sequence on the showcase, export first and restore last -- expected: every step's documented output; the site restored (same plugin list, same plugin files, same `wp-config.php`, same tables, review rows, users and log)
 - the hygiene search from the agent's private notes (site titles with and without a separator, domains, Local ids; never written into the repository) over the new files -- expected: no match
 
 **Manual checks (if no CLI):**
