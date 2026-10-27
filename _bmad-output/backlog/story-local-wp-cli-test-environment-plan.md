@@ -3,7 +3,7 @@ title: 'An agent verifies the plugin on a local WordPress through WP-CLI'
 type: 'chore'
 ticket: '9'
 created: '2026-10-26'
-status: 'built'
+status: done
 baseline_revision: '810c15547a7d0d8cc25b015cb6a03c4bd43e023a'
 route: 'full'
 route_source: 'pinned'
