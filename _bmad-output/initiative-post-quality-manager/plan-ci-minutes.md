@@ -18,7 +18,7 @@ context: []
 
 ## Intent
 
-**Problem:** On 2026-10-15 the account used its 2,000 included Actions minutes for October (1,996 from this private repository, all Linux) and the $0 budget now blocks every run until 2026-11-01. The breakdown:
+**Problem:** On 2026-10-15 the account used its 2,000 included Actions minutes for October (1,996 from this private repository, all Linux) and the $0 budget now blocks every run until 2026-10-30. The breakdown:
 - every PR commit runs CI twice, once on `push` to the branch and once on `pull_request` (113 duplicate runs, about 575 minutes);
 - ticket, memory, UX and docs-only changes run the full CI (84 of 265 commits on `main`);
 - the two Plugin Check jobs (3 minutes each) run again on `main` after a rebase merge that already passed them on the PR;
@@ -47,7 +47,7 @@ The checks themselves do not change.
 - Dropping a check, or Plugin Check's blocking on errors.
 - `workflow_dispatch` on CI (add when a manual re-run of a skipped change is needed).
 
-**Decisions (owner, 2026-10-15):** no budget change; the go-live waits; development continues locally until the minutes reset on 2026-11-01. Local gates are the merge evidence until then, stated in each PR.
+**Decisions (owner, 2026-10-15):** no budget change; the go-live waits; development continues locally until the minutes reset on 2026-10-30. Local gates are the merge evidence until then, stated in each PR. (Corrected by the owner on 2026-10-28: the minutes reset on 2026-10-30; this plan first said 2026-11-01.)
 
 ## I/O & Edge-Case Matrix
 
@@ -91,7 +91,7 @@ The checks themselves do not change.
 
 **Acceptance Criteria:**
 - Given the new `ci.yml`, when read against every matrix row, then each row's trigger and job set follow from the YAML alone.
-- Given the first code PR after 2026-11-01, when its checks are read with `gh pr checks <n> --repo …`, then exactly one CI run appears per push, with all four job names (Build admin app, PHP lint and harness sweep, Plugin Check, Free build Plugin Check), and they pass.
+- Given the first code PR after 2026-10-30, when its checks are read with `gh pr checks <n> --repo …`, then exactly one CI run appears per push, with all four job names (Build admin app, PHP lint and harness sweep, Plugin Check, Free build Plugin Check), and they pass.
 
 Skipped: a job-level filter that skips Plugin Check when no plugin file changed — add if PR minutes are still high in November.
 
@@ -118,4 +118,4 @@ Pass 1 (2026-10-15, lens `quick`): 0 high, 2 medium, 2 low, 0 false, 0 maybe-fal
 - The full local gate (unchanged code, as merge evidence): `php -l`, the harness sweep, `npm run test:unit`, `npm run lint:js`, `npm run build`.
 
 **Manual checks:**
-- After 2026-11-01: the first code PR's `gh pr checks` and the first `main` push's run list (`gh run list --workflow ci.yml`), recorded in this plan.
+- After 2026-10-30: the first code PR's `gh pr checks` and the first `main` push's run list (`gh run list --workflow ci.yml`), recorded in this plan.
