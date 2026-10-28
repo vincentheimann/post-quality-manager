@@ -6,7 +6,7 @@ parent: none
 covers: [O9]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: medium
 severity: P2
@@ -33,12 +33,20 @@ What should happen: the License section says the license lapsed and offers a ren
 
 On expiry the SDK's sync detaches the license from the install, so `PostQuality_License::has_lapsed()`, which looks for this site's own license (`_get_license()`) and finds none, answers false, and the section falls through to the Free copy. The licenses the SDK still knows for the customer cover other sites too (the reason `has_any_license()` was not used, `memory/freemium-and-roles.md`, real licensing), so which license lapsed on this site has to be read from what the SDK keeps after the detach.
 
+Read in the SDK 2.13.5 source on 2026-10-28, not walked:
+- The detach is the sync's expired branch (`class-freemius.php` L21328–21331): `_deactivate_license()` releases the activation on Freemius, puts the site on the free plan and sets the site's `license_id` to null. Nothing on the site record keeps the old license.
+- Three things still name this site's last license afterwards: the SDK's stored `last_license_key` (an md5 of the key, written when a license is set, never cleared), the stored subscriptions (each with `license_id` and `install_id`), and the SDK's `after_license_change` action, which fires `downgraded` or `cancelled` at the transition (L21527).
+- The SDK's own notice for this case is sticky: every administrator sees it on every admin page until dismissed. It has no link when the product has a free plan (L21452–21460). Its text can be changed through the `sticky_message_license_expired` filter.
+- The SDK offers no link that renews the same license. Its "Renew" links open a new checkout, and fall back to the pricing page once the license is detached. The Account page then shows Activate License, Sync License and Upgrade, no renew action.
+- A cancelled license is detached the same way when Freemius unlinks it from the install. When Freemius keeps it there, `has_lapsed()` already answers true.
+
 ## Acceptance Criteria
 
 1. **A lapsed site is told so, with a way to renew**
    **Given** a Pro site whose license expired or was cancelled, after the SDK's next sync
    **When** an Administrator opens Settings → License
-   **Then** the section says the license lapsed and links to where it can be renewed, and the site still behaves as Free
+   **Then** the section says the license lapsed and links to the pricing page to renew, and the site still behaves as Free
+   **And** the Freemius notice that the license expired, shown on every admin page, carries the same link
 2. **A site that never had a license is unchanged**
    **Given** a Pro or Free site that never activated a license, and a site whose customer holds a license on another site only
    **When** an Administrator opens Settings → License
@@ -67,8 +75,10 @@ On expiry the SDK's sync detaches the license from the install, so `PostQuality_
 ## Notes
 
 - Decision (owner, 2026-10-28): filed as the one defect of story 44's lapse walk. A lapsed site keeping its scheduled reviews is by design (ADR 0013 D7, `tests/harness/cron-gate-harness.php` Row 1), not part of this bug; criterion 3 checks only that they can be switched off.
-- Open question: whether the Automation section of a lapsed Pro site lets an Administrator switch scheduled reviews off (D7) or renders locked; criterion 3 settles it.
-- Open question: where the renew link points: the SDK's Account page (`get_account_url()`, the lapse link story 44 built) or Freemius's renewal checkout; the builder reads what the SDK offers for an expired license.
+- Read 2026-10-28 (code, not walked): the Automation section of a site without Pro keeps the Enable toggle live as an off-switch while a schedule that still runs on Free is on (ticket 13); a schedule of a paid command is skipped by the cron and the section stays locked. Criterion 3 checks that this holds for a lapsed site.
+- Decision (owner, 2026-10-28): the renew link opens the pricing page (`POSTQUALITY_PRICING_URL`, where every Upgrade link already goes), not the Account page story 44 linked: once the license is detached that page offers only Upgrade, and the SDK has no link that renews the same license (Cause Hypothesis). The customer buys a new yearly license there.
+- Decision (owner, 2026-10-28): the SDK's expired-license notice gets the same link. It stays the one notice the SDK already shows; nothing new is added.
 - Fixture (owner rule 2026-10-20, chore 81): the Freemius test user for hello@postquality.com and its expired sandbox license and subscription, created by story 65's walks on 2026-10-28, are kept for this bug's walk (extend the license, activate it on the showcase after a fresh opt-in, expire it again) and removed by the owner in the dashboard when this bug is done. Story 65's install record of the showcase is orphaned (the walk's dumps are deleted) and goes in the same cleanup.
 - Risk medium: license state is read on every admin load and gates the upsell copy; the owner's walk with a real expiry is the check outside the harness.
 - Decision (owner delegation, best practice, 2026-10-28): built before entry 4.8, because story 44, whose AC2 it carries, gates 4.8 (ADR 0013 D1); story 44 is marked done after this bug's walk. If this bug is the last open gate, 4.8 goes without it: plans are yearly with no trial (ADR 0013 D4), so no license can lapse within a year of the first sale, and the fix ships in the next release.
+- Refined 2026-10-28 (owner approved): cause read in the SDK source, criterion 1 names the link and the notice, the two open questions settled.
