@@ -139,6 +139,18 @@ if ( postquality_fs()->is__premium_only() ) {
         esc_url(postquality_fs()->get_activation_url()),
         esc_html__('Activate your license', 'post-quality-manager')
     ));
+    // The SDK's sync detaches an expired license, so the lapse is recorded at the transition (an expiry
+    // or a cancellation only) and ends when a license comes back; the SDK's expired-license notice gets
+    // the renew link, fixed when the notice is added (cron included). See memory/freemium-and-roles.md (bug 93).
+    postquality_fs()->add_action('after_license_deactivation', ['PostQuality_License', 'note_license_deactivation__premium_only']);
+    postquality_fs()->add_action('after_license_change', ['PostQuality_License', 'record_lapse__premium_only']);
+    postquality_fs()->add_action('after_license_activation', ['PostQuality_License', 'forget_lapse__premium_only']);
+    postquality_fs()->add_filter('sticky_message_license_expired', static fn($message) => sprintf(
+        '%s <a href="%s">%s</a>',
+        $message,
+        esc_url(POSTQUALITY_PRICING_URL),
+        esc_html__('Renew Pro', 'post-quality-manager')
+    ));
 }
 // Once nothing is awaited (licensed, opted in or skipped), a stored opt-in notice is a leftover: it goes.
 // See memory/freemium-and-roles.md (story 65).

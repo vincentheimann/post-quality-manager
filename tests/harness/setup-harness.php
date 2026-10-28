@@ -763,4 +763,24 @@ check('in activation mode (still waiting for an opt-in or a license): nothing re
 postquality_fs()->activation_mode = false;
 postquality_fs()->removed_stickies = [];
 
+/* Rows (bug 93): the Pro build hooks the SDK's three license hooks (the lapse record) and its expired-license
+ * notice (the renew link). All four are registered at load, outside the is_admin() block this harness never
+ * enters, so the SDK's daily sync from cron records the lapse and words the notice it stores. What the record does
+ * is license-harness.php's and render-matrix-harness.php's; the Free build has none of the four
+ * (free-build-harness.php). Every row fails when nothing is registered. */
+echo "Lapsed license: the record and the renew link on the SDK's expired notice (bug 93)\n";
+check('after_license_deactivation notes the release, after_license_change records or ends the lapse, after_license_activation ends it (PostQuality_License callbacks)',
+    (postquality_fs()->actions['after_license_deactivation'] ?? []) === [['PostQuality_License', 'note_license_deactivation__premium_only']]
+    && (postquality_fs()->actions['after_license_change'] ?? []) === [['PostQuality_License', 'record_lapse__premium_only']]
+    && (postquality_fs()->actions['after_license_activation'] ?? []) === [['PostQuality_License', 'forget_lapse__premium_only']]);
+$expired_cb = (postquality_fs()->filters['sticky_message_license_expired'] ?? [null])[0];
+$sdk_expired = 'Your license has expired. You can still continue using the free plugin forever.'; // SDK 2.13.5, the product has a free plan
+$GLOBALS['tw_escaped'] = [];
+$expired = is_callable($expired_cb) ? $expired_cb($sdk_expired) : null;
+check('the SDK\'s expired-license notice: its own text, then a "Renew Pro" link to the pricing page',
+    $expired === $sdk_expired . ' <a href="' . POSTQUALITY_PRICING_URL . '">Renew Pro</a>');
+check('... the link text through esc_html__() in the plugin\'s text domain, the URL through esc_url()', $expired !== null
+    && in_array(['esc_html__', 'Renew Pro', 'post-quality-manager'], $GLOBALS['tw_escaped'], true)
+    && in_array(['esc_url', POSTQUALITY_PRICING_URL], $GLOBALS['tw_escaped'], true));
+
 harness_exit();

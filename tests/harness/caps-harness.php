@@ -470,9 +470,9 @@ check('uninstall deletes the leftover pqm_view_as meta for all users',
     in_array(['user', 0, 'pqm_view_as', '', true], $GLOBALS['tw_metadata_deletes'], true));
 /* Story 44: the cleanup moved from uninstall.php into PostQuality_Activator::uninstall(), unchanged. */
 check('uninstall drops the reviews table under both names (story 91)', $GLOBALS['wpdb']->queries === ['DROP TABLE IF EXISTS `wp_postquality_reviews`', 'DROP TABLE IF EXISTS `wp_pqm_reviews`']);
-check('uninstall deletes every option under both prefixes, new name then old, and the names-version flag (story 91)',
+check('uninstall deletes every option under both prefixes, new name then old, the names-version flag (story 91) and the lapse record (bug 93)',
     $GLOBALS['tw_option_deletes'] === array_merge(...array_map(static fn($o) => [$o, str_replace('postquality_', 'pqm_', $o)], ['postquality_settings', 'postquality_db_version', 'postquality_workflow_version_seen',
-        'postquality_cron_nudge_dismissed', 'postquality_caps_version', 'postquality_setup_progress', 'postquality_n8n_api', 'postquality_n8n_setup', 'postquality_n8n_leftovers', 'postquality_n8n_provisioning', 'postquality_ping'])) + [22 => 'postquality_names_version']);
+        'postquality_cron_nudge_dismissed', 'postquality_caps_version', 'postquality_setup_progress', 'postquality_n8n_api', 'postquality_n8n_setup', 'postquality_n8n_leftovers', 'postquality_n8n_provisioning', 'postquality_ping'])) + [22 => 'postquality_names_version', 23 => 'postquality_license_lapsed']);
 $GLOBALS['tw_option_deletes'] = [];
 $GLOBALS['tw_app_revoked'] = [];
 $GLOBALS['tw_cleared_hooks'] = []; // the cron check below counts this second run's clear

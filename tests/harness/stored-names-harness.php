@@ -475,6 +475,13 @@ check('other data survives: core caps, other meta, other tables untouched',
     && $GLOBALS['tw']['users'][7]->caps === ['author' => true] && $GLOBALS['tw']['user_meta'][7] === ['nickname' => 'seven']);
 
 old_site();
+PostQuality_Activator::maybe_upgrade();
+$GLOBALS['tw']['options']['postquality_license_lapsed'] = 'downgraded'; // bug 93: the lapse record the Pro build's after_license_change hook writes
+$GLOBALS['tw']['autoload']['postquality_license_lapsed'] = false;
+PostQuality_Activator::uninstall();
+check('a lapsed site holding the license record (bug 93): the record goes with the rest, nothing with either prefix is left' . describe($l = any_leftovers()), $l === []);
+
+old_site();
 $GLOBALS['tw']['options']['postquality_ping'] = ['id' => 'x']; // and one new name beside the old ones (an interrupted site)
 $GLOBALS['wpdb']->tables['wp_postquality_reviews'] = [];
 $GLOBALS['tw']['cron'][NEW_HOOK] = ['timestamp' => 1, 'schedule' => 'daily', 'interval' => DAY_IN_SECONDS];

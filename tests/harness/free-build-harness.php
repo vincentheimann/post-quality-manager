@@ -632,6 +632,16 @@ check('... in activation mode (before the opt-in choice) nothing removed, the SD
 postquality_fs()->activation_mode = false;
 postquality_fs()->removed_stickies = [];
 
+/* ─── Row: the lapse record and the renew link are Pro code (bug 93) ─── */
+echo "Row — the Free build registers none of the three license hooks nor the notice filter (bug 93); its uninstall still knows the record's name\n";
+check('no after_license_deactivation, after_license_change, after_license_activation or sticky_message_license_expired hook on postquality_fs()',
+    !isset(postquality_fs()->actions['after_license_deactivation']) && !isset(postquality_fs()->actions['after_license_change'])
+    && !isset(postquality_fs()->actions['after_license_activation']) && !isset(postquality_fs()->filters['sticky_message_license_expired']));
+check('no "Renew Pro" string, no note, record or forget callback, no notice filter in the Free tree',
+    !array_filter($ours, static fn($path) => (bool) preg_match('/Renew Pro|note_license_deactivation|record_lapse|forget_lapse|sticky_message_license_expired/', (string) file_get_contents($path))));
+check('PostQuality_License::LAPSED_OPTION stays defined on Free: uninstall() deletes a record a former Pro install left',
+    defined('PostQuality_License::LAPSED_OPTION') && PostQuality_License::LAPSED_OPTION === 'postquality_license_lapsed');
+
 /* ─── Row: both builds installed (Freemius dual activation) ──────────── */
 echo "Row — the other build's main file loaded beside a live SDK: set_basename, nothing redeclared\n";
 $probe = $tmp . '/dual-activation-probe.php';

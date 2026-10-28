@@ -47,7 +47,7 @@ const STORED_LITERALS = [
     // options
     'postquality_settings', 'postquality_db_version', 'postquality_workflow_version_seen', 'postquality_cron_nudge_dismissed', 'postquality_caps_version',
     'postquality_setup_progress', 'postquality_n8n_api', 'postquality_n8n_setup', 'postquality_n8n_leftovers', 'postquality_n8n_provisioning', 'postquality_ping',
-    'postquality_names_version',
+    'postquality_names_version', 'postquality_license_lapsed',
     // user meta
     'postquality_monthly_usage', 'postquality_feedback_dismissed',
     // capabilities

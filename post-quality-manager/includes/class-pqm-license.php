@@ -17,6 +17,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 class PostQuality_License {
 
     /**
+     * Set by the Pro build when this site's license expires or is cancelled,
+     * cleared when a license comes back or another transition follows
+     * (bug 93). Not autoloaded; uninstall deletes it.
+     */
+    const LAPSED_OPTION = 'postquality_license_lapsed';
+
+    /** The SDK released this site's license earlier in this request (its expiry path, bug 93). */
+    private static $license_deactivated = false;
+
+    /**
      * Whether this site may run Pro: a trial or a license whose features are
      * enabled. An expired or cancelled license blocks them (the Pro plan's
      * expiration behaviour, ADR 0013 D7). Read per call: the SDK holds the
@@ -28,14 +38,43 @@ class PostQuality_License {
 
     /**
      * Whether this site's own license no longer unlocks Pro (expired or
-     * cancelled). Not has_any_license(): that also counts the customer's
-     * licenses on other sites. Stored overrides, schedules and role rights
-     * stay as they are; the License section points to the Account page.
+     * cancelled): still attached to the site, or detached by the SDK's sync
+     * after the lapse was recorded (bug 93). Not has_any_license(): that
+     * also counts the customer's licenses on other sites. Stored overrides,
+     * schedules and role rights stay as they are; the License section points
+     * to the pricing page.
      */
     public static function has_lapsed(): bool {
         return function_exists( 'postquality_fs' )
-            && is_object( postquality_fs()->_get_license() )
-            && ! postquality_fs()->can_use_premium_code();
+            && ! postquality_fs()->can_use_premium_code()
+            && ( is_object( postquality_fs()->_get_license() ) || false !== get_option( self::LAPSED_OPTION, false ) );
+    }
+
+    /**
+     * The SDK's after_license_deactivation. On expiry its sync releases the
+     * license before it reports `downgraded`; a license Freemius unlinked for
+     * another reason reports `downgraded` with no release (bug 93).
+     */
+    public static function note_license_deactivation__premium_only(): void {
+        self::$license_deactivated = true;
+    }
+
+    /**
+     * The SDK's after_license_change: `cancelled`, or `downgraded` after the
+     * release above, is a lapse; any other transition ends one. See
+     * memory/freemium-and-roles.md (bug 93).
+     */
+    public static function record_lapse__premium_only( $plan_change ): void {
+        if ( 'cancelled' === $plan_change || ( 'downgraded' === $plan_change && self::$license_deactivated ) ) {
+            update_option( self::LAPSED_OPTION, $plan_change, false );
+        } else {
+            delete_option( self::LAPSED_OPTION );
+        }
+    }
+
+    /** The SDK's after_license_activation: a license is on the site again, the lapse is over (bug 93). */
+    public static function forget_lapse__premium_only(): void {
+        delete_option( self::LAPSED_OPTION );
     }
 
     /**

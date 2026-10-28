@@ -110,6 +110,7 @@ class PostQuality_Activator {
             delete_option( $old );
         }
         delete_option( self::NAMES_OPTION );
+        delete_option( PostQuality_License::LAPSED_OPTION ); // The lapse record (bug 93): written by the Pro build only, deleted by both; it has no legacy name.
 
         // Per-user meta — all users: the monthly usage counters (author quota, CAP-4), the Dashboard
         // feedback card hidden per user (story 79), the leftover of the retired View as (story 42).

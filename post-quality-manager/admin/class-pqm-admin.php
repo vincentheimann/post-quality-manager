@@ -775,10 +775,12 @@ class PostQuality_Admin
                         if ($is_pro) {
                             $license_line = esc_html__('Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.', 'post-quality-manager');
                         } elseif (PostQuality_License::has_lapsed()) {
+                            // The pricing page, not the Account page: once the SDK detaches the license,
+                            // that page offers no renewal (bug 93).
                             $license_line = sprintf(
-                                /* translators: %s: link to the Account page */
+                                /* translators: %s: link to the pricing page */
                                 esc_html__('Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. %s', 'post-quality-manager'),
-                                '<a href="' . esc_url(postquality_fs()->get_account_url()) . '">' . esc_html__('Renew on the Account page', 'post-quality-manager') . '</a>'
+                                '<a href="' . esc_url(POSTQUALITY_PRICING_URL) . '">' . esc_html__('Renew Pro', 'post-quality-manager') . '</a>'
                             );
                         }
                     }

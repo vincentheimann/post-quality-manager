@@ -162,13 +162,69 @@ check('Free: plan line says Free + the one Get Pro link to the pricing page',
     strpos($html, 'Current plan: Free') !== false && substr_count($html, $get_pro) === 1 && strpos($html, 'has lapsed') === false);
 postquality_fs()->has_license = true; // expired or cancelled: a license the SDK no longer lets unlock Pro
 $html = render_for($admin_caps, false);
-check('Lapsed: lapse copy + renew link to the SDK Account page, no Get Pro',
-    strpos($html, 'your Pro license has lapsed') !== false
-    && strpos($html, '<a href="' . postquality_fs()->get_account_url() . '">Renew on the Account page</a>') !== false
-    && strpos($html, $get_pro) === false);
+$renew_pro = '<a href="' . POSTQUALITY_PRICING_URL . '">Renew Pro</a>'; // owner decision on bug 93: the pricing page, not the Account page
+$lapse_copy = 'Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. ';
+$shows_lapse = static fn(string $html) => strpos($html, $lapse_copy . $renew_pro) !== false && substr_count($html, $renew_pro) === 1
+    && strpos($html, $get_pro) === false && strpos($html, 'Renew on the Account page') === false;
+check('Lapsed, license still attached (cancelled): the lapse copy + "Renew Pro" to the pricing page, no Get Pro', $shows_lapse($html));
 postquality_fs()->has_license = false;
 check('Editor: no License section', strpos(render_for($editor_caps, true), '>License</h2>') === false
     && strpos(render_for($editor_caps, false), $get_pro) === false);
+
+/* Rows (bug 93): the SDK's sync detaches an expired license, so the Pro build records the lapse. The hooks are fired
+ * as the SDK fires them, in its order, through the callbacks the main file registered on postquality_fs() (WordPress
+ * passes one argument: accepted_args 1); the baseline registers none, so nothing is recorded there. $request starts
+ * a new request: the note of the SDK's release lives for one request only. */
+echo "License section, license detached by the SDK's sync (bug 93)
+";
+$fire = static function (string $tag, $arg = ''): void {
+    foreach (postquality_fs()->actions[$tag] ?? [] as $cb) { $cb($arg); }
+};
+$request = static function (): void {
+    if (property_exists('PostQuality_License', 'license_deactivated')) {
+        (new ReflectionProperty('PostQuality_License', 'license_deactivated'))->setValue(null, false);
+    }
+};
+$expires = static function () use ($fire, $request): void { // the sync on an expired license (L21328–21331): release, then downgraded
+    $request();
+    $fire('after_license_deactivation', (object) ['id' => 1]);
+    $fire('after_license_change', 'downgraded');
+};
+$expires();
+check('Expired, detached by the sync: the lapse copy + "Renew Pro" to the pricing page, no Get Pro', $shows_lapse(render_for($admin_caps, false)));
+unset($GLOBALS['tw_options']['postquality_license_lapsed']);
+$request();
+$fire('after_license_change', 'cancelled');
+check('Cancelled, detached: the lapse copy + "Renew Pro" to the pricing page, no Get Pro', $shows_lapse(render_for($admin_caps, false)));
+unset($GLOBALS['tw_options']['postquality_license_lapsed']);
+$request();
+$fire('after_license_change', 'downgraded'); // the unlink branch (L21303): no release before it
+$html = render_for($admin_caps, false);
+check('Unlinked by Freemius, not expired (downgraded, no release): the Free copy with the one Get Pro, not a lapse',
+    substr_count($html, $get_pro) === 1 && strpos($html, 'has lapsed') === false);
+$expires();
+$before = isset($GLOBALS['tw_options']['postquality_license_lapsed']);
+$request();
+$fire('after_license_activation');
+check('Renewed (after_license_activation): the record is gone; Free copy until the license unlocks Pro', $before
+    && !isset($GLOBALS['tw_options']['postquality_license_lapsed']) && substr_count(render_for($admin_caps, false), $get_pro) === 1);
+check('... the Pro copy once it does', strpos(render_for($admin_caps, true), 'Current plan: Pro') !== false);
+$expires();
+$before = isset($GLOBALS['tw_options']['postquality_license_lapsed']);
+$request();
+$fire('after_license_change', 'activated'); // the sync puts a license back: no activation hook fires
+$request();
+$fire('after_license_deactivation', (object) ['id' => 1]); // later, the customer deactivates it
+$html = render_for($admin_caps, false);
+check('License put back by the sync, then deactivated by the customer: the record is gone, the Free copy, not a lapse', $before
+    && !isset($GLOBALS['tw_options']['postquality_license_lapsed']) && substr_count($html, $get_pro) === 1 && strpos($html, 'has lapsed') === false);
+$request();
+$fire('after_license_deactivation', (object) ['id' => 1]);
+$html = render_for($admin_caps, false);
+check('The customer deactivates the license (only after_license_deactivation fires): the Free copy, not a lapse',
+    substr_count($html, $get_pro) === 1 && strpos($html, 'has lapsed') === false);
+$request();
+unset($GLOBALS['tw_options']['postquality_license_lapsed']);
 
 /* Row (bug 59): every Upgrade link the SDK renders reaches the public pricing page */
 echo "Upgrade links (bug 59)\n";
@@ -235,6 +291,17 @@ foreach (['Editor' => $editor_caps, 'Admin' => $admin_caps] as $who => $caps) {
         strpos($html, 'Available with Pro. Your scheduled reviews keep running; upgrade to change their settings.') !== false
         && strpos($html, $upgrade_cron) === false);
 }
+echo "Admin, lapsed (license detached, the record set: bug 93), stored cron on, cron command free (ticket 13)\n";
+$GLOBALS['tw_settings'] = ['cron_enabled' => true, 'cron_command' => 'review'];
+$GLOBALS['tw_options']['postquality_license_lapsed'] = 'downgraded';
+$html = render_for($admin_caps, false);
+[$h2, $open, $close] = cron_fieldset($html, $locked_fieldset) ?: [false, false, false];
+$box = strpos($html, $cron_checkbox);
+check('the checked Enable off-switch sits outside the locked cron fieldset, after the hidden 0, with the off-switch line',
+    $box !== false && $box > $h2 && $box < $open && ($hidden = strpos($html, $cron_hidden)) !== false && $hidden < $box
+    && strpos($html, $off_note) !== false
+    && (bool) preg_match('/type="checkbox" name="postquality_settings\[cron_enabled\]" value="1" checked/', $html));
+unset($GLOBALS['tw_options']['postquality_license_lapsed']);
 echo "Editor, free site, stored cron off (ticket 13)\n";
 $GLOBALS['tw_settings'] = ['cron_enabled' => false];
 $html = render_for($editor_caps, false);
