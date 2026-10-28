@@ -3,7 +3,7 @@ title: 'The first plugin page after the stored-names upgrade opens'
 type: 'bugfix'
 ticket: 94
 created: '2026-10-28'
-status: 'built'
+status: done
 baseline_revision: '7ab43d2e0ea44eb07716bc088a540f66191bed63'
 route: 'full'
 route_source: 'auto'

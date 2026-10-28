@@ -62,3 +62,4 @@ What should happen: the first plugin page opens like any later one.
 
 - Who meets it: every site running a build before story 91 that updates to the first release carrying it: today the owner's own sites only, since no build was sold or listed.
 - Assumption: the refusal also reaches a non-administrator role holding `pqm_view_reviews` before the update; not walked.
+- Done (owner, 2026-10-28): merged in PR #204. Before the merge the agent walked it on the showcase site: the fixed Free build opened the n8n Workflow page and the Dashboard as the first request after the update, and main's build without the fix answered 403 there (plan Implementation Notes). The assumption above about a non-administrator role is covered by the harness only (stored-names Row 7, an Author's own grant).
