@@ -11,6 +11,8 @@
  * the register rule — a cap's defaults only while no manage_options role
  * holds it, so activation and upgrade never reset a role — and the View as
  * retirement (its harness is gone; uninstall still deletes the meta).
+ * Bug 94: Row 8 checks that maybe_upgrade() reloads the current user's
+ * capabilities after a grant, and only then.
  */
 
 define('ABSPATH', __DIR__ . '/');
@@ -39,7 +41,10 @@ class WP_User {
     public $caps;
     public function __construct($caps = []) { $this->caps = $caps; }
     public function remove_cap($cap) { unset($this->caps[$cap]); }
+    /* Bug 94 (memory/freemium-and-roles.md): each call appends the administrator role's capabilities at that moment to tw.reloads. */
+    public function for_site() { $GLOBALS['tw']['reloads'][] = get_role('administrator')?->capabilities ?? []; }
 }
+function wp_get_current_user() { return new WP_User(); }
 /* Core's capability__in also matches users through a role holding the cap; the
    stub models only the direct-grant match, all that remains once roles are stripped. */
 function get_users($args) {
@@ -318,6 +323,8 @@ foreach ($default_map as $cap => $granted_roles) {
 }
 check('option absent: postquality_caps_version stored as CAPS_VERSION, one write',
     ($GLOBALS['tw']['options']['postquality_caps_version'] ?? null) === PostQuality_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
+check('option absent: the current user is reloaded once, after the grant: the administrator role then holds all five caps (bug 94)',
+    count($GLOBALS['tw']['reloads'] ?? []) === 1 && array_keys(array_filter($GLOBALS['tw']['reloads'][0])) === array_keys($default_map));
 
 reset_world();
 PostQuality_Features::register_capabilities();
@@ -328,6 +335,7 @@ $before = role_caps_snapshot();
 PostQuality_Activator::maybe_upgrade();
 check('equal version: no grant — every role byte-identical (hand edit kept)', role_caps_snapshot() === $before);
 check('equal version: no option write', count($GLOBALS['tw']['writes'] ?? []) === 0);
+check('equal version: no reload of the current user (bug 94)', ($GLOBALS['tw']['reloads'] ?? []) === []);
 
 /* Story 42 rewrote this case: a lower version grants only a capability no
  * manage_options role holds yet (one new in this version); a cap an
@@ -350,6 +358,8 @@ $before['administrator']['postquality_manage_agents'] = $before['editor']['postq
 check('lower version: nothing else changes on any role', role_caps_snapshot() == $before);
 check('lower version: stores CAPS_VERSION, one write',
     $GLOBALS['tw']['options']['postquality_caps_version'] === PostQuality_Features::CAPS_VERSION && count($GLOBALS['tw']['writes'] ?? []) === 1);
+check('lower version: the current user is reloaded once, after the grant: the administrator role then holds postquality_manage_agents (bug 94)',
+    count($GLOBALS['tw']['reloads'] ?? []) === 1 && !empty($GLOBALS['tw']['reloads'][0]['postquality_manage_agents']));
 
 /* ─── Row 9 (story 42): activation and upgrade keep the roles as set ─── */
 echo "Row 9 — register_capabilities() grants a cap's defaults only while no manage_options role holds it\n";

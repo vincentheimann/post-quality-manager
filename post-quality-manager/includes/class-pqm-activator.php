@@ -136,12 +136,19 @@ class PostQuality_Activator {
      * Files replaced without reactivation never run activate(): hooked on
      * `init` so the first request of an upgraded install moves the stored
      * names (once) and registers any capability the stored version is
-     * behind on — Admins are never locked out.
+     * behind on — Admins are never locked out. When either ran, the current
+     * user's capabilities are reloaded, so that same request's pages open
+     * (bug 94); a finished site skips the reload.
      */
     public static function maybe_upgrade(): void {
+        $changed = (int) get_option( self::NAMES_OPTION, 0 ) < self::NAMES_VERSION;
         self::migrate_stored_names();
         if ( (int) get_option( 'postquality_caps_version', 0 ) < PostQuality_Features::CAPS_VERSION ) {
             self::register_capabilities();
+            $changed = true;
+        }
+        if ( $changed ) {
+            wp_get_current_user()->for_site(); // Why the current user needs it: memory/freemium-and-roles.md (bug 94).
         }
     }
 

@@ -7,7 +7,8 @@
  * WP-Cron and a $wpdb stand-in that answers SHOW TABLES, COUNT, RENAME and
  * DROP for the reviews table. One row per line of the plan's matrix:
  * fresh install, upgrade, interrupted, activation on an old site, low-cap
- * first load, deletion.
+ * first load, deletion. Bug 94 adds the first page after the upgrade: the
+ * current user, loaded before `init`, is reloaded with the moved names.
  */
 
 define('ABSPATH', __DIR__ . '/lib/'); // create_table() requires ABSPATH . 'wp-admin/includes/upgrade.php' (the dbDelta stub)
@@ -58,10 +59,24 @@ class WP_Role {
 class WP_User {
     public $ID;
     public $caps;
+    public $allcaps = [];
     public function __construct($id, $caps = []) { $this->ID = $id; $this->caps = $caps; }
     public function add_cap($cap, $grant = true) { $this->caps[$cap] = $grant; }
     public function remove_cap($cap) { unset($this->caps[$cap]); }
+    /* Bug 94 (why: memory/freemium-and-roles.md): caps from tw.users[ID] (none for ID 0); allcaps = the capabilities of
+       every role caps names, then caps over them. Every call is counted in tw.for_site_calls. */
+    public function for_site() {
+        $GLOBALS['tw']['for_site_calls'] = ($GLOBALS['tw']['for_site_calls'] ?? 0) + 1;
+        $this->caps = $this->ID ? ($GLOBALS['tw']['users'][$this->ID]->caps ?? []) : [];
+        $this->allcaps = [];
+        foreach (array_keys($this->caps) as $name) {
+            if (isset($GLOBALS['tw']['roles'][$name])) { $this->allcaps = array_merge($this->allcaps, $GLOBALS['tw']['roles'][$name]->capabilities); }
+        }
+        $this->allcaps = array_merge($this->allcaps, $this->caps);
+    }
 }
+/* Returns tw.current_user_object, an instance apart from tw.users, else stores and returns WP_User(0) (bug 94, memory/freemium-and-roles.md). */
+function wp_get_current_user() { return $GLOBALS['tw']['current_user_object'] ??= new WP_User(0); }
 function wp_roles() { return (object) ['role_objects' => $GLOBALS['tw']['roles']]; }
 function get_role($name) { return $GLOBALS['tw']['roles'][$name] ?? null; }
 function current_user_can($cap) { return !empty($GLOBALS['tw']['current_caps'][$cap]); }
@@ -482,5 +497,72 @@ check('never migrated, deleted: the Application Password of the old setup map is
     $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid', 'setup option then' => $old_values['pqm_n8n_setup'] + ['application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]]]]
     && array_filter($GLOBALS['wpdb']->queries, static fn($q) => str_starts_with($q, 'RENAME')) !== []);
 check('... and nothing with either prefix is left' . describe($l = any_leftovers()), $l === []);
+
+/* ─── Row 7: First page after the upgrade (bug 94) ───────────────────── */
+echo "Row 7 — First page after the upgrade (bug 94): the current user, loaded before init, holds the moved capabilities once maybe_upgrade() has run\n";
+/** Sets tw.current_user_object to a new WP_User($id) filled by for_site(), then zeroes the reload count (bug 94, memory/freemium-and-roles.md). */
+function load_current_user(int $id): WP_User {
+    $GLOBALS['tw']['current_user_object'] = $user = new WP_User($id);
+    $user->for_site();
+    $GLOBALS['tw']['for_site_calls'] = 0;
+    return $user;
+}
+function reloads(): int { return $GLOBALS['tw']['for_site_calls'] ?? 0; }
+/** The current user's effective grants under $prefix (what current_user_can() reads in core), sorted by name. */
+function held(string $prefix): array {
+    $caps = array_filter(wp_get_current_user()->allcaps, static fn($cap) => str_starts_with($cap, $prefix), ARRAY_FILTER_USE_KEY);
+    ksort($caps);
+    return $caps;
+}
+/** Each of $caps granted, sorted by name. */
+function grants(array $caps): array { $out = array_fill_keys($caps, true); ksort($out); return $out; }
+$five_new = array_map('new_name', OLD_CAPS);
+
+/* Matrix row 1: an administrator opens a plugin page first. */
+old_site();
+$GLOBALS['tw']['users'][1] = new WP_User(1, ['administrator' => true]);
+$admin = load_current_user(1);
+check('before the upgrade the administrator, loaded before init, holds the five pqm_ caps and no postquality_ one',
+    held('pqm_') === grants(OLD_CAPS) && held('postquality_') === []);
+PostQuality_Activator::maybe_upgrade();
+check('the names moved: the current user is reloaded once, the same instance', reloads() === 1 && wp_get_current_user() === $admin);
+check('the administrator then holds the five postquality_ caps and no pqm_ one: Dashboard and Post Reviews (view reviews) and n8n Workflow (manage settings) open',
+    held('postquality_') === grants($five_new) && held('pqm_') === []);
+
+/* Matrix row 4: the next request on the now finished site. */
+$admin = load_current_user(1);
+$state = serialize([$GLOBALS['tw']['options'], caps_snapshot(), $GLOBALS['tw']['user_meta'], $GLOBALS['tw']['cron'], $GLOBALS['wpdb']->tables, $admin]);
+$GLOBALS['tw']['writes'] = [];
+PostQuality_Activator::maybe_upgrade();
+check('a finished site (flag and caps version current): no reload, no write, state and the current user identical',
+    reloads() === 0 && $GLOBALS['tw']['writes'] === []
+    && serialize([$GLOBALS['tw']['options'], caps_snapshot(), $GLOBALS['tw']['user_meta'], $GLOBALS['tw']['cron'], $GLOBALS['wpdb']->tables, $admin]) === $state);
+
+/* Matrix row 2: the current user holds an own grant (user 7, an Author) or an own deny (user 8, an Editor). */
+old_site();
+load_current_user(7);
+PostQuality_Activator::maybe_upgrade();
+check('an own grant moves on the current user too: Run Review and Key Takeaways from the Author role, Run paid agents of its own, no pqm_ one',
+    wp_get_current_user()->caps === ['author' => true, 'postquality_run_paid_agents' => true]
+    && held('postquality_') === grants(['postquality_run_free_agents', 'postquality_run_paid_agents']) && held('pqm_') === []);
+old_site();
+load_current_user(8);
+PostQuality_Activator::maybe_upgrade();
+check('an own deny stays a deny on the current user: the Editor role grants Manage agents, the own deny wins under the new name',
+    wp_get_current_user()->caps === ['editor' => true, 'postquality_manage_agents' => false]
+    && held('postquality_') === array_replace(grants($five_new), ['postquality_manage_agents' => false]) && held('pqm_') === []);
+
+/* Matrix row 5: no user (cron, WP-CLI). */
+old_site();
+PostQuality_Activator::maybe_upgrade();
+$nobody = wp_get_current_user();
+$writes = [$GLOBALS['tw']['writes'], $GLOBALS['tw']['meta_writes']];
+$no_user_0 = !isset($GLOBALS['tw']['users'][0]) && !isset($GLOBALS['tw']['user_meta'][0]);
+check('no user (cron, WP-CLI): the reload runs once on user 0 and holds no caps',
+    reloads() === 1 && $nobody->ID === 0 && $nobody->caps === [] && $nobody->allcaps === []);
+old_site();
+$migrate();
+check('... and writes nothing: the option and meta writes are the migration\'s alone, no user 0 stored',
+    [$GLOBALS['tw']['writes'], $GLOBALS['tw']['meta_writes']] === $writes && $no_user_0);
 
 harness_exit();
