@@ -3,7 +3,7 @@ title: 'The Free build contains no Pro code'
 type: 'feature'
 ticket: 54
 created: '2026-10-12'
-status: 'built'
+status: done
 baseline_revision: '24c5595875fc14fce5b5c35cf217fea5fe24d765'
 route: 'full'
 route_source: 'auto'

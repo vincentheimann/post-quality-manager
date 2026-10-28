@@ -3,7 +3,7 @@ title: 'A Pro build waiting for its license asks for the license, not an opt-in'
 type: 'bugfix'
 ticket: 65
 created: '2026-10-28'
-status: 'built'
+status: done
 baseline_revision: '8502d8497fdaacc27123466f9173740dffc3549e'
 route: 'full'
 route_source: 'auto'
