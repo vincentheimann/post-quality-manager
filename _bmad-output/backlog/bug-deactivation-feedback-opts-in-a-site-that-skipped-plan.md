@@ -3,7 +3,7 @@ title: 'A site that skipped the opt-in sends nothing when it is deactivated and 
 type: 'bugfix'
 ticket: '90'
 created: '2026-10-26'
-status: 'built'
+status: 'done'
 baseline_revision: '02c91512b0394ca73fd0b9caaa2e1fdb3d04f748'
 route: 'full'
 route_source: 'auto'

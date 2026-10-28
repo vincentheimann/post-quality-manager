@@ -3,7 +3,7 @@ title: 'A site that opted out of usage data sees no deactivation form, and the p
 type: 'bugfix'
 build_of: '90'
 created: '2026-10-26'
-status: 'built'
+status: 'done'
 baseline_revision: 'db74c9417ee30d7ff9f487fd7b40e5368981d805'
 route: 'full'
 route_source: 'auto'
