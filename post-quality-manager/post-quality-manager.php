@@ -130,6 +130,23 @@ postquality_fs()->add_filter('show_deactivation_feedback_form', static function 
 
     return PostQuality_License::shares_usage_data() && !$fs::is_deactivation_snoozed();
 });
+if ( postquality_fs()->is__premium_only() ) {
+    // Pro waiting for its license asks for the license, not for an opt-in; the SDK keeps the link.
+    // See memory/freemium-and-roles.md (story 65).
+    postquality_fs()->add_filter('sticky_message_connect_account', static fn() => sprintf(
+        '%s <b><a href="%s">%s</a></b>',
+        esc_html__('Pro is installed. Enter your license key to unlock it.', 'post-quality-manager'),
+        esc_url(postquality_fs()->get_activation_url()),
+        esc_html__('Activate your license', 'post-quality-manager')
+    ));
+}
+// Once nothing is awaited (licensed, opted in or skipped), a stored opt-in notice is a leftover: it goes.
+// See memory/freemium-and-roles.md (story 65).
+add_action('admin_init', static function () {
+    if (!postquality_fs()->is_activation_mode()) {
+        postquality_fs()->remove_sticky('connect_account');
+    }
+});
 // At deletion, a site that does not share usage data now drops any stored feedback answer before
 // the SDK's own uninstall step runs (bug 90). See memory/freemium-and-roles.md.
 add_action('uninstall_' . plugin_basename(__FILE__), ['PostQuality_License', 'forget_feedback_unless_sharing'], 9);

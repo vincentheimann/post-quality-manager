@@ -27,6 +27,10 @@ class PQM_FS_Stub {
     public static $snoozed = false;
     /** get_storage(): the SDK's storage; records every key removed through it (bug 90). */
     public $storage;
+    /** is_activation_mode(): the SDK waits for the opt-in choice (Free) or the license key (Pro) (story 65). */
+    public $activation_mode = false;
+    /** remove_sticky(): every notice id removed through it, in order (story 65). */
+    public $removed_stickies = [];
     /** Hooks added through the SDK: tag => [callback, …]. */
     public $actions = [];
     public $filters = [];
@@ -41,6 +45,9 @@ class PQM_FS_Stub {
     public function get_storage() { return $this->storage; }
     public function get_account_url() { return 'https://example.test/wp-admin/admin.php?page=postquality-dashboard-account'; }
     public function get_upgrade_url() { return 'https://example.test/wp-admin/admin.php?page=postquality-dashboard-pricing'; }
+    public function get_activation_url($params = [], $network = null) { return 'https://example.test/wp-admin/admin.php?page=postquality-dashboard'; }
+    public function is_activation_mode($and_on = true) { return $this->activation_mode; }
+    public function remove_sticky($ids, $network_level_or_blog_id = null) { array_push($this->removed_stickies, ...(array) $ids); }
     public function add_action($tag, $callback) { $this->actions[$tag][] = $callback; }
     public function add_filter($tag, $callback) { $this->filters[$tag][] = $callback; }
 }

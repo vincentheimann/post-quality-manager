@@ -65,6 +65,10 @@ function human_time_diff($from, $to = 0) { return 'a while'; }
 function wp_get_current_user() { return (object) ['ID' => 1, 'user_login' => 'editor-anna']; }
 function wp_date($format, $ts = null) { return gmdate($format, $ts ?? time()); }
 function wp_is_application_passwords_available_for_user($user) { return $GLOBALS['tw']['app_passwords']; }
+/* Story 65: each call recorded, so a row can prove the license notice is escaped in the plugin's text domain; both
+   return what lib/wp-stubs.php's return, so no other row moves. */
+function esc_html__($s, $d = null) { $GLOBALS['tw_escaped'][] = ['esc_html__', $s, $d]; return $s; }
+function esc_url($s) { $GLOBALS['tw_escaped'][] = ['esc_url', (string) $s]; return (string) $s; }
 
 const PING_PROVEN = 'Ping OK — this site reaches n8n, the webhook credential is right, your workflow is up to date and n8n called this site back with the right token: the round trip works.';
 
@@ -722,5 +726,41 @@ check('deletion on a site sharing usage data: the answer is kept and goes with t
 check('the removal is hooked on uninstall_<plugin file> at priority 9, before the SDK\'s own uninstall step',
     in_array(['uninstall_post-quality-manager.php', ['PostQuality_License', 'forget_feedback_unless_sharing'], 9], $GLOBALS['tw']['actions'], true));
 $form_shows(false, false, false); // back to the harness default: a free site that never opted in
+
+/* Rows (story 65): on the update path the SDK adds its opt-in sticky while Pro waits for its license, and passes
+ * the text through sticky_message_connect_account; the Pro build answers with the license copy and the SDK's
+ * activation URL (the license screen), escaped in the plugin's text domain. The Free build has no such filter
+ * (stripped, free-build-harness.php). Every row fails when no callback is registered. */
+echo "License notice instead of the opt-in sticky (story 65)\n";
+$notice_cb = (postquality_fs()->filters['sticky_message_connect_account'] ?? [null])[0];
+$sdk_text = 'We made a few tweaks to the plugin, <b><a href="' . postquality_fs()->get_activation_url() . '">Opt in to make "Post Quality Manager" better!</a></b>';
+$GLOBALS['tw_escaped'] = [];
+$notice = is_callable($notice_cb) ? $notice_cb($sdk_text) : null;
+check('Pro waiting for its license: the notice reads the approved copy, its bold link the SDK\'s activation URL (the license screen)',
+    $notice === 'Pro is installed. Enter your license key to unlock it. <b><a href="' . postquality_fs()->get_activation_url() . '">Activate your license</a></b>');
+check('... both texts through esc_html__() in the plugin\'s text domain, the URL through esc_url()', $notice !== null
+    && in_array(['esc_html__', 'Pro is installed. Enter your license key to unlock it.', 'post-quality-manager'], $GLOBALS['tw_escaped'], true)
+    && in_array(['esc_html__', 'Activate your license', 'post-quality-manager'], $GLOBALS['tw_escaped'], true)
+    && in_array(['esc_url', postquality_fs()->get_activation_url()], $GLOBALS['tw_escaped'], true));
+
+/* Rows (story 65): the SDK never removes its opt-in sticky on a license activation, so a closure on WordPress's
+ * admin_init removes it whenever the SDK waits for nothing (licensed, opted in or skipped); while it waits for an
+ * opt-in or a license the notice stays. No build check: the Free tree's copy is free-build-harness.php's. It sits
+ * outside the is_admin() block, which this harness never enters. Every row fails when no closure is registered. */
+echo "A leftover opt-in sticky goes once nothing is awaited (story 65)\n";
+$clear_hooks = array_values(array_filter($GLOBALS['tw']['actions'], static fn($a) => $a[0] === 'admin_init'));
+$clear_cb = count($clear_hooks) === 1 ? $clear_hooks[0][1] : null;
+$clears = static function (bool $activation_mode) use ($clear_cb) {
+    postquality_fs()->activation_mode = $activation_mode;
+    postquality_fs()->removed_stickies = [];
+    if (!is_callable($clear_cb)) { return null; }
+    $clear_cb();
+    return postquality_fs()->removed_stickies;
+};
+check('one closure on admin_init, at priority 10', count($clear_hooks) === 1 && $clear_cb instanceof Closure && $clear_hooks[0][2] === 10);
+check('not in activation mode (licensed, opted in or skipped): connect_account removed', $clears(false) === ['connect_account']);
+check('in activation mode (still waiting for an opt-in or a license): nothing removed, the notice stays', $clears(true) === []);
+postquality_fs()->activation_mode = false;
+postquality_fs()->removed_stickies = [];
 
 harness_exit();

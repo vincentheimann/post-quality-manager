@@ -181,6 +181,8 @@ function plugin_dir_url($f) { return '/wp-content/plugins/post-quality-manager/'
 function plugin_basename($f) { return basename($f); }
 function load_plugin_textdomain(...$a) {}
 function is_admin() { return true; }
+/* Story 65: the stripped main file's WordPress hooks are recorded (tag, callback, priority), so a row can call its admin_init closure. */
+function add_action($tag, $cb, $priority = 10, $accepted_args = 1) { $GLOBALS['free_actions'][] = [$tag, $cb, $priority]; }
 /* Entry 10 rotates to a distinct token through tw.uuid, which the bootstrap's wp_generate_uuid4() reads. */
 /* Bug 82: the provisioning lock's raw writes serialize their value and bring the option cache in line; the cache is not read here. */
 function wp_cache_get($k, $group = '') { return false; }
@@ -608,6 +610,27 @@ postquality_fs()->pro = false;
 check('license active on the Free build: "install the Pro version" with the Account link, no plan-Pro line, no Get Pro',
     str_contains($licensed_html, 'Your Pro license is active. Install the Pro version to use it: <a href="' . postquality_fs()->get_account_url() . '">')
     && !str_contains($licensed_html, 'Current plan: Pro') && !str_contains($licensed_html, 'Get Pro'));
+
+/* ─── Row: the opt-in sticky on the Free build (story 65) ────────────── */
+echo "Row — the Free build keeps the SDK's opt-in text; a leftover sticky still goes once nothing is awaited (story 65)\n";
+check('no sticky_message_connect_account filter registered, the name nowhere in the Free tree',
+    !isset(postquality_fs()->filters['sticky_message_connect_account'])
+    && !array_filter($ours, static fn($path) => str_contains((string) file_get_contents($path), 'sticky_message_connect_account')));
+check('no "Pro is installed" string in the Free tree (the license copy is Pro code)',
+    !array_filter($ours, static fn($path) => str_contains((string) file_get_contents($path), 'Pro is installed')));
+$clear_hooks = array_values(array_filter($GLOBALS['free_actions'] ?? [], static fn($a) => $a[0] === 'admin_init' && $a[1] instanceof Closure));
+$clears = static function (bool $activation_mode) use ($clear_hooks) {
+    postquality_fs()->activation_mode = $activation_mode;
+    postquality_fs()->removed_stickies = [];
+    if (count($clear_hooks) !== 1) { return null; } // both clearing rows fail when the closure is gone
+    ($clear_hooks[0][1])();
+    return postquality_fs()->removed_stickies;
+};
+check('the admin_init clearing closure is still there: outside activation mode (opted in or skipped) connect_account removed',
+    $clears(false) === ['connect_account']);
+check('... in activation mode (before the opt-in choice) nothing removed, the SDK\'s opt-in notice stays', $clears(true) === []);
+postquality_fs()->activation_mode = false;
+postquality_fs()->removed_stickies = [];
 
 /* ─── Row: both builds installed (Freemius dual activation) ──────────── */
 echo "Row — the other build's main file loaded beside a live SDK: set_basename, nothing redeclared\n";
