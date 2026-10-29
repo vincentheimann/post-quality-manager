@@ -42,10 +42,19 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 ## Installation
 
-1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it.
+1. Copy the [post-quality-manager/](post-quality-manager/) folder (the inner plugin directory) into `wp-content/plugins/` and activate it. A folder copied from this repository needs the admin app built first ([Build from source](#build-from-source)): `admin/build/` is not tracked, and without it the Dashboard and Post Reviews pages show a build notice instead.
 2. In **Post Quality → n8n Workflow** (the welcome notice links there), click **Set up the workflow**. The setup guide asks for three values: your n8n address and an n8n API key (create one for this site alone, with an expiration date, under Settings → n8n API in n8n) in **Connect your n8n**, then your Anthropic API key once in **Set up the workflow**. The plugin checks the key with Anthropic and passes it into an n8n credential without storing it, creates the credentials and the workflow in n8n, publishes the workflow, saves its webhook URL and pings it; then you run your first review from the guide. Reopen it any time from the same page (**Setup guide**).
    - **By hand instead:** for an n8n whose public API is off or out of reach, or if you prefer not to hand over a key, choose **Set up by hand instead**. The **Workflow File** section of the same page holds the step-by-step manual setup (import the workflow, create the credentials, pick them in the nodes, publish it); the guide then takes the production webhook URL (`/webhook/`, not `/webhook-test/`) and runs your first review.
 3. After the first review, the guide offers three more steps, each skippable: your **Blog Profile** (e.g., Technical/IT for a developer blog), your **Editorial Standards** — or Custom to write your own — and scheduled reviews (Pro). Change them any time in Settings: the **AI** tab, under **AI Prompts & Context**, and the **Automation** tab.
+
+## Build from source
+
+The admin app (the Dashboard, Post Reviews and the n8n Workflow page's setup guide) is React, compiled from `src/` into `post-quality-manager/admin/build/`, which the plugin zip ships and git does not track. With Node 22, from the repository root:
+
+1. `npm ci` installs the build tools (`@wordpress/scripts`).
+2. `npm run build` writes `post-quality-manager/admin/build/` from `src/`.
+3. `npm run zip` builds the Pro zip into `dist/` (it needs a clean working tree and runs the build itself).
+4. `php bin/build-free.php <dir>` writes the Free build, the one the WordPress.org directory hosts, to `<dir>/post-quality-manager/` (run step 2 first; `<dir>` must not hold a build already).
 
 ## REST API (`post-quality/v1`)
 
