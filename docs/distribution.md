@@ -15,7 +15,7 @@ _Every field a platform asks for before the plugin can be listed, sold or found,
 | Author | Vincent Heimann | ADR 0013 D2 (private person) |
 | Author URI | https://postquality.com (set by story 45, 2026-10-09) | ADR 0013 |
 | License / License URI | GPL-2.0-or-later / https://www.gnu.org/licenses/gpl-2.0.html | LICENSE, entry 4.9 |
-| Text Domain / Domain Path | post-quality-manager / /languages | docs/brand.md § Naming; entry 4.6 |
+| Text Domain / Domain Path | post-quality-manager / none since story 95 (2026-10-29): translations come from the WordPress.org language packs in `wp-content/languages/plugins/`, no bundled folder, no loader | docs/brand.md § Naming; entry 4.6; story 95 (audit D2) |
 
 ## WordPress.org plugin directory (story 38)
 
@@ -28,7 +28,7 @@ Account and submission:
 | Support forum | https://wordpress.org/support/plugin/post-quality-manager/ once listed; Free support channel, best effort | ADR 0013 D9 |
 | SVN deploy credentials | the wordpress.org username and password as GitHub secrets `SVN_USERNAME` and `SVN_PASSWORD` (the names the 10up deploy action reads) | story 38 AC7 creates them; never in the repository |
 
-`readme.txt` header (`post-quality-manager/readme.txt`, a minimal file since 2026-10-13 because Freemius refuses a zip without it; story 38 completes it; `release-header-harness.php` Row 7 checks the rows below against the plugin header):
+`readme.txt` header (`post-quality-manager/readme.txt`, a minimal file since 2026-10-13 because Freemius refuses a zip without it; story 95 completed it on 2026-10-29, under the directory's 10 KB cap; `release-header-harness.php` Row 7 checks the rows below against the plugin header, and the size):
 
 | Field | Value | Source / owner |
 |---|---|---|
@@ -37,9 +37,9 @@ Account and submission:
 | Donate link | none at launch (Pro is the paid path) | ADR 0013 |
 | Tags (max 5) | `content quality`, `ai`, `editorial`, `review` (2026-10-13: `seo` dropped from the proposal, the Free build the directory hosts has no SEO agent). CHECK at submission | story 38 settles against the directory's tag rules |
 | Requires at least | 6.6 | as the header |
-| Tested up to | 7.1 (WordPress 7.1.3 current on api.wordpress.org, 2026-10-13); major.minor only. CHECK: re-tested on each release; a new WordPress major turns CI's Plugin Check red (`outdated_tested_upto_header`) until it is raised | story 38 AC2; `/release` |
+| Tested up to | 7.1 (WordPress 7.1.3 current on api.wordpress.org, 2026-10-13); major.minor only. CHECK: re-tested on each release; a new WordPress major turns CI's Plugin Check red (`outdated_tested_upto_header`) until it is raised | story 95; `/release` |
 | Requires PHP | 8.0 | as the header |
-| Stable tag | the release version, never `trunk`; release-please bumps it (a generic extra file, its block markers on two unknown `Release-please:` header lines the readme parser drops) | story 38 AC2; Plugin Check fails on a mismatch (`stable_tag_mismatch`) |
+| Stable tag | the release version, never `trunk`; release-please bumps it (a generic extra file, its block markers on two unknown `Release-please:` header lines the readme parser drops) | story 95; Plugin Check fails on a mismatch (`stable_tag_mismatch`) |
 | License / License URI | GPL-2.0-or-later / https://www.gnu.org/licenses/gpl-2.0.html | as the header |
 | Short description (≤ 150 chars) | the tagline in docs/brand.md, verbatim | docs/brand.md § Naming |
 
@@ -50,9 +50,9 @@ Account and submission:
 | Description | README.md "Why this exists" and "Features", to be rewritten for site owners by story 60 (the copywriting skill; handed over from story 41's copy sweep 2026-10-24, which checked the wording rules only); demo and cost FAQ from story 49 |
 | Installation | README.md installation steps; the n8n Workflow page's ordered steps (story 40) |
 | FAQ | README requirements (your own n8n, an AI provider key), single-site only, what Free includes, what the AI calls cost (story 49) |
-| External services | story 46: the user's own n8n instance and the AI provider the workflow calls (what is sent, when, their terms and privacy links); Freemius opt-in and license check |
+| External services | story 46's draft, shortened by story 95 (2026-10-29), which ships it: the user's own n8n instance and its API, Anthropic (the AI provider the workflow calls, and the plugin's one-time key check during setup), the notification address the user sets (what the workflow posts there), Freemius opt-in and license check; what is sent, when, the terms and privacy links. The same facts go to WordPress's privacy policy guide (`PostQuality_Admin::privacy_policy_content()`) |
 | Screenshots | `assets/screenshot-1.png`, `-2.png`, `-3.png` (story 41, 2026-10-24: the postquality.com captures), one caption each in the readme's order |
-| Changelog | docs/release-notes/<version>.md and the release-please CHANGELOG (story 15) |
+| Changelog | the current release only, in one or two lines, with a link to GitHub Releases, and no Upgrade Notice (audit D8; story 95 wrote `= 4.0.0 =`, "First release on WordPress.org"). The full notes stay in docs/release-notes/<version>.md and the release-please CHANGELOG (story 15); the entry for each later release is story 96's |
 
 Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 the banners and screenshots on 2026-10-24; story 38 uploads the eight directory files below (all but `icon-512x512.png`) from a `.wordpress-org/` folder, and nothing else from the repository's `assets/`):
 
@@ -87,7 +87,7 @@ Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 t
 | Money-back guarantee | 14 days, Freemius "Flexible – Double Guarantee" (no questions asked) | ADR 0013 D6 |
 | Support contact | hello@postquality.com, Pro answered within 5 business days, Monday to Friday (owner, 2026-10-23; was 2) | ADR 0013 D9, amended 2026-10-23 |
 | Terms / refund / privacy URLs | https://postquality.com/terms, /refund, /privacy, /support; drafts in `docs/policies/` (story 46, 2026-10-09) | story 45 publishes them |
-| Third-party legal links in the readme | CHECK: n8n, Anthropic, OpenAI, Google and Freemius terms and privacy URLs named in `docs/policies/readme-external-services.md` | story 38 opens each before pasting |
+| Third-party legal links in the readme | CHECK: the n8n, Anthropic (commercial terms, the API's) and Freemius terms and privacy URLs in `post-quality-manager/readme.txt` § External services (OpenAI and Google dropped: neither template calls them) | story 95 opened each (2026-10-29); story 38 re-checks them at submission |
 | Opt-in screen | Freemius's standard screen at activation, plugin name only, skippable; nothing leaves the site before the choice (`is_org_compliant`); the license key is entered on the SDK's activation screen, or after Skip through the "Activate License" link on the Plugins screen; Account, the one SDK submenu (pricing, contact, support, affiliation and add-ons off), appears only once the install is registered (opt-in or license activation) | ADR 0013 D8; shipped by story 44 |
 | SDK version and vendor folder | 2.13.5, from https://github.com/Freemius/wordpress-sdk/archive/refs/tags/2.13.5.zip, committed unmodified in `post-quality-manager/vendor/freemius/` (byte for byte: `.gitattributes` turns off line-ending normalization there); CI skips it in `php -l` and Plugin Check | story 44; 2.13.5 since chore 89 (2026-10-24) |
 | Test purchase | sandbox checkout exists (row above) | story 44 AC1 |
