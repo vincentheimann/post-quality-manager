@@ -161,7 +161,7 @@ function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
 			</p>
 			<p className="pqm-muted">
 				{ __(
-					"No n8n yet? Sign up for n8n Cloud at n8n.io, or run n8n on your own server. Both sides must reach each other: this site calls n8n, and n8n calls back this site's REST API, so n8n Cloud cannot reach a local or password-protected site.",
+					"No n8n yet? Run it on your own server (n8n's self-hosting guide is at docs.n8n.io/hosting). Both sides must reach each other: this site calls n8n, and n8n calls back this site's REST API, so an n8n on another network cannot reach a local or password-protected site.",
 					'post-quality-manager'
 				) }
 			</p>
