@@ -1,6 +1,7 @@
 # Ticketing config: tickets as files in the repo (default). Read by every skill that creates, reads, or moves tickets.
 # This is the project's copy of the `repo-ticketing.toml` starter (bmad-ticket/config/), edited for the
-# house rules on 2026-10-01: the `write` verb never commits (AGENTS.md Policy — the user commits), and the
+# house rules on 2026-10-01: the `write` verb never commits by itself (AGENTS.md Policy; since 2026-10-29 the
+# session commits the ticket files with its PR, the user merges), and the
 # active initiative is committed in _bmad/custom/config.toml, not in config.user.toml. Skills read
 # [tickets] and [verbs] through a script, so comments are never loaded.
 # Every ticketing config has the same fields; only the prose and the maps differ. `description` sits
@@ -49,8 +50,8 @@ write = """
 No entry yet: add an `[[entry]]` with the next unused `id` to the parent's `tickets.toml`; the file carries that `id`. Every change — body, parent (move the file and its plan, or the container folder, into the new
 parent's folder, and set the plan's `ticket` to the leaf's id there), after — is an edit to the file. A leaf's `status`, `assignee`, `blocked_at`, and `blocked_reason` live in its plan beside it, and a pulled file has none: the build writes draft, ready-for-dev, in-progress, in-review, and built as it works, and build-auto writes blocked; done is the user's or an orchestrator's, and dropped is `bmad-ticket`'s when the user says so. No skill moves a leaf past built. `bmad-ticket` sets a leaf's status or assignee only with `tickets.py mark [<folder>] <ref> <status> [--assignee <who>] [--blocked <reason>]`, which writes the plan and creates it when there is none. A container's `status` is `bmad-ticket`'s: absent until work under it starts, then in-progress, done, or dropped. Build records: the plan, `<type>-<slug>-plan.md`
 beside the leaf, whether or not the leaf has a file.
-Never commit (house rule, AGENTS.md Policy): leave the files you wrote in the working tree, list them, and propose a
-Conventional Commits message (`chore(tickets): ...`) for the user to commit on the current branch. Never work on `main`.
+Commit on the current feature branch with a Conventional Commits message (`chore(tickets): ...`), push it and open a
+draft PR without asking (house rule, AGENTS.md Policy, owner 2026-10-29); the user merges. Never work on `main`.
 """
 
 query = """

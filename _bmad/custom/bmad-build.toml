@@ -10,7 +10,7 @@ persistent_facts = [
   "Definition of Done (AGENTS.md): KISS; `php -l` passes on every touched PHP file and `node --check` on every touched JS file; every CLI harness in tests/harness/ passes (plain PHP + WP stubs — extend one, or add one, whenever the plan carries an I/O & Edge-Case Matrix); `npm run test:unit` passes (Jest + jsdom in tests/js/ — add or extend a test for matrix rows only a browser can show); no WP debug errors or warnings; REST endpoints answer 200 with the right JSON and permission_callback; UI loading and error states handled; when a REST route or the webhook payload changes, post-quality-manager/templates/n8n-workflow.json is checked for a matching change (placeholders `__PQM_*__` only, never site values); a change existing sites meet without being told (a new default, a new permission, a removed screen, a workflow re-import) adds one line to `docs/release-notes/unreleased.md` in the same PR; durable facts updated in memory/, significant decisions recorded with /adr, docs/user-paths.md adjusted when Unrealized Value became Current Value.",
   "AI prompts in the n8n workflow stay niche-agnostic: universal pillars Structure, Readability, Engagement, Credibility; niche tailoring comes from user settings, never from code.",
   "Read docs/brand.md before writing any admin UI text, label, or copy.",
-  "Never commit or push: present the change and let the user decide. Branches: feat/, fix/, chore/; Conventional Commits.",
+  "Commit, push and open the PR without asking (owner, 2026-10-29); merging stays the owner's. Branches: feat/, fix/, chore/; Conventional Commits.",
   "file:_bmad/custom/minimal-code-ladder.md",
 ]
 
@@ -19,7 +19,7 @@ persistent_facts = [
 # the branch). These run at activation and bind every later step of the run.
 activation_steps_append = [
   "Branch guard: run `git branch --show-current`. If it prints `main`, HALT before any file change and ask the user for a branch name (prefix feat/, fix/ or chore/, derived from the intent); create it only after they answer. Never work on main.",
-  "Commit rule for this project: the user commits, never the agent. Wherever a later step of this workflow says to commit (step 05 'Commit and Complete', the oneshot 'Commit' section), do NOT run `git commit`; leave the files in the working tree, list the files touched, propose a Conventional Commits message derived from the plan title, and let the user commit. Report 'no commit (house rule)' where the step asks for a commit hash.",
+  "Commit rule for this project (owner, 2026-10-29): the agent commits, pushes and opens the PR without asking; only the merge is the user's. Where a later step says to commit (step 05 'Commit and Complete', the oneshot 'Commit' section), commit on the feature branch with a Conventional Commits message derived from the plan title, push it with `git push https://github.com/vincentheimann/post-quality-manager.git <branch>`, and open a draft PR with `gh pr create --repo vincentheimann/post-quality-manager`. Report the commit hash and the PR link. Never merge, never push to main.",
 ]
 
 # House rule: a plan the user approves before code, except for small changes.
