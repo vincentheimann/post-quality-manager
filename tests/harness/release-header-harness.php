@@ -7,12 +7,16 @@
  * Version line, and only POSTQUALITY_VERSION carries the inline annotation.
  * Story 4.2 adds row 6: header Version == POSTQUALITY_VERSION == package.json; the
  * release workflow runs this harness before it builds and publishes.
- * Story 4.6 adds rows 4-5: the Domain Path header and the init-time loader,
- * and the tests/i18n/ fixtures still parse and still name live strings.
+ * Story 4.6 added rows 4-5; story 95 (D2) turned row 4 around: translations
+ * come from the language packs in WP_LANG_DIR/plugins, so no Domain Path
+ * header, no load_plugin_textdomain() outside vendor/, no path argument on the
+ * admin app's script translations and no languages/ folder. Row 5: the
+ * tests/i18n/ fixtures still parse and still name live strings.
  * Row 7 (2026-10-13): readme.txt (Freemius refuses a zip without it) parses
  * the way the WordPress.org readme parser reads it, release-please's block
  * encloses exactly its Stable tag, and its headers agree with the plugin
- * header the way Plugin Check compares them.
+ * header the way Plugin Check compares them. Story 95 adds the directory's
+ * 10 KB cap (10,240 bytes, read as the file's byte size).
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -50,17 +54,28 @@ check('POSTQUALITY_VERSION line carries x-release-please-version', str_contains(
 check('POSTQUALITY_WORKFLOW_VERSION line carries no annotation', $define('POSTQUALITY_WORKFLOW_VERSION') !== ''
     && !str_contains($define('POSTQUALITY_WORKFLOW_VERSION'), 'x-release-please'));
 
-echo "Row 4 — translations load from languages/ on init\n";
-check('Domain Path parses as /languages', header_value($data, 'Domain Path') === '/languages');
-$src = file_get_contents($file);
-check('postquality_load_textdomain() is hooked on init',
-    preg_match("/add_action\(\s*'init'\s*,\s*'postquality_load_textdomain'\s*\)/", $src) === 1);
-/* Story 54: the helper lives in includes/pqm-functions.php (the main file declares no function, see its Includes comment). */
-$functions_src = file_get_contents(dirname($file) . '/includes/pqm-functions.php');
-check('it loads the post-quality-manager domain from /languages',
-    preg_match("/load_plugin_textdomain\(\s*'post-quality-manager'\s*,\s*false\s*,[^;]*'\/languages'\s*\)/", $functions_src) === 1);
-$langDir = dirname($file) . '/languages';
-check('no empty languages/ folder ships', !is_dir($langDir) || count(array_diff(scandir($langDir), ['.', '..'])) > 0);
+echo "Row 4 — translations come from language packs (story 95, D2)\n";
+check('no Domain Path header', header_value($data, 'Domain Path') === null);
+$plugin_dir = dirname($file);
+$loaders = [];
+$script_translations = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($plugin_dir, FilesystemIterator::SKIP_DOTS)) as $f) {
+    $rel = str_replace('\\', '/', substr((string) $f, strlen($plugin_dir) + 1));
+    if (str_starts_with($rel, 'vendor/') || !str_ends_with($rel, '.php')) {
+        continue;
+    }
+    $php_src = (string) file_get_contents((string) $f);
+    if (str_contains($php_src, 'load_plugin_textdomain(')) {
+        $loaders[] = $rel;
+    }
+    preg_match_all('/wp_set_script_translations\([^;]*\);/', $php_src, $m);
+    $script_translations = array_merge($script_translations, $m[0]);
+}
+check('no load_plugin_textdomain( in the plugin outside vendor/' . ($loaders ? ' (found in ' . implode(', ', $loaders) . ')' : ''), $loaders === []);
+check("the admin app's script translations name the handle and the domain, no path (" . count($script_translations) . ' call(s))',
+    count($script_translations) === 1
+    && preg_match("/^wp_set_script_translations\(\s*'postquality-app'\s*,\s*'post-quality-manager'\s*\);$/", $script_translations[0]) === 1);
+check('no languages/ folder ships', !file_exists($plugin_dir . '/languages'));
 
 echo "Row 5 — the tests/i18n fixtures parse and name strings the plugin still uses\n";
 $root = dirname(__DIR__, 2);
@@ -89,6 +104,8 @@ check("header $version == POSTQUALITY_VERSION $constant == package.json $package
 echo "Row 7 — readme.txt: headers as WordPress.org parses them, in step with the plugin header\n";
 $readme_lines = explode("\n", str_replace("\r", '', (string) @file_get_contents(dirname($file) . '/readme.txt')));
 check('readme.txt exists beside the main file', count($readme_lines) > 1);
+$n = (int) @filesize(dirname($file) . '/readme.txt');
+check("readme.txt is under 10 KB ($n bytes)", $n < 10240);
 /* The parser's header loop (wordpress.org plugin-directory readme/class-parser.php):
  * after the === name === line, a "key: value" line is a header (unknown keys are
  * dropped while no blank line came before them); the first other line ends it. */

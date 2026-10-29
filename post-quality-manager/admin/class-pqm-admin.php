@@ -238,7 +238,8 @@ class PostQuality_Admin
             $version,
             true
         );
-        wp_set_script_translations('postquality-app', 'post-quality-manager', POSTQUALITY_PLUGIN_DIR . 'languages');
+        // No path: the JSON comes from the language packs in WP_LANG_DIR/plugins (story 95).
+        wp_set_script_translations('postquality-app', 'post-quality-manager');
 
         // Command labels come from the PHP registry, the one label source;
         // src/kit/copy.js commandLabel() reads them.
@@ -585,6 +586,31 @@ class PostQuality_Admin
             !== (is_array($value) ? ($value['n8n_webhook_url'] ?? '') : '')) {
             delete_option('postquality_workflow_version_seen');
         }
+    }
+
+    /* ─── Privacy policy guide (story 95) ────────────────────────────── */
+
+    /**
+     * Suggested privacy-policy text, shown under Settings → Privacy → Policy
+     * Guide (hooked on admin_init). It states the same facts as the External
+     * services section of readme.txt; keep both in step with
+     * docs/policies/privacy.md.
+     */
+    public static function privacy_policy_content(): void
+    {
+        $paragraphs = [
+            esc_html__("Post Quality Manager sends post content to services you configure. When a command runs on a post (Review or Key Takeaways; on Pro also the other agents, or a schedule you set), the post's title, excerpt, content and link, your Editorial Standards and Website Context text, and (if Yoast SEO is active) its SEO fields are sent to your own n8n instance, whose workflow sends them to Anthropic's API. The results are stored on this site in the plugin's reviews table until the plugin is deleted.", 'post-quality-manager'),
+            esc_html__("If an administrator sets a notification address in the plugin's settings, the workflow posts a short report to it each time a command finishes: the post's title and link with the result, or the error. The service behind that address applies its own terms and privacy policy.", 'post-quality-manager'),
+            esc_html__("If an administrator connects an n8n instance by API key, the instance address and the key are stored on this site, and the plugin calls that instance's API only when asked to check the connection, to test the webhook address (which also reads the workflow listening there, changing nothing), to set the workflow up, to manage a workflow set up by hand (which it only reads), to rotate the webhook token, which writes the new token into the webhook credential in n8n with the same key, or to update the workflow to the plugin's newer template, which reads that workflow and writes the new template onto it with the same key. Setting it up sends the Anthropic API key once to Anthropic to check it and passes it into an n8n credential without storing it on this site; on Pro, it also creates an Application Password for the administrator's account, kept in that n8n credential so the workflow can save Rewrite results.", 'post-quality-manager'),
+            esc_html__('The plugin keeps a monthly count of AI actions per user. It sets no cookies and collects nothing about site visitors.', 'post-quality-manager'),
+            sprintf(
+                /* translators: %s: the privacy policy's URL */
+                esc_html__("If a Pro license is entered, the site address, plugin version and license key are sent to Freemius to verify the license; usage data (the opting-in user's name and email, site details and versions, and by default the list of installed plugins and themes) is shared with the plugin's author only if an administrator opted in. After an opt-out, Freemius may still receive technical updates about the plugin's installation, as the plugin's privacy policy at %s describes.", 'post-quality-manager'),
+                'https://postquality.com/privacy'
+            ),
+        ];
+
+        wp_add_privacy_policy_content('Post Quality Manager', '<p>' . implode('</p><p>', $paragraphs) . '</p>');
     }
 
     /* ─── React app pages (stories 5.1, 5.6) ─────────────────────────── */

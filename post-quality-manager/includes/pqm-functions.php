@@ -13,18 +13,6 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-/* ─── Translations ───────────────────────────────────────────────────── */
-/**
- * Registers languages/ for the text domain on init, never earlier: since
- * WordPress 6.7 the files load just in time, and an earlier load raises a
- * "too early" notice. The React bundle reads the same folder
- * (wp_set_script_translations in PostQuality_Admin::enqueue_assets).
- */
-function postquality_load_textdomain(): void
-{
-    load_plugin_textdomain('post-quality-manager', false, dirname(plugin_basename(POSTQUALITY_PLUGIN_FILE)) . '/languages');
-}
-
 /* ─── Helper: Settings defaults (single source of truth) ─────────────── */
 function postquality_default_settings(): array
 {

@@ -13,7 +13,6 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       post-quality-manager
- * Domain Path:       /languages
  *
  * @fs_premium_only /includes/class-pqm-cron.php, /templates/n8n-workflow.json
  */
@@ -165,9 +164,6 @@ add_action('uninstall_' . plugin_basename(__FILE__), ['PostQuality_License', 'fo
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PostQuality_Activator', 'maybe_upgrade']);
 
-/* ─── Translations ───────────────────────────────────────────────────── */
-add_action('init', 'postquality_load_textdomain');
-
 /* ─── REST API ───────────────────────────────────────────────────────── */
 add_action('rest_api_init', ['PostQuality_REST_API', 'register_routes']);
 
@@ -175,6 +171,7 @@ add_action('rest_api_init', ['PostQuality_REST_API', 'register_routes']);
 if (is_admin()) {
     add_action('admin_menu', ['PostQuality_Admin', 'register_pages']);
     add_action('admin_init', ['PostQuality_Admin', 'register_settings']);
+    add_action('admin_init', ['PostQuality_Admin', 'privacy_policy_content']);
     add_action('admin_notices', ['PostQuality_Admin', 'admin_notices']);
     add_action('admin_enqueue_scripts', ['PostQuality_Admin', 'enqueue_assets']);
     add_action('updated_option', ['PostQuality_Admin', 'on_settings_updated'], 10, 3);
