@@ -103,6 +103,7 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
   summary: Post Reviews detail tabs render "✓Review" and "✓Takeaways" with no space, because the '✓ ' span is a flex item of an inline-flex tab button and its trailing space collapses.
   evidence: Seen in story 86's capture `review.png` (2026-10-23); `src/post-reviews/detail-panel.js` L482–486. A margin on `.pqm-tab-done` (or a non-breaking space) fixes it.
+  resolved: 2026-10-29, `plan-post-reviews-tab-check-spacing.md` (branch `fix/post-reviews-tab-check-spacing`) — `.pqm-tab-done` carries a right margin the width of a space (flipped to the left in the RTL build).
 - source_plan: `_bmad-output/backlog/story-site-navy-and-check-plan-3.md`
   summary: At a 1024 px window the Post Reviews table rows stop short of the table's right border, likely the hidden "Last reviewed" column in a fixed-layout table.
   evidence: Seen during story 86's captures on the showcase site (2026-10-23), capture `<session scratchpad>/capture/raw/review-page-1024.png`; not in any published frame.

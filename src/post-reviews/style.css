@@ -317,6 +317,8 @@
 .pqm-tab-done {
 	color: #007a1f;
 	font-weight: 700;
+	/* The tab button is a flex container, where the span's trailing space collapses. */
+	margin-right: 0.25em;
 }
 
 /* Pillar meters: single-hue WP blue, magnitude only (DESIGN.md; mockup .pillars/.meter). */
