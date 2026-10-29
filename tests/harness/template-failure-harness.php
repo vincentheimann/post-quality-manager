@@ -7,6 +7,10 @@
  * `$('<Node>').first().json`, then the POST Result to WordPress body
  * expression is evaluated on the resulting item. Needs Node.js on PATH;
  * fails loudly without it. No n8n, no WP install.
+ *
+ * Bug 97: the notification branch's expressions are evaluated with $json =
+ * WordPress's /save-review reply and Result Ready stubbed with the item, on
+ * both templates (the Free one is derived from this one).
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -60,10 +64,10 @@ function run_code(string $node, array $input, array $refs = []): array {
     return $items[0]['json'];
 }
 
-/** Evaluates an n8n `={{ … }}` expression against $json. */
-function run_expr(string $expr, array $json) {
+/** Evaluates an n8n `={{ … }}` expression against $json, with `$('<Node>').first().json` stubbed by $refs. */
+function run_expr(string $expr, array $json, array $refs = []) {
     if (!preg_match('/^=\{\{(.*)\}\}$/s', $expr, $m)) { fwrite(STDERR, "FATAL: not a single n8n expression: $expr\n"); exit(1); }
-    return run_node(['expr' => trim($m[1]), 'input' => $json]);
+    return run_node(['expr' => trim($m[1]), 'input' => $json, 'nodes' => (object) $refs]);
 }
 
 /** The body POST Result to WordPress sends for an item (decoded). */
@@ -82,8 +86,8 @@ function if_target(string $if, int $output): ?string {
 }
 
 /* ─── Parse Input item, produced by the real Parse Input node ────────── */
-function parsed_input(string $command): array {
-    return run_code('Parse Input', ['body' => [
+function parsed_input(string $command, array $extra = []): array {
+    return run_code('Parse Input', ['body' => $extra + [
         'command'      => $command,
         'post_id'      => 7,
         'callback_url' => 'https://example.test/wp-json/post-quality/v1/save-review',
@@ -97,22 +101,23 @@ function parsed_input(string $command): array {
 
 echo "Parse Input\n";
 $base = parsed_input('review');
-check('stamps workflow_version 7', $base['workflow_version'] === 7 && $base['error'] === false);
+check('stamps workflow_version 8', $base['workflow_version'] === 8 && $base['error'] === false);
 check('passes post_rest_url through unchanged (story 35)', $base['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
 
 /* Row (story 2): the test ping — Parse Input → Ping OK → the body POST Result to WordPress sends back */
 echo "Round-trip ping\n";
 $ping_url = 'https://example.test/wp-json/post-quality/v1/ping/abcdefghij0123456789';
 $ping = run_code('Parse Input', ['body' => ['command' => 'ping', 'source' => 'pqm-test-connection', 'callback_url' => $ping_url, 'auth_token' => 'token']]);
-check('Parse Input: the ping item carries the callback address and token, stamps 7, no post, no notification',
+check('Parse Input: the ping item carries the callback address and token, stamps 8, no post, no notification',
     $ping['command'] === 'ping' && $ping['ping'] === true && $ping['error'] === false && $ping['callback_url'] === $ping_url && $ping['auth_token'] === 'token'
-    && $ping['notification_url'] === '' && $ping['workflow_version'] === 7 && !array_key_exists('post_id', $ping));
+    && $ping['notification_url'] === '' && $ping['workflow_version'] === 8 && !array_key_exists('post_id', $ping));
 $ok = run_code('Ping OK', $ping);
 check('Ping OK passes the item through with score 0, status \'\', result \'{}\' (no error)', $ok['callback_url'] === $ping_url && $ok['auth_token'] === 'token'
-    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 7);
-check('Ping OK → POST Result to WordPress, the same connection every review takes', if_target('Ping OK', 0) === 'POST Result to WordPress');
-check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 7, error_message \'\'',
-    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 7, 'error_message' => '']);
+    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 8);
+check('Ping OK → Result Ready → POST Result to WordPress, the same connections every review takes',
+    if_target('Ping OK', 0) === 'Result Ready' && if_target('Result Ready', 0) === 'POST Result to WordPress');
+check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 8, error_message \'\'',
+    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 8, 'error_message' => '']);
 $post_node = $NODES['POST Result to WordPress']['parameters'];
 check('the callback node reads its address and X-PQM-Token header from the item: /ping/{id} and the site\'s token', run_expr($post_node['url'], $ok) === $ping_url
     && run_expr(array_column($post_node['headerParameters']['parameters'], 'value', 'name')['X-PQM-Token'], $ok) === 'token');
@@ -155,7 +160,7 @@ foreach ($agents as $agent => $parse) {
     $body = post_body($item);
     check("$parse: error true, message names the agent and the API text", $item['error'] === true && $item['message'] === $want);
     check("$parse: POST body error_message = message, status '', result {}",
-        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 7);
+        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 8);
 }
 $item = run_code('Parse Review Result', ['error' => ['message' => 'connect ECONNREFUSED']], parse_refs($base, 'Parse Review Result'));
 check('no description → falls back to the error message', $item['message'] === 'Review Agent could not get an answer from the model: connect ECONNREFUSED');
@@ -254,5 +259,87 @@ foreach ($successes as $cmd => $item) {
     check("$cmd: every other field identical to the v2 body", $body === $v2 && $v2['status'] !== '');
 }
 check('rewrite success still stored as rewritten', $successes['rewrite']['status'] === 'rewritten');
+
+/* ─── Bug 97: the notification branch reads the item at Result Ready, not WordPress's reply ── */
+const RESULT_NODES = ['Format Score', 'Parse Review Result', 'Parse Takeaways Result', 'Parse Sources Result', 'Parse SEO Result',
+    'Parse Audit Result', 'Format Rewrite Confirmation', 'Error Fallback', 'Ping OK'];
+
+/** The nodes whose outputs lead into $node. */
+function feeders(array $t, string $node): array {
+    $from = [];
+    foreach ($t['connections'] as $name => $c) {
+        foreach ($c['main'] as $targets) {
+            foreach ($targets as $to) { if ($to['node'] === $node) { $from[] = $name; } }
+        }
+    }
+    return $from;
+}
+
+/** What the notification branch reads once POST Result to WordPress answered $reply (its $json), with Result Ready holding $item. */
+function notification(array $t, array $item, array $reply): array {
+    $nodes = array_column($t['nodes'], null, 'name');
+    $refs  = ['Result Ready' => $item];
+    $send  = $nodes['Send Notification']['parameters'];
+    return [
+        'if'   => run_expr($nodes['Has Notification URL?']['parameters']['conditions']['conditions'][0]['leftValue'], $reply, $refs),
+        'url'  => run_expr($send['url'], $reply, $refs),
+        'text' => run_expr(array_column($send['bodyParameters']['parameters'], 'value', 'name')['text'], $reply, $refs),
+    ];
+}
+
+$hook    = 'https://chat.example.test/hooks/abc';
+$saved   = ['success' => true, 'id' => 12, 'message' => 'Review saved for post 7 (score).']; // the /save-review reply
+$refused = ['error' => ['message' => 'Forbidden - perhaps check your credentials?', 'description' => 'Sorry, you are not allowed to do that.', 'httpCode' => '403']];
+$review_base = parsed_input('review', ['notification_url' => $hook]);
+$score_item  = run_code('Format Score', parsed_input('score', ['notification_url' => $hook]));
+$review_item = run_code('Parse Review Result', ['content' => [['type' => 'text', 'text' => $review_json]]], parse_refs($review_base, 'Parse Review Result'));
+$no_post     = run_code('Format Score', ['title' => ''] + parsed_input('score', ['notification_url' => $hook]));
+$api_failed  = run_code('Parse Review Result', $api_error, parse_refs($review_base, 'Parse Review Result'));
+$bad_json    = run_code('Parse Review Result', $garbage, parse_refs($review_base, 'Parse Review Result'));
+$fallback    = run_code('Error Fallback', parsed_input('apply', ['notification_url' => $hook]));
+$no_address  = run_code('Format Score', parsed_input('score'));
+$rw_failed_in   = run_code('Parse Rewrite Response', $garbage, parse_refs(parsed_input('rewrite', ['notification_url' => $hook]), 'Parse Rewrite Response'));
+$rewrite_failed = run_code('Format Rewrite Confirmation', $rw_failed_in, ['Parse Rewrite Response' => $rw_failed_in]);
+check('the items under test: two reports with a chat_message, three errors without one, the fallback with its own',
+    str_starts_with($score_item['chat_message'], '### 📊 Post Score Report') && str_starts_with($review_item['chat_message'], '### ✍️ Content Review Report')
+    && !isset($no_post['chat_message']) && !isset($api_failed['chat_message']) && !isset($bad_json['chat_message'])
+    && $fallback['chat_message'] === '❌ ' . $fallback['message'] && $no_address['notification_url'] === '');
+
+$variants = ['Pro' => $tpl, 'Free' => json_decode(file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow-free.json'), true)];
+foreach ($variants as $variant => $t) {
+    echo "Notification ($variant template)\n";
+    $nodes = array_column($t['nodes'], null, 'name');
+    $want  = array_values(array_intersect(RESULT_NODES, array_keys($nodes)));
+    $got   = feeders($t, 'Result Ready');
+    sort($want);
+    sort($got);
+    check("Result Ready is a No Operation node, pqm-node-112", ($nodes['Result Ready']['type'] ?? null) === 'n8n-nodes-base.noOp' && ($nodes['Result Ready']['id'] ?? null) === 'pqm-node-112');
+    check('every one of the ' . count($want) . ' result nodes feeds Result Ready', $got === $want && count($want) === ($variant === 'Pro' ? 9 : 5));
+    check('Result Ready alone feeds POST Result to WordPress, which feeds Has Notification URL?, whose true output is Send Notification',
+        feeders($t, 'POST Result to WordPress') === ['Result Ready']
+        && ($t['connections']['Result Ready']['main'] ?? null) === [[['node' => 'POST Result to WordPress', 'type' => 'main', 'index' => 0]]]
+        && feeders($t, 'Has Notification URL?') === ['POST Result to WordPress']
+        && ($t['connections']['Has Notification URL?']['main'][0][0]['node'] ?? null) === 'Send Notification');
+    check('a refused save still reaches the IF: POST Result to WordPress keeps onError continueRegularOutput',
+        ($nodes['POST Result to WordPress']['onError'] ?? null) === 'continueRegularOutput');
+    $cond = $nodes['Has Notification URL?']['parameters']['conditions']['conditions'][0];
+    check('Has Notification URL? is true when its value is not \'\'', $cond['operator'] === ['type' => 'string', 'operation' => 'notEquals'] && $cond['rightValue'] === '');
+
+    foreach (['score' => $score_item, 'review' => $review_item] as $cmd => $item) {
+        check("$cmd report: the IF and the POST read the item's address, the text is its chat_message",
+            notification($t, $item, $saved) === ['if' => $hook, 'url' => $hook, 'text' => $item['chat_message']]);
+    }
+    foreach (['score, post not found' => $no_post, 'review, model error' => $api_failed, 'review, invalid JSON' => $bad_json] as $case => $item) {
+        check("$case: no chat_message, so the text is '❌ ' + message", notification($t, $item, $saved) === ['if' => $hook, 'url' => $hook, 'text' => '❌ ' . $item['message']]);
+    }
+    check('unknown command: Error Fallback\'s own chat_message', notification($t, $fallback, $saved) === ['if' => $hook, 'url' => $hook, 'text' => $fallback['chat_message']]);
+    if ($variant === 'Pro') {
+        check('rewrite error: Format Rewrite Confirmation\'s chat_message is \'❌ \' + message', notification($t, $rewrite_failed, $saved) === ['if' => $hook, 'url' => $hook, 'text' => '❌ ' . $rewrite_failed['message']]);
+    }
+    check('no address: the IF reads \'\', so nothing is posted', notification($t, $no_address, $saved)['if'] === '');
+    check('ping: the IF reads \'\', so nothing is posted', notification($t, $ok, $saved)['if'] === '');
+    check('save refused (the 4xx error item goes on): the report still goes to the address',
+        notification($t, $score_item, $refused) === ['if' => $hook, 'url' => $hook, 'text' => $score_item['chat_message']]);
+}
 
 harness_exit();

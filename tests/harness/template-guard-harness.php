@@ -170,8 +170,9 @@ check('its fallback is the output after the rules, wired to Error Fallback', $ro
     && count($free['connections']['Route Command']['main']) === count($rules) + 1
     && $free['connections']['Route Command']['main'][count($rules)][0]['node'] === 'Error Fallback'
     && $free['connections']['Route Command']['main'][3][0]['node'] === 'Ping OK');
-check('Ping OK keeps its way to POST Result to WordPress (story 2: the Free ping proves the round trip too)',
-    ($free['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress');
+check('Ping OK keeps its way to POST Result to WordPress through Result Ready (story 2: the Free ping proves the round trip too; bug 97)',
+    ($free['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'Result Ready'
+    && ($free['connections']['Result Ready']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress');
 preg_match('/const validCommands = \[([^\]]*)\]/', $nodes['Parse Input']['parameters']['jsCode'], $m);
 preg_match_all("/'([a-z_]+)'/", $m[1] ?? '', $valid);
 check('Parse Input accepts score, review, takeaways, apply only', $valid[1] === ['score', 'review', 'takeaways', 'apply']);

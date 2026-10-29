@@ -53,7 +53,7 @@ Pick a Blog Profile and an Editorial Standards preset (or Custom), enable schedu
 
 - **CV:** a Blog Profile and an Editorial Standards preset are one click each, Custom opens the text field (progressive disclosure — story 26, 2026-10-07); cron with batch size, minimum score, and post-age knobs turns the plugin from a tool into a system.
 - **CV (story 55, 2026-10-12, owner test on production, no bugs found):** the setup guide offers all three right after the first review, inside the same dialog — Blog Profile, Editorial Standards (preset read-only, Custom from the stored text) and a one-click switch for scheduled reviews with the stored knobs (Pro + "Manage agents"; a free site is told it is Pro). Each step is skippable and writes only its own keys.
-- **UV:** nothing pulls the blogger back — no digest, no notification, no "3 posts dropped below 60 this week". Results wait silently in wp-admin. This is where new users silently churn. *(2026-07-24: small step — after the first review the dashboard nudges enabling scheduled reviews; the actual pull-back mechanism (digest/notifications) remains open.)*
+- **UV:** nothing pulls the blogger back — no digest, no notification, no "3 posts dropped below 60 this week". Results wait silently in wp-admin. This is where new users silently churn. *(2026-07-24: small step — after the first review the dashboard nudges enabling scheduled reviews; the actual pull-back mechanism (digest/notifications) remains open.)* *(2026-10-29: the Notification URL posts each command's report, scheduled runs included, to a chat webhook since workflow version 8 (bug 97); a digest and trend alerts are still missing.)*
 - **Signal:** % of installs with cron enabled; dashboard visits per week after week 2.
 
 ---

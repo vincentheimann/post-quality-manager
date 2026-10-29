@@ -47,7 +47,7 @@ Contract details, by the workflow version that introduced them:
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
 - **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
-  `{"ok":true,"workflow_version":7}` (its Response Data option, no extra node), so the
+  `{"ok":true,"workflow_version":8}` (its Response Data option, no extra node), so the
   plugin's test ping learns which workflow runs. An older import answers n8n's default
   body without a version, and the plugin reports it as an older version.
 - **The test ping proves the way back (v7, story 2).** Parse Input's ping item carries
@@ -57,35 +57,44 @@ Contract details, by the workflow version that introduced them:
   no `post_id`, score 0, empty result). The plugin waits up to 8 s for that call: received
   with the right token = the round trip works; a wrong token or no call = a failed test
   with the fix in its message. An older workflow still answers the ping without calling back.
+- **The notification gets the result (v8, bug 97).** Every result node (`Format Score`,
+  the five Parse … Result nodes, `Format Rewrite Confirmation`, `Error Fallback`,
+  `Ping OK`) feeds `Result Ready`, a No Operation node, which feeds `POST Result to
+  WordPress`. After the callback, `$json` is WordPress's `/save-review` reply, so
+  `Has Notification URL?` and `Send Notification` read the address and the text from
+  `$('Result Ready').first().json`; an item without `chat_message` (a Parse node's error,
+  `Format Score`'s missing post) sends `'❌ ' + message`. The callback still continues on
+  error, so a refused save still notifies. A v7 workflow saves results but never notifies.
 
 Solid edges are the connections in the template; dotted edges show the failure items
-travelling the same connection into `/save-review`.
+travelling the same connections into `/save-review` and the notification.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 7]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 8]
     B --> C{Route Command}
 
-    C -->|score| SC[Format Score] --> CB
-    C -->|review| B1[Build Review Body] --> H1[Claude - Review Agent] --> P1[Parse Review Result] --> CB
-    C -->|takeaways| B2[Build Takeaways Body] --> H2[Claude - Takeaways Agent] --> P2[Parse Takeaways Result] --> CB
-    C -->|sources| B3[Build Sources Body] --> H3[Claude - Sources Agent] --> P3[Parse Sources Result] --> CB
-    C -->|seo| B4[Build SEO Body] --> H4[Claude - SEO Agent] --> P4[Parse SEO Result] --> CB
-    C -->|audit| B5[Build Audit Body] --> H5[Claude - Audit Agent] --> P5[Parse Audit Result] --> CB
+    C -->|score| SC[Format Score] --> RR
+    C -->|review| B1[Build Review Body] --> H1[Claude - Review Agent] --> P1[Parse Review Result] --> RR
+    C -->|takeaways| B2[Build Takeaways Body] --> H2[Claude - Takeaways Agent] --> P2[Parse Takeaways Result] --> RR
+    C -->|sources| B3[Build Sources Body] --> H3[Claude - Sources Agent] --> P3[Parse Sources Result] --> RR
+    C -->|seo| B4[Build SEO Body] --> H4[Claude - SEO Agent] --> P4[Parse SEO Result] --> RR
+    C -->|audit| B5[Build Audit Body] --> H5[Claude - Audit Agent] --> P5[Parse Audit Result] --> RR
 
     C -->|rewrite| B6[Build Rewrite Body] --> H6[Claude - Rewrite Agent] --> P6[Parse Rewrite Response] --> RP{Rewrite Parsed?}
     RP -->|true| UP[Update WP Post Rewrite<br>PATCH post_rest_url: content, excerpt, status pending] --> FR[Format Rewrite Confirmation]
     RP -->|false| FR
-    FR --> CB
+    FR --> RR
 
-    C -->|ping| PO[Ping OK<br>webhook already answered: the item goes on] --> CB
-    C -->|fallback| EF[Error Fallback] --> CB
+    C -->|ping| PO[Ping OK<br>webhook already answered: the item goes on] --> RR
+    C -->|fallback| EF[Error Fallback] --> RR
 
-    SC -.->|empty post:<br>error true + message| CB
-    P1 & P2 & P3 & P4 & P5 -.->|empty post, model API error or invalid JSON:<br>error true + message| CB
-    FR -.->|empty post, model API error, parse failure or save failure:<br>error true + message| CB
-    EF -.->|command without a branch:<br>error true + message| CB
+    SC -.->|empty post:<br>error true + message| RR
+    P1 & P2 & P3 & P4 & P5 -.->|empty post, model API error or invalid JSON:<br>error true + message| RR
+    FR -.->|empty post, model API error, parse failure or save failure:<br>error true + message| RR
+    EF -.->|command without a branch:<br>error true + message| RR
 
-    CB[POST Result to WordPress<br>/save-review, error_message when error is true] --> HN{Has Notification URL?}
-    HN -->|true| NOTIFY([Send Notification<br>optional webhook: Slack / kChat / Teams])
+    RR[Result Ready<br>No Operation: the item the notification reads] --> CB
+    CB[POST Result to WordPress<br>/save-review, error_message when error is true] --> HN{Has Notification URL?<br>Result Ready's notification_url}
+    HN -->|true| NOTIFY([Send Notification<br>Result Ready's chat_message, or ❌ + message<br>optional webhook: Slack / kChat / Teams])
 ```

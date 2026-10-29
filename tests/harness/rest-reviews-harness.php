@@ -309,7 +309,7 @@ check('every Parse Input stamp === POSTQUALITY_WORKFLOW_VERSION (the command ite
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('POSTQUALITY_WORKFLOW_VERSION is 7', POSTQUALITY_WORKFLOW_VERSION === 7);
+check('POSTQUALITY_WORKFLOW_VERSION is 8', POSTQUALITY_WORKFLOW_VERSION === 8);
 $trigger = $nodes['Webhook Trigger'];
 check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":POSTQUALITY_WORKFLOW_VERSION} (the ping handshake)',
     !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData
@@ -325,8 +325,9 @@ check('Parse Input passes post_rest_url through',
 
 /* ─── Story 2: the test ping's callback — the template's way back and the route it lands on ── */
 echo "Round-trip ping (story 2)\n";
-check('Ping OK is wired to POST Result to WordPress and passes the item through with the result fields a review carries',
-    ($tpl['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress'
+check('Ping OK → Result Ready → POST Result to WordPress, passing the item through with the result fields a review carries',
+    ($tpl['connections']['Ping OK']['main'][0][0]['node'] ?? null) === 'Result Ready'
+    && ($tpl['connections']['Result Ready']['main'][0][0]['node'] ?? null) === 'POST Result to WordPress'
     && str_contains($nodes['Ping OK']['parameters']['jsCode'], "return [{ json: { ...d, overall_score: 0, status: '', result: '{}' } }];"));
 check('Parse Input\'s ping item carries callback_url, auth_token and the stamp (one line)',
     (bool) preg_match("/^  return \[\{ json: \{ command: 'ping', ping: true, error: false, callback_url: callbackUrl, auth_token: authToken, notification_url: '', workflow_version: " . POSTQUALITY_WORKFLOW_VERSION . " \} \}\];$/m", $nodes['Parse Input']['parameters']['jsCode']));

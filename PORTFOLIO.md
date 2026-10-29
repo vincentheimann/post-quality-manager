@@ -21,7 +21,7 @@ Every figure here comes from the repository: git history, the 15 Architecture De
 | **Timeline** | First commit 2026-03-17; niche-agnostic pivot 2026-07-22; first release 3.0.0 on 2026-10-08; 3.9.0 on 2026-10-15; setup hardening to 2026-10-20 (pre-release until public launch) |
 | **Delivery** | 362 commits on 24 active days; 156 pull requests, rebase-merged; 13 tagged releases in 8 days (v3.0.0–v3.9.0), each with a CI-built zip |
 | **Business model** | Free build (Review + Key Takeaways) for the WordPress.org directory; Pro per site, yearly, sold through Freemius before the first public release (ADR 0013/0014) |
-| **Stack** | PHP 8 WordPress plugin (REST API, WP-Cron, custom table), React admin app on `@wordpress/components`, n8n workflow template (30 nodes, 6 agents), Claude API; GitHub Actions, release-please, Plugin Check |
+| **Stack** | PHP 8 WordPress plugin (REST API, WP-Cron, custom table), React admin app on `@wordpress/components`, n8n workflow template (31 nodes, 6 agents), Claude API; GitHub Actions, release-please, Plugin Check |
 | **Method** | BMad Method (lightweight) since 2026-10-01: spec → ticket → build (plan checkpoint, parallel reviewers) → retrospective; ADRs for the why, versioned memory for the what |
 | **Proof** | 139 JS unit tests, 17 PHP harnesses run in CI, Plugin Check blocking, owner-verified manual passes on eleven documented dates; no external users yet |
 
@@ -222,7 +222,7 @@ How the pieces talk to each other:
 
 ```mermaid
 flowchart LR
-    A[WP Admin<br/>Dashboard, Post Reviews, WP-Cron] -->|run, X-PQM-Token| B[n8n workflow<br/>30 nodes, 6 agents]
+    A[WP Admin<br/>Dashboard, Post Reviews, WP-Cron] -->|run, X-PQM-Token| B[n8n workflow<br/>31 nodes, 6 agents]
     B --> C[AI provider<br/>Claude API]
     B -->|save-review, X-PQM-Token| D[Plugin REST API<br/>post-quality/v1]
     D --> A
