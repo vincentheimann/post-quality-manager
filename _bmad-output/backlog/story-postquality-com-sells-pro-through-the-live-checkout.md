@@ -4,7 +4,7 @@ type: story
 title: "postquality.com sells Pro: every buy link opens Freemius's live checkout"
 parent: none
 covers: [UV7, O9]
-after: [38]
+after: [96]
 assignee: ""
 refined: true
 hitl: true
@@ -67,3 +67,4 @@ On the day the WordPress.org listing goes live (day L in the launch plan), postq
 - Open question: how criterion 5 is proved without a real charge: a single-use 100% coupon, if Freemius completes a free order through the hosted checkout, or a real purchase refunded within the 14-day window. Either way the license, the coupon and the payment are listed and removed (owner rule 2026-10-20, chore 81).
 - Risk high (payments): the check outside the criteria is the owner's live purchase in criterion 5, done by a person before the launch is announced.
 - Path for the builder (recorded at the owner's convention, not a reference): the site repository's `_config.yml` (`launched` and the five launch values) and its README section "Launch flag".
+- Decision (owner, 2026-10-29, story 38 split): the site sells Pro once the listing receives releases, so story 96 (each release reaches the listing) replaces story 38 in `after`. This story can start once 96's first deploy put the approved version in the listing (96 built, its Notes).

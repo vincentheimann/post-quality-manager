@@ -4,7 +4,7 @@ type: story
 title: "The Add Plugins card and its More Details view show the plugin as the owner approved"
 parent: none
 covers: [UV7]
-after: [10, 51]
+after: [10, 51, 95]
 assignee: ""
 refined: false
 hitl: true
@@ -26,7 +26,7 @@ Owner request (2026-10-16): the plugin's card in WP Admin → Plugins → Add Ne
 2. **The More Details view renders from the same files**
    **Given** the same hook
    **When** "More Details" is opened
-   **Then** the modal shows the banner (a placeholder until story 41 produces it, called out as such), the Description tab from the readme and the Installation / FAQ / Screenshots / Changelog tabs as far as story 38 has filled them, with no raw markup or empty tab
+   **Then** the modal shows the banner (a placeholder until story 41 produces it, called out as such), the Description tab from the readme and the Installation / FAQ / Screenshots / Changelog tabs as far as story 95 has filled them, with no raw markup or empty tab
 3. **The owner approves and the sources carry the result**
    **Given** the two renderings
    **When** the owner reviews them
@@ -38,7 +38,7 @@ Owner request (2026-10-16): the plugin's card in WP Admin → Plugins → Add Ne
 
 ## Boundaries
 
-- Produces no new asset: the icon is story 51's, the banners and screenshots stay story 41's, the readme sections stay story 38's. If a rendering shows an asset or section is wrong, the finding goes to that story's Notes.
+- Produces no new asset: the icon is story 51's, the banners and screenshots stay story 41's, the readme sections stay story 95's. If a rendering shows an asset or section is wrong, the finding goes to that story's Notes.
 - The preview hook is development-only: a file under `bin/` or a Local mu-plugin, listed in `docs/distribution.md`, never in the zip or the Free build.
 - Does not touch the name, slug or tagline decisions (story 10): a "Name – keywords" title as in other directory listings is ruled out by `docs/brand.md` § Naming ("Y – X" is not acceptable); the owner can reopen that only through story 10.
 
@@ -47,7 +47,7 @@ Owner request (2026-10-16): the plugin's card in WP Admin → Plugins → Add Ne
 - icon — _bmad-output/backlog/story-plugin-icon.md (story 51, done 2026-10-12: the files the card shows)
 - naming — docs/brand.md § Naming (name, tagline, the surface table this story renders)
 - sheet — docs/distribution.md (readme header table and the plugin-header rows; this story adds the approval line)
-- assets and readme — _bmad-output/backlog/story-visual-identity-and-copy-sweep.md (story 41) and _bmad-output/backlog/story-wordpress-org-directory-listing.md (story 38 AC2, AC5)
+- assets and readme — _bmad-output/backlog/story-visual-identity-and-copy-sweep.md (story 41) and _bmad-output/backlog/story-free-build-meets-the-directory-rules-before-submission.md (story 95: the readme sections and the disclosures)
 - code — post-quality-manager/post-quality-manager.php (the header `Description` AC4 rewrites); post-quality-manager/readme.txt
 - external — https://developer.wordpress.org/plugins/wordpress-org/plugin-assets/ (which file feeds which part of the card)
 - external — https://developer.wordpress.org/plugins/wordpress-org/how-your-readme-txt-works/ (name, short description, sections)
@@ -57,4 +57,5 @@ Owner request (2026-10-16): the plugin's card in WP Admin → Plugins → Add Ne
 
 - Filed 2026-10-16 (owner): "create the WordPress library icon and content as in the Add Plugins page". The icon already exists (story 51) and the content sources are ticketed (10, 38, 41, 47); what nobody had was the assembled card, so this story is the preview-and-approve sitting plus the header `Description` fix. Low risk: one header line and a development-only hook.
 - HITL: the owner approves the two renderings; the agent builds the preview and applies the fixes.
+- Decision (owner, 2026-10-29, story 38 split, Q6 A): this story comes before story 38's submission; 38's `after` lists 70. It runs after story 95, which completes the readme sections it previews; both edit the readme, so 95 joins `after`.
 - Not ranked by `/prioritize` yet. Natural slot: after story 41 produces the banner and screenshots (so the modal is complete), before story 38 submits; the card itself (AC1, AC4) needs only 10 and 51, which is why `after` lists those two.
