@@ -175,8 +175,7 @@ check('Editor: no License section', strpos(render_for($editor_caps, true), '>Lic
  * as the SDK fires them, in its order, through the callbacks the main file registered on postquality_fs() (WordPress
  * passes one argument: accepted_args 1); the baseline registers none, so nothing is recorded there. $request starts
  * a new request: the note of the SDK's release lives for one request only. */
-echo "License section, license detached by the SDK's sync (bug 93)
-";
+echo "License section, license detached by the SDK's sync (bug 93)\n";
 $fire = static function (string $tag, $arg = ''): void {
     foreach (postquality_fs()->actions[$tag] ?? [] as $cb) { $cb($arg); }
 };

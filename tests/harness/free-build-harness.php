@@ -640,7 +640,8 @@ check('no after_license_deactivation, after_license_change, after_license_activa
 check('no "Renew Pro" string, no note, record or forget callback, no notice filter in the Free tree',
     !array_filter($ours, static fn($path) => (bool) preg_match('/Renew Pro|note_license_deactivation|record_lapse|forget_lapse|sticky_message_license_expired/', (string) file_get_contents($path))));
 check('PostQuality_License::LAPSED_OPTION stays defined on Free: uninstall() deletes a record a former Pro install left',
-    defined('PostQuality_License::LAPSED_OPTION') && PostQuality_License::LAPSED_OPTION === 'postquality_license_lapsed');
+    defined('PostQuality_License::LAPSED_OPTION') && PostQuality_License::LAPSED_OPTION === 'postquality_license_lapsed'
+    && str_contains((string) file_get_contents($free . '/includes/class-pqm-activator.php'), 'delete_option( PostQuality_License::LAPSED_OPTION );'));
 
 /* ─── Row: both builds installed (Freemius dual activation) ──────────── */
 echo "Row — the other build's main file loaded beside a live SDK: set_basename, nothing redeclared\n";
