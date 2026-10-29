@@ -3,7 +3,7 @@ title: 'A customer buys Pro and a real license unlocks it'
 type: 'feature'
 ticket: 44
 created: '2026-10-09'
-status: 'built'
+status: done
 baseline_revision: 'a307fe9098672700ed73381ea8590c7e156acae5'
 route: 'full'
 route_source: 'auto'
