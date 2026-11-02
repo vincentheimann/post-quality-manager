@@ -426,7 +426,7 @@ check('... the map, the version report and the URL gone (one write of postqualit
 check('... reply = public_state() (setup null, not adoptable, not rotatable) + message + status_html: "removed here and in n8n"', is_array($r)
     && array_keys($r) === [...$state_keys, 'message', 'status_html'] && $r['setup'] === null && $r['adoptable'] === false && $r['rotatable'] === false && $r['key_set'] === true
     && $r['message'] === REMOVED_BOTH);
-check('... status_html: state 2 (connected, not set up), the message its success line, one primary', state_of($r['status_html']) === 'connected'
+check('... status_html: state 2 (connected, not set up), the message its success line, ' . (APP_BUILT ? 'one primary' : 'unbuilt: no primary (no dialog to open)'), state_of($r['status_html']) === 'connected'
     && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . REMOVED_BOTH . '</p>') && one_primary($r['status_html']));
 managed([], $adopted_map + $report, V5_HOOK);
 $r = start_over(false);

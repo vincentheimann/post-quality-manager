@@ -123,8 +123,10 @@ check('... a clean test (\'\'): cleared, the stored report back to its shape bef
 connected($miswired_map(wired()), $setup_map + $a_sentence);
 $r = connect_ping(HOOK);
 check('fixed, Test again: \'\' stored (the sentence gone), the up-to-date message', $stored() === null && $r['message'] === PING_OK && $r['outdated'] === false);
-check('... the body: set up, the version line, one primary (the first review)', state_of($r['status_html']) === 'set-up' && one_primary($r['status_html'])
-    && str_contains($r['status_html'], 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.') && str_contains($r['status_html'], 'Run your first review'));
+check('... the body: set up, the version line, ' . (APP_BUILT ? 'one primary (the first review)' : 'unbuilt: no primary (no dialog to open)'), state_of($r['status_html']) === 'set-up' && one_primary($r['status_html'])
+    && str_contains($r['status_html'], 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.')
+    && (APP_BUILT ? str_contains($r['status_html'], 'Run your first review') : !str_contains($r['status_html'], 'button-primary')
+        && str_contains($r['status_html'], '<p class="pqm-workflow-actions"><button type="button" class="button pqm-test-connection">Test again</button></p>')));
 
 // The Settings field pings an unsaved URL: not diagnosed.
 connected([LIST_OK]);

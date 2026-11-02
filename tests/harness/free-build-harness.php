@@ -445,9 +445,11 @@ $GLOBALS['tw']['queue'] = [$free_stored($free_clean)];
 $ping = PostQuality_Admin::ping_webhook('https://n8n.example/webhook/pqm-execute-example-com');
 postquality_record_workflow_version($ping['version'], 'test', $ping['variant'], $ping['miswired']);
 $status = PostQuality_Admin::render_workflow_body();
-check('... fixed, Test again: clean, set up ("Your workflow answers."), the sentence gone, one primary (the first review)', $ping['miswired'] === ''
-    && str_contains($status, 'data-state="set-up"') && str_contains($status, 'Your workflow answers.') && substr_count($status, 'button-primary') === 1
-    && str_contains($status, 'pqm-open-setup" data-step="review">Run your first review</button>'));
+check('... fixed, Test again: clean, set up ("Your workflow answers."), the sentence gone, ' . ($built_free ? 'one primary (the first review)' : 'unbuilt: no primary (no dialog to open)'), $ping['miswired'] === ''
+    && str_contains($status, 'data-state="set-up"') && str_contains($status, 'Your workflow answers.')
+    && ($built_free ? substr_count($status, 'button-primary') === 1 && str_contains($status, 'pqm-open-setup" data-step="review">Run your first review</button>')
+        : substr_count($status, 'button-primary') === 0 && !str_contains($status, 'pqm-open-setup')
+        && str_contains($status, '<p class="pqm-workflow-actions"><button type="button" class="button pqm-test-connection">Test again</button></p>')));
 
 /* ─── Row: adoption on the Free build (entry 8) ──────────────────────── */
 echo "Row — Free build: a hand-made Free workflow adopted, no WordPress credential, no rewrite_ready\n";

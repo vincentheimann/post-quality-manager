@@ -657,24 +657,28 @@ $passing = ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' 
 $key_passing = [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example', 'api_key' => 'k', 'probe' => $passing]];
 $no_url = ['n8n_webhook_url' => '', 'webhook_token' => 'tok-35'];
 $set_up_button = '<button type="button" class="button button-primary pqm-open-setup">Set up n8n</button>';
+// Unbuilt (no admin/build/, as on CI's PHP job), app_built() leaves the setup dialog's button out: where it is the primary, there is none.
+$built = file_exists(dirname(__DIR__, 2) . '/post-quality-manager/admin/build/index.asset.php');
 // The JSON body rides a data attribute through esc_attr() (identity here; `&quot;` on WordPress).
 $by_hand_link = '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="{"manual":true}" data-pqm-focus="pqm-by-hand">Set up by hand instead</a></p>';
 // Row 1: not set up
 $page = $render_workflow($no_url);
-check('1 not set up: "Not connected to n8n yet.", the line accent, primary Set up n8n (opens the wizard), no Test again, no version line',
-    $state_of($page) === 'not-set-up' && $sentence_of($page) === 'Not connected to n8n yet.' && str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $set_up_button . '</p>')
-    && $primaries($page) === 1 && !str_contains($page, 'pqm-test-connection') && !str_contains($page, 'pqm-workflow-version'));
+check('1 not set up: "Not connected to n8n yet.", the line accent, ' . ($built ? 'primary Set up n8n (opens the wizard)' : 'unbuilt: no Set up n8n, no primary, no actions line') . ', no Test again, no version line',
+    $state_of($page) === 'not-set-up' && $sentence_of($page) === 'Not connected to n8n yet.'
+    && ($built ? str_contains($block_of($page), '<p class="pqm-workflow-actions">' . $set_up_button . '</p>') && $primaries($page) === 1
+        : !str_contains($page, 'pqm-open-setup') && $primaries($page) === 0 && !str_contains($block_of($page), 'pqm-workflow-actions'))
+    && !str_contains($page, 'pqm-test-connection') && !str_contains($page, 'pqm-workflow-version'));
 check('... the paragraph names the three values and what the plugin creates; the "Set up by hand instead" link (POST setup {manual: true}, then Set up by hand focused); no disclosure',
     str_contains($page, '<p>The setup asks for three values: your n8n address, an n8n API key with an expiry date, and an Anthropic API key. The plugin then creates everything in n8n for you: the credentials, the workflow and its publication.</p>')
     && str_contains($page, $by_hand_link) && $disclosures_of($page) === [] && !str_contains($page, 'pqm-n8n-connection-root'));
-$built = file_exists(dirname(__DIR__, 2) . '/post-quality-manager/admin/build/index.asset.php');
 check('... the page: H1, the setup island root (or, unbuilt, the build notice), then one body region (aria-live polite) holding the renderer\'s output',
     ($built ? preg_match('/<h1>n8n Workflow<\/h1>\s*<div id="pqm-setup-root"><\/div>\s*<div id="pqm-workflow-body" aria-live="polite">/', $page) === 1 : str_contains($page, 'This page has not been built yet.'))
     && substr_count($page, 'pqm-workflow-body') === 1 && str_contains($page, PostQuality_Admin::render_workflow_body()));
 // Row 2: connected, not set up
 $page = $render_workflow($no_url, $key_passing);
-check('2 connected, not set up: "Connected to n8n at {host}. The workflow is not set up yet.", info accent, primary Set up n8n, the n8n connection disclosure only, the by-hand link, no leftovers notice',
-    $state_of($page) === 'connected' && $sentence_of($page) === 'Connected to n8n at n8n.example. The workflow is not set up yet.' && str_contains($page, $set_up_button) && $primaries($page) === 1
+check('2 connected, not set up: "Connected to n8n at {host}. The workflow is not set up yet.", info accent, ' . ($built ? 'primary Set up n8n' : 'unbuilt: no Set up n8n, no primary') . ', the n8n connection disclosure only, the by-hand link, no leftovers notice',
+    $state_of($page) === 'connected' && $sentence_of($page) === 'Connected to n8n at n8n.example. The workflow is not set up yet.'
+    && ($built ? str_contains($page, $set_up_button) && $primaries($page) === 1 : !str_contains($page, 'pqm-open-setup') && $primaries($page) === 0)
     && $disclosures_of($page) === ['pqm-n8n-connection' => false] && (!$built || str_contains($page, 'id="pqm-n8n-connection-root"')) && str_contains($page, $by_hand_link) && !str_contains($page, 'An earlier setup left'));
 check('... leftovers waiting: the info notice', str_contains($render_workflow($no_url, $key_passing + [PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://n8n.example', 'credentials' => ['c1'], 'at' => 1]]),
     '<div class="notice notice-info inline pqm-inline-notice"><p>An earlier setup left a workflow or credentials in n8n. Setting up removes them first.</p></div>'));
@@ -684,8 +688,9 @@ check('... a record of another instance (story 71): state 2 without the leftover
 check('... a passing key with a setup map but no URL saved (the URL save refused): connected too, the wizard offers the paste-URL body', $state_of($render_workflow($no_url, $key_passing + [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) === 'connected');
 // Story 74: a refusal of the stored key replaces its probe; the page asks PostQuality_N8n::connected().
 $key_refused = [PostQuality_N8n::OPTION => ['probe' => ['ok' => false, 'cause' => 'key', 'message' => 'n8n refused this API key.', 'at' => $at]] + $key_passing[PostQuality_N8n::OPTION]];
-check('... a stored refusal of the key (story 74): not state 2 — state 1, Set up n8n the one primary; the n8n connection disclosure stays (the island shows the refusal, Forget key)',
-    $state_of($page = $render_workflow($no_url, $key_refused)) === 'not-set-up' && $primaries($page) === 1 && str_contains($page, $set_up_button)
+check('... a stored refusal of the key (story 74): not state 2 — state 1, ' . ($built ? 'Set up n8n the one primary' : 'unbuilt: no Set up n8n, no primary') . '; the n8n connection disclosure stays (the island shows the refusal, Forget key)',
+    $state_of($page = $render_workflow($no_url, $key_refused)) === 'not-set-up'
+    && ($built ? $primaries($page) === 1 && str_contains($page, $set_up_button) : !str_contains($page, 'pqm-open-setup') && $primaries($page) === 0)
     && $disclosures_of($page) === ['pqm-n8n-connection' => false]);
 check('... the same with a setup map: not connected either, no Update workflow, no Rotate token', $state_of($page = $render_workflow($no_url, $key_refused + [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c1'], 'path' => 'x', 'wizard_created' => true, 'at' => 1]])) !== 'connected'
     && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-rotate-token'));
@@ -727,10 +732,12 @@ check('postquality_manual_reason(): null on a fresh site', postquality_manual_re
 $current = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
 $page = $render_workflow(['webhook_token' => 'tok-35'], $current);
 $webhook_disclosure = static fn(string $html): string => preg_match('/<details class="pqm-disclosure" id="pqm-webhook">(.*?)<\/details>/s', $html, $m) ? $m[1] : '';
-check('4 set up, no result: "Your workflow answers.", success accent, "Version N · checked just now by a test.", primary Run your first review (the wizard\'s review step), Test again secondary',
+check('4 set up, no result: "Your workflow answers.", success accent, "Version N · checked just now by a test.", ' . ($built ? 'primary Run your first review (the wizard\'s review step), Test again secondary' : 'unbuilt: Test again alone (secondary), no primary'),
     $state_of($page) === 'set-up' && $sentence_of($page) === 'Your workflow answers.' && str_contains($page, '<p class="description pqm-workflow-version">Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.</p>')
-    && str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-open-setup" data-step="review">Run your first review</button> <button type="button" class="button pqm-test-connection">Test again</button></p>')
-    && $primaries($page) === 1);
+    && ($built ? str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button button-primary pqm-open-setup" data-step="review">Run your first review</button> <button type="button" class="button pqm-test-connection">Test again</button></p>')
+        && $primaries($page) === 1
+        : str_contains($block_of($page), '<p class="pqm-workflow-actions"><button type="button" class="button pqm-test-connection">Test again</button></p>')
+        && !str_contains($page, 'pqm-open-setup') && $primaries($page) === 0));
 check('... the three disclosures, collapsed: n8n connection, Webhook, Set up by hand (hand-made: no map)', $disclosures_of($page) === ['pqm-by-hand' => false, 'pqm-n8n-connection' => false, 'pqm-webhook' => false]);
 check('... Webhook: the URL field with Save and test (secondary), the token as a Copy row, its description; no Rotate token on a hand-made setup',
     str_contains($webhook_disclosure($page), $save_form('https://n8n.example/webhook', 'disclosure', 'button')) && str_contains($webhook_disclosure($page), '<span class="pqm-copy-label">Webhook token</span>')
@@ -1168,8 +1175,11 @@ foreach (['fresh site' => ['n8n_webhook_url' => ''], 'connected site' => []] as 
         $built ? substr_count($html, '<div id="pqm-setup-root"></div>') === 1 : str_contains($html, 'This page has not been built yet.'));
     check("$label: no inline wizard", !str_contains($html, 'pqm-wizard'));
 }
-check('fresh site: the status block\'s Set up n8n opens the dialog (.pqm-open-setup); nothing else on the page', str_contains($render_workflow(['n8n_webhook_url' => '']), 'pqm-open-setup')
-    && !str_contains($render_workflow(['n8n_webhook_url' => '']), 'pqm-copy-button'));
+$fresh_page = $render_workflow(['n8n_webhook_url' => '']);
+check('fresh site: ' . ($built ? 'the status block\'s Set up n8n opens the dialog (.pqm-open-setup)' : 'unbuilt: no Set up n8n, no primary (no dialog to open)') . '; nothing else on the page',
+    ($built ? str_contains($fresh_page, 'pqm-open-setup') : !str_contains($fresh_page, 'pqm-open-setup') && $primaries($fresh_page) === 0
+        && $state_of($fresh_page) === 'not-set-up' && $sentence_of($fresh_page) === 'Not connected to n8n yet.')
+    && !str_contains($fresh_page, 'pqm-copy-button'));
 check('connected site: Set up by hand (import-URL copy) and the test button render', str_contains($html, 'pqm-copy-button') && str_contains($html, 'pqm-test-connection'));
 $GLOBALS['tw_settings'] = [];
 

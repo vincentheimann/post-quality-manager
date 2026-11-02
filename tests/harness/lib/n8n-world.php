@@ -465,9 +465,33 @@ function diagnosed(string $url = HOOK): ?string {
     $GLOBALS['diagnosis_calls'] = array_merge($GLOBALS['diagnosis_calls'], $GLOBALS['tw']['calls']);
     return $r;
 }
-/** The page's body holds exactly one primary action in every state (story 67). */
+/** Whether the admin app is built: the file PostQuality_Admin::app_built() reads (admin/build/ is git-ignored; CI's PHP job has none). */
+define('APP_BUILT', file_exists(POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php'));
+/**
+ * The page's body holds exactly one primary action in every state (story 67).
+ * Unbuilt, no setup dialog button renders (app_built() leaves it out, so no
+ * pqm-open-setup at all): not set up and connected, whose only primary is
+ * Set up n8n, hold exactly 0; set up (checked) holds at most 1 (Open Post
+ * Reviews with results, none where Run your first review would be); every
+ * other state exactly 1, as built.
+ */
 function one_primary(string $html): bool {
-    return substr_count($html, 'button-primary') === 1;
+    $primaries = substr_count($html, 'button-primary');
+    if (APP_BUILT) {
+        return $primaries === 1;
+    }
+    if (str_contains($html, 'pqm-open-setup')) {
+        return false;
+    }
+    switch (state_of($html)) {
+        case 'not-set-up':
+        case 'connected':
+            return $primaries === 0;
+        case 'set-up':
+            return $primaries <= 1;
+        default:
+            return $primaries === 1;
+    }
 }
 /** The status block's state accent (data-state), '' when no block. */
 function state_of(string $html): string {
