@@ -3,7 +3,7 @@ title: 'The Notification URL never gets a report when a command finishes'
 type: 'bugfix'
 ticket: '97'
 created: '2026-10-29'
-status: 'built'
+status: done
 baseline_revision: '2b2b8b3bd61e58b165a14d729d3dcaa05b702ddd'
 route: 'full'
 route_source: 'pinned'

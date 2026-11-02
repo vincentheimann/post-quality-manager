@@ -3,7 +3,7 @@ title: 'The Free build meets the directory rules before submission'
 type: 'feature'
 ticket: '95'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'pinned'
 review: 'quick'

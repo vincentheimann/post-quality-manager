@@ -3,7 +3,7 @@ title: 'The release notes describe the outdated-workflow state the page shows to
 type: 'chore'
 ticket: ''
 created: '2026-10-29'
-status: 'built'
+status: 'done'
 baseline_revision: 'd9b81d1690ba5e46ec427bfa279ece86d5ce6ff3'
 route: 'oneshot'
 route_source: 'auto'

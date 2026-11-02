@@ -3,7 +3,7 @@ title: 'The Free-build check reads an empty close/open tag pair as Freemius prin
 type: 'bugfix'
 ticket: ''
 created: '2026-11-02'
-status: 'built'
+status: 'done'
 baseline_revision: '65c32f98f68297b2bebb38df8e54aeaef0c5c57f'
 route: 'oneshot'
 route_source: 'auto'
