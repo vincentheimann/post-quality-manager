@@ -172,6 +172,26 @@ file_put_contents("$tmp/cmp-b/includes/sample.php", $pairs[1]);
 file_put_contents("$tmp/cmp-b/extra.php", "<?php\n");
 [$code, $output] = compare("$tmp/cmp-a", "$tmp/cmp-b");
 check('a file on one side only: exit 1 naming it; vendor/ ignored', $code === 1 && str_contains($output, "extra.php: only in") && !str_contains($output, 'ignored.php'));
+// 3.10.0's release run (memory/delivery-pipeline.md): the source closes a template after `endif;` and reopens PHP on the next line.
+$pair = [
+    'c' => "<?php\nif (\$a): ?>\n    <p>x</p>\n<?php endif; ?>\n<?php\nreturn (string) ob_get_clean();\n",
+    'd' => "<?php\nif (\$a) {\n    ?>\n    <p>x</p>\n<?php\n}\nreturn (string) ob_get_clean();\n",
+];
+foreach ($pair as $side => $src) {
+    @mkdir("$tmp/cmp-$side", 0777, true);
+    file_put_contents("$tmp/cmp-$side/body.php", $src);
+}
+[$code, $output] = compare("$tmp/cmp-c", "$tmp/cmp-d");
+check('an empty close/open tag pair (no HTML between) against Freemius\'s print without it: identical', $code === 0 && str_contains($output, 'PHP identical: 1 files'));
+file_put_contents("$tmp/cmp-c/body.php", str_replace("endif; ?>\n<?php", "endif; ?>x<?php", $pair['c']));
+[$code, $output] = compare("$tmp/cmp-c", "$tmp/cmp-d");
+check('... HTML between the two tags still counts: exit 1, the file named', $code === 1 && str_contains($output, 'body.php: differs from token'));
+foreach (['e' => "<?php\nfoo() ?>\n<?php bar();\n", 'f' => "<?php\nfoo();\nbar();\n", 'g' => "<?php\n\$a = 1 ?>\n<?php -\$b;\n", 'h' => "<?php\n\$a = 1 - \$b;\n"] as $side => $src) {
+    @mkdir("$tmp/cmp-$side", 0777, true);
+    file_put_contents("$tmp/cmp-$side/body.php", $src);
+}
+check('... a pair after a statement with no `;` reads as that `;`: identical to the printed one', compare("$tmp/cmp-e", "$tmp/cmp-f")[0] === 0);
+check('... so it never joins two statements: `$a = 1` then `-$b;` differs from `$a = 1 - $b;`', compare("$tmp/cmp-g", "$tmp/cmp-h")[0] === 1);
 
 /* ─── Boot the stripped tree (WP stubs, no SDK) ──────────────────────── */
 $GLOBALS['tw'] = ['caps' => [], 'options' => []];

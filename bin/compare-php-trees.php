@@ -12,7 +12,11 @@
  * Every `.php` file outside vendor/ is reduced to its token stream with
  * whitespace and comments dropped, string literals compared by value, a
  * trailing comma before `]` or `)` dropped, alternative control syntax
- * rewritten as braces, and parentheses ignored. Exit 0 when every file has a
+ * rewritten as braces, parentheses ignored, and a close tag followed by an
+ * open tag with only whitespace between read as the `;` it stands for
+ * (nothing after `;`, `{`, `}` or `:`). Freemius's re-print drops such a pair
+ * when nothing at all is between (memory/delivery-pipeline.md); reading the
+ * whitespace-only ones the same way is wider on purpose, on both sides. Exit 0 when every file has a
  * counterpart with the same stream; otherwise the first difference of each
  * file is printed with both line numbers, and the exit code is 1. Files that
  * are not PHP, and vendor/, are for `diff -r`. Repository tooling: not in the zip.
@@ -116,6 +120,14 @@ function pqm_stream(string $file): array {
         if (is_array($tok)) {
             $line = $tok[2] ?? $line;
             $id = $tok[0];
+            if ($id === T_OPEN_TAG && $out && end($out)[0] === '?>') {
+                // A pair with only whitespace between (T_INLINE_HTML below skips it) reads as the `;` the close tag stands for.
+                array_pop($out);
+                if ($out && !in_array(end($out)[0], [';', '{', '}', ':'], true)) {
+                    $out[] = [';', $line];
+                }
+                continue;
+            }
             if ($id === T_OPEN_TAG || $id === T_CLOSE_TAG) {
                 $text = trim($tok[1]);
             } elseif ($id === T_INLINE_HTML) {
