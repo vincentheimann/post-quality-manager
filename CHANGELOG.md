@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.10.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.0...v3.10.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **release:** read an empty close/open tag pair as Freemius prints it (story 58) ([83a7f10](https://github.com/vincentheimann/post-quality-manager/commit/83a7f10e107e3817ebb0a26d783e128d52331e19))
+
 ## [3.10.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.9.0...v3.10.0) (2026-11-02)
 
 
