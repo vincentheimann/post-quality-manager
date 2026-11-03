@@ -22,7 +22,7 @@ risk: low
 1. **The way back is offered where the choice is shown**
    **Given** a site whose owner chose to set up n8n by hand, with no webhook URL saved yet
    **When** the n8n Workflow page or the setup dialog's Set up by hand step shows "You chose to set up n8n by hand."
-   **Then** a link "Let the plugin set up n8n instead" follows that sentence
+   **Then** a link "Use the guided setup instead" follows that sentence
 2. **The link clears the choice and opens the guided setup**
    **Given** that link
    **When** it is clicked
@@ -55,6 +55,6 @@ risk: low
 ## Notes
 
 - Decision: owner, 2026-11-03 — asked for a way back to the guided setup after "You chose to set up n8n by hand.", with wording adapted from their draft "I change my mind and I would like to use the wizard."
-- Proposal (agent, 2026-11-03), for the owner to confirm at refinement: **"Let the plugin set up n8n instead"**. It mirrors "Set up by hand instead" (the "… instead" pair the dialog already uses with "Connect by key instead"), says who does the work, and avoids "wizard", which no interface string uses (brand.md: no jargon, concise). Alternatives: "Use the guided setup instead"; "Changed your mind? Let the plugin set up n8n."
+- Decision: owner, 2026-11-03 — the link reads **"Use the guided setup instead"**, chosen over the agent's proposal "Let the plugin set up n8n instead" and "Changed your mind? Let the plugin set up n8n.". It keeps the "… instead" pair with "Set up by hand instead" and "Connect by key instead", and avoids "wizard", which no interface string uses.
 - Fact (2026-11-03): in the page's `manual` state the primary action is empty (Save and test sits under step 4), so the page has no control that opens the dialog; inside the dialog, "Connect by key instead" opens the key form only while no webhook URL is saved, and a passing key then outranks the stored choice.
 - Open questions for refinement: whether the link is a link or a secondary button on the page; whether it also replaces "Connect by key instead" in the dialog; whether a site in the `manual` state with a passing key (the page keeps the choice there) shows the link too.
