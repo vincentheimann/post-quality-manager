@@ -3,7 +3,7 @@ title: "postquality.com's docs show every feature, and which ones are Pro"
 type: 'feature'
 ticket: '100'
 created: '2026-11-03'
-status: built
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
