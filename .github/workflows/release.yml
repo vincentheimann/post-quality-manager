@@ -119,8 +119,9 @@ jobs:
           PRE=$(jq -r '.prerelease // false' release-please-config.json)
           gh release edit "$TAG" --notes-file "$BODY" --draft=false --prerelease="$PRE"
 
-      # Story 58. Freemius API, product scope (OpenAPI spec read 2026-10-13):
-      # GET/POST tags.json, PUT tags/{id}.json (release_mode), GET tags/{id}.zip.
+      # Story 58. Freemius API, product scope (OpenAPI spec read 2026-10-13,
+      # tags/latest.json taken up 2026-11-03): GET tags/latest.json, POST
+      # tags.json, PUT tags/{id}.json (release_mode), GET tags/{id}.zip.
       - name: Deploy to Freemius (unreleased) and fetch its builds
         id: freemius
         if: needs.release-please.outputs.release_created == 'true'
@@ -161,16 +162,12 @@ jobs:
 
           sha256sum "$ZIP"
 
-          # Is this version on Freemius already? 50 per page, the API maximum.
-          TAG=""; OFFSET=0
-          while :; do
-            PAGE=$(api "$API/tags.json?count=50&offset=$OFFSET&fields=id,version,has_free,release_mode")
-            TAG=$(jq -c --arg v "$V" 'first(.tags[] | select(.version == $v)) // empty' <<<"$PAGE")
-            if [ -n "$TAG" ] || [ "$(jq '.tags | length' <<<"$PAGE")" -lt 50 ]; then break; fi
-            OFFSET=$((OFFSET + 50))
-          done
+          # Is this version on Freemius already? Only the newest deployment can
+          # say, and only the fields used here are kept from its reply
+          # (memory/delivery-pipeline.md).
+          TAG=$(api "$API/tags/latest.json?type=all&is_premium=false" | jq -c '{id, version, has_free, release_mode}')
 
-          if [ -n "$TAG" ]; then
+          if [ "$(jq -r .version <<<"$TAG")" = "$V" ]; then
             ID=$(jq -r .id <<<"$TAG")
             echo "Version $V is already on Freemius as deployment $ID ($(jq -r .release_mode <<<"$TAG")): that first upload is what customers and SVN get; this run's zip may differ byte for byte."
           else
