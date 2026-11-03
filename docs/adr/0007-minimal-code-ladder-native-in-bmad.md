@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-05
+- Amended: 2026-11-03 (Headroom dropped for this workspace, see the Decision)
 
 ## Context
 
@@ -18,6 +19,7 @@ Alternatives: install all three as plugins (the first plan), install Ponytail as
 - **Ponytail's outcome, natively:** the ladder lives in `_bmad/custom/minimal-code-ladder.md` (adapted, MIT attribution), loaded as a `bmad-build` persistent fact so it lands in the plan, the coding subagent's only brief. An `overbuild` lens joins the thorough lens sets of `bmad-build` and `bmad-code-review`. No plugin, no hooks.
 - **Caveman: declined.** Concise chat is a default, not a plugin.
 - **Headroom: optional, on the owner's machine only**, never in project settings: `HEADROOM_BEACON=off`, output shaper off, `--code-memory none`, `headroom learn` only to the gitignored `CLAUDE.local.md`, with findings folded into `memory/lessons.md` by hand. Kept only if `headroom savings` shows a real gain.
+  - **Update 2026-11-03: dropped.** Headroom's own savings log showed its share fall from 20–30 % of input tokens to about 1 % on 2026-10-22, the day Claude Code started deferring tool schemas natively (ToolSearch). Tool-schema deferral had been ~95 % of the gain; what remained cost a 100 s cold start, 1.4 GB of RAM and 2–3 s of CPU per Kompress run. The owner removed the `ANTHROPIC_BASE_URL` override from the workspace and local settings and deleted the start script. The package stays installed on the machine for other projects. Re-adding the proxy here needs a new decision.
 
 ## Consequences
 
