@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.10.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.1...v3.10.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **release:** a re-run finds its version on Freemius through the latest deployment (story 58) ([9e8bd36](https://github.com/vincentheimann/post-quality-manager/commit/9e8bd36de3d8528c0bae845f018b686e22fa0575))
+
 ## [3.10.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.0...v3.10.1) (2026-11-02)
 
 
