@@ -21,7 +21,7 @@ The update is rehearsed first on the owner's Local copy of production. Productio
 
 The agent runs the rehearsal and the production update over the project's SSH access: backup, install and WP-CLI checks. The owner's steps (hitl):
 - start the Local copy for the rehearsal;
-- create the license and enter its key on the site;
+- create the license and give its key in the session (the agent activates it);
 - re-import or update the workflow if the n8n Workflow page asks;
 - run one command on a post;
 - confirm the site afterwards.
@@ -49,7 +49,7 @@ The agent runs the rehearsal and the production update over the project's SSH ac
    **And** one command run on a post saves its review
 5. **The license unlocks Pro on the production site**
    **Given** the production site running 3.10.2
-   **When** the owner enters the license key on the SDK's license screen
+   **When** the license key the owner gives is activated with the SDK's activation function, which the license screen's handler also calls
    **Then** Settings → License reads "Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.", and no expiry or renewal notice appears
 6. **Nothing secret or identifying reaches the repository**
    **Given** this story's records (ticket, plan, memory, PR text)
@@ -87,12 +87,13 @@ The agent runs the rehearsal and the production update over the project's SSH ac
   - 3.10.2 stays pending. Freemius's spec says a pending version is "not visible to customers", so the updater would not offer it.
   - Basis (agent's best-practice summary, accepted): a staging copy first; a files and database backup right before the change; the build customers get.
   - Freemius's beta channel was ruled out: the SDK's own text says "not on production sites".
-- Decision: owner, 2026-11-03 — who: the agent, over the project's SSH access (backup, install, WP-CLI checks of the version, the stored names, the workflow report and `debug.log`). The owner: the steps in the Description. The license key never reaches the agent.
+- Decision: owner, 2026-11-03 — who: the agent, over the project's SSH access (backup, install, WP-CLI checks of the version, the stored names, the workflow report and `debug.log`). The owner: the steps in the Description.
+- Decision: owner, 2026-11-03, after refinement — the owner gives the license key in the session and the agent activates it over SSH (`activate_migrated_license()`, which calls the same private `activate_license()` as the license screen, then removes the "plan upgraded" notice the screen leaves); criterion 5 reworded. The key is in no record.
 - Decision: owner, 2026-11-03 — risk high. If production runs a build older than 3.10.0, the update runs story 91's stored-names upgrade on the live database, and going back needs the database backup as well as the old folder. The check outside the criteria: the owner confirms the site after the update (their posts, the reviews and scores shown).
 - Fact (Freemius documentation, read 2026-10-29): the Developer Dashboard's Licenses page has a **Create License** button for licenses issued without Checkout. In the matching API (`POST …/plans/{plan_id}/pricing/{pricing_id}/licenses.json`), `period: 0` or no `expires_at` means lifetime. An owner email set on the license must belong to a user who has already installed or activated the product; otherwise the key is entered on the site instead.
 - Fact (SDK 2.13.5, `FS_Plugin_Updater::_maybe_adjust_source_dir`): an update through the SDK's updater keeps the installed folder name, though Freemius's Pro download roots at `post-quality-manager-premium`. Uploaded by hand, that download would install as a second plugin folder, so this story installs the GitHub Release asset, which roots at `post-quality-manager`.
 - Fact (agent records, 2026-10-16): the Local copy's settings point at the owner's live n8n. No command or WP-Cron run happens on the copy, or it would call the live workflow. Walks have changed the copy since it was made, so it rehearses the update but is not an exact copy.
-- Fact (project records, 2026-10-12): production's n8n setup was made by hand. So the n8n Workflow page may offer **Re-import the workflow** rather than **Update workflow**, unless the setup was adopted since.
-- Open question: which build production runs today. The walk reads it first, and it decides whether the stored-names upgrade runs there.
+- Fact (read over SSH, 2026-11-03): production ran 3.9.0 Pro with no license, 7 `pqm_` options and 62 reviews, so the stored-names upgrade ran there. Its n8n setup is managed (a setup map, workflow version 7), so the page offered **Update workflow**.
 - Open question (later, not this story): when production starts taking each release through the WordPress updater, which needs the owner to set each version Released in Freemius. Until then, each release reaches the site by hand.
 - Refined 2026-11-03 (owner approved: update path, who, risk, the six criteria).
+- Done 2026-11-03: the owner's production site runs 3.10.2 Pro under a lifetime license. The rehearsal on the Local copy passed and was restored. The stored-names upgrade migrated 62 reviews, the options and the capabilities. Workflow at template 8; a command saved its review; the owner confirmed the site and the Freemius records. Found: bug 99 (stale version report after Update workflow); scheduled reviews resumed with Pro and were turned off at the owner's word. Results in the plan.
