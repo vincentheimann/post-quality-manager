@@ -8,7 +8,7 @@ Significant decisions in this repo are recorded as lightweight ADRs — one file
 
 - `docs/adr/` — **why** we decided: immutable records with context and alternatives.
 - `memory/` — **what is true now**: current-state facts, updated in place, linking to the ADRs behind them.
-- `.claude/skills/` — **how** we do recurring work: the BMad skills plus project checklists (`/adr`, `/prioritize`, `/release`).
+- `.claude/skills/` — **how** we do recurring work: the BMad skills plus project checklists (`/adr`, `/prioritize`, `/release`, `/lcm`).
 - `_bmad-output/` — **what we are doing**: tickets, specs and build plans (ADR 0004); a ticket cites its ADR in References, never restates it.
 
 ## Format
@@ -49,3 +49,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0014 — Two builds from one source: a Free build for the directory, a Pro build served by Freemius](0014-two-builds-from-one-source.md)
 - [0015 — The plugin provisions n8n itself through the n8n public API](0015-plugin-provisions-n8n-via-public-api.md)
 - [0016 — The funnel is read from WordPress.org, Freemius and GitHub; postquality.com stays unmeasured](0016-funnel-read-from-existing-sources-site-unmeasured.md)
+- [0017 — Life cycle management: tracked components, a monthly and pre-release check, a ticket for what moved](0017-life-cycle-management-by-a-recurring-check.md)

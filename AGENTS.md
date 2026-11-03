@@ -26,7 +26,7 @@ WordPress plugin for professional bloggers in any niche: it triggers Claude agen
 - `_bmad/` — BMad runtime and config; team overrides in `_bmad/custom/*.toml` (committed), personal ones in `*.user.toml` (ignored).
 - `docs/adr/` — why we decided (immutable, supersede never rewrite; `/adr`); `docs/user-paths.md` — the EBM prioritization tool (`/prioritize`); `docs/brand.md` — copy rules.
 - `memory/` — what is true now: `MEMORY.md` index, one file per durable fact, `lessons.md` the self-correction log whose rules override your defaults. Read at session start; update in the same change that makes a fact true.
-- `.claude/skills/` — BMad skills (`bmad`, `bmad-build`, `bmad-spec`, `bmad-ticket`, `bmad-review`, `bmad-code-review`, `bmad-retrospective`, `bmad-project-context`, `bmad-customize`, `bmad-walkthrough`, `bmad-ux`, `bmad-correct-course`; `bmod-*` are module records) plus project skills `/adr`, `/prioritize`, `/release`.
+- `.claude/skills/` — BMad skills (`bmad`, `bmad-build`, `bmad-spec`, `bmad-ticket`, `bmad-review`, `bmad-code-review`, `bmad-retrospective`, `bmad-project-context`, `bmad-customize`, `bmad-walkthrough`, `bmad-ux`, `bmad-correct-course`; `bmod-*` are module records) plus project skills `/adr`, `/prioritize`, `/release`, `/lcm`.
 - `.github/workflows/ci.yml` (JS lint, unit tests and build; PHP 8.0 and 8.3 lint plus harness sweep; Plugin Check on the built artifact) and `release.yml` (release-please → CI-built zip → GitHub Release); `docs/release-notes/unreleased.md` holds the lines `/release` moves into `<version>.md` at launch.
 
 ## Running and verifying
