@@ -3,7 +3,7 @@ title: 'A re-run of the release job finds its version on Freemius through the la
 type: 'bugfix'
 ticket: ''
 created: '2026-11-03'
-status: 'built'
+status: 'done'
 baseline_revision: '69359902e758edb657f18fc4cd7bb539a0f9073c'
 route: 'full'
 route_source: 'auto'
