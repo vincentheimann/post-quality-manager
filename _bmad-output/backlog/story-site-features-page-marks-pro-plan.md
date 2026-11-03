@@ -3,7 +3,7 @@ title: "postquality.com's docs show every feature, and which ones are Pro"
 type: 'feature'
 ticket: '100'
 created: '2026-11-03'
-status: in-review
+status: built
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -107,6 +107,7 @@ Plugin repo `post-quality-manager/` (code read-only):
   - Restore: **Deactivate License** on the Account page (Playwright, confirm accepted): "Your license was successfully deactivated, you are back to the Free plan."; WP-CLI then read not paying, plan `free`, no license attached. `debug.log`: 53 lines, all WP-CLI's own. Plugin zip (`--skip-plugins`), `import` (13 tables dropped, 13 now), `wp-config.php` copied back, `debug.log` deleted. Same-checks: plugin list same; tables, review rows, users, log same; plugin files and `wp-config.php` same (`cmp` of the checksum lists, and `cmp` of `wp-config.php` with its backup); `class_exists("PostQuality_Cron")`: Free. The owner confirmed (2026-11-03) that Freemius's activation count is back to its pre-walk value; Freemius keeps the install record the activation created (chore 81).
 - 2026-11-03, tasks 4-5. Both states built; 13 figures and 8 marks in each, the line only before launch; a check of the built page: marks only on the eight Pro headings, each to `/pricing/#compare-h`, a figure in each of the 12 h2 sections (13 with the Overrides). Image check: 52 files (36 since review pass 1), pixels equal to the includes' sizes, each under 250 KB. Screenshots of `/docs/features/`, `/` and `/docs/` at 1280, 390 and 320 px in both states (Playwright's viewport, so 320 needs no iframe): no horizontal scroll, every image loaded. Computed styles: the mark navy on white at rest; navy fill with white text on hover and on keyboard focus, plus the 3 px navy ring 2 px out on focus (14.44:1 each); 52 × 35 px. "See every feature" white on the navy Pro card (14.44:1), underlined. Lighthouse 12.8.2, accessibility, headless Edge, both states × the three pages × mobile and desktop: 12 reports, all 100, no failing audit. Site commits `a96aced`, `8480c12` on `feat/site-features-page`, not pushed: the coordinator runs the review lens, pushes and opens the draft PRs (owner's instruction via the coordinator). Records: site README (file list, drift rule, Captures), `docs/user-paths.md` A1 and A2 CV, `memory/local-verification.md` (licensed Pro captures, restore order), chore 81's Notes. Deviation: README's drift rule (l.19) also names `features.md` and its sources, beyond the plan's l.5/25. Scratchpad files deleted by path at the end; no browser or server of this run left running.
 - 2026-11-03, review pass 1 fixes (same implementer, site commit `5eab9e2`): the 8 phone crops the owner's revised Captures decision drops are gone from `features.md` and `assets/img/` (16 files, `git rm`); the Overrides alt now opens on the Key Takeaways Agent, true of both its crops; the Overrides paragraph's last sentence says what the capture shows (an unsupported Reasoning Effort or Temperature is turned off, with a note to use the other; from the two hint strings); `docs.md`'s Insert into Post bullet marks Sources and the pattern "(Pro)"; the README's drift rule binds `docs.md` and `features.md`, its Captures paragraph counts 13 desktop captures and 5 phone crops. Checked: both states rebuilt, 13 figures, 5 phone crops and 8 marks in each; 36 image files, sizes equal to the includes, each under 250 KB, no feature file unused. No new walk.
+- 2026-11-03, review pass 2 fixes (rows 10–16): site commit `23aafa9` (Automation's pick rule names posts with no result yet; Rewrite's requirement is Application Passwords, per the plugin's string; the token "lives" on the n8n Workflow page; captions say "on Pro" on Review and Takeaways and the pattern on Insert into Post; the Takeaways and Audit alts list the checks their images show); the coordinator pointed bugs 107 and 108 at the unpublished captures in `8480c12` and logged two deferred plugin findings (the Overrides intro, the Audit tab's raw "needs_revision"). Verification re-run by the coordinator after the patches: both states built with the DevKit Ruby (`C:/Ruby32-x64`), 13 figures, 5 phone crops (10 sources) and 8 marks in each, the line only before launch, the homepage and docs links in both; 36 image files equal to the includes' sizes, each under 250 KB, none unused. The showcase check (`Free` after the restore) stands from the walk; no code ran there since.
 
 ## Plan Change Log
 
@@ -128,6 +129,20 @@ Quick lens (Opus 5.5), pass 1, 2026-11-03, on the diff of both repositories (plu
 | 8 | The build guard lets `width=""` through | low | reject | No include passes an empty size; catching it needs extra conditions in the guard, for a mistake no one makes in use. |
 | 9 | Bugs 107 and 108 are untracked, and the notes leave their ids open | low | patch | Files exist only in the working tree; the coordinator filed them after the walk's report. |
 
+Quick lens (Opus 5.5), pass 2, 2026-11-03, after the pass-1 patches (plugin `c0e7b10..8c34e47`, site `f951757..5eab9e2`). Rows 1–9 above are fixed as routed (site `5eab9e2`, plugin `bb0fc1c`, `8c34e47`).
+
+| # | Finding | Verdict | Route | Evidence |
+|---|---------|---------|-------|----------|
+| 10 | Bugs 107 and 108 cite `feature-ai-phone.png` and `feature-roles-phone.png` and say the page keeps them; pass 1 dropped both | low | patch | `5eab9e2` removed them with `git rm`; the tickets were written before the owner's decision. |
+| 11 | The Automation copy gives the pick rule without posts that have no result yet | low | patch | `PostQuality_DB::get_posts_needing_review()` also selects `lr.post_id IS NULL`, ordered by `reviewed_at ASC`, so unreviewed posts come first. |
+| 12 | "Rewrite needs HTTPS on your site" has no plugin source and is wrong for an HTTPS site with Application Passwords off | low | patch | `class-pqm-admin.php` L2000: Application Passwords off, "Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Only Rewrite needs this credential." |
+| 13 | The Connection copy says the user sets the webhook token | low | patch | The token is generated and rotated by the plugin; the source sentence says the URL and token "live on" the n8n Workflow page. |
+| 14 | The free Insert into Post figure shows "using the pattern chosen in Settings", a Pro behaviour, under text saying "a plain list" | low | patch | The confirmation string in `src/post-reviews/insert-block.js` reads so once a pattern is chosen; the walk seeded one. |
+| 15 | The Review and Takeaways figures show Pro tabs and Re-run Rewrite in sections the page calls free, without saying so | low | patch | `COMMAND_ORDER` filters by the registry; Sources, SEO, Audit and Rewrite come from `paid_registry__premium_only()`. The Pro capture set is the owner's choice; the caption can say "on Pro", as Connection's does. |
+| 16 | The Takeaways and Audit alts misstate the checks shown | low | patch | `feature-takeaways.png` also shows Count 0 and Count ok ✗; the Audit takeaways part shows Block found, Position correct, Count, Count ok, Items are specific, without Position note or the word-limit check. |
+| 17 | "PQM" reaches users in the Connection capture (`X-PQM-Token`, `pqm-execute-demo`) | false | reject | `docs/brand.md` L130: the owner kept the `X-PQM-Token` header and the `pqm-execute-` webhook path prefix as they are (2026-10-26); the hint is the plugin's own string and the placeholder mirrors the real path's prefix. |
+| 18 | Story 100 ran ahead of story 98 (`after: [86, 98]`), and "LCM" appears nowhere | false | reject | The branch starts at `c0e7b10`, before #227 (story 98 done) and #228 (ADR 0017, life cycle management) merged on main `b0afebf`; the rebase before the push brings both. |
+
 ## Verification
 
 **Commands:**
@@ -138,4 +153,3 @@ Quick lens (Opus 5.5), pass 1, 2026-11-03, on the diff of both repositories (plu
 **Manual checks (if no CLI):**
 - Each capture at full size: "Yourblog", demo posts only, "Post Quality" in the menu, no third-party logo.
 - Owner: Freemius activation count back to its pre-walk value.
-

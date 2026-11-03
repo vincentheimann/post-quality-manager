@@ -23,7 +23,7 @@ On a phone, Settings → Roles shows the table "What each role can do" wider tha
 
 1. The showcase, plugin 3.10.2 Pro build with a license, 2026-11-03 (story 100's capture walk).
 2. Settings → Roles at a 400 px phone viewport.
-3. Actual: the table's right edge runs past the screen (the site's `assets/img/feature-roles-phone.png`, story 100). Whether the page scrolls sideways to reach the last column is to check.
+3. Actual: the table's right edge runs past the screen (story 100's phone capture `feature-roles-phone`, site branch `feat/site-features-page` commit `8480c12`; not published). Whether the page scrolls sideways to reach the last column is to check.
 4. Expected: every column reachable on a phone, by a layout that fits or a table that scrolls inside its own frame.
 
 ## Cause Hypothesis
@@ -45,4 +45,4 @@ On a phone, Settings → Roles shows the table "What each role can do" wider tha
 
 ## Notes
 
-- Fact (2026-11-03): the site's Features page keeps the capture as the plugin renders it; after the fix, `feature-roles-phone` can be recaptured (owner's choice).
+- Decision: owner, 2026-11-03 (story 100, review pass 1) — the site's Features page shows the Roles section's desktop capture on phones; after this fix, a phone crop can be captured for it.

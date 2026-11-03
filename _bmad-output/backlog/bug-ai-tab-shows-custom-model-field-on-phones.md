@@ -23,7 +23,7 @@ On a screen narrower than 783 px, Settings → AI shows an empty text field with
 
 1. The showcase, plugin 3.10.2 Pro build, 2026-11-03 (story 100's capture walk); any build with the AI tab.
 2. Settings → AI, Default Model set to a listed model (Claude Sonnet 4.6), at a 400 px phone viewport.
-3. Actual: the empty "claude-…" field shows under the select (the site's `assets/img/feature-ai-phone.png`, story 100).
+3. Actual: the empty "claude-…" field shows under the select (story 100's phone capture `feature-ai-phone`, site branch `feat/site-features-page` commit `8480c12`; not published).
 4. Expected: no field until "Custom model ID…" is selected, as on a desktop.
 
 ## Cause Hypothesis
@@ -45,4 +45,4 @@ The field carries `.pqm-hidden { display: none; }` (`admin/css/pqm-admin.css` L2
 
 ## Notes
 
-- Fact (2026-11-03): the site's Features page keeps the capture as the plugin renders it; after the fix, `feature-ai-phone` can be recaptured (owner's choice).
+- Decision: owner, 2026-11-03 (story 100, review pass 1) — the site's Features page shows the AI section's desktop capture on phones; after this fix, a phone crop can be captured for it.
