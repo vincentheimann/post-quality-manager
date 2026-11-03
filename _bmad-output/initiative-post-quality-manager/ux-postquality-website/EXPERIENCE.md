@@ -27,7 +27,7 @@ How the public website of Post Quality Manager works: its pages, actions, states
 - **No JavaScript required.** Every pattern below works with HTML and CSS alone.
 - **No third-party request** of any kind: system fonts, images served by the site, no embeds. **No cookies, no analytics, no tracking** (ADR 0013 D8; privacy § 3).
 - **Checkout:** plain links to Freemius's hosted checkout, one per site pack, with no checkout script on the site.
-- **Fixed URLs:** `/`, `/pricing/`, `/docs/`, `/support/`, `/privacy/`, `/terms/`, `/refund/`. The plugin, Freemius and the readme link to them.
+- **Fixed URLs:** `/`, `/pricing/`, `/docs/`, `/docs/features/` (story 100, 2026-11-03), `/support/`, `/privacy/`, `/terms/`, `/refund/`. The plugin, Freemius and the readme link to them.
 - **Stakes:** a real sales channel once Pro is on sale, and a showcase of the plugin. Commercial, not regulated. Confirmed by the owner.
 
 ## Information Architecture
@@ -41,6 +41,7 @@ One primary action per page, matched to what the visitor wants to know. "After l
 | `/` | Is this for me, and can I run it? | **Tell me when it's available** | **Get the free plugin** (to `#need`) | Hero with the Dashboard screenshot and ticks · What you need block · Pillar list with the review screenshot · How it works (steps, screenshot 3 at step 1, flow diagram, data line) · Free vs Pro teaser (plan cards, assurance items) · the author line, before the footer |
 | `/pricing/` | What does Pro cost, and is buying safe? | **Tell me when it's available** (one, with the *pricing interest note*) | **Buy for 1 site / 5 sites / unlimited sites**, in the shown currency | Comparison table · currency switch · pack plan cards, the *pricing cost line* under them, the assurance items, *buy note* and *renewal line* beside the buttons · pricing FAQ |
 | `/docs/` | How do I set it up and use it? | None (the install section's interest email is a primary button on light) | None | Contents list · Requirements · Getting n8n (its link named "Self-hosting n8n (docs.n8n.io)") · Getting started (screenshot 3, once) · Set up by hand · Using it · Upgrade to Pro · FAQ · Troubleshooting (content gap) |
+| `/docs/features/` | What does each feature do, and what does Pro add? | None (the "goes on sale" line; each Pro mark links to the pricing comparison) | None (the Pro marks) | Intro · contents list · one section per command (Review, Takeaways, Sources, SEO, Audit, Rewrite), Insert into Post, then per Settings tab (Connection, AI, Automation, Usage & Limits, Roles), each with its capture; a Pro section's heading ends with the "Pro" chip (story 100) |
 | `/support/` | Where do I get help? | Email hello@postquality.com | Email for Pro; the WordPress.org forum for Free once listed (policy text) | Support policy, copied from `docs/policies/support.md` |
 | `/privacy/`, `/terms/`, `/refund/` | The rules | None | None | Policy copies, unchanged, as Text pages |
 | 404 | I am lost | **Back to the home page** | Same | Text page: icon F at 64 px, "Page not found", links to Home, Pricing, Documentation |
@@ -55,7 +56,7 @@ Where the actions lead:
 
 ### On every page
 
-- **Header:** a full-width band strip with lockup B linking to `/`, then Pricing, Documentation, Support and the site-wide primary action as a small button (before launch **Tell me when it's available**, after launch **Get the free plugin**). Below `{spacing.bp-medium}`: lockup B and a Menu with the same links, the action last. If Pricing or Documentation ever leaves the header, it joins the footer.
+- **Header:** a full-width band strip with lockup B linking to `/`, then Features (the Features page, `/docs/features/`), Pricing, Docs (the Documentation page; the short label keeps the row as wide as with three links, owner 2026-11-03), Support and the site-wide primary action as a small button (before launch **Tell me when it's available**, after launch **Get the free plugin**). Below `{spacing.bp-medium}`: lockup B and a Menu with the same links, the action last. If Pricing or Documentation ever leaves the header, it joins the footer.
 - **Footer:** the tagline, the four policy links (Privacy, Terms, Refund, Support), hello@postquality.com, the no-cookies line, and the author and licence line.
 
 ### Surface closure
@@ -110,7 +111,7 @@ Behaviour. Visual specs live in DESIGN.md § Components under the same names.
 |---|---|---|
 | Lockup | Header, footer, 404, favicon, sharing card | The header lockup links to `/` with `aria-label="Post Quality Manager, home"` around an `aria-hidden="true"` SVG, so the name is read once. The footer lockup D is not a link; the 404 icon takes `alt=""`. Variant per spot as in DESIGN.md → Lockup; never F in the header. |
 | Header | Every page (`/docs/`, Text pages and 404 included) | As in On every page. Plain links. |
-| Menu disclosure | Header, below `{spacing.bp-medium}` | Native `<details>`/`<summary>` labelled "Menu", opening Pricing, Documentation, Support, then the site-wide action. Closed on every page load. The panel is in flow, so nothing is covered when focus leaves it or when Back restores it open. No script. |
+| Menu disclosure | Header, below `{spacing.bp-medium}` | Native `<details>`/`<summary>` labelled "Menu", opening Features, Pricing, Docs, Support, then the site-wide action. Closed on every page load. The panel is in flow, so nothing is covered when focus leaves it or when Back restores it open. No script. |
 | Skip link | First focusable element of every page | "Skip to content" targets `<main id="main" tabindex="-1">`. `<header>` holds only the lockup, the nav and the action; the hero starts `main`. Off-screen until focused, never `display: none`. |
 | Primary button | Hero, header (small), plan cards, What you need, `/docs/`, 404 | A link styled as a button; nothing is posted to the site; destinations per Where the actions lead. An interest button's accessible name adds a visually hidden " (opens your email app)"; the hero's also points `aria-describedby` at the action note. Install and buy buttons carry the *install note* and the *buy note*. One primary action per page, plus the header's. |
 | Secondary button | Hero, Pro plan card | **Check what you need** jumps to the What you need block (before launch). **See Pro pricing** opens `/pricing/`. |
