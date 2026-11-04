@@ -5,7 +5,7 @@ Requires at least: 6.6
 Tested up to: 7.1
 Requires PHP: 8.0
 Release-please: x-release-please-start-version
-Stable tag: 3.10.2
+Stable tag: 3.11.0
 Release-please: x-release-please-end
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html

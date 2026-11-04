@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.11.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.2...v3.11.0) (2026-11-04)
+
+
+### Features
+
+* **models:** offer Claude's current models, with Sonnet 5.5 as the default ([67f884d](https://github.com/vincentheimann/post-quality-manager/commit/67f884dab5aafedd5f0f93c5824daabfea5cec19))
+
+
+### Bug Fixes
+
+* **n8n:** workflow version 9 gives thinking models and long posts room ([c3f4b45](https://github.com/vincentheimann/post-quality-manager/commit/c3f4b45c6e322f590a620abed4f89995b97abc63))
+
 ## [3.10.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.1...v3.10.2) (2026-11-03)
 
 
