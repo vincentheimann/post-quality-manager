@@ -1493,4 +1493,52 @@ check('CSS: the hint is hidden unless its View reviews box is unchecked (no JS)'
     && (bool) preg_match('/^\.pqm-roles-table input:not\(:checked\) \+ \.pqm-role-hint \{ display: inline; \}/m', $css));
 $GLOBALS['tw_roles'] = [];
 
+/* ─── Story 101: the model selects list the current models first ────── */
+echo "\nModel selects (story 101): Current models, then Earlier models\n";
+/** The select with this id, whitespace collapsed. */
+function select_html(string $html, string $id): string {
+    preg_match('/<select id="' . preg_quote($id, '/') . '".*?<\/select>/s', $html, $m);
+    return preg_replace('/\s+/', ' ', $m[0] ?? '');
+}
+$current = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'];
+$earlier = ['claude-opus-4-8', 'claude-sonnet-5', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+$GLOBALS['tw_settings'] = []; // a fresh site: nothing stored
+$html = render_for($admin_caps, true);
+$default_select = select_html($html, 'pqm_default_model');
+preg_match_all('/<option value="([^"]*)"/', $default_select, $values);
+check('Default Model: the seven models, current first, then Custom', $values[1] === array_merge($current, $earlier, ['custom']));
+check('Default Model: "Current models" holds the three current ones, "Earlier models" the four earlier ones, Custom outside both',
+    preg_match('/^<select [^>]*> <optgroup label="Current models"> (<option value="claude-[a-z0-9-]+"[^>]*>[^<]*<\/option> ){3}<\/optgroup> '
+        . '<optgroup label="Earlier models"> (<option value="claude-[a-z0-9-]+"[^>]*>[^<]*<\/option> ){4}<\/optgroup> <option value="custom"/', $default_select) === 1);
+check('Default Model: labels with their prices',
+    str_contains($default_select, '> Claude Opus 5.5 — highest quality ($4 / $20 per MTok) </option>')
+    && str_contains($default_select, '> Claude Sonnet 5.5 — best quality/cost balance ($2 / $10 per MTok) </option>')
+    && str_contains($default_select, '> Claude Haiku 5.5 — fastest, lowest cost ($0.10 / $0.50 per MTok) </option>')
+    && str_contains($default_select, '> Claude Opus 4.8 ($5 / $25 per MTok) </option>')
+    && str_contains($default_select, '> Claude Sonnet 5 ($2 / $10 per MTok) </option>')
+    && str_contains($default_select, '> Claude Sonnet 4.6 ($3 / $15 per MTok) </option>')
+    && str_contains($default_select, '> Claude Haiku 4.5 ($1 / $5 per MTok) </option>'));
+check('fresh site: Sonnet 5.5 selected, only it', substr_count($default_select, ' selected') === 1
+    && str_contains($default_select, '<option value="claude-sonnet-5-5" selected>'));
+$agent_select = select_html($html, 'pqm_agent_model_review');
+preg_match_all('/<option value="([^"]*)"/', $agent_select, $values);
+check('per-agent Model: Default first, then the same seven models, current first', $values[1] === array_merge([''], $current, $earlier));
+check('per-agent Model: the same two optgroups, labels with their prices (AC1)',
+    substr_count($agent_select, '<optgroup label="Current models">') === 1 && substr_count($agent_select, '<optgroup label="Earlier models">') === 1
+    && strpos($agent_select, 'Current models') < strpos($agent_select, 'Earlier models')
+    && substr_count($agent_select, ' per MTok) </option>') === 7 && str_contains($agent_select, '> Claude Sonnet 4.6 ($3 / $15 per MTok) </option>'));
+check('per-agent Model: nothing stored → Default selected (no model option selected)', !str_contains($agent_select, ' selected'));
+
+$GLOBALS['tw_settings'] = ['default_model' => 'claude-sonnet-4-6', 'agent_prompts' => ['review' => ['model' => 'claude-haiku-4-5']]];
+$html = render_for($admin_caps, true);
+$default_select = select_html($html, 'pqm_default_model');
+check('saved earlier model (Sonnet 4.6): still selected, only it, under Earlier models', substr_count($default_select, ' selected') === 1
+    && strpos($default_select, '<option value="claude-sonnet-4-6" selected>') > strpos($default_select, '<optgroup label="Earlier models">'));
+check('saved per-agent override (Haiku 4.5): still selected', str_contains(select_html($html, 'pqm_agent_model_review'), '<option value="claude-haiku-4-5" selected>'));
+$GLOBALS['tw_settings'] = ['default_model' => 'custom', 'custom_model' => 'claude-fable-5-1'];
+$default_select = select_html(render_for($admin_caps, true), 'pqm_default_model');
+check('Custom model ID: Custom selected, only it', substr_count($default_select, ' selected') === 1
+    && str_contains($default_select, '<option value="custom" selected>'));
+$GLOBALS['tw_settings'] = [];
+
 harness_exit();

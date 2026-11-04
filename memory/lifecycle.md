@@ -4,7 +4,7 @@ _What the plugin uses from each tracked part, and when it was last checked again
 
 | Part | In use | Source of truth | Last checked | Latest seen / ticket |
 |---|---|---|---|---|
-| AI models (Anthropic) | the registry in `postquality_model_registry()`: Claude Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5 (`memory/llm-options-architecture.md`); requests send `anthropic-version: 2023-06-01` | the provider's models and deprecations pages; the `claude-api` skill's model reference | 2026-11-03 | all four still served, none deprecated; current generation not listed (Opus 5.5, Sonnet 5.5, Haiku 5.5, Opus 5, Fable 5.1); Sonnet 5's price label wrong → story 101 |
+| AI models (Anthropic) | the registry in `postquality_model_registry()`: current Claude Opus 5.5, Sonnet 5.5 (the default), Haiku 5.5; earlier Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5 (since 2026-11-04, story 101; `memory/llm-options-architecture.md`); requests send `anthropic-version: 2023-06-01` | the provider's models and deprecations pages; the `claude-api` skill's model reference | 2026-11-03 | checked 2026-11-04 by story 101: the three current models added with their request rules and list prices, Sonnet 5's label fixed to $2 / $10, the default moved to Sonnet 5.5; not listed: Opus 5, Fable 5.1 (Custom model ID); all seven still served, none deprecated |
 | Freemius SDK | 2.13.5, vendored unmodified (chore 89) | github.com/Freemius/wordpress-sdk tags | 2026-11-03 | 2.13.5 (2026-10-22): same |
 | WordPress | `Tested up to: 7.1`, floor 6.6 | api.wordpress.org core version check | 2026-11-03 | 7.1.4: same |
 | PHP | `Requires PHP: 8.0` (security support ended 2023-11-26) | endoflife.date; WordPress requirements ("8.3 or greater") | 2026-11-03 | floor past end of life → spike 104 |

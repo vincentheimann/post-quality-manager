@@ -35,7 +35,7 @@ function postquality_default_settings(): array
         'cron_command' => 'review',
         // Monthly manual-trigger limit per quota-subject user; 0 = unlimited (CAP-4).
         'author_quota' => 20,
-        'default_model' => 'claude-sonnet-4-6',
+        'default_model' => 'claude-sonnet-5-5',
         'custom_model' => '',
         // Per-agent: 'model' => '' means "use the default model above".
         'agent_prompts' => [
@@ -63,62 +63,99 @@ function postquality_default_settings(): array
  * Curated Claude models with the request parameters each one accepts.
  * Consumed by the settings UI, the sanitizer, the admin JS (via
  * wp_localize_script) and postquality_llm_params() — supporting a new model
- * means adding one entry here.
+ * means adding one entry here. 'group' sorts the selects: the provider's
+ * current models first, the earlier ones a site may have saved below.
+ * Prices are per million tokens, input / output; agent requests stay well
+ * under 100K tokens because the post text is capped.
  *
- * Capability notes (Claude API):
- * - Opus 4.7+ and Sonnet 5 reject the temperature parameter (HTTP 400).
+ * Capability notes (story 101; the provider's rules per model, prices and
+ * temperature included, dated, are in memory/llm-options-architecture.md):
  * - effort levels vary per model; Haiku 4.5 rejects effort entirely.
- * - Sonnet 5 runs adaptive thinking when the thinking parameter is omitted;
- *   'thinking' => 'disabled' sends {type: "disabled"} so thinking tokens
- *   don't eat the agents' output budgets on this structured-JSON pipeline.
+ * - 'thinking' is the model's thinking rule: 'by_default' = it thinks when
+ *   the request omits the thinking key; 'off' = the type that turns it off
+ *   (null: it cannot be turned off); 'off_up_to' = the highest effort that
+ *   type is accepted at (null: every effort). The agents return one JSON
+ *   object, so postquality_llm_params() turns thinking off where the rule
+ *   allows it, and gives the output budget POSTQUALITY_THINKING_RESERVE
+ *   where it does not.
  */
 function postquality_model_registry(): array
 {
     return [
-        'claude-opus-4-8' => [
-            'label'                => __('Claude Opus 4.8 — highest quality', 'post-quality-manager'),
-            'pricing'              => '$5 / $25',
+        'claude-opus-5-5' => [
+            'label'                => __('Claude Opus 5.5 — highest quality', 'post-quality-manager'),
+            'pricing'              => '$4 / $20',
+            'group'                => 'current',
             'supports_temperature' => false,
             'effort_levels'        => ['low', 'medium', 'high', 'xhigh', 'max'],
-            'thinking'             => null,
+            'thinking'             => ['by_default' => true, 'off' => null, 'off_up_to' => null],
+        ],
+        'claude-sonnet-5-5' => [
+            'label'                => __('Claude Sonnet 5.5 — best quality/cost balance', 'post-quality-manager'),
+            'pricing'              => '$2 / $10',
+            'group'                => 'current',
+            'supports_temperature' => false,
+            'effort_levels'        => ['low', 'medium', 'high', 'xhigh', 'max'],
+            'thinking'             => ['by_default' => true, 'off' => 'between_tools', 'off_up_to' => 'high'],
+        ],
+        'claude-haiku-5-5' => [
+            'label'                => __('Claude Haiku 5.5 — fastest, lowest cost', 'post-quality-manager'),
+            'pricing'              => '$0.10 / $0.50',
+            'group'                => 'current',
+            'supports_temperature' => false,
+            'effort_levels'        => ['low', 'medium', 'high', 'xhigh', 'max'],
+            'thinking'             => ['by_default' => true, 'off' => 'disabled', 'off_up_to' => 'high'],
+        ],
+        'claude-opus-4-8' => [
+            'label'                => __('Claude Opus 4.8', 'post-quality-manager'),
+            'pricing'              => '$5 / $25',
+            'group'                => 'earlier',
+            'supports_temperature' => false,
+            'effort_levels'        => ['low', 'medium', 'high', 'xhigh', 'max'],
+            'thinking'             => ['by_default' => false, 'off' => 'disabled', 'off_up_to' => null],
         ],
         'claude-sonnet-5' => [
-            'label'                => __('Claude Sonnet 5 — best quality/cost balance', 'post-quality-manager'),
-            'pricing'              => '$3 / $15',
+            'label'                => __('Claude Sonnet 5', 'post-quality-manager'),
+            'pricing'              => '$2 / $10',
+            'group'                => 'earlier',
             'supports_temperature' => false,
             'effort_levels'        => ['low', 'medium', 'high', 'xhigh', 'max'],
-            'thinking'             => 'disabled',
+            'thinking'             => ['by_default' => true, 'off' => 'disabled', 'off_up_to' => null],
         ],
         'claude-sonnet-4-6' => [
-            'label'                => __('Claude Sonnet 4.6 — proven default', 'post-quality-manager'),
+            'label'                => __('Claude Sonnet 4.6', 'post-quality-manager'),
             'pricing'              => '$3 / $15',
+            'group'                => 'earlier',
             'supports_temperature' => true,
             'effort_levels'        => ['low', 'medium', 'high', 'max'],
-            'thinking'             => null,
+            'thinking'             => ['by_default' => false, 'off' => 'disabled', 'off_up_to' => null],
         ],
         'claude-haiku-4-5' => [
-            'label'                => __('Claude Haiku 4.5 — fastest, lowest cost', 'post-quality-manager'),
+            'label'                => __('Claude Haiku 4.5', 'post-quality-manager'),
             'pricing'              => '$1 / $5',
+            'group'                => 'earlier',
             'supports_temperature' => true,
             'effort_levels'        => [],
-            'thinking'             => null,
+            'thinking'             => ['by_default' => false, 'off' => 'disabled', 'off_up_to' => null],
         ],
     ];
 }
 
 /**
  * Capabilities for a model ID. Unknown IDs (the Custom escape hatch) get a
- * conservative profile: no sampling, no effort, no thinking parameter —
- * every current Claude model accepts that request shape.
+ * conservative profile: no sampling, no effort, no thinking parameter, the
+ * plain output budget — every current Claude model accepts that request
+ * shape.
  */
 function postquality_model_caps(string $model): array
 {
     return postquality_model_registry()[$model] ?? [
         'label'                => $model,
         'pricing'              => '',
+        'group'                => '',
         'supports_temperature' => false,
         'effort_levels'        => [],
-        'thinking'             => null,
+        'thinking'             => ['by_default' => false, 'off' => null, 'off_up_to' => null],
     ];
 }
 
@@ -134,7 +171,7 @@ function postquality_effective_model(string $agent, array $settings): string
     }
 
     if ($settings['default_model'] === 'custom') {
-        return $settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-4-6';
+        return $settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-5-5';
     }
 
     return $settings['default_model'];
@@ -163,6 +200,14 @@ function postquality_agent_max_tokens(): array
 }
 
 /**
+ * Output tokens added to an agent's budget when its request may think (a
+ * model that cannot turn thinking off, or not at the effort sent): thinking
+ * counts against max_tokens. What bounds the request in practice is in
+ * memory/llm-options-architecture.md (story 101).
+ */
+define('POSTQUALITY_THINKING_RESERVE', 12000);
+
+/**
  * Ready-to-merge Claude request fragment for one agent. The n8n workflow
  * spreads this object into the request body as-is, so every LLM option
  * lives here (plugin-side) and never requires a workflow re-import.
@@ -182,6 +227,7 @@ function postquality_llm_params(string $agent, array $settings): array
         $params['temperature'] = round((float) ($agent_settings['temperature'] ?? 0), 1);
     }
 
+    $effort = null;
     if (!empty($caps['effort_levels'])) {
         $effort = $agent_settings['effort'] ?? 'high';
         if (!in_array($effort, $caps['effort_levels'], true)) {
@@ -190,8 +236,18 @@ function postquality_llm_params(string $agent, array $settings): array
         $params['output_config'] = ['effort' => $effort];
     }
 
-    if ($caps['thinking'] === 'disabled') {
-        $params['thinking'] = ['type' => 'disabled'];
+    // The thinking rule (postquality_model_registry()): off where the model
+    // allows it at the effort sent, otherwise room for the thinking.
+    $rule = $caps['thinking'];
+    if ($rule['by_default']) {
+        $order = ['low', 'medium', 'high', 'xhigh', 'max'];
+        $can_turn_off = $rule['off'] !== null && ($rule['off_up_to'] === null
+            || array_search($effort, $order, true) <= array_search($rule['off_up_to'], $order, true));
+        if ($can_turn_off) {
+            $params['thinking'] = ['type' => $rule['off']];
+        } else {
+            $params['max_tokens'] += POSTQUALITY_THINKING_RESERVE;
+        }
     }
 
     return $params;

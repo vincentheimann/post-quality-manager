@@ -26,7 +26,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 - **Quality dashboard** — per-post scores, statuses, and top edits with loading/error states
 - **n8n workflow generator** — a dedicated **n8n Workflow** page with the pre-configured download, an "Import from URL" link, a live preview of what each agent sends to Claude, and an update notice when the bundled workflow changes
-- **Claude model choice** — pick the model globally (Opus 4.8, Sonnet 5, Sonnet 4.6, Haiku 4.5, or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
+- **Claude model choice** — pick the model globally (the current Opus 5.5, Sonnet 5.5, the default, and Haiku 5.5; the earlier Opus 4.8, Sonnet 5, Sonnet 4.6 and Haiku 4.5; or any custom model ID) and override it per agent; the plugin sends each model only the parameters it supports, so switching models never breaks a request
 - **Blog profiles and Editorial Standards** — choose a Blog Profile (Marketing, Technical/IT, Lifestyle, Food & Recipes, Travel, Health & Wellness) for the Website Context and a tone preset (Professional, Casual, Direct) for the Editorial Standards every post follows (Review and Rewrite); the page shows the exact text the AI receives, and Custom opens a text field for your own
 - **On-demand commands** — trigger review/rewrite/etc. for a post from the admin (REST API `POST /trigger-review`, async so the UI never blocks)
 - **Insert into Post** — put the suggested Takeaways or Sources into the post with one confirmed click, as a plain list or in a pattern you design in Appearance → Patterns; the previous version stays in Revisions

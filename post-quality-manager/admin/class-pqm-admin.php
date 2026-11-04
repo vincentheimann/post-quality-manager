@@ -193,7 +193,7 @@ class PostQuality_Admin
             // postquality_effective_model()) — the model-caps JS falls back to it when
             // the AI Model section is absent (Editor view of the Settings page).
             'defaultModel' => $settings['default_model'] === 'custom'
-                ? ($settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-4-6')
+                ? ($settings['custom_model'] !== '' ? $settings['custom_model'] : 'claude-sonnet-5-5')
                 : $settings['default_model'],
             'blogProfiles' => $profile_texts,
             'agentDefaults' => postquality_default_settings()['agent_prompts'],
@@ -871,17 +871,7 @@ class PostQuality_Admin
                         <th><label for="pqm_default_model"><?php esc_html_e('Default Model', 'post-quality-manager'); ?></label></th>
                         <td>
                             <select id="pqm_default_model" name="postquality_settings[default_model]">
-                                <?php foreach ($registry as $model_id => $model): ?>
-                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($settings['default_model'], $model_id); ?>>
-                                        <?php
-                                        echo esc_html($model['label']);
-                                        if ($model['pricing']) {
-                                            /* translators: %s: price per million tokens, input / output */
-                                            echo esc_html(sprintf(__(' (%s per MTok)', 'post-quality-manager'), $model['pricing']));
-                                        }
-                                        ?>
-                                    </option>
-                                <?php endforeach; ?>
+                                <?php self::render_model_options($registry, $settings['default_model']); ?>
                                 <option value="custom" <?php selected($settings['default_model'], 'custom'); ?>><?php esc_html_e('Custom model ID…', 'post-quality-manager'); ?></option>
                             </select>
                             <input type="text" id="pqm_custom_model" name="postquality_settings[custom_model]"
@@ -889,7 +879,7 @@ class PostQuality_Admin
                                    class="regular-text code<?php echo $settings['default_model'] === 'custom' ? '' : ' pqm-hidden'; ?>"
                                    placeholder="claude-…"
                                    aria-label="<?php esc_attr_e('Custom Claude model ID', 'post-quality-manager'); ?>" />
-                            <p class="description"><?php esc_html_e('The Claude model every agent uses unless it sets its own below. Prices are per million tokens (input / output). For a custom model ID, temperature and effort are not sent — the model runs with its own defaults.', 'post-quality-manager'); ?></p>
+                            <p class="description"><?php esc_html_e('The Claude model every agent uses unless it sets its own below. Prices are per million tokens (input / output). For a custom model ID that is not in the list, temperature and effort are not sent — the model runs with its own defaults.', 'post-quality-manager'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -1078,11 +1068,7 @@ class PostQuality_Admin
                                             ? __('Default (use the AI Model above)', 'post-quality-manager')
                                             : __('Default (site default model)', 'post-quality-manager'));
                                         ?></option>
-                                        <?php foreach ($registry as $model_id => $model): ?>
-                                            <option value="<?php echo esc_attr($model_id); ?>" <?php selected($agent_data['model'], $model_id); ?>>
-                                                <?php echo esc_html($model['label']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
+                                        <?php self::render_model_options($registry, $agent_data['model']); ?>
                                     </select>
                                 </td>
                             </tr>
@@ -1850,6 +1836,37 @@ class PostQuality_Admin
                     </tbody>
                 </table>
 <?php
+    }
+
+    /**
+     * The registry's models as the options of a model select (story 101):
+     * the provider's current models first, then the earlier ones a site may
+     * have saved, each group under its own optgroup, each model with its
+     * label and price.
+     */
+    private static function render_model_options(array $registry, string $selected): void
+    {
+        $groups = [
+            'current' => __('Current models', 'post-quality-manager'),
+            'earlier' => __('Earlier models', 'post-quality-manager'),
+        ];
+        foreach ($groups as $group => $group_label):
+?>
+                                <optgroup label="<?php echo esc_attr($group_label); ?>">
+                                    <?php foreach ($registry as $model_id => $model): if ($model['group'] !== $group) { continue; } ?>
+                                    <option value="<?php echo esc_attr($model_id); ?>" <?php selected($selected, $model_id); ?>>
+                                        <?php
+                                        echo esc_html($model['label']);
+                                        if ($model['pricing']) {
+                                            /* translators: %s: price per million tokens, input / output */
+                                            echo esc_html(sprintf(__(' (%s per MTok)', 'post-quality-manager'), $model['pricing']));
+                                        }
+                                        ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+<?php
+        endforeach;
     }
 
     /* ─── Workflow Generator (admin-post download) ───────────────────── */

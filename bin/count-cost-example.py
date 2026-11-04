@@ -50,7 +50,7 @@ FIXTURES = REPO / "docs" / "cost-example"
 TEMPLATE = REPO / "post-quality-manager" / "templates" / "n8n-workflow.json"
 ORDER = ("short", "average", "long")
 ENDPOINT = "https://api.anthropic.com/v1/messages/count_tokens"
-DEFAULT_MODEL = "claude-sonnet-4-6"  # postquality_default_settings()['default_model']
+DEFAULT_MODEL = "claude-sonnet-5-5"  # postquality_default_settings()['default_model']
 REVIEW_OUTPUT_CAP = 2500  # postquality_agent_max_tokens()['review']
 TAKEAWAYS_OUTPUT_CAP = 1000  # postquality_agent_max_tokens()['takeaways']
 
