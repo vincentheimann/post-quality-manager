@@ -27,7 +27,7 @@ Price per review = input tokens × $2 / 1,000,000 + 2,500 output tokens × $10 /
 
 **Per month, one review per post:** 20 posts cost $0.58 to $0.72, 80 posts $2.30 to $2.85 (the short post's unrounded price × the count to the long post's unrounded price × the count, each rounded up to the cent). A Key Takeaways run on top adds $0.02 to $0.03 a post. Automated Reviews (Pro) re-review posts on a schedule; each run is one more review at these prices.
 
-**Skipped:** per-agent prices for the Pro agents (Rewrite, Sources, SEO, Audit): their output caps differ (1,000 to 8,000 tokens) and Rewrite sends the post's HTML. Add them when story 29 reports real usage.
+**Skipped:** per-agent prices for the Pro agents (Rewrite, Sources, SEO, Audit): their output caps differ (1,000 to 12,000 tokens) and Rewrite sends the post's HTML. Add them when story 29 reports real usage.
 
 ## Limits
 

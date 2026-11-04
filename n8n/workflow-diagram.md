@@ -47,7 +47,7 @@ Contract details, by the workflow version that introduced them:
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
 - **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
-  `{"ok":true,"workflow_version":8}` (its Response Data option, no extra node), so the
+  `{"ok":true,"workflow_version":9}` (its Response Data option, no extra node), so the
   plugin's test ping learns which workflow runs. An older import answers n8n's default
   body without a version, and the plugin reports it as an older version.
 - **The test ping proves the way back (v7, story 2).** Parse Input's ping item carries
@@ -65,13 +65,18 @@ Contract details, by the workflow version that introduced them:
   `$('Result Ready').first().json`; an item without `chat_message` (a Parse node's error,
   `Format Score`'s missing post) sends `'❌ ' + message`. The callback still continues on
   error, so a refused save still notifies. A v7 workflow saves results but never notifies.
+- **Longer waits for Claude (v9, story 101).** The Claude nodes wait up to 120 s (Review),
+  60 s (Takeaways, Sources, SEO) and 180 s (Audit, Rewrite) for the answer, so a model
+  that thinks before it answers (Claude Opus 5.5) and long posts finish; the output
+  budgets themselves ride the payload (`max_tokens`, v2). A v8 workflow keeps the
+  older waits (Takeaways and Sources 30 s, Audit and Rewrite 120 s).
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connections into `/save-review` and the notification.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 8]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 9]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> RR

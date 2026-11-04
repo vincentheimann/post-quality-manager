@@ -189,10 +189,10 @@ function postquality_agent_max_tokens(): array
     ];
     if ( postquality_fs()->is__premium_only() ) {
         $tokens += [
-            'sources'   => 2000,
+            'sources'   => 3000,
             'seo'       => 1000,
-            'audit'     => 5000,
-            'rewrite'   => 8000,
+            'audit'     => 8000,
+            'rewrite'   => 12000,
         ];
     }
 

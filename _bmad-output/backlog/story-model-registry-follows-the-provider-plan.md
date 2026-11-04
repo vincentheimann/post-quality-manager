@@ -3,7 +3,7 @@ title: "The AI Model section offers the provider's current models, and the regis
 type: 'feature'
 ticket: '101'
 created: '2026-11-04'
-status: 'in-progress'
+status: 'built'
 baseline_revision: '5c629554e27ed993b0c0e5ef38834cc7383ed20d'
 route: 'full'
 route_source: 'auto'
@@ -57,6 +57,7 @@ context: []
 - `docs/release-notes/unreleased.md` -- one line: the three current models; Sonnet 5.5 is the default for sites that never saved Settings; a site that saved one keeps it (pick Sonnet 5.5 in Settings → AI to switch).
 - `bin/count-cost-example.py` L53 `DEFAULT_MODEL`; `docs/cost-example.md` and the `readme.txt` FAQ copy -- re-measured with `--model claude-sonnet-5-5 --prices 2,10 --figures "4 November 2026"`.
 - `memory/llm-options-architecture.md`, `memory/lifecycle.md` (AI models row).
+- (Change Log 1) `pqm-functions.php` `postquality_agent_max_tokens()`: sources 2,000 → 3,000, audit 5,000 → 8,000, rewrite 8,000 → 12,000. `templates/n8n-workflow.json`: node timeouts Claude - Takeaways Agent and Claude - Sources Agent 30 s → 60 s, Claude - Audit Agent and Claude - Rewrite Agent 120 s → 180 s; template version 9 (`POSTQUALITY_WORKFLOW_VERSION`, Parse Input's stamps, the trigger's reply); `n8n-workflow-free.json` re-derived (`php bin/derive-free-template.php`). Harness pins of version 8 → 9; `model-registry-harness.php` drops the 21,333 check (the SDKs' guard, not the workflow's bound). Release notes: one paragraph (version 9, the longer waits and larger budgets), and the earlier unreleased paragraphs that quote "this plugin needs 8" made true for 9. `docs/cost-example.md` "1,000 to 8,000 tokens" → "1,000 to 12,000". Memory: the node timeouts and budgets in `llm-options-architecture.md`, the version in `lifecycle.md` and wherever the version list is kept.
 
 ## Tasks & Acceptance
 
@@ -67,6 +68,7 @@ context: []
 - [x] `count-cost-example.py`, `docs/cost-example.md`, `readme.txt` -- re-measured (orchestrator runs the script: it reads `../.secrets/anthropic-key.txt` and never prints it; the token-count endpoint is free) -- the cost example matches the default
 - [x] `unreleased.md`, memory -- the records
 - [x] Real-call proof (orchestrator, owner's consent at the checkpoint): one Review and one Key Takeaways request per listed model with its exact fragment on a fixture post, recording status, `stop_reason`, output tokens and latency against the node timeouts (Takeaways and Sources 30 s, SEO 60 s, the others 120 s). A 400, a `max_tokens` stop or a latency over half its node's timeout is fixed in this story (a timeout change is a template version bump and a release-notes line)
+- [x] (Change Log 1) budgets and template version 9 timeouts as in the Code Map -- every proof case above under half its new node timeout, no `max_tokens` stop
 - [ ] postquality.com, after the plugin PR merges: the cost copies (its drift check reads the plugin's figures) and the AI-tab capture and alt text on the Features page -- a site PR
 
 **Acceptance Criteria:**
@@ -118,9 +120,51 @@ context: []
   - Opus 5.5 on Sources runs over half its node's timeout (25.7 s of 30 s). A longer post or a slower minute times it out.
   - Opus 5.5 on Rewrite sits at half (59.8 s of 120 s) on an average post.
 - **Near the budget on the new default:** Sonnet 5.5 used 4,617 of Audit's 5,000 output tokens on an average post. Its tokenizer counts about a third more tokens than Sonnet 4.6's, so budgets sized on Sonnet 4.6 are tighter. Audit and Rewrite on the long post may stop on `max_tokens`; this is not measured yet.
-- **Fix in this story** (Tasks rule: a timeout change is a template version bump and a release-notes line): open, the owner's call on the approach, 2026-11-04. Status back to `in-progress` until then.
+- **Fix in this story** (Tasks rule: a timeout change is a template version bump and a release-notes line): the owner chose "Fix in 101" (2026-11-04). See Plan Change Log 1.
+
+**Long-post proof and Change Log 1, 2026-11-04 (orchestrator; 5 calls, owner-approved with the fix):**
+- `pro-proof.py --fixture long`: the `long` fixture, with `content_html` cut at 20,000 characters as the plugin does (18,496 here).
+- Candidate budgets audit 8,000 and rewrite 12,000; these are the budgets Change Log 1 then adopted.
+- All 5 answered 200 with `end_turn`, and every reply had its Parse node's shape.
+
+  | Case | max_tokens | Input, output tokens | Latency |
+  |---|---|---|---|
+  | Opus 5.5 Sources | 14,000 | 4,767, 2,082 | 20.0 s |
+  | Opus 5.5 Audit | 20,000 | 10,062, 7,782 | 71.1 s |
+  | Opus 5.5 Rewrite | 24,000 | 7,557, 8,013 | 59.6 s |
+  | Sonnet 5.5 Audit | 8,000 | 10,061, 3,032 | 22.2 s |
+  | Sonnet 5.5 Rewrite | 12,000 | 7,556, 7,823 | 38.0 s |
+
+- Sonnet 5.5 Rewrite's 7,823 output tokens would have stopped on `max_tokens` under the old 8,000 budget on a slightly longer post. Audit's output varied between posts: 4,617 on the average post, 3,032 on the long one.
+- Built by the same Opus implementer:
+  - budgets sources 3,000, audit 8,000, rewrite 12,000;
+  - template version 9, with Takeaways and Sources at 60 s and Audit and Rewrite at 180 s; the Free template re-derived;
+  - the version-8 pins updated in `rest-reviews-harness.php` and `template-failure-harness.php`;
+  - `model-registry-harness.php` (42 rows): the 21,333 check dropped, the budgets pinned;
+  - the release-notes paragraph "Longer waits for Claude's answer", the bug-97 paragraph's quote now "needs 9";
+  - the records: cost example, memory, diagram.
+- **The Change Log 1 task's check, against the new timeouts, over every call measured (30 calls in all):**
+  - Highest share of the node timeout: Opus 5.5 Sources 25.7 s / 60 s (43 %), then Opus 5.5 Audit 71.1 s / 180 s (40 %), Opus 5.5 Takeaways 10.7 s / 60 s (18 %) and Sonnet 4.6 Review 30.0 s / 120 s (25 %).
+  - Every call is under half its node's timeout.
+  - Highest share of the output budget: Sonnet 5.5 Rewrite 7,823 / 12,000 (65 %), Review 1,637 / 2,500 (65 %), Audit 4,617 / 8,000 (58 %), Sources 1,527 / 3,000 (51 %).
+  - No `max_tokens` stop.
+- Verification: 22 harnesses with 0 failing, `npm run test:unit` 174 of 174, `php -l` clean, `git diff --check` clean.
+- Not run: version 9 on a live n8n. Only the six Claude nodes' `options.timeout` values and the version stamps change; `template-guard-harness.php` (n8n 2.46.4's publish checks) passes on both templates. The walk at release 3.11.0 covers it.
 
 ## Plan Change Log
+
+**1. 2026-11-04: the Pro-agent proof fails the Tasks rule; owner: "Fix in 101".**
+- Trigger: review row 3b, settled by the owner-approved calls under Implementation Notes.
+  - Opus 5.5 on Sources took 25.7 s of a 30 s node; on Audit 71.1 s of 120 s (long post); on Rewrite 59.8 s of 120 s.
+  - Sonnet 5.5 used 4,617 of Audit's 5,000 tokens (average post) and 7,823 of Rewrite's 8,000 (long post, measured with a 12,000 candidate budget). Its tokenizer counts about a third more tokens than Sonnet 4.6's, so the budgets sized on 4.6 are tight.
+- Amended (Code Map, Tasks):
+  - Budgets: sources 3,000, audit 8,000, rewrite 12,000. Sources used 76 % on the average post, and Audit's output varied by half between two posts.
+  - Node timeouts: Takeaways and Sources 60 s, Audit and Rewrite 180 s, each at least twice the slowest call measured. SEO stays 60 s and Review 120 s: their slowest calls were 8.3 s and 30.0 s.
+  - Template version 9.
+- Rule: the 21,333 bound is dropped, because it is the SDKs' guard and n8n applies none. The largest request is then Opus 5.5 Rewrite at 24,000.
+- Known-bad state avoided: Opus 5.5 listed while its Sources and Audit calls ran close to n8n aborting them, and the new default's Rewrite cut off on a full-length post.
+- KEEP: everything built and patched so far (the registry, the thinking rule, the reserve, the grouped and priced selects, the harness rows, the cost example, the records).
+- Context: the plugin's own polling gives up at 3 minutes (`GIVE_UP_AFTER`) and says the run "is still running in n8n — results will appear when it finishes". A 180 s node therefore still lands its result.
 
 ## Review Triage Log
 

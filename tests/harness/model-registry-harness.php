@@ -125,7 +125,10 @@ foreach (['claude-opus-5-5' => $EFFORTS, 'claude-sonnet-5-5' => ['xhigh', 'max']
     check("$model at " . implode(', ', $efforts) . ': no thinking key, no temperature, budget + the reserve, every agent', $ok);
 }
 check('the reserve is 12,000 tokens', $RESERVE === 12000);
-check('rewrite, the largest budget, + the reserve stays under 21,333 (the Anthropic SDKs\' client-side guard for a non-streaming call; the workflow\'s bound is its node timeouts)', max($BUDGET) + $RESERVE < 21333);
+check('the agent budgets (Change Log 1): review 2,500, takeaways 1,000, sources 3,000, seo 1,000, audit 8,000, rewrite 12,000',
+    $BUDGET === ['review' => 2500, 'takeaways' => 1000, 'sources' => 3000, 'seo' => 1000, 'audit' => 8000, 'rewrite' => 12000]);
+check('Opus 5.5 Rewrite, the largest request, asks for 24,000 output tokens (bounded only by its node timeout)',
+    fragment('claude-opus-5-5', 'rewrite', 'high')['max_tokens'] === 24000);
 
 echo "\nRow 4: earlier models unchanged\n";
 foreach ($EARLIER as $model) {
@@ -267,8 +270,8 @@ foreach ($PROVIDER as $model => $rule) {
                 }
             }
             $may_think = !isset($f['thinking']) && $rule['thinks'];
-            if ($f['max_tokens'] !== $budget + ($may_think ? $RESERVE : 0) || $f['max_tokens'] > 21333) {
-                $bad[] = "$where: max_tokens {$f['max_tokens']} (expected the budget, + the reserve when it may think, under the SDKs' 21,333 client-side guard)";
+            if ($f['max_tokens'] !== $budget + ($may_think ? $RESERVE : 0)) {
+                $bad[] = "$where: max_tokens {$f['max_tokens']} (expected the budget, + the reserve when it may think)";
             }
         }
     }
