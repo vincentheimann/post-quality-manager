@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.11.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.1...v3.11.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **n8n:** a failed or removed setup leaves nothing behind in n8n, or says what it left ([5e3f0ac](https://github.com/vincentheimann/post-quality-manager/commit/5e3f0acb3c7a18a30988e25910b0df7e2d5e41ed))
+
 ## [3.11.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.0...v3.11.1) (2026-11-04)
 
 
