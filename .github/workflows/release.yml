@@ -55,7 +55,7 @@ jobs:
       contents: write
     steps:
       # On a release, build the tagged commit; on a dispatch, the dispatched ref.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
 
@@ -65,10 +65,9 @@ jobs:
       - name: Versions agree
         run: php tests/harness/release-header-harness.php
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -90,7 +89,7 @@ jobs:
           echo "file=post-quality-manager-$V.zip" >> "$GITHUB_OUTPUT"
 
       - name: Upload zip artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.zip.outputs.file }}
           path: ${{ steps.zip.outputs.file }}
@@ -193,7 +192,7 @@ jobs:
       # Kept even when the Free side fails, for the record.
       - name: Upload the Freemius Pro build
         if: always() && steps.freemius.outputs.pro != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.freemius.outputs.pro }}
           path: ${{ steps.freemius.outputs.pro }}
@@ -248,7 +247,7 @@ jobs:
 
       - name: Upload the Freemius Free build
         if: needs.release-please.outputs.release_created == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.freemius.outputs.free }}
           path: ${{ steps.freemius.outputs.free }}

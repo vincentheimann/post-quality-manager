@@ -93,9 +93,9 @@ jobs:
     name: Build admin app
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -118,7 +118,7 @@ jobs:
           test -f post-quality-manager/admin/build/index.asset.php
 
       - name: Upload built assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: admin-build
           path: post-quality-manager/admin/build/
@@ -127,7 +127,7 @@ jobs:
     name: PHP lint and harness sweep
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # vendor/ holds the Freemius SDK as released (story 44): not ours to lint.
       # bin/ holds the Free-build scripts (story 54), on the same PHP floor.
@@ -167,10 +167,10 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download built assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: admin-build
           path: post-quality-manager/admin/build
@@ -189,14 +189,14 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
 
       - name: Download built assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: admin-build
           path: post-quality-manager/admin/build
@@ -205,7 +205,7 @@ jobs:
         run: php bin/build-free.php build/free
 
       - name: Upload the Free tree
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: free-build
           path: build/free/
