@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.11.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.0...v3.11.1) (2026-11-04)
+
+
+### Bug Fixes
+
+* **n8n:** Update workflow connects Rewrite on a site set up without a WordPress credential ([0c00cca](https://github.com/vincentheimann/post-quality-manager/commit/0c00cca93bbf50f391a09eaf56ceed549f69184d))
+
 ## [3.11.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.10.2...v3.11.0) (2026-11-04)
 
 
