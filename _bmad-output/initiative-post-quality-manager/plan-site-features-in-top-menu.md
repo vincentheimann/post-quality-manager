@@ -3,7 +3,7 @@ title: "postquality.com's top menu leads to the Features page (story 100 follow-
 type: 'feature'
 ticket: ''
 created: '2026-11-03'
-status: 'built'
+status: 'done'
 baseline_revision: '1fedace4e1998fb324de24dd6afd1cef28ac3bba'
 route: 'oneshot'
 route_source: 'auto'
