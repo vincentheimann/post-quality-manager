@@ -6,7 +6,7 @@ _How an agent session checks the plugin on a real WordPress, headlessly, through
 
 - **Which site.** Routine checks run on the showcase, the Local site "Post Quality Showcase" (sample posts, a Free build). The pre-production pass runs on a clean WordPress 6.6 site the owner creates in Local when story 38 nears. Never the owner's production site or its Local copy, reads included (`memory/lessons.md` 2026-10-14, 2026-10-24).
 - **Nothing site-specific in the repository.** A site is named by its Local name on the command line; its address, folder, Local id, port and database credentials are read from Local at run time and are never written into a repository file, ticket, plan or memory line. Neither are dumps, captures, post titles or user names from a site.
-- **Nothing leaves the machine.** The webhook listener binds to 127.0.0.1; the plugin's payload (post content, the site's webhook token) goes to it and to no other host.
+- **Nothing leaves the machine.** The webhook listener binds to 127.0.0.1; the plugin's payload (post content, the site's webhook token) goes to it and to no other host. One exception, the owner's to allow: a walk with [a disposable n8n](#a-disposable-n8n) sends the commands it runs (a few of the site's sample posts) to the AI provider, with the owner's key.
 - **Export first, restore last.** Every walk starts with the backup below and ends with the restore, then checks the site is as it was. Every file the walk writes lives in the session's scratchpad, outside the repository, and is deleted when the walk ends (owner rule 2026-10-20: nothing an agent creates outlives the work).
 - **One walk per site at a time.** A busy port 8765 or `pq-smoke-*` users already on the site mean a walk is running or was left unrestored, maybe another session's: its backup would hold the other walk's half-done state, and step 11 would still print "same". Stop and ask the owner.
 - **A defect found becomes its own ticket.** The walk changes no plugin code.
@@ -206,8 +206,117 @@ What the walk created, and what removes it:
 - **Deleting the plugin:** the Freemius SDK registers the plugin's uninstall callback only when an administrator deactivates it and runs it only for a user who can `activate_plugins`, so a WP-CLI walk of deletion passes `--user=<an administrator>` on both `lwp plugin deactivate` and `lwp plugin uninstall`; without it the files go and every option, user meta, capability and the reviews table stay (`memory/freemium-and-roles.md`, real licensing). The restore brings the plugin back.
 - **A plan's manual checks:** the steps a story plan's Verification section lists run in the same frame: backup, build, the checks through `lwp` (options, `eval` with `rest_do_request()`, the capture), restore.
 
+## A disposable n8n
+
+_Written by chore 105 on 2026-11-04, to prove the workflow template on a new n8n release (ADR 0017's n8n rule, the `/lcm` check) without touching the owner's n8n instance. Installs one n8n release from npm into the session's scratchpad, runs it on this PC beside the Local site, and deletes it after. No Docker, no WSL, and no script in the repository installs it: these steps are the recipe._
+
+- **Which release:** the version the ticket names; by default npm's `latest` that day (`npm view n8n dist-tags`). A `beta` or `next` release waits until it is `latest`.
+- **What it holds:** its owner account, its API key, and everything the plugin provisions (the credentials, the owner's provider key inside one of them, the workflow) live in its SQLite database under `$N`, and go when `$N` is deleted. Nothing of it is written into a repository file, ticket, plan or memory line.
+- **The site side** is the walk above: backup first (walk step 1), the build installed (walk step 2), restore and check last (walk steps 10 and 11). Skip walk steps 3, 4 and 7: the disposable n8n replaces the listener (step 3), runs the workflow and calls the site back; step 4 would write the listener's address into `n8n_webhook_url` over the URL provisioning saved; step 7 reads the listener's capture, and a command now runs from the plugin and lands through n8n's callback.
+- **The provider key** is typed by the owner into the plugin's setup dialog; the agent never sees, writes or passes it.
+
+### n8n variables
+
+```sh
+cd "<repository root>"
+V=<version>; N="$(cygpath -u "<session scratchpad>")/n8n-$V"; mkdir -p "$N"
+PATH="$N/node:$PATH"
+```
+
+`$N/node` goes first on `PATH`: n8n starts its Code-node task runner as `node` from `PATH`, so the walk's Node.js must be found before the one installed on the PC.
+
+### n8n 1. Node.js 24, portable
+
+n8n 2.46 needs Node.js 24 or later (`engines` in its `package.json`). A portable zip leaves the Node.js installed on the PC alone:
+
+```sh
+curl -fso "$N/SHASUMS256.txt" https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt
+Z=$(grep -o 'node-v24\.[0-9.]*-win-x64\.zip' "$N/SHASUMS256.txt")
+curl -fso "$N/$Z" "https://nodejs.org/dist/latest-v24.x/$Z"
+(cd "$N" && grep " $Z\$" SHASUMS256.txt | sha256sum -c)
+python -I -m zipfile -e "$N/$Z" "$N" && mv "$N/${Z%.zip}" "$N/node"
+node --version
+```
+
+Expected: `<zip>: OK`, then `v24.<…>`.
+
+### n8n 2. Install n8n
+
+```sh
+npm install "n8n@$V" --prefix "$N/app" --cache "$N/npm-cache" --force --no-audit --no-fund
+node "$N/app/node_modules/n8n/bin/n8n" --version
+```
+
+`--cache` keeps npm's download cache in `$N` too, instead of `%LocalAppData%\npm-cache`, so n8n 7 deletes it. `--force` is needed since n8n 2.46.0: `n8n-nodes-base` declares musl-only native bindings (`@napi-rs/canvas-linux-*-musl`, `@napi-rs/image-linux-*-musl`) as hard dependencies, and npm refuses them with `EBADPLATFORM` on any host that is not Alpine Linux, Windows included ([n8n#43006](https://github.com/n8n-io/n8n/issues/43006), open on 2026-11-04). The install takes several minutes. Expected: `added <n> packages`, then `$V`.
+
+### n8n 3. Configure it
+
+n8n reads `.env` from the folder it starts in:
+
+```sh
+cat > "$N/.env" <<EOF
+N8N_USER_FOLDER=$(cygpath -m "$N/data")
+N8N_LISTEN_ADDRESS=127.0.0.1
+N8N_PORT=5688
+N8N_RUNNERS_BROKER_PORT=5689
+N8N_SECURE_COOKIE=false
+N8N_DIAGNOSTICS_ENABLED=false
+N8N_VERSION_NOTIFICATIONS_ENABLED=false
+N8N_TEMPLATES_ENABLED=false
+EOF
+echo "require('fs').writeFileSync(__dirname + '/n8n.pid', String(process.pid));" > "$N/pid.js"
+```
+
+- `N8N_USER_FOLDER` keeps the database, the encryption key and the logs in `$N` (written as `C:/…`: Node.js on Windows does not read Git Bash's `/c/…` form inside a file).
+- `N8N_LISTEN_ADDRESS=127.0.0.1`: n8n listens on every interface by default (`::`, seen as `0.0.0.0:5688`); this keeps it on the PC. Its address is therefore `http://127.0.0.1:5688` everywhere below, never `localhost`, which can resolve to `::1`.
+- No webhook base is set: the plugin builds the webhook URL from the address it is given (`/webhook/` and the per-site path). If one is ever needed, it is `N8N_WEBHOOK_URL=http://127.0.0.1:5688/` (2.46.4 logs `WEBHOOK_URL` as deprecated).
+- Ports 5688 and 5689 stay clear of an n8n on the defaults (5678, broker 5679). Keep them: a walk on other ports would not see one already running.
+- `N8N_SECURE_COOKIE=false` lets `curl` keep the login cookie over `http://127.0.0.1` (n8n 5).
+- Diagnostics, version notifications and the template library are off: nothing leaves the machine but the workflow's own calls.
+- `pid.js` writes the Windows PID of n8n's own `node` process, the one n8n 7 stops: `$!` in Git Bash is the shell's own process number, and stopping it can leave the Windows process running.
+
+### n8n 4. Start it
+
+```sh
+netstat -ano | grep -E ':(5688|5689) .*LISTENING' && { echo "STOP: a port is taken"; exit 1; }
+cd "$N" && node --require ./pid.js app/node_modules/n8n/bin/n8n start > "$N/n8n.log" 2>&1
+```
+
+Run the block in the background (an agent: the shell tool's background mode). A taken port ends it with exit 1 before n8n starts: another walk is running, maybe another session's; stop and ask the owner. Then wait until `curl -s http://127.0.0.1:5688/healthz` answers `{"status":"ok"}` (the first start runs the database migrations first), then read `cat "$N/n8n.pid"`. Expected: `$N/n8n.log` names the editor's address and `n8n.pid` holds one number.
+
+### n8n 5. Owner account and API key
+
+```sh
+B=http://127.0.0.1:5688; J="$N/cookies.txt"
+python -I -c "import secrets; print('Pq1' + secrets.token_urlsafe(18))" > "$N/owner-password.txt"
+curl -sf -c "$J" -H 'Content-Type: application/json' -d "{\"email\":\"walk@example.com\",\"firstName\":\"Walk\",\"lastName\":\"Owner\",\"password\":\"$(cat "$N/owner-password.txt")\"}" "$B/rest/owner/setup" > /dev/null && echo "owner: set up"
+SCOPES=$(curl -sf -b "$J" "$B/rest/api-keys/scopes" | python -I -c "import json, sys; print(json.dumps(json.load(sys.stdin)['data']))")
+curl -sf -b "$J" -H 'Content-Type: application/json' -d "{\"label\":\"post-quality-walk\",\"scopes\":$SCOPES,\"expiresAt\":null}" "$B/rest/api-keys" | python -I -c "import json, sys; print(json.load(sys.stdin)['data']['rawApiKey'])" > "$N/api-key.txt"
+wc -c < "$N/api-key.txt"
+```
+
+`POST /rest/owner/setup` is the editor's first-run form (it needs a password of 8 to 64 characters with a digit and a capital) and logs the owner in; `GET /rest/api-keys/scopes` lists every scope the owner's role may give a key, and `POST /rest/api-keys` makes a key with all of them, no expiry (it dies with `$N`). Expected: `owner: set up`, then the key's length. The owner reaches the editor at `http://127.0.0.1:5688` with `walk@example.com` and the password in `$N/owner-password.txt`.
+
+### n8n 6. Connect the site
+
+The owner opens the plugin's setup dialog on the Local site and enters the n8n address `http://127.0.0.1:5688` (the plugin takes `http://` on localhost and 127.0.0.1 only) and the key from `$N/api-key.txt`, which the agent hands over, then types their provider key. From there the plugin provisions the workflow; the Local site and n8n run on the same PC, so n8n can call the `.local` site back, which an n8n elsewhere cannot.
+
+### n8n 7. Stop it and delete it
+
+After the walk's restore (walk step 10):
+
+```sh
+P=$(cat "$N/n8n.pid")
+tasklist //FI "PID eq $P" //NH | grep -q '^node\.exe ' && netstat -ano | tr -d '\r' | grep -qE ":5688 .*LISTENING +$P\$" || { echo "STOP: PID $P is not n8n's node.exe listening on 5688"; exit 1; }
+taskkill //PID "$P" //T //F
+netstat -ano | grep -E ':(5688|5689) .*LISTENING' || echo "ports 5688 and 5689: free"
+cd "<repository root>" && rm -rf "$N" && echo "n8n folder: deleted"
+```
+
+The first two lines prove the PID file names n8n's own process before anything is stopped: `node.exe` in `tasklist`, and that PID listening on 5688. A `STOP` line ends the block with exit 1, nothing stopped: report it and ask the owner. `//T` also stops the task runner n8n started. Expected: `SUCCESS: The process with PID <pid> (child process of PID <n8n's>) has been terminated.` lines, `ports 5688 and 5689: free`, `n8n folder: deleted`. A port still taken after the stop is a process this walk cannot prove it started: report it and ask the owner.
+
 ## Not covered
 
 - **The browser:** layout, loading and error states, look and feel stay the owner's pass in WP Admin.
-- **The n8n round trip:** the listener answers like n8n's webhook but never runs the workflow or calls `POST /save-review` back; a full round trip still needs an n8n instance that can reach the site (story 2).
+- **The n8n round trip:** the listener answers like n8n's webhook but never runs the workflow or calls `POST /save-review` back; a full round trip needs an n8n that can reach the site: [A disposable n8n](#a-disposable-n8n) on the same PC (chore 105), or the owner's instance and a site it can reach (story 2).
 - **The pre-production pass:** it runs last, on the release that goes to WordPress.org (story 38), on the clean WordPress 6.6 site: that release's zip installs and activates with `WP_DEBUG` on and no notices (the check of delivery-pipeline entry 4.1), then this walk and the plans' manual checks.

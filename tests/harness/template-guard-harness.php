@@ -15,6 +15,14 @@
  *
  * Provisioning entry 3: the Webhook Trigger's path must be the per-site
  * placeholder __PQM_WEBHOOK_PATH__, never a literal (spike finding 5).
+ *
+ * Chore 105: n8n's publish checks, mirrored for what the templates use, so a
+ * template n8n would refuse (since 2.43.0: a required input left unconnected,
+ * HTTP 400 on /activate and on a PUT republish) fails here first: every node
+ * reachable from the Webhook Trigger, every connection joining existing nodes,
+ * every type@typeVersion on the reviewed list with its required inputs
+ * connected, no deprecated node. Negative rows run the same functions on
+ * in-memory copies of both templates.
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -27,6 +35,95 @@ const ALLOWED_HOSTS = ['api.anthropic.com'];
 
 /** Keys of a bare export; an instance export adds id, versionId, meta.instanceId, pinData, tags… */
 const TOP_LEVEL_KEYS = ['active', 'connections', 'name', 'nodes', 'settings'];
+
+/**
+ * Chore 105: every node type@typeVersion the templates may use → the input
+ * types n8n marks `required: true` on it, read in the node's source at the
+ * tag below. Core `main` inputs are plain strings there, never required. A
+ * type@typeVersion added to a template fails until someone reads its inputs
+ * at the target n8n tag and lists it here. The reachability walk in
+ * pqm_publish_checks() follows `main` connections only, so an AI sub-node
+ * (fed through `ai_*` connections) would always read unreachable: adding an
+ * AI node means extending that walk to the `ai_*` connections first.
+ */
+const REVIEWED_AT = 'n8n@2.46.4';
+const REVIEWED_NODE_TYPES = [
+    'n8n-nodes-base.webhook@2'     => [],
+    'n8n-nodes-base.code@2'        => [],
+    'n8n-nodes-base.switch@2'      => [],
+    'n8n-nodes-base.httpRequest@4' => [],
+    'n8n-nodes-base.if@2'          => [],
+    'n8n-nodes-base.noOp@1'        => [],
+];
+
+/** Node types n8n deprecates; none may appear in a template. */
+const DEPRECATED_NODE_TYPES = ['n8n-nodes-base.function', 'n8n-nodes-base.functionItem', '@n8n/n8n-nodes-langchain.code'];
+
+/**
+ * Chore 105: n8n's publish checks as the templates meet them. Returns
+ * key => [label, problem]; problem is '' when the check passes.
+ */
+function pqm_publish_checks(array $tpl, array $reviewed = REVIEWED_NODE_TYPES): array {
+    $nodes = array_column($tpl['nodes'], null, 'name');
+    $connections = $tpl['connections'] ?? [];
+
+    // Reachable: breadth-first over main connections from the Webhook Trigger.
+    // A disabled node passes its input on at run time, so the walk goes through
+    // it, but it counts as unreachable: n8n validates enabled, reachable nodes only.
+    $queue = array_keys(array_filter($nodes, static fn($n) => ($n['type'] ?? '') === 'n8n-nodes-base.webhook'));
+    $seen = array_fill_keys($queue, true);
+    while ($queue) {
+        foreach ($connections[array_shift($queue)]['main'] ?? [] as $targets) {
+            foreach ($targets ?? [] as $t) {
+                $to = $t['node'] ?? '';
+                if (isset($nodes[$to]) && !isset($seen[$to])) { $seen[$to] = true; $queue[] = $to; }
+            }
+        }
+    }
+    $unreachable = [];
+    foreach ($nodes as $name => $n) {
+        if (!isset($seen[$name]) || !empty($n['disabled'])) { $unreachable[] = $name . (!empty($n['disabled']) ? ' (disabled)' : ''); }
+    }
+
+    // Connections join existing nodes; arrivals per target and input type, from enabled nodes only.
+    $dangling = []; $arrivals = [];
+    foreach ($connections as $from => $by_type) {
+        if (!isset($nodes[$from])) { $dangling[] = $from; }
+        foreach ($by_type as $type => $outputs) {
+            foreach ($outputs as $targets) {
+                foreach ($targets ?? [] as $t) {
+                    $to = $t['node'] ?? '';
+                    if (!isset($nodes[$to])) { $dangling[] = "$from → $to"; }
+                    elseif (empty($nodes[$from]['disabled'])) { $arrivals[$to][$t['type'] ?? $type] = true; }
+                }
+            }
+        }
+    }
+
+    $unreviewed = []; $unconnected = []; $deprecated = [];
+    foreach ($nodes as $name => $n) {
+        $key = ($n['type'] ?? '?') . '@' . ($n['typeVersion'] ?? '?');
+        if (!array_key_exists($key, $reviewed)) { $unreviewed[$key] = $key; }
+        $required = empty($n['disabled']) ? ($reviewed[$key] ?? []) : [];
+        foreach ($required as $input) {
+            if (!isset($arrivals[$name][$input])) { $unconnected[] = "$name ($input)"; }
+        }
+        if (in_array($n['type'] ?? '', DEPRECATED_NODE_TYPES, true)) { $deprecated[] = "$name ({$n['type']})"; }
+    }
+
+    $list = static fn(string $prefix, array $items) => $items ? $prefix . implode(', ', $items) : '';
+    return [
+        'reachable'  => ['every node is reachable from the Webhook Trigger by main connections, none disabled',
+                         $list('unreachable: ', $unreachable)],
+        'joined'     => ['every connection joins existing nodes', $list('', $dangling)],
+        'reviewed'   => ['every node type@typeVersion was reviewed at ' . REVIEWED_AT,
+                         $list('not reviewed: ', array_values($unreviewed))
+                         . ($unreviewed ? ' (read its inputs at the target n8n tag, then list it in REVIEWED_NODE_TYPES)' : '')],
+        'required'   => ['every required input of a reviewed node type is connected (n8n refuses to publish otherwise since 2.43.0)',
+                         $list('not connected: ', $unconnected)],
+        'deprecated' => ['no deprecated node type', $list('found: ', $deprecated)],
+    ];
+}
 
 exec('node --version 2>&1', $out, $code);
 if ($code !== 0) { fwrite(STDERR, "FATAL: `node` is not on PATH; this harness compiles the template's Code nodes with Node.js.\n"); exit(1); }
@@ -106,6 +203,11 @@ foreach (['n8n-workflow.json' => 'Pro', 'n8n-workflow-free.json' => 'Free'] as $
         . ($trigger_path !== '__PQM_WEBHOOK_PATH__' ? ' — found: ' . var_export($trigger_path, true) : ''),
         $trigger_path === '__PQM_WEBHOOK_PATH__');
 
+    echo "n8n publish checks (chore 105)\n";
+    foreach (pqm_publish_checks($tpl) as [$label, $problem]) {
+        check($label . ($problem !== '' ? " — $problem" : ''), $problem === '');
+    }
+
     echo "Code nodes parse\n";
     $code_nodes = [];
     foreach ($tpl['nodes'] as $node) {
@@ -127,6 +229,49 @@ foreach (['n8n-workflow.json' => 'Pro', 'n8n-workflow-free.json' => 'Free'] as $
     foreach ($code_nodes as $name => $_) {
         $err = array_key_exists($name, $errors) ? $errors[$name] : 'not compiled';
         check("$name jsCode parses" . ($err !== null ? " — $err" : ''), $err === null);
+    }
+}
+
+/* ─── Chore 105: each publish check fails a copy n8n would refuse ──────── */
+echo "\n=== n8n publish checks on refused copies (chore 105) ===\n";
+foreach ($templates as $variant => ['tpl' => $tpl]) {
+    $first = static fn(string $type) => array_values(array_filter($tpl['nodes'], static fn($n) => $n['type'] === $type))[0]['name'];
+    $at = static fn(string $name) => array_search($name, array_column($tpl['nodes'], 'name'), true);
+    $code = $first('n8n-nodes-base.code');
+    $http = $first('n8n-nodes-base.httpRequest');
+    $noop = $first('n8n-nodes-base.noOp');
+    $rows = [];
+
+    $copy = $tpl;
+    $copy['nodes'][] = ['parameters' => [], 'id' => 'pqm-node-999', 'name' => 'Orphan Node', 'type' => 'n8n-nodes-base.noOp', 'typeVersion' => 1, 'position' => [0, 0]];
+    $rows[] = ['a node no main connection reaches', $copy, REVIEWED_NODE_TYPES, ['reachable'], ['Orphan Node']];
+
+    $copy = $tpl;
+    $copy['nodes'][$at('Parse Input')]['disabled'] = true;
+    $rows[] = ['a disabled node', $copy, REVIEWED_NODE_TYPES, ['reachable'], ['Parse Input (disabled)']];
+
+    $copy = $tpl;
+    $copy['connections']['Webhook Trigger']['main'][0][] = ['node' => 'Missing Node', 'type' => 'main', 'index' => 0];
+    $rows[] = ['a connection to a missing node', $copy, REVIEWED_NODE_TYPES, ['joined'], ['Webhook Trigger → Missing Node']];
+
+    $copy = $tpl;
+    $copy['nodes'][$at($http)]['typeVersion'] = 4.2;
+    $rows[] = ['an unreviewed type@typeVersion', $copy, REVIEWED_NODE_TYPES, ['reviewed'],
+        ['n8n-nodes-base.httpRequest@4.2', 'read its inputs at the target n8n tag']];
+
+    $copy = $tpl;
+    $copy['nodes'][$at($code)]['type'] = 'n8n-nodes-base.function';
+    $copy['nodes'][$at($code)]['typeVersion'] = 1;
+    $rows[] = ['a deprecated Function node', $copy, REVIEWED_NODE_TYPES, ['reviewed', 'deprecated'], ["$code (n8n-nodes-base.function)"]];
+
+    $rows[] = ['a reviewed type whose required input nothing feeds', $tpl,
+        ['n8n-nodes-base.noOp@1' => ['ai_languageModel']] + REVIEWED_NODE_TYPES, ['required'], ["$noop (ai_languageModel)"]];
+
+    foreach ($rows as [$what, $copy, $reviewed, $want, $needles]) {
+        $failing = array_filter(pqm_publish_checks($copy, $reviewed), static fn($c) => $c[1] !== '');
+        $text = $failing ? implode(' | ', array_column($failing, 1)) : 'nothing failed';
+        $named = !array_filter($needles, static fn($s) => !str_contains($text, $s));
+        check("$variant copy with $what fails " . implode(' + ', $want) . " — $text", array_keys($failing) === $want && $named);
     }
 }
 
@@ -176,16 +321,6 @@ check('Ping OK keeps its way to POST Result to WordPress through Result Ready (s
 preg_match('/const validCommands = \[([^\]]*)\]/', $nodes['Parse Input']['parameters']['jsCode'], $m);
 preg_match_all("/'([a-z_]+)'/", $m[1] ?? '', $valid);
 check('Parse Input accepts score, review, takeaways, apply only', $valid[1] === ['score', 'review', 'takeaways', 'apply']);
-$dangling = [];
-foreach ($free['connections'] as $from => $c) {
-    if (!isset($nodes[$from])) { $dangling[] = $from; }
-    foreach ($c['main'] as $targets) {
-        foreach ($targets as $t) {
-            if (!isset($nodes[$t['node']])) { $dangling[] = "$from → {$t['node']}"; }
-        }
-    }
-}
-check('every connection joins existing nodes' . ($dangling ? ' — ' . implode(', ', $dangling) : ''), !$dangling);
 $quoted = [];
 array_walk_recursive($free, static function ($v) use (&$quoted) {
     if (is_string($v) && (in_array($v, PAID_COMMANDS, true) || preg_match('/[\'"](' . implode('|', PAID_COMMANDS) . ')[\'"]/', $v))) { $quoted[] = $v; }
