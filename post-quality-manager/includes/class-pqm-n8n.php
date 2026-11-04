@@ -21,7 +21,8 @@
  * take over a hand-made workflow by storing its setup map, GET only;
  * rotate_token() (entry 10) PATCHes the map's webhook credential with a new
  * token, its one call; update_workflow() (entry 9) reads the map's workflow
- * once and PUTs the build's template onto it, credentials and path kept.
+ * once and PUTs the build's template onto it, credentials and path kept (on
+ * Pro, it first creates the WordPress credential a map lacks, bug 113).
  * start_over() (story 71) clears the setup map and what hangs on it, and
  * on request removes the map's objects from n8n by id, in the rollback
  * order; the map remembers the instance it was made on (`base_url`), so the
@@ -60,11 +61,15 @@ class PostQuality_N8n {
     /**
      * Own option (autoload off, deleted on uninstall): the workflow the
      * plugin manages, {workflow_id, credentials: {webhook, anthropic,
-     * wordpress?}, path, base_url, wizard_created, at} — what provision()
-     * created (wizard_created true) or what adopt() took over (false), on
-     * the instance `base_url` names (story 71; a map stored before it has
-     * none and counts as the connected instance's, D3). Not in OPTION:
-     * save() and forget() rewrite that one whole.
+     * wordpress?}, path, base_url, wizard_created, at}, plus on Pro the
+     * Application Password the plugin created ({uuid, user_id}, bug 73) —
+     * what provision() created (wizard_created true) or what adopt() took
+     * over (false), on the instance `base_url` names (story 71; a map stored
+     * before it has none and counts as the connected instance's, D3). On
+     * Pro, Update workflow adds `credentials.wordpress` and that Application
+     * Password to a map either made without them (bug 113). Not in OPTION:
+     * save() and forget() rewrite that one whole. (Free code: the Pro key
+     * and method are not spelled here, bin/build-free.php's survivor check.)
      */
     const SETUP_OPTION = 'postquality_n8n_setup';
 
@@ -484,7 +489,7 @@ class PostQuality_N8n {
             return null; // n8n did not answer, no workflow listens there, or not a workflow read (a 2xx `{}`).
         }
 
-        // D1: a provisioned site without Application Passwords leaves Update WP Post (Rewrite) name-only.
+        // D1: a site without Application Passwords leaves Update WP Post (Rewrite) without a credential (bug 113).
         return self::miswiring( $nodes, null !== $setup && ! isset( $setup['credentials']['wordpress'] ), false );
     }
 
@@ -944,7 +949,7 @@ class PostQuality_N8n {
             $credentials['wordpress'] = $wordpress;
         }
 
-        $ids     = []; // credential name => id; null = deliberately left name-only (D1)
+        $ids     = []; // credential name => id; null = its node goes without a credential (D1, bug 113)
         $created = []; // role => id, for the setup map
         foreach ( $credentials as $role => $credential ) {
             if ( null === $credential['data'] ) {
@@ -1030,13 +1035,18 @@ class PostQuality_N8n {
      * `connections`, `settings`, never `active` (the public API sets it
      * through activate only) — with every credentialed node linked by id.
      * Linked by credential name, the one thing the template carries: `$ids`
-     * is template credential name => id, null for a credential deliberately
-     * left name-only (D1); `$names` is template credential name => the name
-     * n8n shows beside that id, the template's own when absent (entry 9: an
-     * adopted workflow's credentials carry the owner's names). Both builds'
+     * is template credential name => id, null for a credential the setup
+     * does not have (D1: no Application Passwords; a map without that role);
+     * `$names` is template credential name => the name n8n shows beside
+     * that id, the template's own when absent (entry 9: an adopted
+     * workflow's credentials carry the owner's names). Both builds'
      * templates carry two httpHeaderAuth credentials, so the type alone
      * would not tell them apart. A template credential `$ids` does not
      * name is the plugin's own fault: WP_Error `pqm_template_link`.
+     * Bug 113 (decision 2): nothing is ever sent with a credential that has
+     * no id (why: memory/n8n-provisioning.md, the n8n 2.46.6 credential
+     * check). A null id drops that entry from its node, and a `credentials`
+     * left empty goes too.
      *
      * @return array{name: mixed, nodes: array, connections: object, settings: object}|WP_Error
      */
@@ -1051,9 +1061,14 @@ class PostQuality_N8n {
                         $name
                     ), [ 'status' => 500 ] );
                 }
-                if ( null !== $ids[ $name ] ) {
+                if ( null === $ids[ $name ] ) {
+                    unset( $node->credentials->{$type} );
+                } else {
                     $node->credentials->{$type} = [ 'id' => $ids[ $name ], 'name' => $names[ $name ] ?? $name ];
                 }
+            }
+            if ( isset( $node->credentials ) && [] === get_object_vars( $node->credentials ) ) {
+                unset( $node->credentials );
             }
         }
 
@@ -1100,11 +1115,12 @@ class PostQuality_N8n {
 
     /**
      * The Pro build's WordPress credential, for the node that saves a
-     * rewrite: a new Application Password of the current user. `data` is
-     * null when the site offers no Application Passwords (D1): the credential
-     * is not created and its node stays name-only. `uuid` and `user_id` name
-     * the created Application Password for its revoke (a failed run, the
-     * setup map's removal); they never go to n8n.
+     * rewrite: a new Application Password of the current user (provision(),
+     * and Update workflow on a map without one, bug 113). `data` is null
+     * when the site offers no Application Passwords (D1): the credential is
+     * not created and its node goes without a credential. `uuid` and
+     * `user_id` name the created Application Password for its revoke (a
+     * failed run or credential, the setup map's removal); they never go to n8n.
      */
     private static function wordpress_credential__premium_only( string $host ): array|WP_Error {
         $credential = [ 'name' => self::credential_names( $host )['wordpress'], 'type' => 'httpBasicAuth', 'data' => null ];
@@ -1130,7 +1146,8 @@ class PostQuality_N8n {
 
     /**
      * The one deleter of an Application Password the plugin created (bug 73,
-     * D2): a failed run's (fail()) or the setup map's
+     * D2): a failed run's (fail()), a refused credential's at Update
+     * (connect_wordpress__premium_only(), bug 113) or the setup map's
      * (revoke_setup_password__premium_only()). WordPress stores only its
      * hash, so a later provisioning can never reuse it: revoked, never kept.
      */
@@ -1142,7 +1159,8 @@ class PostQuality_N8n {
      * Revoke the Application Password the setup map names, if it names one:
      * what removes the map calls it first (PostQuality_Activator::uninstall() now;
      * story 71's Start over later). A map without one (set up by an earlier
-     * version, adopted, or without Application Passwords) or no map: no call.
+     * version, adopted or on the Free build and not updated on Pro since,
+     * or without Application Passwords) or no map: no call.
      */
     public static function revoke_setup_password__premium_only(): void {
         $setup    = get_option( self::SETUP_OPTION, false );
@@ -1376,10 +1394,14 @@ class PostQuality_N8n {
      * workflow keeps its own, never postquality_webhook_path()), the four keys n8n
      * takes and never `active` — n8n republishes a PUT workflow by itself
      * (memory/n8n-provisioning.md: PUT republishes, seen 2026-10-16 on n8n
-     * 2.42.x), so the production URL stays. A role the map lacks leaves
-     * its node name-only, as provisioning's D1 does. Nothing else in n8n is
-     * read or changed; nothing is stored here (the caller pings and records
-     * the version). n8n's reply body is never repeated.
+     * 2.42.x), so the production URL stays. On the Pro build, a map
+     * without the WordPress credential (set up on the Free build, adopted
+     * with Rewrite unwired) gets it between the GET and the PUT, as
+     * provisioning makes it (bug 113; stored in the map before the PUT, so
+     * a refused PUT is retried with it). A role the map still lacks drops
+     * its node's credential, as provisioning's D1 does (linked_template()).
+     * Nothing else in n8n is read or changed; the caller pings and records
+     * the version. n8n's reply body is never repeated.
      *
      * @return array|WP_Error The setup map of the updated workflow.
      */
@@ -1404,6 +1426,14 @@ class PostQuality_N8n {
 
             return new WP_Error( 'pqm_update_failed', $sentence, [ 'status' => 502 ] );
         }
+        if ( postquality_fs()->is__premium_only() ) {
+            if ( ! isset( $setup['credentials']['wordpress'] ) ) {
+                $setup = self::connect_wordpress__premium_only( $setup );
+                if ( is_wp_error( $setup ) ) {
+                    return $setup;
+                }
+            }
+        }
         $carried = []; // credential id => the name the read workflow's nodes carry for it
         foreach ( self::published_nodes( $response['json'] ) as $node ) {
             foreach ( (array) ( $node['credentials'] ?? [] ) as $credential ) {
@@ -1412,11 +1442,14 @@ class PostQuality_N8n {
                 }
             }
         }
-        $ids   = []; // template credential name => the map's id for that role; null = left name-only (D1)
+        $ids   = []; // template credential name => the map's id for that role; null = its node goes without one (D1)
         $names = [];
         foreach ( self::credential_names( postquality_site_host() ) as $role => $name ) {
-            $ids[ $name ]   = isset( $setup['credentials'][ $role ] ) ? (string) $setup['credentials'][ $role ] : null;
-            $names[ $name ] = $carried[ $ids[ $name ] ] ?? '';
+            $id           = isset( $setup['credentials'][ $role ] ) ? (string) $setup['credentials'][ $role ] : null;
+            $ids[ $name ] = $id;
+            if ( null !== $id ) {
+                $names[ $name ] = $carried[ $id ] ?? '';
+            }
         }
         $body = self::linked_template( $workflow, $ids, $names );
         if ( is_wp_error( $body ) ) {
@@ -1428,6 +1461,45 @@ class PostQuality_N8n {
         if ( ! self::answered( $response ) ) {
             return new WP_Error( 'pqm_update_failed', self::could_not( 'update', $response ), [ 'status' => 502 ] );
         }
+
+        return $setup;
+    }
+
+    /**
+     * Bug 113: the WordPress credential a setup map lacks (set up on the
+     * Free build, adopted with Rewrite unwired), made as provision() makes
+     * it — an Application Password of the administrator who clicks, then
+     * one POST /credentials under the deterministic name — and stored in the
+     * map with that Application Password before the PUT, so a refused PUT
+     * keeps it for the next try (no second Application Password) and Start
+     * over or an uninstall revokes it. Without Application Passwords nothing
+     * is created and the map comes back as it was (decision 2: Rewrite goes
+     * without a credential). A refused credential revokes the new
+     * Application Password and leaves the map as it was. Never a lookup by
+     * name in n8n; n8n's reply body is never repeated.
+     *
+     * @return array|WP_Error The setup map, with `credentials.wordpress` and
+     *                        `application_password` once created.
+     */
+    private static function connect_wordpress__premium_only( array $setup ): array|WP_Error {
+        $credential = self::wordpress_credential__premium_only( postquality_site_host() );
+        if ( is_wp_error( $credential ) ) {
+            return new WP_Error( 'pqm_update_failed', $credential->get_error_message(), [ 'status' => 500 ] );
+        }
+        if ( null === $credential['data'] ) {
+            return $setup;
+        }
+        // Name, type and data only: the uuid and user id stay here, for the revoke.
+        $response = self::request( 'POST', '/credentials', [ 'name' => $credential['name'], 'type' => $credential['type'], 'data' => $credential['data'] ] );
+        $id       = self::created_id( $response );
+        if ( null === $id ) {
+            self::revoke_application_password__premium_only( $credential['user_id'], $credential['uuid'] );
+
+            return new WP_Error( 'pqm_update_failed', self::could_not( 'credential_wordpress', $response ), [ 'status' => 502 ] );
+        }
+        $setup['credentials']['wordpress'] = $id;
+        $setup['application_password']     = [ 'uuid' => $credential['uuid'], 'user_id' => $credential['user_id'] ];
+        update_option( self::SETUP_OPTION, $setup, false );
 
         return $setup;
     }

@@ -12,6 +12,9 @@
  * taken over), the Application Password the setup map keeps and what
  * revokes it, the 409-on-activate sentence, and the ping after activation
  * retried over n8n's publication window (404 only; the wait filter set to 0).
+ * Bug 113: the D1 run (no Application Passwords) sends Update WP Post
+ * (Rewrite) without a credential and passes the world's publish check, which
+ * refuses a credential without an id as n8n 2.46.6 does.
  * WP stubs, no WP install; callbacks are called directly. The world (stubs,
  * constants, builders, the plugin load) is lib/n8n-world.php; story 78
  * build 2 split the one n8n harness by concern.
@@ -109,18 +112,23 @@ check('... \'\' where the site offers no Application Passwords (D1): the sentenc
 $GLOBALS['tw']['app_passwords'] = true;
 
 echo "Provisioning: Pro, no Application Passwords (D1)\n";
-// What n8n stores of it: Update WP Post (Rewrite) without a credential id.
+// What n8n stores of it (bug 113, decision 2): Update WP Post (Rewrite) without a credential.
+$no_rewrite_credential = ['Update WP Post (Rewrite)' => static function (array $n): array { unset($n['credentials']); return $n; }];
 connected([MODELS_OK, created('c-webhook'), created('c-anthropic'), created('wf1'), ACTIVE,
-    resp(200, stored_workflow('wf1', wired(['WordPress - example.com' => null] + WIRED)))]);
+    resp(200, stored_workflow('wf1', wired(WIRED, $no_rewrite_credential)))]);
 $GLOBALS['tw']['app_passwords'] = false;
 $r = provision();
-$links = linked(body(3));
-check('entry 7, D1: the diagnosis reads GET /workflows/{id} only and skips the name-only Update WP Post: clean, nothing stored, the ping message unchanged',
+$sent  = body(3);
+$links = linked($sent);
+check('entry 7, D1: the diagnosis reads GET /workflows/{id} only and skips Update WP Post, which has no credential: clean, nothing stored, the ping message unchanged',
     calls()[5] === READ_WF && !isset(postquality_workflow_report()['miswired']) && str_starts_with($r['message'], 'Ping OK'));
 check('2 credentials, no Application Password, no httpBasicAuth credential', count(calls()) === 6 && $GLOBALS['tw']['app_created'] === []
     && !str_contains(json_encode(array_slice($GLOBALS['tw']['calls'], 1, 2)), 'httpBasicAuth'));
-check('7 nodes linked, Update WP Post left name-only', count(array_filter($links, static fn($c) => isset(reset($c)['id']))) === 7
-    && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['name' => 'WordPress - example.com']]);
+check('bug 113 (decision 2): 7 nodes linked by id; Update WP Post (Rewrite) sent with no `credentials` key at all, never name-only',
+    count($links) === 7 && !array_filter($links, static fn($c) => !isset(reset($c)['id'])) && !isset($links['Update WP Post (Rewrite)'])
+    && in_array('Update WP Post (Rewrite)', array_column($sent['nodes'], 'name'), true) && !str_contains(json_encode($sent), 'WordPress - example.com'));
+check('... n8n publishes it: the activate passes its credential check (the world refuses a credential without an id, as n8n 2.46.6 does)',
+    calls()[4] === N8N . 'workflows/wf1/activate' && $GLOBALS['tw']['calls'][4][2] === ACTIVE && $r['provisioned'] === true);
 check('reply: provisioned, rewrite_ready false, the message says Rewrite stays off until a credential is added by hand',
     $r['provisioned'] === true && $r['ping_ok'] === true && $r['rewrite_ready'] === false
     && str_contains($r['message'], 'Rewrite stays off') && str_contains($r['message'], 'does not run on HTTPS')

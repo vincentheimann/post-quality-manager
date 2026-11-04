@@ -524,7 +524,12 @@ $GLOBALS['tw']['options']['postquality_workflow_version_seen'] = ['version' => P
 $GLOBALS['tw']['calls'] = [];
 $GLOBALS['tw']['queue'] = [$free_stored($free_clean), $ok(['id' => 'wf-free', 'active' => true]), $free_stored($free_clean)];
 $GLOBALS['tw']['ping_body'] = '{"ok":true,"workflow_version":' . POSTQUALITY_WORKFLOW_VERSION . ',"workflow_variant":"free"}';
-$offered = str_contains(PostQuality_Admin::render_workflow_body(), 'class="button button-primary pqm-update-workflow"');
+$notice  = PostQuality_Admin::render_workflow_body();
+$offered = str_contains($notice, 'class="button button-primary pqm-update-workflow"');
+check('bug 113 (decision 3): the update notice on the Free build, a map without a WordPress credential, says nothing about an Application Password',
+    $offered && str_contains($notice, 'The plugin can update it in place:') && !str_contains($notice, 'Application Password')
+    && !str_contains((string) file_get_contents($free . '/admin/class-pqm-admin.php'), 'Update workflow also creates an Application Password'));
+$free_writes_before = count($GLOBALS['tw']['writes'] ?? []);
 $updated = PostQuality_REST_API::update_n8n_workflow_callback();
 $updated = $updated instanceof WP_REST_Response ? $updated->get_data() : null;
 $sent    = json_decode($GLOBALS['tw']['calls'][1][1]['body'] ?? 'null', true);
@@ -538,6 +543,9 @@ check('the provisioned Free site: offered; GET then PUT /workflows/wf-free, then
         'Claude - Review Agent'    => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
         'Claude - Takeaways Agent' => ['httpHeaderAuth' => ['id' => 'c-anthropic', 'name' => 'Anthropic - Claude']],
     ] && array_column($sent['nodes'], null, 'name')['Webhook Trigger']['parameters']['path'] === 'pqm-execute-example-com');
+check('... bug 113: nothing created on the Free build — no POST /credentials (the calls above), no WordPress credential in the map, which the update does not write',
+    !in_array('postquality_n8n_setup', array_slice($GLOBALS['tw']['writes'] ?? [], $free_writes_before), true)
+    && ($GLOBALS['tw']['options']['postquality_n8n_setup']['credentials'] ?? null) === ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic']);
 check('... reply updated and pinged, the status block back, no rewrite_ready; the version recorded; the key in no reply', $updated !== null
     && $updated['updated'] === true && $updated['ping_ok'] === true && isset($updated['status_html']) && !array_key_exists('rewrite_ready', $updated)
     && str_starts_with($updated['message'], 'Workflow updated. Ping OK') && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION

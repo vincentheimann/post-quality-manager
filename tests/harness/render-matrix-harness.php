@@ -873,6 +873,36 @@ $GLOBALS['tw_settings'] = $managed_url;
 $page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
 check('up to date, managed: set up, no update button, no Set up by hand, Rotate token still there', $state_of($page) === 'set-up' && !str_contains($page, 'pqm-update-workflow')
     && !str_contains($page, 'id="pqm-by-hand"') && str_contains($page, $rotate));
+
+/* Bug 113 (decision 3): Update workflow creates the WordPress credential a map lacks, with the viewer's Application Password — said beside it. */
+echo "Status block — the Application Password sentence beside Update workflow (bug 113, Pro)\n";
+$app_sentence = 'Update workflow also creates an Application Password on your profile, so n8n can save rewrites; the plugin revokes it when the setup is removed.';
+$after_in_place = static fn(string $html): bool => preg_match('#<p>' . preg_quote($in_place, '#') . '</p>\s*<p>' . preg_quote($app_sentence, '#') . '</p>#', $html) === 1;
+$free_variant = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time(), 'variant' => 'free'];
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $free_variant]);
+check('Free → Pro (the map {webhook, anthropic}, the Free variant answering, Application Passwords on): the sentence right after the in-place one, once; still one primary',
+    $after_in_place($block_of($page)) && substr_count($page, $app_sentence) === 1 && $primaries($page) === 1 && str_contains($page, $update));
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $older]);
+check('... an older workflow on that map: the same', $after_in_place($block_of($page)));
+$page = $render_workflow($managed_url, $adopted_site + ['postquality_workflow_version_seen' => $older]);
+check('... an adopted map with Rewrite unwired: the same, beside the Update button that asks first', $after_in_place($block_of($page)) && str_contains($page, $update_asks));
+$wired_site = [PostQuality_N8n::SETUP_OPTION => array_replace_recursive($managed_site[PostQuality_N8n::SETUP_OPTION], ['credentials' => ['wordpress' => 'c-wp']])] + $managed_site;
+$page = $render_workflow($managed_url, $wired_site + ['postquality_workflow_version_seen' => $older]);
+check('not said: a map that has the WordPress credential (nothing to create)', str_contains($page, $in_place) && !str_contains($page, $app_sentence));
+$GLOBALS['tw_app_passwords'] = false;
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $free_variant]);
+$GLOBALS['tw_app_passwords'] = true;
+check('... Application Passwords unavailable for the viewer (none can be made: Rewrite goes without a credential)', str_contains($page, $in_place) && !str_contains($page, $app_sentence));
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => $older + ['miswired' => $sentence]]);
+check('... a mis-wiring first (Test again the primary, Update secondary, no update notice)', !str_contains($page, $app_sentence));
+$page = $render_workflow($managed_url, $managed_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
+check('... up to date (no update offered)', !str_contains($page, $app_sentence));
+$GLOBALS['tw_settings'] = ['n8n_webhook_url' => 'https://n8n.example/webhook/elsewhere'];
+$page = $render_workflow($GLOBALS['tw_settings'], $managed_site + ['postquality_workflow_version_seen' => $free_variant]);
+check('... not managed (the URL off the map\'s path: Re-import, not Update)', str_contains($page, 'pqm-reimport') && !str_contains($page, $app_sentence));
+$GLOBALS['tw_settings'] = $managed_url;
+check('the sentence sits in a Pro-marker block, reading the map and the viewer\'s Application Passwords (source)', (bool) preg_match(
+    "/if \\( postquality_fs\\(\\)->is__premium_only\\(\\) \\) \\{[^}]*\\\$map = get_option\\(PostQuality_N8n::SETUP_OPTION, \\[\\]\\);\\s*if \\(empty\\(\\\$map\\['credentials'\\]\\['wordpress'\\]\\) && wp_is_application_passwords_available_for_user\\(wp_get_current_user\\(\\)\\)\\) \\{\\s*\\\$details\\[\\] = __\\('Update workflow also creates an Application Password/", $src));
 /* Without the built assets, nothing can open the dialog: the setup button is left out, the build warning says why. */
 check('the setup button renders only with the built assets (source: app_built() gates $setup_button; render_app_root() uses the same check)',
     (bool) preg_match('/\$setup_button = static fn\(string \$label, string \$step = \'\'\): string => !self::app_built\(\) \? \'\' :/', $src)

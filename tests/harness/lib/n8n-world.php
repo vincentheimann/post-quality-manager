@@ -5,7 +5,8 @@
  * n8n-adoption-harness.php and n8n-managed-harness.php each require it
  * first. Holds the WP stubs the n8n routes need beyond lib/wp-stubs.php
  * (wp_remote_request() answering from a scripted queue, every call
- * recorded; add_option() and the $wpdb stub as bug 82 models them), the
+ * recorded, n8n's publish check refusing a credential without an id as
+ * n8n does, bug 113; add_option() and the $wpdb stub as bug 82 models them), the
  * plugin load, the route registration, and every constant, builder and
  * helper a section reads. The values a later concern reads ($setup_map,
  * $adopted_map, $older_report, $hand_nodes, $oct13, $template, $strip,
@@ -49,6 +50,7 @@ $GLOBALS['tw'] = [
     'filters'       => ['postquality_provision_ping_retry_wait' => 0, 'postquality_ping_callback_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply)
     'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
+    'app_refuses'   => false, // bug 113: WordPress refuses to create one (a WP_Error, nothing created)
     'app_created'   => [],   // Application Passwords created: [user_id, args]
     'app_revoked'   => [],   // Application Passwords deleted: [user_id, uuid]
     'home'          => 'https://example.com', // home_url()
@@ -83,12 +85,43 @@ function wp_cache_set($k, $v, $group = '') { $GLOBALS['tw']['cache'][$group][$k]
 function wp_cache_delete($k, $group = '') { unset($GLOBALS['tw']['cache'][$group][$k]); return true; }
 function current_user_can($cap) { return in_array($cap, $GLOBALS['tw']['caps'], true); }
 function register_rest_route($ns, $route, $args) { $GLOBALS['pqm_routes'][$ns . $route] = $args; }
-/* A scripted answer may be a closure: it runs when its call is made, and returns the answer. */
+/* A scripted answer may be a closure: it runs when its call is made, and returns the answer. n8n's publish check
+   (n8n_publish_refusal()) answers instead of the scripted answer, which is consumed all the same. */
 function wp_remote_request($url, $args) {
     $answer = array_shift($GLOBALS['tw']['queue']) ?? new WP_Error('harness', "unscripted call: {$args['method']} $url");
     $answer = $answer instanceof Closure ? $answer() : $answer;
+    $answer = n8n_publish_refusal($url, $args) ?? $answer;
     $GLOBALS['tw']['calls'][] = [$url, $args, $answer];
     return $answer;
+}
+/**
+ * Bug 113: plays n8n's publish check (the rule: memory/n8n-provisioning.md, the n8n 2.46.6 credential check line).
+ * A PUT of a workflow is checked on its own body; an /activate on the last workflow body this run sent (the create,
+ * or a PUT). A refusal answers HTTP 400 `Node "<name>" uses invalid credential`; null when the call passes.
+ */
+function n8n_publish_refusal(string $url, array $args): ?array {
+    if ($args['method'] === 'PUT' && preg_match('#/api/v1/workflows/[^/?]+$#', $url)) {
+        $body = json_decode($args['body'] ?? 'null', true);
+    } elseif ($args['method'] === 'POST' && preg_match('#/api/v1/workflows/[^/?]+/activate$#', $url)) {
+        $body = null;
+        foreach (array_reverse($GLOBALS['tw']['calls']) as [$sent_url, $sent]) {
+            if (in_array($sent['method'], ['POST', 'PUT'], true) && preg_match('#/api/v1/workflows(/[^/?]+)?$#', $sent_url)) {
+                $body = json_decode($sent['body'] ?? 'null', true);
+                break;
+            }
+        }
+    } else {
+        return null;
+    }
+    foreach ((array) ($body['nodes'] ?? []) as $node) {
+        if (!is_array($node) || !empty($node['disabled'])) { continue; }
+        foreach ((array) ($node['credentials'] ?? []) as $credential) {
+            if ((string) ($credential['id'] ?? '') === '') {
+                return resp(400, ['message' => 'Node "' . ($node['name'] ?? '') . '" uses invalid credential']);
+            }
+        }
+    }
+    return null;
 }
 function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
 function wp_remote_post($url, $args) {
@@ -104,6 +137,9 @@ function wp_is_application_passwords_available_for_user($user) { return $GLOBALS
 const APP_PASSWORD = 'abcd EFGH ijkl MNOP qrst UVWX';
 class WP_Application_Passwords {
     public static function create_new_application_password($user_id, $args = []) {
+        if ($GLOBALS['tw']['app_refuses']) {
+            return new WP_Error('application_password_duplicate_name', 'Each application name should be unique.');
+        }
         $GLOBALS['tw']['app_created'][] = [$user_id, $args];
         return [APP_PASSWORD, ['uuid' => 'app-uuid', 'name' => $args['name']]];
     }
@@ -317,6 +353,7 @@ function connected(array $queue, array $extra = []): void {
     $GLOBALS['tw']['ping_queue']    = [];
     $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
     $GLOBALS['tw']['app_passwords'] = true;
+    $GLOBALS['tw']['app_refuses']   = false;
     $GLOBALS['tw']['app_created']   = [];
     $GLOBALS['tw']['app_revoked']   = [];
     $GLOBALS['tw']['on_claim']      = null;  // bug 82: no racing statement at the claim ...

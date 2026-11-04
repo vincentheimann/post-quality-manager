@@ -601,7 +601,7 @@ class PostQuality_Admin
         $paragraphs = [
             esc_html__("Post Quality Manager sends post content to services you configure. When a command runs on a post (Review or Key Takeaways; on Pro also the other agents, or a schedule you set), the post's title, excerpt, content and link, your Editorial Standards and Website Context text, and (if Yoast SEO is active) its SEO fields are sent to your own n8n instance, whose workflow sends them to Anthropic's API. The results are stored on this site in the plugin's reviews table until the plugin is deleted.", 'post-quality-manager'),
             esc_html__("If an administrator sets a notification address in the plugin's settings, the workflow posts a short report to it each time a command finishes: the post's title and link with the result, or the error. The service behind that address applies its own terms and privacy policy.", 'post-quality-manager'),
-            esc_html__("If an administrator connects an n8n instance by API key, the instance address and the key are stored on this site, and the plugin calls that instance's API only when asked to check the connection, to test the webhook address (which also reads the workflow listening there, changing nothing), to set the workflow up, to manage a workflow set up by hand (which it only reads), to rotate the webhook token, which writes the new token into the webhook credential in n8n with the same key, or to update the workflow to the plugin's newer template, which reads that workflow and writes the new template onto it with the same key. Setting it up sends the Anthropic API key once to Anthropic to check it and passes it into an n8n credential without storing it on this site; on Pro, it also creates an Application Password for the administrator's account, kept in that n8n credential so the workflow can save Rewrite results.", 'post-quality-manager'),
+            esc_html__("If an administrator connects an n8n instance by API key, the instance address and the key are stored on this site, and the plugin calls that instance's API only when asked to check the connection, to test the webhook address (which also reads the workflow listening there, changing nothing), to set the workflow up, to manage a workflow set up by hand (which it only reads), to rotate the webhook token, which writes the new token into the webhook credential in n8n with the same key, or to update the workflow to the plugin's newer template, which reads that workflow and writes the new template onto it with the same key. Setting it up sends the Anthropic API key once to Anthropic to check it and passes it into an n8n credential without storing it on this site; on Pro, setting it up, or updating a workflow that has no WordPress credential yet, also creates an Application Password for the administrator's account and a WordPress credential in n8n that holds it, so the workflow can save Rewrite results.", 'post-quality-manager'),
             esc_html__('The plugin keeps a monthly count of AI actions per user. It sets no cookies and collects nothing about site visitors.', 'post-quality-manager'),
             sprintf(
                 /* translators: %s: the privacy policy's URL */
@@ -1585,6 +1585,13 @@ class PostQuality_Admin
                     // in-place update (entry 9) keeps the URL whatever the version.
                     if ($state['managed']) {
                         $details[] = __('The plugin can update it in place: the workflow\'s nodes are replaced; its credentials, webhook path and name stay.', 'post-quality-manager');
+                        if ( postquality_fs()->is__premium_only() ) {
+                            // Bug 113 (decision 3): the update creates the WordPress credential the map lacks, with the viewer's Application Password.
+                            $map = get_option(PostQuality_N8n::SETUP_OPTION, []);
+                            if (empty($map['credentials']['wordpress']) && wp_is_application_passwords_available_for_user(wp_get_current_user())) {
+                                $details[] = __('Update workflow also creates an Application Password on your profile, so n8n can save rewrites; the plugin revokes it when the setup is removed.', 'post-quality-manager');
+                            }
+                        }
                     } elseif ($state['problem'] === 'outdated' && $report['version'] < 6) {
                         $details[] = __('A re-import gives it a new production URL.', 'post-quality-manager');
                     }

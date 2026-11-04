@@ -1601,7 +1601,7 @@ class PostQuality_REST_API {
      * (`webhook_url`: the URL just saved, which the wizard shows), plus the
      * page's refreshed `status_html` when the ping passed (entry 6), and on the
      * Pro build `rewrite_ready` (false when no WordPress credential was
-     * created, D1).
+     * created, D1: the Rewrite node then goes without a credential, bug 113).
      */
     public static function provision_n8n_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $setup = PostQuality_N8n::provision( sanitize_text_field( (string) $request->get_param( 'anthropic_key' ) ) );
@@ -1800,12 +1800,15 @@ class PostQuality_REST_API {
      * PostQuality_N8n::update_workflow() reads it once and PUTs the build's template
      * onto it (credentials and path kept), then the ping of the
      * saved URL (a 404 retried, ping_after_activation()), its diagnosis included, proves the new version answers. A
-     * refused update answers its error, nothing written. Answers
+     * refused update answers its error, nothing written but, on the Pro
+     * build, a WordPress credential the update created before n8n refused
+     * the PUT (bug 113: kept in the map for the next try). Answers
      * `{ updated, ping_ok, outdated, message, status_html }`: the page's
      * refreshed body with the message first (story 67; the version recorded
      * when the ping passed, the failure otherwise, as the rotation does)
-     * and, on the Pro build, `rewrite_ready` (false when the map has no
-     * WordPress credential: that node stays name-only, D1).
+     * and, on the Pro build, `rewrite_ready` (false when the map still has
+     * no WordPress credential, i.e. no Application Passwords for this user:
+     * that node goes without a credential, D1).
      */
     public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
         $setup = PostQuality_N8n::update_workflow();

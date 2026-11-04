@@ -269,26 +269,165 @@ check('the ping\'s diagnosis finds the published version mis-wired: the sentence
     $r['ping_ok'] === true && $r['message'] === 'Workflow updated. ' . SHARED_SENTENCE && $r['outdated'] === true && postquality_workflow_report()['miswired'] === SHARED_SENTENCE
     && str_contains($r['status_html'], 'class="button button-primary pqm-test-connection"') && !str_contains($r['status_html'], 'pqm-update-workflow') && one_primary($r['status_html']));
 
-echo "Update: an adopted workflow (free names, the v5 path, Rewrite unwired)\n";
-$hand_read = resp(200, ['name' => 'My blog reviews'] + stored_workflow('wf-hand', with_path(wired(['WordPress - example.com' => null] + HAND_NAMES), 'pqm-execute')));
-managed([$hand_read, resp(200, ['id' => 'wf-hand', 'name' => 'My blog reviews']), $hand_read], $adopted_map + $older_report, V5_HOOK);
+echo "Update: an adopted workflow (free names, the v5 path, Rewrite unwired) — bug 113: Rewrite connected\n";
+// The hand-made Rewrite node without a credential, as n8n holds it; after the PUT, the published version links the new one.
+$no_rewrite_credential = ['Update WP Post (Rewrite)' => static function (array $n): array { unset($n['credentials']); return $n; }];
+$hand_read  = resp(200, ['name' => 'My blog reviews'] + stored_workflow('wf-hand', with_path(wired(HAND_NAMES, $no_rewrite_credential), 'pqm-execute')));
+$hand_after = resp(200, ['name' => 'My blog reviews'] + stored_workflow('wf-hand', with_path(wired(['WordPress - example.com' => ['id' => 'c-wp-new', 'name' => 'WordPress - example.com']] + HAND_NAMES), 'pqm-execute')));
+$map_at_put = null;
+managed([$hand_read, created('c-wp-new'), static function () use (&$map_at_put) { $map_at_put = $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION]; return resp(200, ['id' => 'wf-hand', 'name' => 'My blog reviews']); }, $hand_after],
+    $adopted_map + $older_report, V5_HOOK);
 $r     = update();
-$sent  = body(1);
+$sent  = body(2);
 $links = linked($sent);
-check('GET then PUT on the adopted id; the trigger keeps pqm-execute (D1: never postquality_webhook_path()); the owner\'s names beside the map\'s ids; the owner\'s workflow name',
-    array_slice(calls(), 0, 2) === [READ_HAND, 'PUT ' . BASE . '/api/v1/workflows/wf-hand'] && trigger_path($sent) === 'pqm-execute' && $sent['name'] === 'My blog reviews'
+check('GET, POST /credentials, then PUT on the adopted id; the trigger keeps pqm-execute (D1: never postquality_webhook_path()); the owner\'s names beside the map\'s ids; the owner\'s workflow name',
+    array_slice(calls(), 0, 3) === [READ_HAND, N8N . 'credentials', 'PUT ' . BASE . '/api/v1/workflows/wf-hand'] && trigger_path($sent) === 'pqm-execute' && $sent['name'] === 'My blog reviews'
     && $links['Webhook Trigger'] === ['httpHeaderAuth' => HAND_HOOK] && count(array_filter($links, static fn($c) => $c === ['httpHeaderAuth' => HAND_CLAUDE])) === 6);
-check('... Rewrite unwired (Pro): Update WP Post (Rewrite) stays name-only; rewrite_ready false and the message says Rewrite stays off', $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['name' => 'WordPress - example.com']]
-    && $r['rewrite_ready'] === false && $r['ping_ok'] === true && str_starts_with($r['message'], 'Workflow updated. ' . PING_OK)
-    && str_ends_with($r['message'], 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.'));
-check('... the diagnosis after skips that node (6.7\'s D1): the version recorded, the body set up, the message a warning (Rewrite off)', postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
-    && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">'));
+check('... Rewrite unwired (Pro, Application Passwords on): the WordPress credential created as provisioning makes it, Update WP Post (Rewrite) linked to its id; all 8 nodes by id',
+    body(1) === ['name' => 'WordPress - example.com', 'type' => 'httpBasicAuth', 'data' => ['user' => 'admin-anna', 'password' => APP_PASSWORD]]
+    && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp-new', 'name' => '']] && count($links) === 8 && !array_filter($links, static fn($c) => !isset(reset($c)['id'])));
+check('... the map gains credentials.wordpress and application_password, stored before the PUT; wizard_created, path and the other ids kept; autoload off',
+    $map_at_put === $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] && $map_at_put === array_replace_recursive($adopted_map[PostQuality_N8n::SETUP_OPTION], ['credentials' => ['wordpress' => 'c-wp-new']]) + ['application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]]
+    && $GLOBALS['tw']['autoload'][PostQuality_N8n::SETUP_OPTION] === false && writes() === [PostQuality_N8n::SETUP_OPTION, 'postquality_workflow_version_seen']);
+check('... one Application Password, of the administrator who clicked; none revoked', count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_created'][0][0] === 7
+    && str_starts_with($GLOBALS['tw']['app_created'][0][1]['name'], 'Post Quality Manager (n8n) ') && $GLOBALS['tw']['app_revoked'] === []);
+check('... rewrite_ready true, "Workflow updated." + the ping\'s message and nothing after it; the diagnosis reads the Rewrite node linked: the version recorded, the body set up, a success line',
+    $r['rewrite_ready'] === true && $r['ping_ok'] === true && $r['message'] === 'Workflow updated. ' . PING_OK && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
+    && !isset(postquality_workflow_report()['miswired']) && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">'));
 // The map's path is the trigger's raw string: a `"` in it must survive the template fill (JSON-escaped), not break the decode.
 $quoted_read = resp(200, ['name' => 'My blog reviews'] + stored_workflow('wf-hand', with_path(wired(HAND_NAMES), 'pqm-"quoted"')));
-managed([$quoted_read, resp(200, ['id' => 'wf-hand']), $quoted_read], [PostQuality_N8n::SETUP_OPTION => ['path' => 'pqm-"quoted"'] + $adopted_map[PostQuality_N8n::SETUP_OPTION]] + $older_report, BASE . '/webhook/pqm-"quoted"');
+managed([$quoted_read, resp(200, ['id' => 'wf-hand']), $quoted_read], [PostQuality_N8n::SETUP_OPTION => array_replace_recursive($adopted_map[PostQuality_N8n::SETUP_OPTION], ['path' => 'pqm-"quoted"', 'credentials' => ['wordpress' => 'c-b1']])] + $older_report, BASE . '/webhook/pqm-"quoted"');
 $r = update();
 check('an adopted path carrying a `"`: the template fills and decodes, the PUT body\'s trigger path is the raw path, updated', is_array($r) && $r['updated'] === true
     && is_array(body(1)) && trigger_path(body(1)) === 'pqm-"quoted"' && array_slice(calls(), 0, 2) === [READ_HAND, 'PUT ' . BASE . '/api/v1/workflows/wf-hand']);
+
+/* ─── Bug 113: a map without the WordPress credential (one row per line of its plan's matrix) ─ */
+echo "Update: Free → Pro (bug 113) — the WordPress credential created, then the Pro template linked by id\n";
+// The site set up on the Free build: its map {webhook, anthropic}, its workflow the Free template, the Pro build now installed.
+$free_map    = [PostQuality_N8n::SETUP_OPTION => ['workflow_id' => 'wf1', 'credentials' => ['webhook' => 'c-webhook', 'anthropic' => 'c-anthropic'], 'path' => 'pqm-execute-example-com', 'base_url' => BASE, 'wizard_created' => true, 'at' => 1]];
+$free_report = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'variant' => 'free']];
+$free_nodes  = json_decode(str_replace(['__PQM_SITE_HOST__', '__PQM_WEBHOOK_PATH__'], ['example.com', 'pqm-execute-example-com'],
+    (string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/templates/n8n-workflow-free.json')), true)['nodes'];
+$free_read   = resp(200, stored_workflow('wf1', array_map(static function (array $n): array {
+    foreach ($n['credentials'] ?? [] as $type => $ref) { $n['credentials'][$type] = WIRED[$ref['name']]; }
+    return $n;
+}, $free_nodes)));
+$with_wp     = static fn(array $map, string $id = 'c-wp'): array => [PostQuality_N8n::SETUP_OPTION => array_replace_recursive($map[PostQuality_N8n::SETUP_OPTION], ['credentials' => ['wordpress' => $id]])
+    + ['application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]]];
+const APP_SENTENCE  = 'Update workflow also creates an Application Password on your profile, so n8n can save rewrites; the plugin revokes it when the setup is removed.'; // decision 3
+const CREDENTIAL_WP = N8N . 'credentials';
+const REWRITE_OFF   = 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.';
+managed([], $free_map + $free_report);
+$block = PostQuality_Admin::render_workflow_body();
+check('before: the Free variant on Pro, Update workflow the one primary; decision 3: the in-place sentence, then the Application Password one', state_of($block) === 'outdated'
+    && str_contains($block, UPDATE_BUTTON) && one_primary($block) && preg_match('#<p>' . preg_quote(IN_PLACE, '#') . '</p>\s*<p>' . preg_quote(APP_SENTENCE, '#') . '</p>#', $block) === 1);
+$map_at_put = null;
+managed([$free_read, created('c-wp'), static function () use (&$map_at_put) { $map_at_put = $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION]; return UPDATED; }, CLEAN_WF], $free_map + $free_report);
+$r    = update();
+$sent = body(2);
+check('calls: GET the workflow, POST /credentials, PUT the workflow, then the ping\'s diagnosis read; all signed, nothing unscripted', calls() === [READ_WF, CREDENTIAL_WP, PUT_WF, READ_WF]
+    && calls_signed(KEY) && $GLOBALS['tw']['queue'] === []);
+check('... the credential: httpBasicAuth "WordPress - example.com" {the clicking user, the new Application Password}, name, type and data only', body(1)
+    === ['name' => 'WordPress - example.com', 'type' => 'httpBasicAuth', 'data' => ['user' => 'admin-anna', 'password' => APP_PASSWORD]]);
+check('... the PUT: the Pro template, all 8 credentialed nodes linked by id (the new credential on Update WP Post (Rewrite)), the four keys', array_keys($sent) === ['name', 'nodes', 'connections', 'settings']
+    && $strip($sent['nodes']) === $strip($template['nodes']) && count(linked($sent)) === 8 && linked($sent)['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp', 'name' => '']]
+    && linked($sent)['Webhook Trigger'] === ['httpHeaderAuth' => WEBHOOK_CRED] && count(array_filter(linked($sent), static fn($c) => $c === ['httpHeaderAuth' => ANTHROPIC_CRED])) === 6);
+check('... the map gains credentials.wordpress and application_password {uuid, user_id}, stored before the PUT, autoload off', $map_at_put === $with_wp($free_map)[PostQuality_N8n::SETUP_OPTION]
+    && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $map_at_put && $GLOBALS['tw']['autoload'][PostQuality_N8n::SETUP_OPTION] === false
+    && writes() === [PostQuality_N8n::SETUP_OPTION, 'postquality_workflow_version_seen']);
+check('... one Application Password, for user 7; none revoked', count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_created'][0][0] === 7 && $GLOBALS['tw']['app_revoked'] === []);
+check('... reply {updated, ping_ok, outdated, message, rewrite_ready, status_html}: rewrite_ready true, "Workflow updated." + the ping\'s message; set up, the Pro version recorded',
+    array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['rewrite_ready'] === true && $r['message'] === 'Workflow updated. ' . PING_OK
+    && state_of($r['status_html']) === 'set-up' && !isset(postquality_workflow_report()['variant']) && !str_contains($r['status_html'], APP_SENTENCE));
+check('... the Application Password and its uuid in no reply, no ping; the password in the credential body only', !str_contains($GLOBALS['replies'][count($GLOBALS['replies']) - 1], APP_PASSWORD)
+    && !str_contains(json_encode($GLOBALS['tw']['pings']), APP_PASSWORD) && !str_contains(json_encode($GLOBALS['tw']['calls']), 'app-uuid')
+    && array_keys(array_filter($GLOBALS['tw']['calls'], static fn($c) => str_contains(json_encode($c), APP_PASSWORD))) === [1]);
+
+echo "Update: retry after a refused PUT (bug 113) — the credential kept, reused\n";
+managed([$free_read, created('c-wp'), resp(500, ['message' => 'Internal error'])], $free_map + $free_report);
+$r = update();
+check('the PUT refused: 502 pqm_update_failed, could_not(\'update\')\'s sentence; the new credential stays in the map with its Application Password (not revoked), no ping, no version',
+    $r instanceof WP_Error && $r->code === 'pqm_update_failed' && $r->data['status'] === 502 && $r->message === sprintf(UPDATE_STOPPED, 'n8n answered HTTP 500')
+    && calls() === [READ_WF, CREDENTIAL_WP, PUT_WF] && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $with_wp($free_map)[PostQuality_N8n::SETUP_OPTION]
+    && $GLOBALS['tw']['app_revoked'] === [] && $GLOBALS['tw']['pings'] === [] && writes() === [PostQuality_N8n::SETUP_OPTION]);
+$GLOBALS['tw']['queue']  = [$free_read, UPDATED, CLEAN_WF];
+$GLOBALS['tw']['calls']  = [];
+$GLOBALS['tw']['writes'] = [];
+$r = update();
+check('... try again: GET then PUT only — no second credential, no second Application Password; Rewrite linked to the kept id; rewrite_ready true',
+    calls() === [READ_WF, PUT_WF, READ_WF] && count($GLOBALS['tw']['app_created']) === 1 && linked(body(1))['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp', 'name' => '']]
+    && $r['rewrite_ready'] === true && $r['message'] === 'Workflow updated. ' . PING_OK && !in_array(PostQuality_N8n::SETUP_OPTION, $GLOBALS['tw']['writes'], true));
+
+echo "Update: the credential refused (bug 113) — no PUT, the map as it was, the Application Password revoked\n";
+foreach ([
+    'a 400 quoting the request' => [resp(400, ['message' => 'request/body/data must match ' . APP_PASSWORD]), 'n8n answered HTTP 400'],
+    'a 500'                     => [resp(500, ['message' => 'Internal error']), 'n8n answered HTTP 500'],
+    'a 2xx without an id'       => [resp(200, ['message' => 'ok']), 'n8n did not return what it created'],
+    'n8n unreachable'           => [timed_out(), 'n8n could not be reached: cURL error 28: timed out'],
+] as $label => [$answer, $says]) {
+    managed([$free_read, $answer, UPDATED], $free_map + $free_report);
+    $r = update();
+    check("$label: 502 pqm_update_failed, could_not('credential_wordpress')'s sentence, n8n's body not repeated; GET then POST, no PUT, nothing written, no ping", refused($r, 'pqm_update_failed', 502)
+        && $r->message === "The plugin could not finish creating the WordPress credential ($says). Try again in a moment." && !str_contains($r->message, 'must match') && !str_contains($r->message, 'Internal error')
+        && calls() === [READ_WF, CREDENTIAL_WP] && $GLOBALS['tw']['queue'] === [UPDATED] && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $free_map[PostQuality_N8n::SETUP_OPTION]);
+    check('... the new Application Password revoked with its uuid, once', revoked());
+}
+
+echo "Update: WordPress refuses the Application Password (bug 113) — zero n8n writes\n";
+managed([$free_read, created('c-wp'), UPDATED], $free_map + $free_report);
+$GLOBALS['tw']['app_refuses'] = true;
+$r = update();
+check('500 pqm_update_failed, provisioning\'s sentence; the GET only, nothing written, nothing created or revoked', refused($r, 'pqm_update_failed', 500)
+    && $r->message === 'Could not create the Application Password for n8n: Each application name should be unique. Nothing was created in n8n.'
+    && calls() === [READ_WF] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['app_revoked'] === []);
+
+echo "Update: no Application Passwords (bug 113, decision 2) — Rewrite published without a credential\n";
+managed([], $free_map + $free_report);
+$GLOBALS['tw']['app_passwords'] = false;
+$block = PostQuality_Admin::render_workflow_body();
+check('before: the in-place sentence, no Application Password sentence (none can be made)', str_contains($block, IN_PLACE) && !str_contains($block, APP_SENTENCE));
+$rewrite_bare = resp(200, stored_workflow('wf1', wired(WIRED, $no_rewrite_credential)));
+managed([$free_read, UPDATED, $rewrite_bare], $free_map + $free_report);
+$GLOBALS['tw']['app_passwords'] = false;
+$r    = update();
+$sent = body(1);
+check('GET then PUT, nothing created: no POST /credentials, no Application Password', calls() === [READ_WF, PUT_WF, READ_WF] && $GLOBALS['tw']['app_created'] === [] && $GLOBALS['tw']['queue'] === []);
+check('... the PUT: 7 nodes linked by id, Update WP Post (Rewrite) without a `credentials` key (never name-only); n8n publishes it (the world\'s credential check passes)', count(linked($sent)) === 7
+    && !isset(linked($sent)['Update WP Post (Rewrite)']) && !array_filter(linked($sent), static fn($c) => !isset(reset($c)['id'])) && !str_contains(json_encode($sent), 'WordPress - example.com')
+    && $GLOBALS['tw']['calls'][1][2] === UPDATED);
+check('... rewrite_ready false and today\'s message; the map without wordpress, untouched; the diagnosis skips that node (set up, a warning line)', $r['updated'] === true && $r['rewrite_ready'] === false
+    && $r['message'] === 'Workflow updated. ' . PING_OK . ' ' . REWRITE_OFF && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $free_map[PostQuality_N8n::SETUP_OPTION]
+    && writes() === ['postquality_workflow_version_seen'] && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">'));
+
+echo "Update: a Rewrite node n8n bound to another site's credential (bug 113) — relinked\n";
+const DECOY = ['id' => 'c-decoy', 'name' => 'Decoy - another site']; // the 2026-11-04 probe: n8n bound a name-only node to the one httpBasicAuth credential it held
+$decoy_read = resp(200, stored_workflow('wf1', wired(['WordPress - example.com' => DECOY] + WIRED)));
+managed([$decoy_read, created('c-wp'), UPDATED, CLEAN_WF], $free_map + $older_report);
+$r = update();
+check('Application Passwords on: the new credential on Update WP Post (Rewrite), the other site\'s credential in no PUT body', calls() === [READ_WF, CREDENTIAL_WP, PUT_WF, READ_WF]
+    && linked(body(2))['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp', 'name' => '']] && !str_contains((string) $GLOBALS['tw']['calls'][2][1]['body'], 'c-decoy') && $r['rewrite_ready'] === true);
+managed([$decoy_read, UPDATED, $rewrite_bare], $free_map + $older_report);
+$GLOBALS['tw']['app_passwords'] = false;
+$r = update();
+check('... off: Update WP Post (Rewrite) without a credential, the other site\'s nowhere in the PUT; rewrite_ready false', calls() === [READ_WF, PUT_WF, READ_WF]
+    && !isset(linked(body(1))['Update WP Post (Rewrite)']) && !str_contains((string) $GLOBALS['tw']['calls'][1][1]['body'], 'c-decoy') && $r['rewrite_ready'] === false);
+
+echo "Update: n8n's publish check, as the world plays it (bug 113)\n";
+$name_only = ['name' => 'Post Quality — example.com', 'nodes' => wired(['WordPress - example.com' => null] + WIRED), 'connections' => (object) [], 'settings' => (object) []];
+$disabled  = ['nodes' => wired(['WordPress - example.com' => null] + WIRED, ['Update WP Post (Rewrite)' => static fn(array $n): array => $n + ['disabled' => true]])] + $name_only;
+$bare      = ['nodes' => wired(WIRED, $no_rewrite_credential)] + $name_only;
+managed([UPDATED, UPDATED, UPDATED, created('wf9'), ACTIVE, created('wf9'), ACTIVE]);
+$put = PostQuality_N8n::request('PUT', '/workflows/wf1', $name_only);
+check('a PUT whose enabled node has a credential without an id (entry 9\'s Rewrite unwired): 400 `Node "Update WP Post (Rewrite)" uses invalid credential`, the scripted answer consumed',
+    $put === ['code' => 400, 'json' => ['message' => 'Node "Update WP Post (Rewrite)" uses invalid credential']] && count($GLOBALS['tw']['queue']) === 6);
+check('... that node disabled, or without `credentials`: the PUT passes', PostQuality_N8n::request('PUT', '/workflows/wf1', $disabled)['code'] === 200
+    && PostQuality_N8n::request('PUT', '/workflows/wf1', $bare)['code'] === 200);
+$created   = PostQuality_N8n::request('POST', '/workflows', $name_only);
+$activated = PostQuality_N8n::request('POST', '/workflows/wf9/activate', (object) []);
+check('a create is not checked (200); its /activate is, on the body created: 400 (provisioning\'s D1 before bug 113)', $created['code'] === 200
+    && $activated === ['code' => 400, 'json' => ['message' => 'Node "Update WP Post (Rewrite)" uses invalid credential']]);
+PostQuality_N8n::request('POST', '/workflows', $bare);
+check('... the same workflow with that node bare: activated (200)', PostQuality_N8n::request('POST', '/workflows/wf9/activate', (object) [])['code'] === 200 && $GLOBALS['tw']['queue'] === []);
 
 echo "Update: refused at the gate — zero calls, nothing written\n";
 foreach ([
@@ -389,21 +528,51 @@ check('forget key after: the notice falls back to Re-import the workflow, the ma
     && !str_contains($block, 'pqm-update-workflow') && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $setup_map[PostQuality_N8n::SETUP_OPTION] && calls() === []);
 check('... an update then: 400 pqm_n8n_not_connected, zero calls', update()->code === 'pqm_n8n_not_connected' && calls() === []);
 
-echo "Update: leak scan and the two calls\n";
-$update_calls = array_merge(...array_map(static fn($run) => array_slice($run[2], 0, 2), $update_runs)); // the update's own calls; a third is the ping's diagnosis
-check('every n8n call of the updates (' . count($update_calls) . ') is a GET or a PUT of the map\'s workflow id, never a credential, never a list', count($update_calls) >= 20
-    && !array_filter($update_calls, static fn($c) => !in_array($c[1]['method'], ['GET', 'PUT'], true) || !preg_match('#/api/v1/workflows/(wf1|wf-hand)$#', $c[0])));
-check('... no update made more than one PUT, and only after a GET of the same workflow', !array_filter($update_runs, static function ($run) {
-    $puts = array_values(array_filter($run[2], static fn($c) => $c[1]['method'] === 'PUT'));
-    return count($puts) > 1 || ($puts !== [] && ($run[2][0][1]['method'] !== 'GET' || $run[2][0][0] !== $puts[0][0] || $run[2][1] !== $puts[0]));
+echo "Update: leak scan and the calls\n";
+/** The update's own calls: up to its PUT (a call after it is the ping's diagnosis), all of them when it sent none. */
+$own_calls = static function (array $calls): array {
+    foreach ($calls as $i => $c) {
+        if ($c[1]['method'] === 'PUT') { return array_slice($calls, 0, $i + 1); }
+    }
+    return $calls;
+};
+$update_calls = array_merge(...array_map(static fn($run) => $own_calls($run[2]), $update_runs));
+check('every n8n call of the updates (' . count($update_calls) . ') is a GET or a PUT of the map\'s workflow id, or (bug 113) a POST /credentials; never a credential read, never a list', count($update_calls) >= 20
+    && !array_filter($update_calls, static fn($c) => !(in_array($c[1]['method'], ['GET', 'PUT'], true) && preg_match('#/api/v1/workflows/(wf1|wf-hand)$#', $c[0]))
+        && !($c[1]['method'] === 'POST' && $c[0] === BASE . '/api/v1/credentials')));
+check('... no update made more than one PUT or more than one POST /credentials; each after a GET of the same workflow as its first call, the POST before the PUT', !array_filter($update_runs, static function ($run) use ($own_calls) {
+    $own   = $own_calls($run[2]);
+    $puts  = array_values(array_filter($own, static fn($c) => $c[1]['method'] === 'PUT'));
+    $posts = array_keys(array_filter($own, static fn($c) => $c[1]['method'] === 'POST'));
+    return count($puts) > 1 || count($posts) > 1 || ($own !== [] && $own[0][1]['method'] !== 'GET')
+        || ($puts !== [] && $own[0][0] !== $puts[0][0]) || ($posts !== [] && $posts[0] !== 1);
 }));
+check('... the bug 113 rows above did send a POST /credentials (' . count(array_filter($update_runs, static fn($run) => array_filter($run[2], static fn($c) => $c[1]['method'] === 'POST'))) . ' updates), so the two checks above cover it',
+    count(array_filter($update_runs, static fn($run) => array_filter($run[2], static fn($c) => $c[1]['method'] === 'POST'))) >= 8);
+check('every PUT body of the updates carries no credential without an id (bug 113: never name-only)', !array_filter($update_runs, static fn($run) => array_filter($run[2], static function ($c) {
+    if ($c[1]['method'] !== 'PUT') { return false; }
+    foreach (json_decode((string) $c[1]['body'], true)['nodes'] ?? [] as $node) {
+        foreach ($node['credentials'] ?? [] as $credential) {
+            if ((string) ($credential['id'] ?? '') === '') { return true; }
+        }
+    }
+    return false;
+})));
 check('the n8n key, the webhook token and the provider key are in no reply field and no PUT body (credential ids and names only) (' . count($update_runs) . ' updates)',
     !array_filter($update_runs, static fn($run) => str_contains($run[0], KEY) || str_contains(without_body($run[0]), TOKEN) || str_contains($run[0], PROVIDER_KEY)
         || array_filter($run[2], static fn($c) => $c[1]['method'] === 'PUT' && preg_match('/' . preg_quote(KEY, '/') . '|' . preg_quote(TOKEN, '/') . '|' . preg_quote(PROVIDER_KEY, '/') . '/', (string) ($c[1]['body'] ?? '')))));
+check('... the Application Password in no reply and no option, only in a POST /credentials body; its uuid in no call (bug 113)', !array_filter($update_runs, static fn($run) =>
+    str_contains($run[0], APP_PASSWORD) || str_contains($run[0], 'app-uuid') || str_contains(json_encode($run[1]), APP_PASSWORD) || str_contains(json_encode([$run[2], $run[3]]), 'app-uuid')
+    || array_filter($run[2], static fn($c) => str_contains(json_encode($c), APP_PASSWORD) && $c[1]['method'] !== 'POST')));
 preg_match('/function update_workflow\(.*?\n    }\n/s', $src_n8n, $m);
-check('the update code calls n8n twice through request(), a GET then a PUT, and never reads /credentials or the list', ($m[0] ?? '') !== ''
-    && substr_count($m[0], 'self::request(') === 2 && str_contains($m[0], "self::request( 'GET', \$path )") && str_contains($m[0], "self::request( 'PUT', \$path, \$body )")
-    && !str_contains($m[0], '/credentials') && !str_contains($m[0], 'ACTIVE_WORKFLOWS') && !preg_match("/'(POST|PATCH|DELETE)'/", $m[0]));
+check('the update code calls n8n twice through request(), a GET then a PUT, and never reads /credentials or the list; on Pro, between them, connect_wordpress__premium_only() in a Pro-marker block for a map without wordpress',
+    ($m[0] ?? '') !== '' && substr_count($m[0], 'self::request(') === 2 && str_contains($m[0], "self::request( 'GET', \$path )") && str_contains($m[0], "self::request( 'PUT', \$path, \$body )")
+    && !str_contains($m[0], '/credentials') && !str_contains($m[0], 'ACTIVE_WORKFLOWS') && !preg_match("/'(POST|PATCH|DELETE)'/", $m[0])
+    && preg_match("/self::request\\( 'GET', \\\$path \\).*if \\( postquality_fs\\(\\)->is__premium_only\\(\\) \\) \\{\\s*if \\( ! isset\\( \\\$setup\\['credentials'\\]\\['wordpress'\\] \\) \\) \\{\\s*\\\$setup = self::connect_wordpress__premium_only\\( \\\$setup \\);.*self::request\\( 'PUT', \\\$path, \\\$body \\)/s", $m[0]) === 1);
+preg_match('/function connect_wordpress__premium_only\(.*?\n    }\n/s', $src_n8n, $m);
+check('... connect_wordpress__premium_only() calls n8n once, a POST /credentials through request(), never a GET (no lookup by name); it stores the map before returning it',
+    ($m[0] ?? '') !== '' && substr_count($m[0], 'self::request(') === 1 && str_contains($m[0], "self::request( 'POST', '/credentials', ")
+    && !preg_match("/'(GET|PUT|PATCH|DELETE)'/", $m[0]) && str_contains($m[0], 'update_option( self::SETUP_OPTION, $setup, false );'));
 check('every status block the update rows answered: at most one primary, one whenever a notice shows', !array_filter($update_runs, static function ($run) {
     $html = json_decode($run[0], true)['status_html'] ?? null;
     return is_string($html) && !one_primary($html);

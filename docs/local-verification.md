@@ -282,7 +282,7 @@ netstat -ano | grep -E ':(5688|5689) .*LISTENING' && { echo "STOP: a port is tak
 cd "$N" && node --require ./pid.js app/node_modules/n8n/bin/n8n start > "$N/n8n.log" 2>&1
 ```
 
-Run the block in the background (an agent: the shell tool's background mode). A taken port ends it with exit 1 before n8n starts: another walk is running, maybe another session's; stop and ask the owner. Then wait until `curl -s http://127.0.0.1:5688/healthz` answers `{"status":"ok"}` (the first start runs the database migrations first), then read `cat "$N/n8n.pid"`. Expected: `$N/n8n.log` names the editor's address and `n8n.pid` holds one number.
+Run the block in the background (an agent: the shell tool's background mode). A taken port ends it with exit 1 before n8n starts: another walk is running, maybe another session's; stop and ask the owner. Then wait until `curl -s http://127.0.0.1:5688/healthz` answers `{"status":"ok"}` (the first start runs the database migrations first), then until `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:5688/rest/settings` answers `200`: `/healthz` passes before the editor's routes are mounted (2.46.6, 2026-11-04: `/healthz` answered while `POST /rest/owner/setup` was still 404), and step 5 needs them. Then read `cat "$N/n8n.pid"`. Expected: `$N/n8n.log` names the editor's address and `n8n.pid` holds one number.
 
 ### n8n 5. Owner account and API key
 
