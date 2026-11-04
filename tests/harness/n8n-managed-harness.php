@@ -9,7 +9,8 @@
  * keys, the map's ids on every credentialed node, the map's path on the
  * trigger, the read name), and the status block's fix per gate. Story 71
  * rows: start over (DELETE /n8n/setup), and a map that remembers its
- * instance.
+ * instance. Bug 114: its removal sends the workflow DELETE again while n8n
+ * answers 409 (up to 4 calls), so a still-unpublishing workflow goes.
  * WP stubs, no WP install; callbacks are called directly. The world (stubs,
  * constants, builders, the plugin load) is lib/n8n-world.php; story 78
  * build 2 split the one n8n harness by concern.
@@ -605,10 +606,18 @@ managed([], [PostQuality_N8n::SETUP_OPTION => pro_map(1)] + $report);
 $r = start_over(false);
 check('keep, a wizard-created map: zero calls, the password revoked all the same (useless without the map), "stay in n8n"', calls() === [] && started_over()
     && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']] && $r['message'] === REMOVED_HERE);
-managed([INACTIVE, UNPUBLISHING], [PostQuality_N8n::SETUP_OPTION => pro_map(1)] + $report);
+managed([INACTIVE, UNPUBLISHING, DELETED, DELETED, DELETED, DELETED], [PostQuality_N8n::SETUP_OPTION => pro_map(1)] + $report);
+$r = start_over(true);
+check('bug 114, still unpublishing: the workflow DELETE answers 409, then 200 — sent again, then the credentials; removed here and in n8n, no leftovers',
+    calls() === [UNDO_ALL[0], UNDO_ALL[1], ...array_slice(UNDO_ALL, 1)] && rollback_ordered() && $GLOBALS['tw']['queue'] === [] && started_over()
+    && !isset($GLOBALS['tw']['options'][PostQuality_N8n::LEFTOVERS_OPTION]) && $r['message'] === REMOVED_BOTH && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]);
+managed([INACTIVE, UNPUBLISHING, DELETED, DELETED, DELETED, DELETED], [PostQuality_N8n::SETUP_OPTION => pro_map(1)] + $report);
+check('... start_over(true) answers removed: true, left: false', PostQuality_N8n::start_over(true) === ['removed' => true, 'left' => false]);
+managed(array_merge([INACTIVE], STAYS_UNPUBLISHING), [PostQuality_N8n::SETUP_OPTION => pro_map(1)] + $report);
 $r = start_over(true);
 $record = $GLOBALS['tw']['options'][PostQuality_N8n::LEFTOVERS_OPTION] ?? null;
-check('partial refusal (the DELETE answers 409, still unpublishing): the credentials untouched, no call for them', calls() === array_slice(UNDO_ALL, 0, 2));
+check('partial refusal (the DELETE answers 409 on all 4 calls, stays unpublishing): no fifth call, the credentials untouched, no call for them',
+    calls() === [UNDO_ALL[0], ...array_fill(0, 4, UNDO_ALL[1])] && $GLOBALS['tw']['queue'] === []);
 check('... postquality_n8n_leftovers = {base_url, workflow_id, credentials, at}, autoload off', is_array($record) && array_diff_key($record, ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']]
     && abs($record['at'] - time()) <= 5 && $GLOBALS['tw']['autoload'][PostQuality_N8n::LEFTOVERS_OPTION] === false);
 check('... the clears done anyway, the password revoked; the message says some of it is still in n8n, a warning line, state 2', started_over() && $GLOBALS['tw']['app_revoked'] === [[7, 'app-uuid']]
@@ -640,16 +649,16 @@ unset($GLOBALS['tw']['options'][PostQuality_N8n::OPTION]['api_key']);
 check('no key, remove: 400 pqm_n8n_not_connected, zero calls, nothing cleared (the island never offers it)', refused(start_over(true), 'pqm_n8n_not_connected', 400) && calls() === []
     && isset($GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION]) && $GLOBALS['tw']['app_revoked'] === []);
 // Review fix: a refused removal must not silently replace a record of another instance (a failed run on A, then B adopted and started over).
-managed([INACTIVE, UNPUBLISHING], [PostQuality_N8n::SETUP_OPTION => pro_map(1), PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://old.example.com', 'workflow_id' => 'wf-old', 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
+managed(array_merge([INACTIVE], STAYS_UNPUBLISHING), [PostQuality_N8n::SETUP_OPTION => pro_map(1), PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => 'https://old.example.com', 'workflow_id' => 'wf-old', 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
 $r = start_over(true);
-check('partial refusal over a record of another instance: the connected instance\'s remainder is the record now (the actionable one); the reply names the old host first, then the warning', is_array($r)
+check('partial refusal over a record of another instance: the connected instance\'s remainder is the record now (the actionable one); the reply names the old host first, then the warning', is_array($r) && $GLOBALS['tw']['queue'] === []
     && array_diff_key($GLOBALS['tw']['options'][PostQuality_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']]
     && $r['message'] === 'An earlier setup left a workflow or credentials on old.example.com. The plugin does not touch another instance: remove them there by hand. ' . REMOVED_LEFT
     && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">' . $r['message'] . '</p>') && started_over() && !isset($r['dropped_leftovers']));
-managed([INACTIVE, UNPUBLISHING], [PostQuality_N8n::SETUP_OPTION => pro_map(1), PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => BASE, 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
+managed(array_merge([INACTIVE], STAYS_UNPUBLISHING), [PostQuality_N8n::SETUP_OPTION => pro_map(1), PostQuality_N8n::LEFTOVERS_OPTION => ['base_url' => BASE, 'credentials' => ['c-old1'], 'at' => 1700000000]] + $report);
 $r = start_over(true);
 check('... over a record of the connected instance: replaced by the remainder, no prefix (the earlier remainder was for the same place; the record names what is there now)',
-    array_diff_key($GLOBALS['tw']['options'][PostQuality_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']] && $r['message'] === REMOVED_LEFT);
+    $GLOBALS['tw']['queue'] === [] && array_diff_key($GLOBALS['tw']['options'][PostQuality_N8n::LEFTOVERS_OPTION], ['at' => 0]) === ['base_url' => BASE, 'workflow_id' => 'wf1', 'credentials' => ['c-webhook', 'c-anthropic', 'c-wp']] && $r['message'] === REMOVED_LEFT);
 $src_n8n = file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-n8n.php');
 check('the removal goes through roll_back() (one caller more than fail() and remove_leftovers()); the key is not forgotten (D1)', substr_count($src_n8n, 'self::roll_back(') === 3
     && preg_match('/function start_over\(.*?\n    }\n/s', $src_n8n, $m) && !str_contains($m[0], 'forget(') && !str_contains($m[0], 'self::OPTION'));

@@ -79,10 +79,28 @@ class PostQuality_N8n {
     /**
      * Own option (autoload off, deleted on uninstall): what a failed run's
      * rollback could not remove from n8n, {base_url, workflow_id?,
-     * credentials: [id, …], at} (entry 5, D1). The next provision() removes
-     * it first.
+     * credentials: [id, …], orphan?: {name, credentials: [id, …]}, at}
+     * (entry 5, D1). `orphan` is the fingerprint of a workflow whose
+     * creation got no answer and that n8n did not list yet (bug 112): the
+     * name sent and the run's credential ids. The next provision() removes
+     * it first, looking the fingerprint up again.
      */
     const LEFTOVERS_OPTION = 'postquality_n8n_leftovers';
+
+    /**
+     * Seconds the workflow creation may take (bug 112); every other n8n call
+     * waits 10. On a cold n8n the first POST /workflows loads each node's
+     * class from disk and took over 10 s, and n8n creates the workflow even
+     * after the client has gone (memory/n8n-provisioning.md).
+     */
+    const CREATE_TIMEOUT = 30;
+
+    /**
+     * DELETE calls of a workflow at most, while n8n answers 409 (bug 114):
+     * right after the deactivate, n8n 2.46.6 answers "Workflow is still
+     * being unpublished" for about 0.4 s (memory/n8n-provisioning.md).
+     */
+    const UNPUBLISH_DELETES = 4;
 
     /**
      * Own option (autoload off, deleted on uninstall): {at} while a
@@ -262,16 +280,17 @@ class PostQuality_N8n {
      * One call to the stored instance's public API, e.g.
      * request( 'GET', '/workflows?limit=1' ).
      *
-     * @param mixed $body JSON-encoded when not null.
+     * @param mixed $body    JSON-encoded when not null.
+     * @param int   $timeout Seconds; only the workflow creation waits longer (CREATE_TIMEOUT, bug 112).
      * @return array{code: int, json: ?array}|WP_Error
      */
-    public static function request( string $method, string $path, $body = null ): array|WP_Error {
+    public static function request( string $method, string $path, $body = null, int $timeout = 10 ): array|WP_Error {
         $connection = self::connection();
         if ( '' === $connection['api_key'] ) {
             return self::not_connected();
         }
 
-        $response = self::call( $connection['base_url'], $connection['api_key'], $method, self::API_PATH . $path, $body );
+        $response = self::call( $connection['base_url'], $connection['api_key'], $method, self::API_PATH . $path, $body, $timeout );
         // Story 74: every call with the stored key leaves here, so a 401 is the stored key refused.
         if ( ! is_wp_error( $response ) && 401 === $response['code'] ) {
             self::record_refusal( self::result( 'key', self::key_refused_sentence() ) );
@@ -302,10 +321,11 @@ class PostQuality_N8n {
     /**
      * The one place an HTTP call leaves for n8n. `$key` '' sends no key header.
      * `json` is the decoded body when it is a JSON object or list, else null.
+     * `$timeout` is 10 s but for the workflow creation (bug 112, request()).
      *
      * @return array{code: int, json: ?array}|WP_Error
      */
-    private static function call( string $origin, string $key, string $method, string $path, $body = null ): array|WP_Error {
+    private static function call( string $origin, string $key, string $method, string $path, $body = null, int $timeout = 10 ): array|WP_Error {
         $headers = [ 'Accept' => 'application/json' ];
         if ( '' !== $key ) {
             $headers['X-N8N-API-KEY'] = $key;
@@ -314,7 +334,7 @@ class PostQuality_N8n {
             'method'      => $method,
             'headers'     => $headers,
             'user-agent'  => self::user_agent(),
-            'timeout'     => 10,
+            'timeout'     => $timeout,
             'redirection' => 0,
         ];
         if ( null !== $body ) {
@@ -821,9 +841,11 @@ class PostQuality_N8n {
      * credential only — never an option or a reply, and the plugin never
      * logs the keys itself. A refused step
      * after the first creation stops the run and goes through fail(): what
-     * this run created is removed again (entry 5). What an earlier rollback
-     * could not remove (LEFTOVERS_OPTION) is removed before anything is
-     * created. An existing setup map refuses the run: nothing is adopted or
+     * this run created is removed again (entry 5); a workflow creation
+     * without an answer is looked up once by its name and this run's
+     * credential ids, since n8n may have made it (bug 112, orphan_id()).
+     * What an earlier rollback could not remove (LEFTOVERS_OPTION) is
+     * removed before anything is created. An existing setup map refuses the run: nothing is adopted or
      * updated. One run at a time (bug 72): the run holds LOCK_OPTION from
      * before its first outgoing call until the map is stored or it failed,
      * and a run that finds the lock held is refused as already provisioned.
@@ -960,7 +982,8 @@ class PostQuality_N8n {
             $response = self::request( 'POST', '/credentials', [ 'name' => $credential['name'], 'type' => $credential['type'], 'data' => $credential['data'] ] );
             $id       = self::created_id( $response );
             if ( null === $id ) {
-                return self::fail( 'credential_' . $role, self::stopped( 'credential_' . $role, $response ), $credentials, $created );
+                // Skipped: a timed-out credential is named in the message, not looked up — add when a site reports a duplicate credential.
+                return self::fail( 'credential_' . $role, self::stopped( 'credential_' . $role, $response ), $credentials, $created, null, null, is_wp_error( $response ) );
             }
             $ids[ $credential['name'] ] = $id;
             $created[ $role ]           = $id;
@@ -970,10 +993,19 @@ class PostQuality_N8n {
         if ( is_wp_error( $body ) ) {
             return self::fail( 'link', $body->get_error_message(), $credentials, $created );
         }
-        $response    = self::request( 'POST', '/workflows', $body );
+        $response    = self::request( 'POST', '/workflows', $body, self::CREATE_TIMEOUT );
         $workflow_id = self::created_id( $response );
         if ( null === $workflow_id ) {
-            return self::fail( 'workflow', self::stopped( 'workflow', $response ), $credentials, $created );
+            if ( ! is_wp_error( $response ) ) {
+                return self::fail( 'workflow', self::stopped( 'workflow', $response ), $credentials, $created );
+            }
+            // No answer: n8n may have created the workflow all the same (bug 112). Never a retry of
+            // the create (an n8n that ignores an Idempotency-Key would make a second one): one lookup.
+            $orphan = [ 'name' => (string) $body['name'], 'credentials' => array_values( $created ) ];
+            $found  = self::orphan_id( $orphan );
+            $found  = is_string( $found ) ? $found : null; // no match or no answer: the fingerprint is recorded either way
+
+            return self::fail( 'workflow', self::stopped( 'workflow', $response ), $credentials, $created, $found, null, false, null === $found ? $orphan : null );
         }
 
         $response = self::request( 'POST', '/workflows/' . rawurlencode( $workflow_id ) . '/activate', (object) [] );
@@ -1185,17 +1217,61 @@ class PostQuality_N8n {
     }
 
     /**
+     * Bug 112: the id of the workflow a creation without an answer made all
+     * the same; false when n8n listed no match, null when it did not answer
+     * (a WP_Error, a refused key, a 5xx: the next setup then keeps the
+     * fingerprint, remove_leftovers()). One GET by the
+     * name sent; n8n matches `name` as `LIKE %name%` (memory/n8n-provisioning.md,
+     * the n8n 2.46.6 findings), so a workflow counts only with exactly that
+     * name and a node carrying one of the fingerprint's credential ids — a
+     * hand-imported workflow carries the same name, a "… copy" the same
+     * ids. Never the name alone, never GET /credentials. n8n keeps a node's
+     * credential id after that credential is deleted, so a rolled-back
+     * run's workflow is still found by the next setup.
+     * Ceiling: one page of 250 (n8n's maximum `limit`); `nextCursor` is the upgrade path.
+     *
+     * @param array $orphan {name, credentials: [id, …]}, as fail() records it.
+     */
+    private static function orphan_id( array $orphan ): string|false|null {
+        $name     = (string) ( $orphan['name'] ?? '' );
+        $ids      = array_map( 'strval', array_filter( (array) ( $orphan['credentials'] ?? [] ), 'is_scalar' ) );
+        $response = self::request( 'GET', '/workflows?name=' . rawurlencode( $name ) . '&limit=250&excludePinnedData=true' );
+        if ( ! self::answered( $response ) ) {
+            return null;
+        }
+        foreach ( (array) ( $response['json']['data'] ?? [] ) as $workflow ) {
+            if ( ! is_array( $workflow ) || $name !== ( $workflow['name'] ?? null ) || ! is_scalar( $workflow['id'] ?? null ) ) {
+                continue;
+            }
+            foreach ( (array) ( $workflow['nodes'] ?? [] ) as $node ) {
+                foreach ( (array) ( is_array( $node ) ? ( $node['credentials'] ?? [] ) : [] ) as $credential ) {
+                    if ( is_array( $credential ) && is_scalar( $credential['id'] ?? null ) && in_array( (string) $credential['id'], $ids, true ) ) {
+                        return (string) $workflow['id'];
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * A failed run, after its first creation: revoke the Pro build's
      * Application Password, remove from n8n what this run created, keep
      * what could not be removed (D1), and answer `data.step` with a message
      * that says whether anything was left. 502, or 500 for `link` (the
-     * template, not n8n).
+     * template, not n8n). "Nothing was left in n8n." only when every create
+     * call of the run got an answer (a timed-out workflow found and passed
+     * as `$workflow_id` counts as one) and the rollback removed everything.
      *
-     * @param string  $cause   The sentence naming what went wrong.
-     * @param array   $created role => id of the credentials this run created.
-     * @param ?string $then    The way out, replacing "Try again in a moment." when a retry would repeat the refusal (bug 75).
+     * @param string  $cause      The sentence naming what went wrong.
+     * @param array   $created    role => id of the credentials this run created.
+     * @param ?string $then       The way out, replacing "Try again in a moment." when a retry would repeat the refusal (bug 75).
+     * @param bool    $unanswered A credential's create got no answer (bug 112): n8n may still create it, unrecorded.
+     * @param ?array  $orphan     The workflow's fingerprint {name, credentials} when its create got no
+     *                            answer and n8n did not list it (bug 112): recorded, so the next run looks again.
      */
-    private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null, ?string $then = null ): WP_Error {
+    private static function fail( string $step, string $cause, array $credentials, array $created, ?string $workflow_id = null, ?string $then = null, bool $unanswered = false, ?array $orphan = null ): WP_Error {
         // Before n8n's rollback, and whatever it gives: the WordPress credential is useless once the run failed.
         if ( postquality_fs()->is__premium_only() ) {
             if ( isset( $credentials['wordpress']['uuid'] ) ) {
@@ -1203,19 +1279,29 @@ class PostQuality_N8n {
             }
         }
         $left = self::roll_back( $workflow_id, array_values( $created ) );
+        if ( null !== $orphan ) {
+            $left = [ 'credentials' => $left['credentials'] ?? [], 'orphan' => $orphan ];
+        }
         if ( null !== $left ) {
             update_option( self::LEFTOVERS_OPTION, [ 'base_url' => self::connection()['base_url'] ] + $left + [ 'at' => time() ], false );
         }
 
-        return new WP_Error( 'pqm_provision_failed', implode( ' ', [
-            $cause,
-            null === $left
-                ? __( 'Nothing was left in n8n.', 'post-quality-manager' )
-                : __( 'Some of what it created is still in n8n: the next try removes it first.', 'post-quality-manager' ),
-            'link' === $step
-                ? __( 'Update the plugin, then try again.', 'post-quality-manager' )
-                : ( $then ?? __( 'Try again in a moment.', 'post-quality-manager' ) ),
-        ] ), [ 'status' => 'link' === $step ? 500 : 502, 'step' => $step ] );
+        $sentences = [ $cause ];
+        if ( null !== $orphan ) {
+            $sentences[] = __( 'n8n did not answer in time and may still create the workflow: the next try removes it first.', 'post-quality-manager' );
+        } elseif ( null !== $left ) {
+            $sentences[] = __( 'Some of what it created is still in n8n: the next try removes it first.', 'post-quality-manager' );
+        } elseif ( ! $unanswered ) {
+            $sentences[] = __( 'Nothing was left in n8n.', 'post-quality-manager' );
+        }
+        if ( $unanswered ) {
+            $sentences[] = __( 'n8n did not answer in time and may still create that credential: delete it in n8n if it appears.', 'post-quality-manager' );
+        }
+        $sentences[] = 'link' === $step
+            ? __( 'Update the plugin, then try again.', 'post-quality-manager' )
+            : ( $then ?? __( 'Try again in a moment.', 'post-quality-manager' ) );
+
+        return new WP_Error( 'pqm_provision_failed', implode( ' ', $sentences ), [ 'status' => 'link' === $step ? 500 : 502, 'step' => $step ] );
     }
 
     /**
@@ -1226,6 +1312,12 @@ class PostQuality_N8n {
      * uses it. Only the given ids, never a lookup by name. n8n unreachable
      * (a WP_Error) stops the rollback there: every further call would wait
      * the full timeout, so the record is written before a gateway gives up.
+     * The workflow DELETE answered 409 is sent again, up to
+     * UNPUBLISH_DELETES calls 1 s apart (filter
+     * `postquality_unpublish_retry_wait`; the harness sets 0): n8n refuses it
+     * while it unpublishes (bug 114, memory/n8n-provisioning.md), as the ping
+     * after an activation is retried on 404 (bug 80). Only a 409 is retried.
+     * One place for the three callers: fail(), remove_leftovers(), start_over().
      *
      * @param string[] $credentials Credential ids.
      * @return array|null Null when everything is gone, else what remains:
@@ -1236,8 +1328,18 @@ class PostQuality_N8n {
         if ( null !== $workflow_id ) {
             $path = '/workflows/' . rawurlencode( $workflow_id );
             // Only reachability matters: deactivating an inactive workflow answers 200, and the delete tells.
-            // n8n 2.42.3 refuses the delete with 409 until it has unpublished the workflow: no credential goes before it.
-            if ( is_wp_error( self::request( 'POST', $path . '/deactivate', (object) [] ) ) || ! self::removed( self::request( 'DELETE', $path ) ) ) {
+            if ( is_wp_error( self::request( 'POST', $path . '/deactivate', (object) [] ) ) ) {
+                return [ 'workflow_id' => $workflow_id, 'credentials' => $credentials ];
+            }
+            // n8n refuses the delete with 409 until it has unpublished the workflow: no credential goes before it.
+            for ( $attempt = 1; ; $attempt++ ) {
+                $deleted = self::request( 'DELETE', $path );
+                if ( is_wp_error( $deleted ) || 409 !== $deleted['code'] || $attempt >= self::UNPUBLISH_DELETES ) {
+                    break;
+                }
+                sleep( max( 0, (int) apply_filters( 'postquality_unpublish_retry_wait', 1 ) ) );
+            }
+            if ( ! self::removed( $deleted ) ) {
                 return [ 'workflow_id' => $workflow_id, 'credentials' => $credentials ];
             }
         }
@@ -1271,7 +1373,11 @@ class PostQuality_N8n {
      * left on the connected instance (D1). A record of another instance is
      * dropped without a call, and its host answered so the reply names it
      * (story 71); still refused, the record keeps what remains and the run
-     * stops with 502 step `cleanup`.
+     * stops with 502 step `cleanup`. A record's `orphan` (bug 112) is
+     * looked up first: found, that workflow is removed with the record's
+     * other ids; listed without a match, the fingerprint is dropped; the
+     * lookup unanswered, the record stays unchanged and the run stops with
+     * the same 502 `cleanup`, nothing created.
      *
      * @return string|WP_Error|null Null when nothing was dropped or all of it
      *                              removed; the host of a dropped record.
@@ -1281,15 +1387,19 @@ class PostQuality_N8n {
         if ( ! is_array( $leftovers ) ) {
             return null;
         }
-        $base_url  = self::connection()['base_url'];
-        $elsewhere = (string) ( $leftovers['base_url'] ?? '' ) !== $base_url;
-        $left      = $elsewhere ? null : self::roll_back( $leftovers['workflow_id'] ?? null, (array) ( $leftovers['credentials'] ?? [] ) );
-        if ( null === $left ) {
-            delete_option( self::LEFTOVERS_OPTION );
+        $base_url    = self::connection()['base_url'];
+        $elsewhere   = (string) ( $leftovers['base_url'] ?? '' ) !== $base_url;
+        $found       = $elsewhere || ! is_array( $leftovers['orphan'] ?? null ) ? false : self::orphan_id( $leftovers['orphan'] );
+        // Null: the lookup got no answer, so the record stays as it was and nothing is created (bug 112).
+        if ( null !== $found ) {
+            $left = $elsewhere ? null : self::roll_back( is_string( $found ) ? $found : ( $leftovers['workflow_id'] ?? null ), (array) ( $leftovers['credentials'] ?? [] ) );
+            if ( null === $left ) {
+                delete_option( self::LEFTOVERS_OPTION );
 
-            return $elsewhere ? self::host( (string) ( $leftovers['base_url'] ?? '' ) ) : null;
+                return $elsewhere ? self::host( (string) ( $leftovers['base_url'] ?? '' ) ) : null;
+            }
+            update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
         }
-        update_option( self::LEFTOVERS_OPTION, [ 'base_url' => $base_url ] + $left + [ 'at' => time() ], false );
 
         return new WP_Error( 'pqm_provision_failed', __( 'An earlier n8n setup left a workflow or credentials in n8n that could not be removed yet, so nothing was created. Try again in a moment. If this keeps happening, check that your n8n API key is still valid by connecting again on the n8n Workflow page, or remove the Post Quality workflow and credentials in n8n by hand.', 'post-quality-manager' ), [ 'status' => 502, 'step' => 'cleanup' ] );
     }
@@ -1510,7 +1620,8 @@ class PostQuality_N8n {
      * Forget the setup on this site and, when asked, remove it from n8n:
      * the map's workflow and credentials by id, in roll_back()'s order,
      * what n8n refuses kept in LEFTOVERS_OPTION for the next provisioning
-     * (never retried from here); the Pro build's Application Password
+     * (beyond roll_back()'s own 409 retry of the workflow DELETE, bug 114,
+     * never retried from here); the Pro build's Application Password
      * revoked; then the setup map, the saved n8n Webhook URL (a one-key
      * merge, as PostQuality_Admin::save_webhook_token() writes) and the version
      * report gone, whatever the removal gave — the site has started over

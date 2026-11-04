@@ -27,6 +27,10 @@
  * add_option() as a read then an upsert, with a hook in the gap, and the
  * $wpdb stub serializes the lock's two statements, so the same-instant row
  * fails on bug 72's claim() and passes on bug 82's.
+ * Bugs 112 and 114: the name lookup after a timed-out workflow creation is
+ * answered by name_list() of listed() items (each with its nodes and
+ * credential ids, as n8n 2.46.6 lists them); rollback_ordered() accepts the
+ * workflow DELETE retried up to 4 times on 409, whose wait is filtered to 0.
  *
  * The answer shapes are the ones n8n 2.42.3 gave the owner's probe
  * (2026-10-13): no version is exposed to an API key; a missing route gets
@@ -47,7 +51,7 @@ $GLOBALS['tw'] = [
     'pings'    => [], // wp_remote_post() calls (the webhook ping): [url, args]
     'ping_response' => null,
     'ping_queue'    => [],   // scripted ping answers, in call order; ping_response once empty (bug 80)
-    'filters'       => ['postquality_provision_ping_retry_wait' => 0, 'postquality_ping_callback_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply)
+    'filters'       => ['postquality_provision_ping_retry_wait' => 0, 'postquality_ping_callback_wait' => 0, 'postquality_unpublish_retry_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply), none between the retried workflow DELETEs (bug 114)
     'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
     'app_refuses'   => false, // bug 113: WordPress refuses to create one (a WP_Error, nothing created)
@@ -403,6 +407,8 @@ define('DELETED', resp(200, ['id' => 'deleted']));
 define('INACTIVE', resp(200, ['id' => 'wf1', 'active' => false]));
 define('NOT_FOUND', resp(404, ['message' => 'Not Found'])); // n8n 2.42.3, an unknown id
 define('UNPUBLISHING', resp(409, ['message' => 'Workflow is still being unpublished. Please try again in a few moments']));
+define('STAYS_UNPUBLISHING', array_fill(0, 4, UNPUBLISHING)); // bug 114: the workflow DELETE refused on every one of its 4 calls
+define('PUBLISHED', resp(409, ['message' => 'Cannot delete a published workflow'])); // n8n 2.46.6's other 409 on a DELETE, retried as well
 function timed_out(): WP_Error { return new WP_Error('http_request_failed', 'cURL error 28: timed out'); }
 const N8N        = 'POST ' . BASE . '/api/v1/';
 const DEL        = 'DELETE ' . BASE . '/api/v1/';
@@ -436,7 +442,10 @@ function on_instance(array $before = []): array {
     return array_keys($there);
 }
 
-/** The forced order: deactivate < the workflow DELETE < every credential DELETE; no deactivate without a workflow DELETE. */
+/**
+ * The forced order: deactivate < the workflow DELETE(s) < every credential DELETE; no deactivate without a workflow DELETE.
+ * Bug 114: the workflow DELETE may be sent up to 4 times in a row (a 409 retried), never after a credential DELETE.
+ */
 function rollback_ordered(): bool {
     $calls = calls();
     $off   = array_keys(preg_grep('#/workflows/[^/]+/deactivate$#', $calls));
@@ -445,7 +454,32 @@ function rollback_ordered(): bool {
     if ($wf === []) {
         return $off === [];
     }
-    return count($off) === 1 && count($wf) === 1 && $off[0] < $wf[0] && ($creds === [] || min($creds) > $wf[0]);
+    return count($off) === 1 && count($wf) <= 4 && $off[0] < $wf[0] && $wf === range($wf[0], $wf[0] + count($wf) - 1)
+        && ($creds === [] || min($creds) > max($wf));
+}
+
+/* ─── Bug 112: the lookup of a workflow whose creation timed out ─────── */
+const WF_NAME   = 'Post Quality — example.com'; // the name the template's workflow is sent under
+const NAME_READ = 'GET ' . BASE . '/api/v1/workflows?name=Post%20Quality%20%E2%80%94%20example.com&limit=250&excludePinnedData=true'; // WF_NAME, URL-encoded
+const ORPHANED  = 'n8n did not answer in time and may still create the workflow: the next try removes it first. Try again in a moment.';
+const CRED_MAY_APPEAR = 'n8n did not answer in time and may still create that credential: delete it in n8n if it appears. Try again in a moment.';
+/** A workflow as GET /workflows?name= lists it (never published: no activeVersion), its nodes linked as wired($credentials) links them. */
+function listed(string $id, string $name, array $credentials = WIRED): array {
+    return ['id' => $id, 'name' => $name, 'active' => false, 'nodes' => wired($credentials), 'connections' => [], 'activeVersion' => null];
+}
+/** The answer of the name lookup: n8n's `LIKE %name%`, so any workflow whose name contains the one sent. */
+function name_list(array ...$items): array {
+    return resp(200, ['data' => $items, 'nextCursor' => null]);
+}
+/** Every n8n call of the run waited 10 s, but the workflow creation, 30 s (bug 112). */
+function timeouts_ok(array $calls): bool {
+    foreach ($calls as [$url, $args]) {
+        $create = $args['method'] === 'POST' && str_ends_with($url, '/api/v1/workflows');
+        if (($args['timeout'] ?? null) !== ($create ? 30 : 10)) {
+            return false;
+        }
+    }
+    return $calls !== [];
 }
 
 /** The Pro run's own: the Application Password it created, revoked once with its uuid. */
