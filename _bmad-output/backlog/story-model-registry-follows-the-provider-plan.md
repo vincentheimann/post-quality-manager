@@ -3,7 +3,7 @@ title: "The AI Model section offers the provider's current models, and the regis
 type: 'feature'
 ticket: '101'
 created: '2026-11-04'
-status: 'built'
+status: 'in-progress'
 baseline_revision: '5c629554e27ed993b0c0e5ef38834cc7383ed20d'
 route: 'full'
 route_source: 'auto'
@@ -99,6 +99,26 @@ context: []
 
   What it shows: `between_tools` on Sonnet 5.5 and `disabled` on Haiku 5.5 return no thinking block. Opus 5.5 thinks on both agents, and its Takeaways reply took 1,275 output tokens, over the 1,000 budget, so without the reserve it would have stopped on `max_tokens`. The thinking reserve is needed. Its Takeaways latency, 10.7 s of 30 s (36 %), is the closest to the half-timeout line; one sample at default effort, not a timeout change (plan rule: over half). Not exercised: xhigh/max efforts (they think on every 5.5 model, with the reserve), the Pro agents (Rewrite, Sources, SEO, Audit).
 - Plugin harness sweep on this branch, before the rebase: 22 of 22 green (the guard harness runs 63 rows here; 84 after the rebase onto 105's main).
+
+**Pro-agent proof, 2026-11-04 (orchestrator; owner-approved 8 calls after review row 3b):**
+- Script: `pro-proof.py`. Each body is what the template's own Build node makes (`build-body.js` runs the node's `jsCode`).
+- Payload: the `average` fixture (plain `content`, block-editor `content_html`) and the cost example's profile and voice texts.
+- Fragments come from `postquality_llm_params()`, the timeouts from the template.
+- All 8 answered 200 with `end_turn`, and every reply had the shape its Parse node reads.
+
+  | Agent (node timeout) | Opus 5.5: input, output tokens, latency | Sonnet 5.5: input, output tokens, latency |
+  |---|---|---|
+  | Sources (30 s) | 2,502, 2,653, **25.7 s (86 %, over half)** | 2,501, 1,527, 12.1 s |
+  | SEO (60 s) | 2,556, 772, 8.3 s | 2,555, 314, 4.1 s |
+  | Audit (120 s) | 7,190, 5,746, 53.7 s | 7,189, 4,617 (92 % of the 5,000 budget), 32.2 s |
+  | Rewrite (120 s) | 4,518, 7,918, 59.8 s (at half) | 4,517, 4,464, 21.8 s |
+
+- Opus 5.5 thinks on every agent: each reply carries a thinking block.
+- **Fails the plan's rule:**
+  - Opus 5.5 on Sources runs over half its node's timeout (25.7 s of 30 s). A longer post or a slower minute times it out.
+  - Opus 5.5 on Rewrite sits at half (59.8 s of 120 s) on an average post.
+- **Near the budget on the new default:** Sonnet 5.5 used 4,617 of Audit's 5,000 output tokens on an average post. Its tokenizer counts about a third more tokens than Sonnet 4.6's, so budgets sized on Sonnet 4.6 are tighter. Audit and Rewrite on the long post may stop on `max_tokens`; this is not measured yet.
+- **Fix in this story** (Tasks rule: a timeout change is a template version bump and a release-notes line): open, the owner's call on the approach, 2026-11-04. Status back to `in-progress` until then.
 
 ## Plan Change Log
 
