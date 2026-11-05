@@ -3,7 +3,7 @@ title: 'CI and the release workflow run on the current majors of their GitHub Ac
 type: 'chore'
 ticket: '102'
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 baseline_revision: '93eec0bd933ce1ae4fbc9cde81bc95c680c22848'
 route: 'full'
 route_source: 'auto'
@@ -70,6 +70,7 @@ Research (2026-11-04, every skipped major's release notes, READMEs, action.yml f
 - Local checks: both workflows parse as YAML (PyYAML), all four touched files are LF, and the harness sweep passes 22 of 22 (no harness reads `.github/`). Not run here: the PR's CI, the annotation check and the Release dispatch (AC1, AC2). They need a push, which step 3 excludes. AC3 waits for 3.11.0.
 - Matrix test audit (orchestrator, 2026-11-04): a workflow file has no unit or harness test. Row 1 (PR CI) is proven by the PR's own checks, row 2 (Release dispatch) by the dispatched run, row 3 (next release) by 3.11.0's package job; each result is recorded below when it runs. The implementer ran on Opus 5.5 (owner rule 2026-10-26).
 - Proof, 2026-11-04 (orchestrator): **AC1 passed.** PR #236, CI run 41805804476: `gh pr checks` shows Build admin app, PHP lint and harness sweep, Plugin Check and Free build Plugin Check all `pass`. The four jobs' annotations carry no "Node.js 20 is deprecated"; what remains is the runner image's Ubuntu 26 notice and Plugin Check's database-call warnings, both there before this change. **AC2 passed.** Release dispatch run 41806350953 (owner's go) on this branch: Release PR skipped, Package plugin zip `success`, artifact `post-quality-manager-3.10.2.zip` (1,143,289 bytes) under today's name, only the Ubuntu 26 notice, no Node 20 annotation, and no release published (latest is still v3.10.2 of 2026-11-03). AC3 (the `-pro`/`-free` uploads on v7) waits for 3.11.0.
+- **AC3 passed, on 3.11.0's release (2026-11-04).** Run 41855100995 (push on main after #239 merged): Release PR and Package plugin zip `success`; the zip uploaded to Freemius as deployment 170592, release mode pending; the Free-build check printed "PHP identical: 11 files."; artifacts `post-quality-manager-3.11.0.zip`, `-pro.zip` and `-free.zip`, today's names. 3.11.1's run 41856571404 did the same (deployment 170594, the same three artifacts). Read from `gh run view` and the runs' artifact lists on 2026-11-05. Done 2026-11-05 (records PR).
 
 ## Plan Change Log
 

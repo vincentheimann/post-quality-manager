@@ -48,3 +48,4 @@ The cause in code: `PostQuality_N8n::request()` waits 10 s (`class-pqm-n8n.php` 
 - Fact: the orphan was unpublished and carried no credentials; it was deleted by id during the walk.
 - Open question: find the orphan by name only, or by name and creation time; and whether the rollback should also run when the creation answered nothing at all (connection refused).
 - Filed 2026-11-04 from story 105's walk, unrefined.
+- Done 2026-11-05: fixed by #242 (main 5e3f0ac, built with bug 114), shipping in 3.11.2 (#243). The creation waits 30 s, and a timed-out one is looked up by its exact name and the run's credential ids; harness rows for AC1–AC3. The sprint walk on a disposable n8n 2.46.6 (2026-11-04) met no slow first creation, so the timeout path has no live run.

@@ -3,7 +3,7 @@ title: 'Update workflow connects Rewrite on a site set up without a WordPress cr
 type: 'bugfix'
 ticket: 113
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 baseline_revision: 'c3f4b45c6e322f590a620abed4f89995b97abc63'
 route: 'full'
 route_source: 'pinned'
@@ -84,6 +84,13 @@ context: ['{project-root}/memory/n8n-provisioning.md', '{project-root}/docs/bran
 - Verified: `php -l` on the 3 plugin and 5 harness files; every `tests/harness/*.php` 0 failed (n8n-managed 204, n8n-provisioning 157, render-matrix 448, free-build 97, the rest unchanged); `npm run test:unit` 174 passed; LF only in every touched file; `readme.txt` 9,164 bytes (< 10 KB).
 - Not done here: the acceptance walk on a disposable n8n (Free setup → Pro build → Update workflow → Review and Rewrite), the sprint's single walk after bug 112. `memory/MEMORY.md`'s index line is unchanged (the n8n-provisioning file carries the facts).
 - Orchestrator, review pass 1 (2026-11-04): build choice (1) proven on the disposable n8n 2.46.6: a Free workflow published, then the Pro template PUT with Rewrite `{id, name: ''}` → 200; n8n stored and published the credential's own name (`WordPress - example.test`), resolved by id. n8n stopped by its verified PID after. Patch round by the same Opus implementer: the `SETUP_OPTION` docblock names Update workflow as the third writer and the Pro Application Password in the map's shape, in words (the literal key and the `__premium_only` method name would fail `bin/build-free.php`'s survivor check and `free-build-harness.php` L552: that docblock ships in the Free build); `n8n_publish_refusal()`'s docblock says what the stub does and points to `memory/n8n-provisioning.md` for n8n's rule. Re-run: every harness 0 failed, `npm run test:unit` 174 passed, `php -l` clean.
+- **Walk, 2026-11-04 16:50–17:21 (orchestrator with the owner; the sprint's single sitting, after bugs 112 and 114 were built).** The showcase and a fresh disposable n8n **2.46.6** on 127.0.0.1 (`docs/local-verification.md` "A disposable n8n"), both builds from `fix/112-114-workflow-left-in-n8n` (3.11.1, which carries this fix, plus 112/114). Backup first (3.9.0 Free build, 30 reviews, 1 user).
+  - Free build: the agent connected n8n through `POST /n8n/connection`; the owner ran the setup dialog and typed the Anthropic key → "Ping OK … the round trip works". Review on a sample post → `major_revision`, score 22, in 17 s.
+  - Pro build installed over it (map {webhook, anthropic}, no Application Password) → **Update workflow: 200 `updated`, `rewrite_ready: true`; the map gained `wordpress` and `application_password`, one Application Password on the owner's profile; n8n published 31 nodes, Rewrite linked by id to the new "WordPress - <showcase host>" credential.** Ticket AC1 and AC3 met (Free → Pro → Update workflow → Review on the current n8n).
+  - The ping sent right after the update reported the Free variant as outdated; a second ping a moment later: OK, up to date (bug 99 reproduced; its ticket carries the line). Pro Review 17 s (score 22), Takeaways 10 s.
+  - **Not run:** Sources, SEO, Audit and Rewrite answered 403 "Sources is a Pro agent": the showcase has had no license since its restore, and none was active by 17:18. So Rewrite at run time (the WordPress credential saving a rewrite) is unproven; it is carried by the licensed Pro-command walk on v9. AC2 (an adopted map without `wordpress`) runs the same block, which keys on the missing role, not on how the map was made: harness rows; on a real n8n only the Free → Pro map.
+  - Restore: plugin list, tables/reviews/users/log, plugin files and `wp-config.php` all "same"; n8n stopped by its verified PID, the n8n and walk folders deleted. The recipe's owner step gave a false success once (n8n 2.46.6 start-up); `docs/local-verification.md` "n8n 5" now checks it (records PR, 2026-11-05).
+- Done 2026-11-05 (records PR): #240 merged 2026-11-04 (main 0c00cca), released in 3.11.1 (pre-release; Freemius deployment 170594, pending).
 
 ## Plan Change Log
 

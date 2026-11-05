@@ -3,7 +3,7 @@ title: 'A rollback or Start over leaves the workflow in n8n while n8n is still u
 type: 'bugfix'
 ticket: 114
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 route: 'full'
 ---
 

@@ -289,13 +289,22 @@ Run the block in the background (an agent: the shell tool's background mode). A 
 ```sh
 B=http://127.0.0.1:5688; J="$N/cookies.txt"
 python -I -c "import secrets; print('Pq1' + secrets.token_urlsafe(18))" > "$N/owner-password.txt"
-curl -sf -c "$J" -H 'Content-Type: application/json' -d "{\"email\":\"walk@example.com\",\"firstName\":\"Walk\",\"lastName\":\"Owner\",\"password\":\"$(cat "$N/owner-password.txt")\"}" "$B/rest/owner/setup" > /dev/null && echo "owner: set up"
+PW=$(cat "$N/owner-password.txt")
+pending() { curl -s "$B/rest/settings" | python -I -c "import json, sys; print(json.load(sys.stdin)['data']['userManagement']['showSetupOnFirstLoad'])"; }
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  [ "$(pending)" = False ] && break
+  curl -s -o /dev/null -c "$J" -H 'Content-Type: application/json' -d "{\"email\":\"walk@example.com\",\"firstName\":\"Walk\",\"lastName\":\"Owner\",\"password\":\"$PW\"}" "$B/rest/owner/setup"
+  sleep 3
+done
+[ "$(pending)" = False ] || { echo "STOP: n8n still asks for its owner"; exit 1; }
+grep -q n8n-auth "$J" 2>/dev/null || curl -s -o /dev/null -c "$J" -H 'Content-Type: application/json' -d "{\"emailOrLdapLoginId\":\"walk@example.com\",\"password\":\"$PW\"}" "$B/rest/login"
+grep -q n8n-auth "$J" && echo "owner: set up, logged in" || { echo "STOP: no login cookie"; exit 1; }
 SCOPES=$(curl -sf -b "$J" "$B/rest/api-keys/scopes" | python -I -c "import json, sys; print(json.dumps(json.load(sys.stdin)['data']))")
 curl -sf -b "$J" -H 'Content-Type: application/json' -d "{\"label\":\"post-quality-walk\",\"scopes\":$SCOPES,\"expiresAt\":null}" "$B/rest/api-keys" | python -I -c "import json, sys; print(json.load(sys.stdin)['data']['rawApiKey'])" > "$N/api-key.txt"
 wc -c < "$N/api-key.txt"
 ```
 
-`POST /rest/owner/setup` is the editor's first-run form (it needs a password of 8 to 64 characters with a digit and a capital) and logs the owner in; `GET /rest/api-keys/scopes` lists every scope the owner's role may give a key, and `POST /rest/api-keys` makes a key with all of them, no expiry (it dies with `$N`). Expected: `owner: set up`, then the key's length. The owner reaches the editor at `http://127.0.0.1:5688` with `walk@example.com` and the password in `$N/owner-password.txt`.
+`POST /rest/owner/setup` is the editor's first-run form (it needs a password of 8 to 64 characters with a digit and a capital) and logs the owner in. Its answer proves nothing: on 2.46.6 (2026-11-04) the first call, right after `/rest/settings` turned 200, answered 2xx yet created no owner and set no cookie, and the key step failed after it. The proof is `showSetupOnFirstLoad` in `GET /rest/settings`, which turns `False` once the owner exists, so the block sends the form until it does (10 tries, 3 s apart). When the cookie jar then lacks n8n's `n8n-auth` cookie (a try that created the owner but whose answer was lost), it logs in through `POST /rest/login` (`emailOrLdapLoginId` and `password`, n8n 2.46.6's `LoginRequestDto`). A `STOP` line ends the block with exit 1: read `$N/n8n.log`, then ask the owner. `GET /rest/api-keys/scopes` lists every scope the owner's role may give a key, and `POST /rest/api-keys` makes a key with all of them, no expiry (it dies with `$N`). Expected: `owner: set up, logged in`, then the key's length. The owner reaches the editor at `http://127.0.0.1:5688` with `walk@example.com` and the password in `$N/owner-password.txt`.
 
 ### n8n 6. Connect the site
 

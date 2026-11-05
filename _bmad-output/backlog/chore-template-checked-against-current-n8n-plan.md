@@ -3,7 +3,7 @@ title: 'The workflow template is checked against the current n8n release'
 type: 'chore'
 ticket: '105'
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 baseline_revision: '93eec0bd933ce1ae4fbc9cde81bc95c680c22848'
 route: 'full'
 route_source: 'auto'
@@ -74,6 +74,7 @@ context: ['{project-root}/docs/local-verification.md']
   - The 2.43.0 publish check refused nothing in either template, on creation or on PUT. 2.46.5 became npm `latest` the same day; the validation files are identical in 2.46.4, 2.46.5 and 2.47.0 (`beta`).
   - Cleanup: every n8n object deleted by id (unpublish, then delete: `DELETE` answered 409 before), n8n stopped by its verified PID (node.exe, listening on 5688) both times, the folder with its secrets file and the walk scripts deleted; the showcase restored (plugin zip, database dump, `wp-config.php`, `debug.log` deleted): plugin list, tables/reviews/users/log and plugin files/`wp-config.php` all "same"; the walk folder and the Pro zip deleted. Three showcase reviews went to the AI provider on the owner's key, which only the disposable n8n's credential held.
   - Left for the owner: Windows showed a Defender Firewall prompt at n8n's first listen; the owner could only Cancel, which left two inbound rules named `node.exe` for the deleted scratchpad `node.exe` path (removing them needs an administrator; the owner's call).
+- Done 2026-11-05 (records PR): #237 merged 2026-11-04 (main 12becc7). The two bugs the walk filed are fixed (113 by #240, 112 by #242), and the sprint walk of 2026-11-04 ran template v9 on n8n 2.46.6 (bug 113's plan); `memory/lifecycle.md` names that version. The same records PR restored a lost backslash in Review Triage row 3 (`%LocalAppData%\npm-cache`).
 
 ## Plan Change Log
 
@@ -85,8 +86,7 @@ context: ['{project-root}/docs/local-verification.md']
 |---|---------|---------|-------|-------------------|
 | 1 | The plan's acceptance and ticket AC1–AC3 unmet; memory says "walk pending" | false | reject | The walk runs after the build by design (running now, 2026-11-04); its results replace the "pending" lines before the PR leaves draft. |
 | 2 | Version to prove unclear: the recipe says "take `latest`" (now 2.46.5) while the intent and records name 2.46.4; "becomes `latest`" vs "once it is `stable`" | low | patch | Direct wording fix: the recipe takes the version the ticket names (by default npm `latest` that day); one wait condition. The walk's records name 2.46.4 and note 2.46.5. |
-| 3 | The recipe's `npm install` sets no cache, so npm fills `%LocalAppData%
-pm-cache`, outside the scratchpad and the teardown | medium | patch | Verified in the recipe text; breaks the doc's own scratchpad rule and the owner's deletion rule. Fix: `--cache "$N/npm-cache"`. (The walk's own install passed `--cache` and wrote nothing there.) |
+| 3 | The recipe's `npm install` sets no cache, so npm fills `%LocalAppData%\npm-cache`, outside the scratchpad and the teardown | medium | patch | Verified in the recipe text; breaks the doc's own scratchpad rule and the owner's deletion rule. Fix: `--cache "$N/npm-cache"`. (The walk's own install passed `--cache` and wrote nothing there.) |
 | 4 | The disposable n8n listens on every interface (`N8N_LISTEN_ADDRESS` defaults to `::`) | medium | patch | Seen live in the walk: `0.0.0.0:5688` and `[::]:5688`; the walk restarted n8n with `N8N_LISTEN_ADDRESS=127.0.0.1` and reconnected the site to `http://127.0.0.1:5688`. Fix the recipe the same way (and `N8N_WEBHOOK_URL`, since n8n flags `WEBHOOK_URL` as deprecated). |
 | 5 | The port check only prints "STOP" and the block starts n8n anyway | low | patch | Direct correction: the check exits non-zero before the start. |
 | 6 | Teardown force-kills the PID from a file without checking it is still n8n | medium | patch | A reused PID would kill another process tree; the owner's rule allows stopping only what the session started by exact PID. Fix: confirm with `tasklist` (node.exe) and netstat (owns 5688) before `taskkill`, as the walk did. |

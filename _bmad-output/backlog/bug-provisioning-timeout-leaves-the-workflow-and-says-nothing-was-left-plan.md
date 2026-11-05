@@ -3,7 +3,7 @@ title: 'A failed or removed setup leaves nothing behind in n8n, or says what it 
 type: 'bugfix'
 ticket: 112
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 baseline_revision: '7fd29090b55fe5028d52ab6fa21f907daa781ea6'
 route: 'full'
 route_source: 'pinned'
@@ -76,6 +76,8 @@ context: ['{project-root}/memory/n8n-provisioning.md', '{project-root}/docs/bran
 - Review fix (coordinator, 2026-11-04): `orphan_id()` answers the id, `false` when n8n listed no match, `null` when the lookup got no answer (a WP_Error, a 401, a 5xx). `run()` records the fingerprint in both non-id cases; at the next setup only an answered list without a match drops it, and an unanswered lookup keeps the record unchanged and stops with the 502 `cleanup`, nothing created (rows: the lookup timed out, answered 401). The in-plugin texts follow `docs/policies/readme-external-services.md`: `readme.txt` § External services and `PostQuality_Admin::privacy_policy_content()` name the read. Ticket 114 got a stub plan pointing here.
 - Harness: rows per matrix line in `n8n-provisioning-harness.php` (cold creation; timed out found / not found ×4 variants + ids left + n8n quiet; the next setup's lookup found, not found, refused, another instance, one row fed the record a real run wrote; create refused rows assert no lookup; the credential timeouts' ending; 409 then 2xx ×3 including the published 409; 409 ×4 rows; a 500 and a WP_Error on the DELETE not retried) and `n8n-managed-harness.php` (Start over 409 then 2xx → `removed: true`; the three 409 rows now 4 DELETE calls). Cross-run checks: every create 30 s, every other call 10 s, no `GET /credentials`, no second `POST /workflows`; source pins on the lookup and the one `sleep()`. Mutation check (each reverted, the class restored byte-identical): name-only match, ids-only match, no retry, a 10 s create, no lookup at the next setup, retry on any code — each failed rows.
 - Orchestrator (2026-11-04): the implementer subagent and its patch round ran on Opus 5.5 (`memory/model-split`); the session ran from the workspace root, the workflow rendered by hand. Built on a local branch stacked on bug 113's 7fd2909, kept unpushed until #240 merged (no force push), then rebased onto main. Review pass 1 patch round (same implementer): `orphan_id()` three-way (id / false / null) with the next setup keeping an unanswered fingerprint; `readme.txt` § External services and `privacy_policy_content()` name the lookup (9,324 bytes); ticket 114's stub plan; memory L24/L25 say harness-proven, walk pending. Re-run: every harness 0 failed (provisioning 216, managed 206), `npm run test:unit` 174 passed, `php -l` clean, LF only.
+- **Walk, 2026-11-04 (the sprint's single sitting with bug 113; a fresh disposable n8n 2.46.6, builds from this branch; bug 113's plan holds the whole sequence):** **Start over with removal (bug 114)** on the Pro setup → "removed here and in n8n", no leftovers record; n8n then listed 0 workflows and 0 credentials, and the Application Password was revoked: ticket 114 AC1 and AC2 met. **The timed-out creation (bug 112)** did not occur: the fresh instance's first creation answered in time, so bug 112 rests on its harness rows, as this plan's manual check allowed. The ticket's AC3 is the harness; AC1 and AC2 have no live run.
+- Done 2026-11-05 (records PR): #242 merged 2026-11-04 (main 5e3f0ac); release-please's 3.11.2 PR #243 carries it.
 
 ## Plan Change Log
 

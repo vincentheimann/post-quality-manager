@@ -56,5 +56,6 @@ Updating republishes the workflow, and n8n answers the publish before the new ve
 ## Notes
 
 - Fact (story 98's walk, 2026-11-03): **Test again**, seconds after the update, recorded version 8; the owner's next command recorded it again ("version 8, via command"). So n8n served version 8 within seconds of the update.
+- Fact (the sprint walk, 2026-11-04, a disposable n8n 2.46.6, Free → Pro): the ping sent right after Update workflow reported the Free variant as outdated; a second ping a moment later answered the Pro variant, up to date. The old version still answers for a short while after the PUT on the current n8n too, and the variant flips with it (bug 113's plan, Implementation Notes).
 - Open question: whether a retry on the old version alone covers it, or the update should wait for the new version in another way. Settled at refinement, from the n8n source as for bug 80.
 - Filed 2026-11-03, unrefined.

@@ -47,3 +47,4 @@ The workflow template was last proven on the owner's n8n 2.42.x, and n8n is at 2
   - 2.46.0 "Accept expressions in number, boolean, and options credential fields" and "Advertise the OAuth resource challenge on every public API 401".
 - hitl: the check runs on the owner's n8n instance or a test instance. The owner gives a temporary API key and revokes it after (chore 81).
 - Open question: which n8n the owner's instance runs today, and whether to update it first.
+- Done 2026-11-05: #237 merged 2026-11-04. The walk on a disposable n8n 2.46.4 (not the owner's instance) passed provisioning, ping, Review and Update workflow on same-build setups, with no publish refusal on either template, and filed bugs 112 and 113 (Update workflow after Free → Pro failed: AC2's gap). Both were fixed and walked on 2.46.6 with template v9 on 2026-11-04; AC3's records are `memory/lifecycle.md` and `memory/n8n-provisioning.md`.
