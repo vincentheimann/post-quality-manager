@@ -3,7 +3,7 @@ title: 'After Update workflow, the n8n Workflow page shows the new version, or s
 type: 'bugfix'
 ticket: 99
 created: '2026-11-05'
-status: 'in-review'
+status: 'done'
 baseline_revision: 'd2a6d5c7bb244f857e9247f8dc2d2e978f26232e'
 route: 'full'
 route_source: 'auto'
@@ -106,6 +106,14 @@ Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (bas
 - **Records.** EXPERIENCE.md Flow 4 has a "n8n still switching" paragraph. `memory/n8n-provisioning.md` line 21 has the cause from the source read and the fix. Lines 15 (the update route) and 22 (the outbox line) said the retry was 404-only, so they now name bug 99 as well.
 - **Verified.** `php -l` is clean on the three touched PHP files. Every `tests/harness/*.php` exits 0. `npm run test:unit` passes: 10 suites, 181 tests. No JS change: grepping `src/` and `admin/js/` confirms that the update reply's readers, `pqm-admin.js` `post()` and `confirmUpdate`, only swap `status_html`. There is no `.pot` file to regenerate.
 - **Left to the orchestrator.** The disposable n8n walk (Verification, manual checks), the review, the commit and the PR.
+- **Walk (2026-11-05, second AC; a fork of the orchestrator ran it, no clicks).** A disposable n8n 2.46.6 on 127.0.0.1 (port 5688) ran against the showcase, which was backed up first.
+  - **Setup:** a Free build of the tree, provisioned through `rest_do_request()`. The report read version 9, variant `free`. Then the Pro build (`npm run zip` of cf40c5a); the page showed the Free-variant notice with Update workflow.
+  - **Update** (POST /n8n/workflow as user 1): 3.5 s, `ping_ok` true, `outdated` false, `rewrite_ready` true, "Workflow updated. Ping OK — … the round trip works." in success. The page read "Your workflow answers. Version 9 · checked just now by a test." with no "needs", no Update workflow and no still-switching line. The report: 9 by a test, no variant.
+  - **The window met and retried** (n8n's own executions): execution 2 (20:46:56.9) ran the old published version (`21c0c9e7`, 16 nodes, Free), although `activeVersionId` was already the new one (`11ede0f6`). Execution 3 (20:46:59.6, the retry 2 s later) ran the new one (31 nodes, Pro). One cycle was enough, so the two spare cycles were not run.
+  - **Stand-in:** provisioning checks the Anthropic key live (`check_provider_key()`, `GET https://api.anthropic.com/v1/models?limit=1`, a 2xx passes). The walk's own script answered 200 for that one URL through `pre_http_request`. Nothing in the walk calls Claude, and the dummy key lived only in n8n's credential, deleted with n8n.
+  - **Logs:** `debug.log` held 54 lines, all WP-CLI's own deprecations.
+  - **One aside, not filed:** the first load after the Free build printed "Table 'wp_postquality_reviews' already exists" from the story-91 rename. The rename had completed (30 rows), most likely run at the same moment by a web request (an open showcase tab). Only pre-story-91 sites meet that upgrade, and no public site runs one.
+  - **Restore:** plugin list, tables/reviews/users/log, plugin files + `wp-config.php` all "same". n8n stopped by its recorded PID and its task runner's, ports 5678/5688/5689 free, the n8n folder, the walk folders and the dist zip deleted.
 
 ## Plan Change Log
 
