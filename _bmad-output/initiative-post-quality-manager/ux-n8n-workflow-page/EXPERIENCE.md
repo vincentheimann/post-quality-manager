@@ -169,6 +169,8 @@ Microcopy, per `docs/brand.md` Copy Rules. The wording here is draft; each entry
 2. One button, **Update workflow** (6.9).
 3. **Climax:** one click later, "Your workflow answers. Version 7." No re-import, no credential touched.
 
+*n8n still switching (bug 99):* n8n accepts the update before its webhook runs the new version, so the plugin tests again for a few seconds. When version 6 (or, on Pro, the Free variant) still answers after those tries, the outcome line reads "Workflow updated. n8n is still switching to the new version: press Test the connection in a few seconds." and the page reads "Saved, not checked yet." with **Test the connection** as its one primary action. It never says "needs 7" with **Update workflow** right after an update that passed.
+
 ## Build notes
 
 - `[ASSUMPTION]` The persona's name (Lena) and Flows 1, 2 and 4 are drawn from `docs/user-paths.md` and the spec, not from a recorded session.

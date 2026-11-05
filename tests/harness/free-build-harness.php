@@ -234,7 +234,7 @@ function get_user_meta($uid, $key, $single) { return ''; }
 function get_bloginfo($show = '') { return $show === 'version' ? '6.8' : ''; }
 function wp_get_theme() { return new class { public function get($header) { return $header === 'Name' ? 'Twenty Twenty-Five' : ''; } }; }
 function wp_is_application_passwords_available_for_user($u) { return true; }
-function wp_remote_post($url, $args) { pqm_harness_ping_callback($args, 'received'); return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
+function wp_remote_post($url, $args) { $GLOBALS['tw']['pings'][] = $url; pqm_harness_ping_callback($args, 'received'); return ['response' => ['code' => 200], 'body' => $GLOBALS['tw']['ping_body']]; }
 /* Entry 7: the diagnosis lists node names through wp_sprintf('%l'), as core's wp_sprintf_l() joins them. */
 function wp_sprintf($pattern, ...$args) {
     if ($pattern !== '%l') { return vsprintf($pattern, $args); }
@@ -530,6 +530,7 @@ check('bug 113 (decision 3): the update notice on the Free build, a map without 
     $offered && str_contains($notice, 'The plugin can update it in place:') && !str_contains($notice, 'Application Password')
     && !str_contains((string) file_get_contents($free . '/admin/class-pqm-admin.php'), 'Update workflow also creates an Application Password'));
 $free_writes_before = count($GLOBALS['tw']['writes'] ?? []);
+$GLOBALS['tw']['pings'] = [];
 $updated = PostQuality_REST_API::update_n8n_workflow_callback();
 $updated = $updated instanceof WP_REST_Response ? $updated->get_data() : null;
 $sent    = json_decode($GLOBALS['tw']['calls'][1][1]['body'] ?? 'null', true);
@@ -550,6 +551,9 @@ check('... reply updated and pinged, the status block back, no rewrite_ready; th
     && $updated['updated'] === true && $updated['ping_ok'] === true && isset($updated['status_html']) && !array_key_exists('rewrite_ready', $updated)
     && str_starts_with($updated['message'], 'Workflow updated. Ping OK') && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
     && !str_contains(json_encode($updated), 'free-build-n8n-key-secret') && !str_contains($GLOBALS['tw']['calls'][1][1]['body'], 'free-token'));
+check('... bug 99: the Free variant is never "older" on the Free build — one ping, recorded with its variant, a success line', count($GLOBALS['tw']['pings']) === 1
+    && $updated['outdated'] === false && (postquality_workflow_report()['variant'] ?? '') === 'free'
+    && str_contains($updated['status_html'], '<p class="pqm-workflow-outcome is-success">') && !str_contains($updated['status_html'], 'still switching'));
 check('... the workflow route is there, as on Pro, gated by check_manage_settings', ($GLOBALS['pqm_routes']['/n8n/workflow']['methods'] ?? null) === 'POST'
     && ($GLOBALS['pqm_routes']['/n8n/workflow']['permission_callback'] ?? null) === ['PostQuality_REST_API', 'check_manage_settings']);
 $GLOBALS['tw']['options'] = $before_adoption;

@@ -401,7 +401,8 @@ function postquality_workflow_json(?string $path = null): ?string
  * `failed` before the version.
  * Version 0 = an older workflow that does not report its number (a v1–v4
  * trigger answering a test ping). Null when nothing was reported since the
- * template was last served. A pre-v5 plugin stored a bare int from a
+ * template was last served or last updated in n8n by Update workflow (bug
+ * 99). A pre-v5 plugin stored a bare int from a
  * command's callback: read as that, with no time.
  */
 function postquality_workflow_report(): ?array
@@ -452,8 +453,8 @@ function postquality_record_workflow_version(int $version, string $via, string $
  * Record that a test of the saved webhook URL did not get through (story
  * 67): `failed` = {message, at} on the report option, every other key as
  * stored, so the last passing report stays readable. A passing test
- * (postquality_record_workflow_version()) clears it; a URL change or a template
- * serve deletes the option as before.
+ * (postquality_record_workflow_version()) clears it; a URL change, a template
+ * serve or a passed Update workflow (bug 99) deletes the option as before.
  */
 function postquality_record_workflow_failure(string $message): void
 {

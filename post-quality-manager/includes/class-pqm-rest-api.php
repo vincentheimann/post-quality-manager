@@ -1653,22 +1653,51 @@ class PostQuality_REST_API {
      * publishing the workflow when the activate reply returns, so a ping sent
      * at once can meet a 404 that is nobody's fault — see
      * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
-     * Only a 404 is retried, up to PROVISION_PINGS pings 2 s apart (filter
-     * `postquality_provision_ping_retry_wait`; the harness sets 0); every other
-     * answer, pass or fail, counts the first time. Provisioning and the
-     * update (bug 84; memory/n8n-provisioning.md) are the callers that
-     * just published something: the Test button, POST /setup/connect and
-     * the rotation (a credential only) ping once.
+     * An updated webhook can also go on answering from the version it
+     * replaced until n8n has switched (bug 99; memory/n8n-provisioning.md,
+     * the 2026-11-05 source read). So a 404 and a passing answer from an
+     * older template (answered_older()) are retried, up to PROVISION_PINGS
+     * pings 2 s apart (filter `postquality_provision_ping_retry_wait`; the
+     * harness sets 0); every other answer, pass or fail, counts the first
+     * time. Provisioning and the update (bug 84; memory/n8n-provisioning.md)
+     * are the callers that just published something: the Test button,
+     * POST /setup/connect and the rotation (a credential only) ping once.
+     * Ceiling: at the current version a Free answer waits for its callback
+     * on each try (ping_reply()), so a site n8n cannot call back waits up to
+     * 3 × 8 s.
      */
     private static function ping_after_activation( string $url ): array {
         for ( $attempt = 1; ; $attempt++ ) {
             // The workflow was just created or updated: a 404 here is the window, never a gone workflow (story 71, no read).
-            $ping = PostQuality_Admin::ping_webhook( $url, true, false );
-            if ( $ping['ok'] || 404 !== ( $ping['code'] ?? 0 ) || $attempt >= self::PROVISION_PINGS ) {
+            $ping   = PostQuality_Admin::ping_webhook( $url, true, false );
+            $window = 404 === ( $ping['code'] ?? 0 ) || self::answered_older( $ping );
+            if ( ! $window || $attempt >= self::PROVISION_PINGS ) {
                 return $ping;
             }
             sleep( max( 0, (int) apply_filters( 'postquality_provision_ping_retry_wait', 2 ) ) );
         }
+    }
+
+    /**
+     * Whether the ping passed with an answer from an older template than
+     * this build's (bug 99): a version below POSTQUALITY_WORKFLOW_VERSION
+     * or, on the Pro build, the Free variant. Never the ping's `outdated`,
+     * which a mis-wiring sets too (PostQuality_Admin::diagnosed()).
+     */
+    private static function answered_older( array $ping ): bool {
+        if ( ! $ping['ok'] ) {
+            return false;
+        }
+        if ( $ping['version'] < POSTQUALITY_WORKFLOW_VERSION ) {
+            return true;
+        }
+        if ( postquality_fs()->is__premium_only() ) {
+            if ( 'free' === ( $ping['variant'] ?? '' ) ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1699,7 +1728,8 @@ class PostQuality_REST_API {
      * The tail every pinging reply shares (story 77): the answered version
      * recorded when the ping got through, the page's refreshed body with the
      * message first (entry 6; story 67) in tone(), 200. `$ping` is null when
-     * no ping was sent (the URL could not be saved).
+     * no ping was sent (the URL could not be saved) or its answer is not the
+     * result (bug 99: an update n8n is still switching to).
      */
     private static function finish( array $reply, ?array $ping ): WP_REST_Response {
         if ( $ping && $ping['ok'] ) {
@@ -1803,32 +1833,47 @@ class PostQuality_REST_API {
     /**
      * Update the managed workflow to the bundled template:
      * PostQuality_N8n::update_workflow() reads it once and PUTs the build's template
-     * onto it (credentials and path kept), then the ping of the
-     * saved URL (a 404 retried, ping_after_activation()), its diagnosis included, proves the new version answers. A
-     * refused update answers its error, nothing written but, on the Pro
-     * build, a WordPress credential the update created before n8n refused
-     * the PUT (bug 113: kept in the map for the next try). Answers
-     * `{ updated, ping_ok, outdated, message, status_html }`: the page's
-     * refreshed body with the message first (story 67; the version recorded
-     * when the ping passed, the failure otherwise, as the rotation does)
-     * and, on the Pro build, `rewrite_ready` (false when the map still has
-     * no WordPress credential, i.e. no Application Passwords for this user:
-     * that node goes without a credential, D1).
+     * onto it (credentials and path kept), then the ping of the saved URL
+     * (a 404 or an answer from the replaced version retried,
+     * ping_after_activation()), its diagnosis included, proves the new
+     * version answers. A passed update forgets the stored report, as a
+     * template serve does. When the last ping still answers from an older
+     * template, n8n has not switched yet (bug 99): the message says so and
+     * nothing is recorded, so the page reads "Saved, not checked yet." with
+     * Test the connection. A refused update answers its error, nothing
+     * written but, on the Pro build, a WordPress credential the update
+     * created before n8n refused the PUT (bug 113: kept in the map for the
+     * next try). Answers `{ updated, ping_ok, outdated, message, status_html }`:
+     * the page's refreshed body with the message first (story 67; the
+     * version recorded when the ping passed, the failure otherwise, as the
+     * rotation does) and, on the Pro build, `rewrite_ready` (false when the
+     * map still has no WordPress credential, i.e. no Application Passwords
+     * for this user: that node goes without a credential, D1).
      */
     public static function update_n8n_workflow_callback(): WP_REST_Response|WP_Error {
         $setup = PostQuality_N8n::update_workflow();
         if ( is_wp_error( $setup ) ) {
             return self::with_body( $setup );
         }
+        // n8n holds the new version now: the last report no longer says what
+        // runs there, so the page shows "not checked yet" until a ping.
+        delete_option( 'postquality_workflow_version_seen' );
 
-        // The PUT just passed: a 404 is the publication window (bug 84, memory/n8n-provisioning.md),
-        // retried like provisioning's, never a gone workflow (story 71, no read).
-        $ping    = self::ping_after_activation( (string) postquality_get_settings()['n8n_webhook_url'] );
-        $message = $ping['ok']
-            /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
-            ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
-            /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-            : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
+        // The PUT just passed: a 404, or the replaced version answering, is the publication window
+        // (bugs 84 and 99, memory/n8n-provisioning.md), retried like provisioning's, never a gone workflow (story 71, no read).
+        $ping      = self::ping_after_activation( (string) postquality_get_settings()['n8n_webhook_url'] );
+        $switching = self::answered_older( $ping );
+        if ( $switching ) {
+            $message = __( 'Workflow updated. n8n is still switching to the new version: press Test the connection in a few seconds.', 'post-quality-manager' );
+            // Not the update's result, and neither is a 404 an earlier try recorded: the workflow answers.
+            delete_option( 'postquality_workflow_version_seen' );
+        } else {
+            $message = $ping['ok']
+                /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
+                ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
+                /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
+                : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
+        }
 
         $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];
         if ( postquality_fs()->is__premium_only() ) {
@@ -1837,7 +1882,7 @@ class PostQuality_REST_API {
                 $reply['message'] .= ' ' . __( 'Rewrite stays off until a WordPress credential is set in n8n on the Update WP Post (Rewrite) node.', 'post-quality-manager' );
             }
         }
-        return self::finish( $reply, $ping );
+        return self::finish( $reply, $switching ? null : $ping );
     }
 
     /**

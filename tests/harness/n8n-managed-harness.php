@@ -80,9 +80,9 @@ check('... the saved URL with a trailing slash: the same path, rotated', rotate(
 managed([PATCHED]);
 $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION - 1]);
 $r = rotate();
-check('... an older workflow answers the ping: rotated, ping_ok and outdated true, its message after "Token rotated.", status_html present', $r['rotated'] === true
+check('... an older workflow answers the ping: rotated, ping_ok and outdated true, its message after "Token rotated.", status_html present; one ping (bug 99: a rotation never retries)', $r['rotated'] === true
     && $r['ping_ok'] === true && $r['outdated'] === true && str_starts_with($r['message'], 'Token rotated. Ping OK — this site reaches n8n, but your n8n workflow is an older version')
-    && isset($r['status_html']) && token_now() === ROTATED);
+    && isset($r['status_html']) && token_now() === ROTATED && count($GLOBALS['tw']['pings']) === 1);
 managed([PATCHED]);
 $GLOBALS['tw']['options']['postquality_workflow_version_seen'] = ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => 1700000000, 'miswired' => SHARED_SENTENCE];
 $r = rotate();
@@ -249,7 +249,7 @@ check('... the version recorded by a test; the body is set up with the new versi
     && postquality_workflow_report()['via'] === 'test' && str_contains($r['status_html'], 'Version ' . POSTQUALITY_WORKFLOW_VERSION . ' · checked just now by a test.')
     && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>')
     && !str_contains($r['status_html'], 'pqm-update-workflow') && one_primary($r['status_html']));
-check('... the version record the one write: the map, the connection and the settings untouched', writes() === ['postquality_workflow_version_seen']
+check('... the version record the one write, after the stored report is forgotten (bug 99): the map, the connection and the settings untouched', writes() === ['-postquality_workflow_version_seen', 'postquality_workflow_version_seen']
     && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $setup_map[PostQuality_N8n::SETUP_OPTION]);
 managed([resp(200, ['name' => 'Reviews for my blog'] + stored_workflow('wf1', wired())), UPDATED, CLEAN_WF], $setup_map + $older_report);
 update();
@@ -258,12 +258,7 @@ managed([resp(200, stored_workflow('wf1', wired(['Post Quality webhook - example
 update();
 check('a map id the read workflow no longer carries (the trigger was re-pointed in n8n): linked by the map\'s id, with an empty name',
     linked(body(1))['Webhook Trigger'] === ['httpHeaderAuth' => ['id' => 'c-webhook', 'name' => '']]);
-managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
-$GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION - 1]);
-$r = update();
-check('an older workflow still answers the ping (not republished yet): updated, ping_ok and outdated true, a warning; the block offers the update again',
-    $r['updated'] === true && $r['ping_ok'] === true && $r['outdated'] === true && str_starts_with($r['message'], 'Workflow updated. Ping OK — this site reaches n8n, but your n8n workflow is an older version')
-    && str_contains($r['status_html'], UPDATE_BUTTON));
+// An older workflow still answering the ping after the update (n8n not switched yet): bug 99's rows below.
 managed([CLEAN_WF, UPDATED, resp(200, stored_workflow('wf1', $oct13))], $setup_map + $older_report);
 $r = update();
 check('the ping\'s diagnosis finds the published version mis-wired: the sentence as the message, outdated; the block shows the sentence with Test again as the one primary (the version is current: no update notice)',
@@ -289,7 +284,7 @@ check('... Rewrite unwired (Pro, Application Passwords on): the WordPress creden
     && $links['Update WP Post (Rewrite)'] === ['httpBasicAuth' => ['id' => 'c-wp-new', 'name' => '']] && count($links) === 8 && !array_filter($links, static fn($c) => !isset(reset($c)['id'])));
 check('... the map gains credentials.wordpress and application_password, stored before the PUT; wizard_created, path and the other ids kept; autoload off',
     $map_at_put === $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] && $map_at_put === array_replace_recursive($adopted_map[PostQuality_N8n::SETUP_OPTION], ['credentials' => ['wordpress' => 'c-wp-new']]) + ['application_password' => ['uuid' => 'app-uuid', 'user_id' => 7]]
-    && $GLOBALS['tw']['autoload'][PostQuality_N8n::SETUP_OPTION] === false && writes() === [PostQuality_N8n::SETUP_OPTION, 'postquality_workflow_version_seen']);
+    && $GLOBALS['tw']['autoload'][PostQuality_N8n::SETUP_OPTION] === false && writes() === [PostQuality_N8n::SETUP_OPTION, '-postquality_workflow_version_seen', 'postquality_workflow_version_seen']);
 check('... one Application Password, of the administrator who clicked; none revoked', count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_created'][0][0] === 7
     && str_starts_with($GLOBALS['tw']['app_created'][0][1]['name'], 'Post Quality Manager (n8n) ') && $GLOBALS['tw']['app_revoked'] === []);
 check('... rewrite_ready true, "Workflow updated." + the ping\'s message and nothing after it; the diagnosis reads the Rewrite node linked: the version recorded, the body set up, a success line',
@@ -335,7 +330,7 @@ check('... the PUT: the Pro template, all 8 credentialed nodes linked by id (the
     && linked($sent)['Webhook Trigger'] === ['httpHeaderAuth' => WEBHOOK_CRED] && count(array_filter(linked($sent), static fn($c) => $c === ['httpHeaderAuth' => ANTHROPIC_CRED])) === 6);
 check('... the map gains credentials.wordpress and application_password {uuid, user_id}, stored before the PUT, autoload off', $map_at_put === $with_wp($free_map)[PostQuality_N8n::SETUP_OPTION]
     && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $map_at_put && $GLOBALS['tw']['autoload'][PostQuality_N8n::SETUP_OPTION] === false
-    && writes() === [PostQuality_N8n::SETUP_OPTION, 'postquality_workflow_version_seen']);
+    && writes() === [PostQuality_N8n::SETUP_OPTION, '-postquality_workflow_version_seen', 'postquality_workflow_version_seen']);
 check('... one Application Password, for user 7; none revoked', count($GLOBALS['tw']['app_created']) === 1 && $GLOBALS['tw']['app_created'][0][0] === 7 && $GLOBALS['tw']['app_revoked'] === []);
 check('... reply {updated, ping_ok, outdated, message, rewrite_ready, status_html}: rewrite_ready true, "Workflow updated." + the ping\'s message; set up, the Pro version recorded',
     array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['rewrite_ready'] === true && $r['message'] === 'Workflow updated. ' . PING_OK
@@ -398,7 +393,7 @@ check('... the PUT: 7 nodes linked by id, Update WP Post (Rewrite) without a `cr
     && $GLOBALS['tw']['calls'][1][2] === UPDATED);
 check('... rewrite_ready false and today\'s message; the map without wordpress, untouched; the diagnosis skips that node (set up, a warning line)', $r['updated'] === true && $r['rewrite_ready'] === false
     && $r['message'] === 'Workflow updated. ' . PING_OK . ' ' . REWRITE_OFF && $GLOBALS['tw']['options'][PostQuality_N8n::SETUP_OPTION] === $free_map[PostQuality_N8n::SETUP_OPTION]
-    && writes() === ['postquality_workflow_version_seen'] && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">'));
+    && writes() === ['-postquality_workflow_version_seen', 'postquality_workflow_version_seen'] && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">'));
 
 echo "Update: a Rewrite node n8n bound to another site's credential (bug 113) — relinked\n";
 const DECOY = ['id' => 'c-decoy', 'name' => 'Decoy - another site']; // the 2026-11-04 probe: n8n bound a name-only node to the one httpBasicAuth credential it held
@@ -493,9 +488,10 @@ foreach ([
     managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
     $GLOBALS['tw']['ping_response'] = $ping;
     $r = update();
-    check("$label: updated, ping_ok false, the message says so; the body needs attention (the failure the only option written, once per ping; the older version kept)", is_array($r)
+    check("$label: updated, ping_ok false, the message says so; the body needs attention (the older report forgotten, bug 99, then the failure the only option written, once per ping, on an empty report: no version line)", is_array($r)
         && array_keys($r) === ['updated', 'ping_ok', 'outdated', 'message', 'rewrite_ready', 'status_html'] && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
-        && str_starts_with($r['message'], $message) && writes() === array_fill(0, $pings, 'postquality_workflow_version_seen') && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION - 1
+        && str_starts_with($r['message'], $message) && writes() === ['-postquality_workflow_version_seen', ...array_fill(0, $pings, 'postquality_workflow_version_seen')]
+        && array_keys($GLOBALS['tw']['options']['postquality_workflow_version_seen']) === ['failed'] && !str_contains($r['status_html'], 'pqm-workflow-version')
         && state_of($r['status_html']) === 'failing' && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-error">' . $r['message'] . '</p>')
         && calls() === [READ_WF, PUT_WF] && count($GLOBALS['tw']['pings']) === $pings);
 }
@@ -517,7 +513,93 @@ check('404, 404, then a pass: 3 pings, then as passed', count($GLOBALS['tw']['pi
 managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
 $GLOBALS['tw']['ping_queue'] = [resp(401, '')];
 $r = update();
-check('a 401 first: no retry (only a 404 is the window), one ping, the failure', count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false);
+check('a 401 first: a 401 is not the window, no retry, one ping, the failure', count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false);
+
+/* ─── Bug 99: the replaced version still answers right after the PUT (one row per line of its plan's matrix) ─ */
+echo "Update: the replaced version still answers the ping (bug 99)\n";
+const STILL_SWITCHING = 'Workflow updated. n8n is still switching to the new version: press Test the connection in a few seconds.';
+/** A passing ping's answer from the given template version; the Free variant when asked. */
+$answers = static fn(int $version, string $variant = 'pro'): array => resp(200, ['ok' => true, 'workflow_version' => $version] + ($variant === 'free' ? ['workflow_variant' => 'free'] : []));
+$older   = $answers(POSTQUALITY_WORKFLOW_VERSION - 1);
+// Every passing try runs the diagnosis read: one CLEAN_WF per passing ping after GET and PUT.
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [$older];
+$r = update();
+check('old, then new: 2 pings, a diagnosis read after each; updated, ping_ok, not outdated, "Workflow updated." + the ping\'s message', is_array($r) && count($GLOBALS['tw']['pings']) === 2
+    && calls() === [READ_WF, PUT_WF, READ_WF, READ_WF] && $GLOBALS['tw']['queue'] === [] && $r['ping_ok'] === true && $r['outdated'] === false && $r['message'] === 'Workflow updated. ' . PING_OK);
+check('... the new version recorded by a test; the body "Your workflow answers.", a success line, no update button', postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
+    && postquality_workflow_report()['via'] === 'test' && state_of($r['status_html']) === 'set-up' && str_contains($r['status_html'], 'Your workflow answers.')
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">' . $r['message'] . '</p>') && !str_contains($r['status_html'], 'pqm-update-workflow'));
+
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF], $setup_map + $free_report);
+$GLOBALS['tw']['ping_queue'] = [$answers(POSTQUALITY_WORKFLOW_VERSION, 'free')];
+$r = update();
+check('Free, then Pro (the Pro build): 2 pings; the version recorded without the variant; set up, a success line', count($GLOBALS['tw']['pings']) === 2 && $r['ping_ok'] === true && $r['outdated'] === false
+    && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && !isset(postquality_workflow_report()['variant']) && state_of($r['status_html']) === 'set-up'
+    && str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-success">'));
+
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_response'] = $older;
+$r = update();
+check('old outlasts the retries: 3 pings, no more; updated, ping_ok and outdated true, the still-switching sentence', count($GLOBALS['tw']['pings']) === 3 && $GLOBALS['tw']['queue'] === []
+    && $r['updated'] === true && $r['ping_ok'] === true && $r['outdated'] === true && $r['message'] === STILL_SWITCHING);
+check('... nothing recorded, the earlier report gone', !array_key_exists('postquality_workflow_version_seen', $GLOBALS['tw']['options']) && postquality_workflow_report() === null
+    && !in_array('postquality_workflow_version_seen', writes(), true));
+check('... the body: the sentence as a warning, "Saved, not checked yet.", Test the connection the one primary; no version line, no "needs N", no Update workflow',
+    str_contains($r['status_html'], '<p class="pqm-workflow-outcome is-warning">' . STILL_SWITCHING . '</p>') && state_of($r['status_html']) === 'not-checked'
+    && str_contains($r['status_html'], 'Saved, not checked yet.') && str_contains($r['status_html'], '<button type="button" class="button button-primary pqm-test-connection">Test the connection</button>')
+    && one_primary($r['status_html']) && !str_contains($r['status_html'], 'pqm-workflow-version') && !str_contains($r['status_html'], 'this plugin needs')
+    && !str_contains($r['status_html'], 'pqm-update-workflow'));
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF, CLEAN_WF], $setup_map + $free_report);
+$GLOBALS['tw']['ping_response'] = $answers(POSTQUALITY_WORKFLOW_VERSION, 'free');
+$r = update();
+check('... the Free variant outlasting them on Pro: the same — 3 pings, the sentence, nothing recorded, not checked yet', count($GLOBALS['tw']['pings']) === 3 && $r['message'] === STILL_SWITCHING
+    && postquality_workflow_report() === null && state_of($r['status_html']) === 'not-checked' && !str_contains($r['status_html'], 'pqm-update-workflow'));
+
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [HOOK_404, $older];
+$r = update();
+check('404, old, new: 3 pings; the new version recorded, the 404\'s failure cleared; set up', count($GLOBALS['tw']['pings']) === 3 && $r['ping_ok'] === true && $r['outdated'] === false
+    && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && !isset(postquality_workflow_report()['failed']) && state_of($r['status_html']) === 'set-up'
+    && calls() === [READ_WF, PUT_WF, READ_WF, READ_WF] && $GLOBALS['tw']['queue'] === []);
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_queue'] = [HOOK_404, $older, $older];
+$r = update();
+check('... 404, old, old: the still-switching sentence; the 404\'s failure gone too (the workflow answers): not checked yet', count($GLOBALS['tw']['pings']) === 3 && $r['message'] === STILL_SWITCHING
+    && postquality_workflow_report() === null && state_of($r['status_html']) === 'not-checked');
+
+managed([CLEAN_WF, UPDATED, resp(200, stored_workflow('wf1', $oct13))], $setup_map + $older_report);
+$r = update();
+check('current, mis-wired: 1 ping, no retry (the diagnosis sets outdated, the version is current); recorded mis-wired as today, needs attention', count($GLOBALS['tw']['pings']) === 1
+    && $r['ping_ok'] === true && $r['outdated'] === true && postquality_workflow_report()['miswired'] === SHARED_SENTENCE
+    && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && $GLOBALS['tw']['queue'] === [] && state_of($r['status_html']) === 'failing');
+
+managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
+$GLOBALS['tw']['ping_response'] = resp(401, '');
+$r = update();
+check('the ping refused after the PUT (401): 1 ping; "The workflow was updated in n8n." + its cause; the failure on an empty report: needs attention, no version line',
+    count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false && str_starts_with($r['message'], 'The workflow was updated in n8n. n8n refused the webhook credential (HTTP 401).')
+    && array_keys($GLOBALS['tw']['options']['postquality_workflow_version_seen']) === ['failed'] && state_of($r['status_html']) === 'failing'
+    && !str_contains($r['status_html'], 'pqm-workflow-version'));
+
+// The Free build's row (the variant is never "older" there) is in free-build-harness.php's update row.
+
+connected([...PRO_OK, CLEAN_WF]);
+$GLOBALS['tw']['ping_queue'] = [$older];
+$r = provision();
+check('provisioning, old then new: retried the same way — 2 pings; the template\'s version recorded, ping_ok', count($GLOBALS['tw']['pings']) === 2 && $r['provisioned'] === true
+    && $r['ping_ok'] === true && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && $GLOBALS['tw']['queue'] === []);
+connected([...PRO_OK, CLEAN_WF, CLEAN_WF]);
+$GLOBALS['tw']['ping_response'] = $older;
+$r = provision();
+check('... old outlasting them: 3 pings, then today\'s outcome — the older version recorded, ping_ok, the ping\'s own message, no still-switching sentence', count($GLOBALS['tw']['pings']) === 3
+    && $r['ping_ok'] === true && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION - 1 && !str_contains($r['message'], 'still switching') && $GLOBALS['tw']['queue'] === []);
+
+managed([CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_response'] = $older;
+$r = connect_ping(HOOK);
+check('POST /setup/connect still pings once: an older answer recorded as it comes (the rotation: its row above; the Test button: no retry in class-pqm-admin.php, the provisioning harness\'s source pin)', count($GLOBALS['tw']['pings']) === 1
+    && $r['ping_ok'] === true && $r['outdated'] === true && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION - 1);
 
 echo "Update: after\n";
 managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
