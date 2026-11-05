@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.12.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.2...v3.12.0) (2026-11-05)
+
+
+### Features
+
+* **setup:** a blogger who chose to set up n8n by hand can go back to the guided setup ([d85487f](https://github.com/vincentheimann/post-quality-manager/commit/d85487fa4cc72c6557996b55dfb64648d28ef072))
+
+
+### Bug Fixes
+
+* **setup:** the page's "Use the guided setup instead" opens the dialog on Connect your n8n at once ([d2a6d5c](https://github.com/vincentheimann/post-quality-manager/commit/d2a6d5c7bb244f857e9247f8dc2d2e978f26232e))
+
 ## [3.11.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.1...v3.11.2) (2026-11-04)
 
 
