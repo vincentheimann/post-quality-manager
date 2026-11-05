@@ -179,6 +179,35 @@ function provisionedSite( values = {} ) {
 }
 
 /**
+ * GET /setup of a site on the manual path by the owner's choice, no URL
+ * saved, no key passing (a passing key hides the choice: the key path).
+ *
+ * @return {Object} Setup state.
+ */
+function choiceSite() {
+	// eslint-disable-next-line camelcase -- REST field name.
+	return siteState( { manual: true, manual_reason: { kind: 'choice' } } );
+}
+
+/**
+ * GET /setup of a site on the manual path after a failed connection check
+ * that offered it, no URL saved.
+ *
+ * @return {Object} Setup state.
+ */
+function probeSite() {
+	return siteState( {
+		manual: true,
+		// eslint-disable-next-line camelcase -- REST field name.
+		manual_reason: {
+			kind: 'probe',
+			message: 'The public API is turned off on this instance.',
+			at: 'October 14, 2026',
+		},
+	} );
+}
+
+/**
  * GET /setup of a site whose workflow was made by hand: a URL saved, no
  * setup map, so the manual path, its one step done; `values` override it.
  *
@@ -211,11 +240,13 @@ let replies;
  *
  * @param {Object} state   GET /setup state.
  * @param {Object} answers Replies by "METHOD path".
+ * @param {string} step    The page button's `data-step`, if any.
  */
-async function openDialog( state, answers = {} ) {
+async function openDialog( state, answers = {}, step = '' ) {
 	// The page (story 67): the island's root, the body with the status block
 	// and the Set up by hand disclosure, and the block's button that opens the dialog.
-	document.body.innerHTML = `<div id="pqm-setup-root"></div><div id="pqm-workflow-body" aria-live="polite">${ OLD_BLOCK }<details class="pqm-disclosure" id="pqm-by-hand"><summary><h2>Set up by hand</h2></summary></details><button type="button" class="pqm-open-setup">Set up n8n</button></div>`;
+	const dataStep = step ? ` data-step="${ step }"` : '';
+	document.body.innerHTML = `<div id="pqm-setup-root"></div><div id="pqm-workflow-body" aria-live="polite">${ OLD_BLOCK }<details class="pqm-disclosure" id="pqm-by-hand"><summary><h2>Set up by hand</h2></summary></details><button type="button" class="pqm-open-setup"${ dataStep }>Set up n8n</button></div>`;
 	replies = {
 		[ `GET ${ SETUP }` ]: state,
 		[ `GET ${ CONNECTION }` ]: state.n8n,
@@ -249,6 +280,19 @@ async function openDialog( state, answers = {} ) {
 function closeRequests() {
 	const details = [];
 	document.addEventListener( 'postquality:setup-closed', ( event ) =>
+		details.push( event.detail )
+	);
+	return details;
+}
+
+/**
+ * Listen for the page refresh the dialog asks for while open (postquality:workflow-refresh).
+ *
+ * @return {Object[]} The events' `detail`s, as they arrive.
+ */
+function refreshRequests() {
+	const details = [];
+	document.addEventListener( 'postquality:workflow-refresh', ( event ) =>
 		details.push( event.detail )
 	);
 	return details;
@@ -592,67 +636,168 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
 	} );
 
-	test( 'a re-walk on the manual path opens on Set up by hand: the reason, the link, the paste-URL body, the key path collapsed', async () => {
-		await openDialog(
-			siteState( {
-				manual: true,
-				// eslint-disable-next-line camelcase -- REST field name.
-				manual_reason: { kind: 'choice' },
-			} )
-		);
+	test( 'a re-walk on the manual path, by choice: opens on Set up by hand — the reason, "Use the guided setup instead" right after it, the link, the paste-URL body; no "Connect by key instead" (story 106)', async () => {
+		await openDialog( choiceSite() );
 		expect( heading() ).toBe( 'Step 1 of 5: Set up by hand' );
 		expect( nav() ).not.toContain( 'Connect your n8n' );
-		expect(
-			document.querySelector( '.mock-notice-info' ).textContent
-		).toBe( 'You chose to set up n8n by hand.' );
+		const notice = document.querySelector( '.mock-notice-info' );
+		expect( notice.textContent ).toBe( 'You chose to set up n8n by hand.' );
+		// Its own line after the Notice, a link-styled button (the ConnectN8n pattern).
+		const way = notice.nextElementSibling;
+		expect( way.tagName ).toBe( 'P' );
+		expect( way.querySelector( 'button' ).textContent ).toBe(
+			'Use the guided setup instead'
+		);
+		expect( way.querySelector( 'button' ).dataset.variant ).toBe( 'link' );
 		expect(
 			document.querySelector( '.pqm-setup-step a[href="#pqm-by-hand"]' )
 				.textContent
 		).toBe( 'Set up by hand' );
 		expect( field( 'Production webhook URL' ) ).not.toBeNull();
+		expect(
+			document.querySelector( 'details.pqm-setup-by-key' )
+		).toBeNull();
+		expect( document.querySelector( '.pqm-n8n-connection' ) ).toBeNull();
+	} );
+
+	test( 'a failed check that offered the manual path: its date and cause, the key path collapsed under "Connect by key instead", no way back by choice', async () => {
+		await openDialog( probeSite() );
+		expect(
+			document.querySelector( '.mock-notice-info' ).textContent
+		).toBe(
+			'On October 14, 2026, the n8n connection check did not pass: The public API is turned off on this instance.'
+		);
 		const details = document.querySelector( 'details.pqm-setup-by-key' );
 		expect( details.open ).toBe( false );
 		expect( details.querySelector( 'summary' ).textContent ).toBe(
 			'Connect by key instead'
 		);
 		expect( details.querySelector( '.pqm-n8n-connection' ) ).not.toBeNull();
+		expect( button( 'Use the guided setup instead' ) ).toBeUndefined();
 	} );
 
-	test( 'a failed check that offered the manual path: its date and cause', async () => {
-		await openDialog(
-			siteState( {
-				manual: true,
-				// eslint-disable-next-line camelcase -- REST field name.
-				manual_reason: {
-					kind: 'probe',
-					message: 'The public API is turned off on this instance.',
-					at: 'October 14, 2026',
-				},
-			} )
-		);
-		expect(
-			document.querySelector( '.mock-notice-info' ).textContent
-		).toBe(
-			'On October 14, 2026, the n8n connection check did not pass: The public API is turned off on this instance.'
-		);
+	test( 'the manual step\'s "Use the guided setup instead": the choice removed, the dialog on Connect your n8n, the page asked to follow', async () => {
+		await openDialog( choiceSite(), {
+			[ `POST ${ SETUP }` ]: siteState(),
+		} );
+		const refreshed = refreshRequests();
+		await act( async () => {
+			button( 'Use the guided setup instead' ).click();
+		} );
+		expect( posts() ).toEqual( [
+			{ path: SETUP, method: 'POST', data: { manual: false } },
+		] );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+		expect( nav() ).not.toContain( 'Set up by hand' );
+		expect( document.querySelector( '.mock-modal' ) ).not.toBeNull();
+		expect( refreshed ).toEqual( [ { focus: undefined } ] );
 	} );
 
-	test( 'the key passes from the manual step, no URL saved: the key path comes back, on Set up the workflow', async () => {
+	test( 'the page\'s "Use the guided setup instead" (data-step="guided"), no key: the dialog opens, removes the choice, shows Connect your n8n, the page follows; choosing by hand again stores it again', async () => {
+		const refreshed = refreshRequests();
 		await openDialog(
-			siteState( {
-				manual: true,
-				// eslint-disable-next-line camelcase -- REST field name.
-				manual_reason: { kind: 'choice' },
-			} ),
+			choiceSite(),
 			{
-				[ `POST ${ CONNECTION }` ]: storeKey(
-					siteState( {
-						n8n: PASSING,
-						steps: { ...siteState().steps, n8n: true },
-					} )
-				),
-			}
+				[ `POST ${ SETUP }` ]: ( data ) =>
+					data.manual ? choiceSite() : siteState(),
+			},
+			'guided'
 		);
+		expect( posts() ).toEqual( [
+			{ path: SETUP, method: 'POST', data: { manual: false } },
+		] );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+		expect( refreshed ).toEqual( [ { focus: undefined } ] );
+		const closed = closeRequests();
+		await act( async () => {
+			button( 'Set up by hand instead' ).click();
+		} );
+		expect( posts()[ 1 ] ).toEqual( {
+			path: SETUP,
+			method: 'POST',
+			data: { manual: true },
+		} );
+		expect( document.querySelector( '.mock-modal' ) ).toBeNull();
+		expect( closed ).toEqual( [ { focus: 'pqm-by-hand' } ] );
+	} );
+
+	test( 'the page\'s "Use the guided setup instead", a passing key (GET /setup already on the key path): the choice removed, the dialog on Set up the workflow', async () => {
+		const keyed = siteState( {
+			n8n: PASSING,
+			steps: { ...siteState().steps, n8n: true },
+		} );
+		const refreshed = refreshRequests();
+		await openDialog( keyed, { [ `POST ${ SETUP }` ]: keyed }, 'guided' );
+		expect( posts() ).toEqual( [
+			{ path: SETUP, method: 'POST', data: { manual: false } },
+		] );
+		expect( heading() ).toBe( 'Step 2 of 6: Set up the workflow' );
+		expect( refreshed ).toEqual( [ { focus: undefined } ] );
+	} );
+
+	test( 'the guided setup, the write refused: the dialog stays on Set up by hand with the cause, else the fallback; the page is not asked to follow', async () => {
+		const refreshed = refreshRequests();
+		await openDialog(
+			choiceSite(),
+			{
+				[ `POST ${ SETUP }` ]: {
+					reject: { message: 'Could not save.' },
+				},
+			},
+			'guided'
+		);
+		expect( heading() ).toBe( 'Step 1 of 5: Set up by hand' );
+		expect(
+			document.querySelector( '.pqm-setup-step > .mock-notice-error' )
+				.textContent
+		).toBe( 'Could not save.' );
+		replies[ `POST ${ SETUP }` ] = { reject: {} };
+		await act( async () => {
+			button( 'Use the guided setup instead' ).click();
+		} );
+		expect( heading() ).toBe( 'Step 1 of 5: Set up by hand' );
+		expect(
+			document.querySelector( '.pqm-setup-step > .mock-notice-error' )
+				.textContent
+		).toBe( 'Could not save your progress. Try again.' );
+		expect( refreshed ).toEqual( [] );
+	} );
+
+	test( 'the guided setup refused after the page stored the choice behind the dialog (its GET /setup still the key path): re-read, on Set up by hand, the cause kept, no page refresh', async () => {
+		const refreshed = refreshRequests();
+		await openDialog(
+			siteState(),
+			{
+				// The mount's read answers the key path; the page's own link stored the choice since.
+				[ `GET ${ SETUP }` ]: () =>
+					setupReads() > 1 ? choiceSite() : siteState(),
+				[ `POST ${ SETUP }` ]: {
+					reject: { message: 'Could not save.' },
+				},
+			},
+			'guided'
+		);
+		expect( posts() ).toEqual( [
+			{ path: SETUP, method: 'POST', data: { manual: false } },
+		] );
+		expect( setupReads() ).toBe( 2 );
+		expect( heading() ).toBe( 'Step 1 of 5: Set up by hand' );
+		expect(
+			document.querySelector( '.pqm-setup-step > .mock-notice-error' )
+				.textContent
+		).toBe( 'Could not save.' );
+		expect( refreshed ).toEqual( [] );
+	} );
+
+	test( 'the key passes from the manual step after a failed check, no URL saved: the key path comes back, on Set up the workflow', async () => {
+		await openDialog( probeSite(), {
+			[ `POST ${ CONNECTION }` ]: storeKey(
+				siteState( {
+					n8n: PASSING,
+					steps: { ...siteState().steps, n8n: true },
+				} )
+			),
+		} );
 		await typeInto( 'n8n address', BASE );
 		await typeInto( 'n8n API key', 'n8n-key' );
 		await submitForm( 'n8n address' );
@@ -737,6 +882,23 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		).toBeNull();
 		expect( field( 'Anthropic API key' ) ).toBeNull();
 		expect( button( 'Set up by hand instead' ) ).toBeUndefined();
+	} );
+
+	test( 'hand-made with the choice stored (a URL saved): the choice as the reason, no "Use the guided setup instead", no "Connect by key instead"', async () => {
+		await openDialog(
+			// eslint-disable-next-line camelcase -- REST field name.
+			handMadeSite( { manual_reason: { kind: 'choice' } } )
+		);
+		await act( async () => {
+			navButton( 'Set up by hand' ).click();
+		} );
+		expect(
+			document.querySelector( '.mock-notice-info' ).textContent
+		).toBe( 'You chose to set up n8n by hand.' );
+		expect( button( 'Use the guided setup instead' ) ).toBeUndefined();
+		expect(
+			document.querySelector( 'details.pqm-setup-by-key' )
+		).toBeNull();
 	} );
 
 	test( 'hand-made, complete: every n8n step done, the guide opens on the finish panel once the configuration steps are done', async () => {

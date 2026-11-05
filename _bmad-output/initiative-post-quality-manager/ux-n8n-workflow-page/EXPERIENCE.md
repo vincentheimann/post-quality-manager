@@ -2,7 +2,7 @@
 title: 'EXPERIENCE — n8n Workflow page'
 status: final
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-11-05
 sources: ['_bmad-output/backlog/story-n8n-workflow-page-lean-ux-rework.md', 'docs/brand.md', 'docs/user-paths.md', '_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/spec-n8n-provisioning.md', '_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/failure-modes.md']
 ---
 
@@ -56,7 +56,7 @@ State numbers follow the site's lifecycle (1 = first visit). The table rows foll
 |---|-------|---------------|-------------------------|----------------|------|-------------------|
 | 5 | **Needs attention** | A webhook URL is saved and the last check failed, found an older version, found the Free workflow variant on a Pro build, or (6.7) found mis-wiring | The problem in one sentence, with its fix | The fix: see *State 5 fixes* below | The diagnosis, when there is one | n8n connection, Webhook, Set up by hand (a hand-made setup only) |
 | 4 | **Set up** | A webhook URL is saved and the last check passed (variant *not checked yet*: a URL but no report) | "Your workflow answers. Version 6 · checked {date} by {a test / a command}." Not checked yet: "Saved, not checked yet." | No first review yet → **Run your first review** (the wizard's review step). Reviews exist → **Open Post Reviews**. Not checked yet → **Test the connection** | None | n8n connection (on a hand-made setup with a key stored, it offers **Let the plugin manage this workflow**, 6.8), Webhook, Set up by hand (a hand-made setup only) |
-| 3 | **Manual path** | No webhook URL, and the site admin chose "Set up by hand instead" or the last connection check failed with a cause that offers the manual path ([failure-modes.md](../spec-n8n-provisioning/failure-modes.md)) | "Setting up by hand." plus the reason: "You chose to set up n8n by hand." or "On {date}, the n8n connection check did not pass: {cause}." | **Save and test**, under step 4 (the webhook URL field moves here from Settings; see Build notes) | The four steps, open | n8n connection (to try the key path again) |
+| 3 | **Manual path** | No webhook URL, and the site admin chose "Set up by hand instead" or the last connection check failed with a cause that offers the manual path ([failure-modes.md](../spec-n8n-provisioning/failure-modes.md)) | "Setting up by hand." plus the reason: "You chose to set up n8n by hand." or "On {date}, the n8n connection check did not pass: {cause}." By choice only, a link-styled "Use the guided setup instead" follows on its own line (story 106): the wizard removes the choice and opens on its first open step, the page following behind it | **Save and test**, under step 4 (the webhook URL field moves here from Settings; see Build notes) | The four steps, open | n8n connection (to try the key path again) |
 | 2 | **Connected, not set up** | An n8n API key is stored with a passing connection check, and there is no setup map and no webhook URL | "Connected to n8n at {host}. The workflow is not set up yet." | **Set up n8n**: the wizard at its provisioning step (6.6), which asks for the Anthropic key once | Variant *leftovers waiting*: an info notice, "An earlier setup left a workflow or credentials in n8n. Setting up removes them first." | n8n connection, Set up by hand (a link: "Set up by hand instead") |
 | 1 | **Not set up** | None of the above | "Not connected to n8n yet." | **Set up n8n**: the wizard at its connect step (6.6) | One paragraph naming the three values the setup asks for (the n8n address, an n8n API key with an expiry date, an Anthropic API key) and saying that the plugin creates everything in n8n | None: a "Set up by hand instead" link stores the choice and opens state 3 |
 
@@ -76,7 +76,7 @@ State numbers follow the site's lifecycle (1 = first visit). The table rows foll
 | Connection test | The status block, **Test again** | Settings' **Send test ping** and the page's Connection Test section are removed. The wizard's own check is part of its flow |
 | Workflow version | The status block | Ping results render in the status block, not as a separate result line |
 | Webhook token | Hand-made setup: the manual step 2 copy row. Provisioned or adopted setup: the Webhook disclosure (rotation, 6.10) | Settings shows a link instead of the read-only field |
-| Manual steps | This page, Set up by hand | 6.6 replaces the wizard's manual n8n steps with connect → provision → first review; "Set up by hand instead" in the wizard closes it and opens state 3 |
+| Manual steps | This page, Set up by hand | 6.6 replaces the wizard's manual n8n steps with connect → provision → first review; "Set up by hand instead" in the wizard closes it and opens state 3; "Use the guided setup instead" (state 3 by choice, and the wizard's Set up by hand step by choice while no URL is saved) removes the choice and leads back to the key path (story 106) |
 | Per-agent table | Settings → AI, where its values are edited (AC4) | Removed from this page |
 | "Set up the workflow" entry points on other pages (welcome notice, Dashboard card, Post Reviews notice) | Stay; they link here | — |
 
@@ -100,7 +100,7 @@ Microcopy, per `docs/brand.md` Copy Rules. The wording here is draft; each entry
 | Primary action | Every state | Per Information Architecture. Secondary actions are `.button` or links |
 | Disclosure | States 2–5 | Native `<details><summary>`, collapsed, no remembered state. A link that leads into a disclosure ("Set up by hand instead", "Re-import the workflow") opens it (focus: Accessibility Floor) |
 | Manual steps | Set up by hand | Entry 6.2's four steps, unchanged in content, including their copy rows and Free/Pro variants. Step 4 gains the webhook URL field and **Save and test** |
-| Wizard | Opened by the primary action of states 1–2 and 4 | The one guided entry point (story 55). Opens at the step the state names (see Build notes). On close, the page re-renders its state |
+| Wizard | Opened by the primary action of states 1–2 and 4, and by state 3's "Use the guided setup instead" (story 106) | The one guided entry point (story 55). Opens at the step the state names (see Build notes). On close, the page re-renders its state |
 
 ## State Patterns
 
@@ -149,6 +149,8 @@ Microcopy, per `docs/brand.md` Copy Rules. The wording here is draft; each entry
 2. State 3: "You chose to set up n8n by hand." The four steps are open.
 3. They import the workflow, create the credentials, link the nodes, publish it and paste the production URL into step 4's field.
 4. **Climax:** **Save and test** turns the page to state 4, "Your workflow answers."
+
+*Changing her mind (story 106):* before step 3's URL is saved, "Use the guided setup instead" under the reason opens the wizard on Connect your n8n, and the page behind it reads "Not connected to n8n yet." again; when a key already passes, the wizard opens on Set up the workflow and the page reads "Connected to n8n at {host}. The workflow is not set up yet." Picking "Set up by hand instead" once more returns to state 3.
 
 ### Flow 3 — The silent mis-wiring
 

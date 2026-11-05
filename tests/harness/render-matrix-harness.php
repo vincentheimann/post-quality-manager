@@ -696,21 +696,37 @@ check('... the same with a setup map: not connected either, no Update workflow, 
     && !str_contains($page, 'pqm-update-workflow') && !str_contains($page, 'pqm-rotate-token'));
 // Row 3: manual path
 $probe_line = 'On ' . gmdate('Y-m-d', $at) . ', the n8n connection check did not pass: ' . $failed['message'];
+// Story 106: the way back, its own line right after the choice's reason line (never inside it); built only.
+$guided_link = '<p><button type="button" class="button-link pqm-open-setup" data-step="guided">Use the guided setup instead</button></p>';
+$guided_after_reason = static fn(string $html): bool => preg_match('#<p>You chose to set up n8n by hand\.</p>\s*' . preg_quote($guided_link, '#') . '#', $html) === 1;
 foreach ([
-    'by choice' => [$manual_site, 'You chose to set up n8n by hand.'],
-    'a failed check that offered the manual path' => [[PostQuality_N8n::OPTION => ['failed' => $failed]], $probe_line],
-    'a failed check on a completed setup: the reason still shows' => [[PostQuality_N8n::OPTION => ['failed' => $failed], POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]], $probe_line],
-    'a failure and the choice: the failure wins' => [[PostQuality_N8n::OPTION => ['failed' => $failed]] + $manual_site, $probe_line],
-] as $label => [$options, $reason]) {
+    'by choice' => [$manual_site, 'You chose to set up n8n by hand.', true],
+    'a failed check that offered the manual path' => [[PostQuality_N8n::OPTION => ['failed' => $failed]], $probe_line, false],
+    'a failed check on a completed setup: the reason still shows' => [[PostQuality_N8n::OPTION => ['failed' => $failed], POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]], $probe_line, false],
+    'a failure and the choice: the failure wins' => [[PostQuality_N8n::OPTION => ['failed' => $failed]] + $manual_site, $probe_line, false],
+] as $label => [$options, $reason, $choice]) {
     $page = $render_workflow($no_url, $options);
     check("3 manual path ($label): \"Setting up by hand.\" + the reason, info accent, Set up by hand open with Save and test the one primary, the n8n connection disclosure (Connect, secondary)",
         $state_of($page) === 'manual' && $sentence_of($page) === 'Setting up by hand.' && str_contains($block_of($page), '<p>' . $reason . '</p>')
         && $disclosures_of($page) === ['pqm-by-hand' => true, 'pqm-n8n-connection' => false] && $primaries($page) === 1 && str_contains($page, 'button button-primary pqm-save-webhook')
-        && !str_contains($page, 'pqm-open-setup') && !str_contains($page, 'pqm-test-connection'));
+        && !str_contains($page, 'pqm-test-connection'));
+    check('... ' . ($choice && $built ? '"Use the guided setup instead" (opens the dialog, data-step="guided"), its own line right after the reason, the one dialog control'
+            : ($choice ? 'unbuilt: no "Use the guided setup instead" (no dialog to open)' : 'no "Use the guided setup instead" (a failed check has no way back here)')),
+        $choice && $built ? $guided_after_reason($page) && substr_count($page, 'pqm-open-setup') === 1 && substr_count($page, 'Use the guided setup instead') === 1
+            : !str_contains($page, 'pqm-open-setup') && !str_contains($page, 'Use the guided setup instead'));
 }
 $page = $render_workflow($no_url, $key_passing + $manual_site);
-check('... the stored choice on a connected site (key + passing probe): state 3, "You chose to set up n8n by hand.", Set up by hand open (the matrix: a stored choice → manual)',
-    $state_of($page) === 'manual' && str_contains($block_of($page), '<p>You chose to set up n8n by hand.</p>') && ($disclosures_of($page)['pqm-by-hand'] ?? null) === true);
+check('... the stored choice on a connected site (key + passing probe): state 3, "You chose to set up n8n by hand.", Set up by hand open (the matrix: a stored choice → manual), '
+        . ($built ? '"Use the guided setup instead" after it (story 106: the dialog leads to Set up the workflow)' : 'unbuilt: no way-back control'),
+    $state_of($page) === 'manual' && str_contains($block_of($page), '<p>You chose to set up n8n by hand.</p>') && ($disclosures_of($page)['pqm-by-hand'] ?? null) === true
+    && ($built ? $guided_after_reason($page) : !str_contains($page, 'Use the guided setup instead')) && $primaries($page) === 1);
+// Story 106: a hand-made workflow (URL saved, no setup map) with the choice stored is state 4 or 5: no way back offered.
+$page = $render_workflow(['webhook_token' => 'tok-35'], $manual_site + ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]);
+check('... a hand-made workflow with the choice stored (URL saved, no setup map): state 4, no "Use the guided setup instead"',
+    $state_of($page) === 'set-up' && !str_contains($page, 'Use the guided setup instead') && !str_contains($page, 'data-step="guided"'));
+$page = $render_workflow(['webhook_token' => 'tok-35'], $manual_site + [PostQuality_N8n::OPTION => ['failed' => $failed]]);
+check('... the same, not checked yet and a failed check on record: no "Use the guided setup instead" either',
+    $state_of($page) === 'not-checked' && !str_contains($page, 'Use the guided setup instead'));
 // The link's round trip: state 2's "Set up by hand instead" posts {manual: true}, the page re-renders.
 $GLOBALS['tw_settings'] = $no_url;
 $GLOBALS['tw_options']  = $key_passing + ['date_format' => 'Y-m-d'];
@@ -720,6 +736,13 @@ update_option(POSTQUALITY_SETUP_OPTION, ['steps' => [], 'manual' => true], false
 $page = $render_workflow($no_url);
 check('... after its POST setup {manual: true}: the body re-renders as state 3 with #pqm-by-hand open, the link\'s focus target', ($GLOBALS['tw_options'][POSTQUALITY_SETUP_OPTION]['manual'] ?? null) === true
     && $state_of($page) === 'manual' && str_contains($page, '<details class="pqm-disclosure" id="pqm-by-hand" open>'));
+// Story 106, the way back: what the dialog's POST setup {manual: false} leaves (setup-harness.php runs the route); the page re-reads its body behind the dialog.
+update_option(POSTQUALITY_SETUP_OPTION, ['steps' => []], false);
+check('... after the dialog\'s POST setup {manual: false}, a passing key: state 2, "Connected to n8n at …", no way-back control',
+    $state_of($page = $render_workflow($no_url)) === 'connected' && $sentence_of($page) === 'Connected to n8n at n8n.example. The workflow is not set up yet.' && !str_contains($page, 'data-step="guided"'));
+$GLOBALS['tw_options'] = [POSTQUALITY_SETUP_OPTION => ['steps' => []], 'date_format' => 'Y-m-d'];
+check('... no key: state 1, "Not connected to n8n yet.", the "Set up by hand instead" link back',
+    $state_of($page = $render_workflow($no_url)) === 'not-set-up' && $sentence_of($page) === 'Not connected to n8n yet.' && str_contains($page, $by_hand_link) && !str_contains($page, 'data-step="guided"'));
 $GLOBALS['tw_options'] = [];
 check('... a re-check failed after a passing probe: the passing probe hides it — state 2', $state_of($render_workflow($no_url, $key_passing + [PostQuality_N8n::OPTION => $key_passing[PostQuality_N8n::OPTION] + ['failed' => $failed]])) === 'connected');
 $GLOBALS['tw_options'] = ['date_format' => 'Y-m-d', PostQuality_N8n::OPTION => ['failed' => $failed]];
@@ -906,7 +929,7 @@ check('the sentence sits in a Pro-marker block, reading the map and the viewer\'
 /* Without the built assets, nothing can open the dialog: the setup button is left out, the build warning says why. */
 check('the setup button renders only with the built assets (source: app_built() gates $setup_button; render_app_root() uses the same check)',
     (bool) preg_match('/\$setup_button = static fn\(string \$label, string \$step = \'\'\): string => !self::app_built\(\) \? \'\' :/', $src)
-    && substr_count($src, 'self::app_built()') === 3 && // the setup button, render_app_root(), the Finish setting up link
+    && substr_count($src, 'self::app_built()') === 4 && // the setup button, render_app_root(), the Finish setting up link, Use the guided setup instead (story 106)
      str_contains($src, "private static function app_built(): bool\n    {\n        return file_exists(POSTQUALITY_PLUGIN_DIR . 'admin/build/index.asset.php');"));
 $page = $render_workflow(['n8n_webhook_url' => '', 'webhook_token' => 'tok-35']);
 check('... state 1 ' . ($built ? 'built: Set up n8n is the one primary' : 'unbuilt: no Set up n8n, no primary, the build warning'), $built

@@ -16,8 +16,9 @@
  *
  * n8n provisioning entry 6 rows: the derived n8n steps and the new state
  * fields per site state (key passing, failed check, connected, provisioned,
- * leftovers, old stored step keys), and POST /setup { manual: true } (only
- * `true` accepted, kept by every other write).
+ * leftovers, old stored step keys), and POST /setup { manual: true } (a
+ * boolean only, kept by every other write); since story 106 `{ manual: false }`
+ * removes the choice ("Use the guided setup instead").
  */
 
 define('ABSPATH', __DIR__ . '/');
@@ -227,16 +228,39 @@ check('... the answer: manual, the reason {kind: choice}, the manual step open',
     && $r->get_data()['manual_reason'] === ['kind' => 'choice'] && $r->get_data()['steps']['manual'] === false);
 post_setup(['manual' => true]);
 check('choosing again changes nothing', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]);
-// Callback-level guards: the route's `type: boolean` schema already refuses "yes" and coerces 1 / "true" to true upstream.
-foreach (['false' => false, '"yes"' => 'yes', '1' => 1, '"true"' => 'true'] as $label => $value) {
-    site($fresh);
+// Callback-level guards: the route's `type: boolean` schema already refuses "yes" and coerces 1 / "true" / "false" / 0 upstream.
+foreach (['"yes"' => 'yes', '1' => 1, '"true"' => 'true', '"false"' => 'false', '0' => 0, '[]' => []] as $label => $value) {
+    site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
     $r = post_setup(['manual' => $value]);
-    check("callback: a non-true value ($label) is refused with 400, nothing stored", $r instanceof WP_Error && ($r->data['status'] ?? null) === 400
-        && $GLOBALS['tw']['writes'] === []);
+    check("callback: a non-boolean value ($label) is refused with 400 pqm_setup_bad_manual, nothing stored or removed", $r instanceof WP_Error && $r->get_error_code() === 'pqm_setup_bad_manual'
+        && ($r->data['status'] ?? null) === 400 && $GLOBALS['tw']['writes'] === [] && $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['manual'] === true);
 }
-site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+
+/* Row (story 106): "Use the guided setup instead" removes the choice */
+echo "POST /setup { manual: false } — the way back to the guided setup (story 106)\n";
+site($fresh + [POSTQUALITY_SETUP_OPTION => ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]]);
+$r = post_setup(['manual' => false]);
+check('manual: false removes the key; the rest of the progress kept, autoload off; nothing else written', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false]
+    && $GLOBALS['tw']['autoload'][POSTQUALITY_SETUP_OPTION] === false && $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION]);
+check('... the answer: the key path (not manual, no reason), Connect your n8n open', $r instanceof WP_REST_Response && $r->get_data()['manual'] === false
+    && $r->get_data()['manual_reason'] === null && $r->get_data()['steps']['n8n'] === false && postquality_manual_reason() === null);
 post_setup(['manual' => false]);
-check('manual: false clears nothing (a passing key outranks the choice)', ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['manual'] ?? null) === true);
+check('... again, with nothing stored: no `manual` key, the progress unchanged', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false]);
+$r = post_setup(['manual' => true]);
+check('... choosing by hand again stores it again: the manual path, the reason {kind: choice}', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION] === ['steps' => ['profile' => true], 'complete' => false, 'manual' => true]
+    && $r->get_data()['manual'] === true && $r->get_data()['manual_reason'] === ['kind' => 'choice']);
+$key_ok = [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'api_key' => 'n8n-secret-key-ab12', 'probe' => ['ok' => true, 'cause' => '', 'message' => 'Connected to n8n.', 'at' => 1760000000]]];
+site($fresh + $key_ok + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+$r = post_setup(['manual' => false]);
+check('a passing key with the choice stored: removed, the key kept; the answer: the key path, Connect your n8n done (Set up the workflow next)', !array_key_exists('manual', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION])
+    && $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] === $key_ok[PostQuality_N8n::OPTION] && $GLOBALS['tw']['writes'] === [POSTQUALITY_SETUP_OPTION]
+    && $r->get_data()['manual'] === false && $r->get_data()['steps']['n8n'] === true && $r->get_data()['steps']['provision'] === false);
+$probe_failed = [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.example.com', 'failed' => ['cause' => 'api_disabled', 'message' => 'The public API is turned off on this instance.', 'at' => 1760000000]]];
+site($fresh + $probe_failed + [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => false, 'manual' => true]]);
+$r = post_setup(['manual' => false]);
+check('a failed check and the choice: the choice removed, the failed check still the reason (no way back from it here), its record untouched',
+    !array_key_exists('manual', $GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]) && $GLOBALS['tw']['options'][PostQuality_N8n::OPTION] === $probe_failed[PostQuality_N8n::OPTION]
+    && $r->get_data()['manual'] === true && ($r->get_data()['manual_reason']['kind'] ?? '') === 'probe');
 
 /* Row: the choice survives every progress write */
 echo "POST /setup — the manual-path choice is kept\n";

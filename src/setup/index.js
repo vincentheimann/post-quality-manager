@@ -13,7 +13,10 @@
  * the first review (POST /setup { complete: true }) are what the plugin
  * can verify. "Set up by hand instead" stores the choice (POST /setup
  * { manual: true }) and closes the dialog on the page's Set up by hand
- * disclosure. Every close asks the page to re-read its body
+ * disclosure; "Use the guided setup instead" (story 106: the manual step,
+ * or the page's state 3 through `data-step="guided"`) removes it (POST
+ * /setup { manual: false }) and leads to the key path, the page following
+ * behind the dialog. Every close asks the page to re-read its body
  * (postquality:setup-closed), so what the dialog did shows behind it without a
  * reload. The welcome notice links here with `postquality_setup=1`, which opens
  * the dialog on load.
@@ -32,7 +35,7 @@ import {
 	Notice,
 	VisuallyHidden,
 } from '@wordpress/components';
-import { useEffect, useState } from '@wordpress/element';
+import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { getQueryArg, removeQueryArgs } from '@wordpress/url';
 
@@ -106,6 +109,23 @@ function resumeAt( state ) {
 	return open ? open.key : FINISH;
 }
 
+/**
+ * Where the open dialog goes once the state changed under it: it stays on
+ * the current step while the fresh path has it, else it moves to that
+ * path's first open step. A closed dialog stays closed.
+ *
+ * @param {Object} fresh The new GET /setup state.
+ * @return {Function} Updater for the current step.
+ */
+function landing( fresh ) {
+	return ( key ) =>
+		! key ||
+		key === FINISH ||
+		stepsFor( fresh ).some( ( item ) => item.key === key )
+			? key
+			: resumeAt( fresh );
+}
+
 export default function SetupIsland() {
 	const [ state, setState ] = useState( null );
 	const [ loadError, setLoadError ] = useState( '' );
@@ -113,7 +133,9 @@ export default function SetupIsland() {
 	const [ saving, setSaving ] = useState( false );
 	const [ saveError, setSaveError ] = useState( '' );
 	// A click on the page's button before GET /setup answered: opened once it has.
-	const [ pending, setPending ] = useState( null ); // 'resume' | 'review'
+	const [ pending, setPending ] = useState( null ); // 'resume' | 'review' | 'guided'
+	// onGuided (below), for the page's "Use the guided setup instead": run once the dialog opened.
+	const guided = useRef( null );
 
 	useEffect( () => {
 		apiFetch( { path: SETUP_PATH } ).then(
@@ -144,7 +166,10 @@ export default function SetupIsland() {
 	// The page's primary action (story 67): the status block renders a
 	// `.pqm-open-setup` button in every body swap; one delegated listener
 	// opens the dialog at the state's step, or at the first review when the
-	// button says so (`data-step="review"`).
+	// button says so (`data-step="review"`). `data-step="guided"` (state 3's
+	// "Use the guided setup instead", story 106) opens it at the state's
+	// step too, then removes the stored choice there (onGuided), so a failed
+	// write shows in the dialog.
 	useEffect( () => {
 		const onClick = ( event ) => {
 			const button =
@@ -152,7 +177,9 @@ export default function SetupIsland() {
 				event.target.closest( '.pqm-open-setup' );
 			if ( button ) {
 				setPending(
-					button.dataset.step === 'review' ? 'review' : 'resume'
+					[ 'review', 'guided' ].includes( button.dataset.step )
+						? button.dataset.step
+						: 'resume'
 				);
 			}
 		};
@@ -165,6 +192,9 @@ export default function SetupIsland() {
 			setSaveError( '' );
 			setCurrent( pending === 'review' ? 'review' : resumeAt( state ) );
 			setPending( null );
+			if ( pending === 'guided' ) {
+				guided.current();
+			}
 		}
 	}, [ pending, state ] );
 
@@ -182,7 +212,7 @@ export default function SetupIsland() {
 	 *
 	 * @param {Object}  data     POST /setup body.
 	 * @param {Object=} settings POST /setup/settings body.
-	 * @return {Promise<boolean>} Whether everything was stored; never rejects.
+	 * @return {Promise<Object|false>} The fresh state once everything was stored, else false; never rejects.
 	 */
 	const save = ( data, settings ) => {
 		setSaving( true );
@@ -204,7 +234,7 @@ export default function SetupIsland() {
 				( fresh ) => {
 					setSaving( false );
 					setState( fresh );
-					return true;
+					return fresh;
 				},
 				( err ) => {
 					setSaving( false );
@@ -235,13 +265,7 @@ export default function SetupIsland() {
 		apiFetch( { path: SETUP_PATH } ).then(
 			( fresh ) => {
 				setState( fresh );
-				setCurrent( ( key ) =>
-					! key ||
-					key === FINISH ||
-					stepsFor( fresh ).some( ( item ) => item.key === key )
-						? key
-						: resumeAt( fresh )
-				);
+				setCurrent( landing( fresh ) );
 			},
 			( err ) =>
 				setSaveError(
@@ -313,6 +337,23 @@ export default function SetupIsland() {
 				close( BY_HAND_ID );
 			}
 		} );
+
+	// "Use the guided setup instead" (story 106), from the manual step or
+	// the page: remove the stored choice, then land as after a re-read
+	// (from Set up by hand, the key path's first open step) and move the
+	// page behind the dialog with it. A failed write stays in the dialog,
+	// re-read so it lands on the stored state's step (the page may have
+	// stored the choice without telling the dialog), the cause kept.
+	const onGuided = () =>
+		save( { manual: false } ).then( ( fresh ) => {
+			if ( fresh ) {
+				setCurrent( landing( fresh ) );
+				requestWorkflowRefresh( WORKFLOW_REFRESH_EVENT );
+			} else {
+				reread();
+			}
+		} );
+	guided.current = onGuided;
 
 	// The manual step's link: the steps live on the page, in Set up by hand.
 	const onShowWorkflowFile = ( event ) => {
@@ -439,6 +480,7 @@ export default function SetupIsland() {
 											onProvisioned={ onProvisioned }
 											onN8nChange={ onN8nChange }
 											onByHand={ onByHand }
+											onGuided={ onGuided }
 											onShowWorkflowFile={
 												onShowWorkflowFile
 											}

@@ -10,7 +10,8 @@
  *   /setup's rule): one step, Set up by hand. It
  *   links to the Set up by hand disclosure of the n8n Workflow page, the
  *   one place for the manual steps, and keeps the paste-URL body so the
- *   setup can still finish.
+ *   setup can still finish; after the stored choice it leads back to the
+ *   key path (story 106).
  * Free and Pro run the same n8n steps; the Free build has no schedule step.
  */
 import apiFetch from '@wordpress/api-fetch';
@@ -406,21 +407,33 @@ function Provision( { state, onProvisioned, onConnected } ) {
 /**
  * Set up by hand: why (a stored choice, a failed check, or a workflow made
  * by hand: a saved URL without the plugin's setup), the way to the page's
- * Set up by hand disclosure (the steps live there, never here), the paste-URL body, and
- * the key path behind "Connect by key instead" while no webhook URL is
- * saved — a passing check there outranks the choice. A hand-made workflow
- * (a URL saved) keeps this path whatever the key (adoption, 6.8), so it is
- * not offered there.
+ * Set up by hand disclosure (the steps live there, never here), the paste-URL body, and,
+ * while no webhook URL is saved, the way back to the key path: after the
+ * stored choice, "Use the guided setup instead" (story 106), which removes
+ * it; after a failed check, the key path behind "Connect by key instead" —
+ * a passing check there outranks the reason. A hand-made workflow (a URL
+ * saved) keeps this path whatever the key (adoption, 6.8), so neither is
+ * offered there.
  *
  * @param {Object}   props
  * @param {Object}   props.state              GET /setup state.
  * @param {Function} props.onConnected        Connect's `onConnected`.
  * @param {Function} props.onN8nChange        The island's `onChange`.
+ * @param {Function} props.onGuided           Removes the stored choice and leads to the key path.
  * @param {Function} props.onShowWorkflowFile Closes the dialog on the page's Set up by hand disclosure.
+ * @param {boolean}  props.saving             Whether a progress save is in flight.
  * @return {Element} The step body.
  */
-function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
+function Manual( {
+	state,
+	onConnected,
+	onN8nChange,
+	onGuided,
+	onShowWorkflowFile,
+	saving,
+} ) {
 	const reason = state.manual_reason;
+	const chosen = !! reason && reason.kind === 'choice' && ! state.connected;
 	let why = '';
 	if ( reason && reason.kind === 'probe' ) {
 		why = sprintf(
@@ -448,6 +461,21 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 					{ why }
 				</Notice>
 			) }
+			{ chosen && (
+				<p>
+					<Button
+						variant="link"
+						className="pqm-setup-guided"
+						onClick={ onGuided }
+						disabled={ saving }
+					>
+						{ __(
+							'Use the guided setup instead',
+							'post-quality-manager'
+						) }
+					</Button>
+				</p>
+			) }
 			<p>
 				{ createInterpolateElement(
 					__(
@@ -466,7 +494,7 @@ function Manual( { state, onConnected, onN8nChange, onShowWorkflowFile } ) {
 				) }
 			</p>
 			<Connect state={ state } onConnected={ onConnected } />
-			{ ! state.connected && (
+			{ ! state.connected && ! chosen && (
 				<details className="pqm-setup-by-key">
 					<summary>
 						{ __(

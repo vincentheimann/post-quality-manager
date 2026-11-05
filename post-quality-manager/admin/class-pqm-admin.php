@@ -1676,6 +1676,11 @@ class PostQuality_Admin
         ];
         $by_hand_link = '<p><a href="#pqm-by-hand" class="pqm-by-hand-link" data-pqm-post="setup" data-pqm-body="' . esc_attr((string) wp_json_encode(['manual' => true]))
             . '" data-pqm-focus="pqm-by-hand">' . esc_html__('Set up by hand instead', 'post-quality-manager') . '</a></p>';
+        // Story 106: the way back from the stored choice (never from a failed check; state 3 has no URL), under its
+        // reason. It opens the dialog, which removes the choice (POST /setup {manual: false}); no dialog without the build.
+        $guided_link = $kind === 'manual' && ($state['reason']['kind'] ?? '') === 'choice' && self::app_built()
+            ? '<p><button type="button" class="button-link pqm-open-setup" data-step="guided">' . esc_html__('Use the guided setup instead', 'post-quality-manager') . '</button></p>'
+            : '';
 
         ob_start();
 ?>
@@ -1687,6 +1692,7 @@ class PostQuality_Admin
             <?php foreach ($details as $detail): ?>
             <p><?php echo esc_html($detail); ?></p>
             <?php endforeach; ?>
+            <?php echo $guided_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
             <?php if ($version_line !== ''): ?>
             <p class="description pqm-workflow-version"><?php echo esc_html($version_line); ?></p>
             <?php endif; ?>

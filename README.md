@@ -65,7 +65,7 @@ The admin app (the Dashboard, Post Reviews and the n8n Workflow page's setup gui
 | `/insert-block` | POST | `edit_post` on the post + the agent's gate | Insert the latest Takeaways (first) or Sources (last) into the post, in the chosen pattern |
 | `/save-review` | POST | webhook token (`X-PQM-Token`) | Callback where n8n stores review results |
 | `/reviews/{post_id}` | GET | `postquality_view_reviews` | Stored review history for a post |
-| `/setup` | GET, POST | `postquality_manage_settings` | Setup guide state (progress, the n8n connection and path); tick a configuration step, mark the setup complete, or store the manual-path choice (`{manual: true}`) |
+| `/setup` | GET, POST | `postquality_manage_settings` | Setup guide state (progress, the n8n connection and path); tick a configuration step, mark the setup complete, or store the manual-path choice (`{manual: true}`) or remove it (`{manual: false}`) |
 | `/setup/connect` | POST | `postquality_manage_settings` | Save the n8n webhook URL and ping it |
 | `/setup/settings` | POST | `postquality_manage_settings` (+ `postquality_manage_agents` on a Pro site to turn on scheduled reviews) | Save the guide's Blog Profile, Editorial Standards or scheduled-reviews choice; only those settings |
 

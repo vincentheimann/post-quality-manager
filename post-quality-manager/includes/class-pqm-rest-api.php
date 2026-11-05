@@ -14,7 +14,7 @@
  *  POST /post-quality/v1/dashboard/feedback — hide or reopen the feedback card for the current user (story 79)
  *  POST /post-quality/v1/insert-block     — write the latest Takeaways / Sources into the post (story 23)
  *  GET  /post-quality/v1/setup            — setup dialog state: progress, the n8n connection and path (story 36, n8n provisioning entry 6)
- *  POST /post-quality/v1/setup            — tick a configuration step, mark the setup complete (story 36), or store the manual-path choice (n8n provisioning, entry 6)
+ *  POST /post-quality/v1/setup            — tick a configuration step, mark the setup complete (story 36), or store or remove the manual-path choice (n8n provisioning, entry 6; story 106)
  *  POST /post-quality/v1/setup/connect    — save the webhook URL and ping it (story 36)
  *  GET|POST|DELETE /post-quality/v1/n8n/connection — the n8n instance: state, probe + store, forget (n8n provisioning, entry 1)
  *  POST /post-quality/v1/n8n/provision    — set the workflow up on that instance, then ping it (n8n provisioning, entry 4)
@@ -1190,8 +1190,8 @@ class PostQuality_REST_API {
     /**
      * Stored progress, normalized: `['steps' => [step => bool], 'complete' => bool]`,
      * plus `'manual' => true` once the owner chose the manual path (POST
-     * /setup `{ manual: true }` writes it, postquality_manual_reason() reads it), so a
-     * step tick keeps it.
+     * /setup `{ manual: true }` writes it, `{ manual: false }` removes it,
+     * postquality_manual_reason() reads it), so a step tick keeps it.
      */
     private static function setup_progress(): array {
         $stored   = get_option( POSTQUALITY_SETUP_OPTION, [] );
@@ -1330,9 +1330,10 @@ class PostQuality_REST_API {
      * `{ step, done }` ticks or unticks a configuration step;
      * `{ complete: true }` closes the setup (the dialog's first result);
      * `{ manual: true }` stores the owner's choice to set up n8n by hand
-     * ("Set up by hand instead"; only `true`: a passing key outranks the
-     * choice, nothing clears it). Answers the fresh state. Settings are
-     * never touched.
+     * ("Set up by hand instead"; a passing key outranks the choice),
+     * `{ manual: false }` removes it ("Use the guided setup instead", story
+     * 106); any other value is refused. Answers the fresh state. Settings
+     * are never touched.
      */
     public static function update_setup_callback( WP_REST_Request $request ): WP_REST_Response|WP_Error {
         $progress = self::setup_progress();
@@ -1340,14 +1341,18 @@ class PostQuality_REST_API {
         if ( true === $request->get_param( 'complete' ) ) {
             $progress['complete'] = true;
         } elseif ( null !== $request->get_param( 'manual' ) ) {
-            if ( true !== $request->get_param( 'manual' ) ) {
+            if ( ! is_bool( $request->get_param( 'manual' ) ) ) {
                 return new WP_Error(
                     'pqm_setup_bad_manual',
                     __( 'This choice is not known. Reload the page and try again.', 'post-quality-manager' ),
                     [ 'status' => 400 ]
                 );
             }
-            $progress['manual'] = true;
+            if ( $request->get_param( 'manual' ) ) {
+                $progress['manual'] = true;
+            } else {
+                unset( $progress['manual'] );
+            }
         } else {
             $step = (string) $request->get_param( 'step' );
             if ( ! in_array( $step, self::SETUP_TICKABLE, true ) ) {
