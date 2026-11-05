@@ -721,6 +721,25 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect( closed ).toEqual( [ { focus: 'pqm-by-hand' } ] );
 	} );
 
+	test( 'the page\'s "Use the guided setup instead" opens on Connect your n8n while the removal is still being stored, never on Set up by hand first (showcase walk 2026-11-05)', async () => {
+		let store;
+		await openDialog(
+			choiceSite(),
+			{
+				[ `POST ${ SETUP }` ]: () =>
+					new Promise( ( resolve ) => {
+						store = resolve;
+					} ),
+			},
+			'guided'
+		);
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+		await act( async () => {
+			store( siteState() );
+		} );
+		expect( heading() ).toBe( 'Step 1 of 6: Connect your n8n' );
+	} );
+
 	test( 'the page\'s "Use the guided setup instead", a passing key (GET /setup already on the key path): the choice removed, the dialog on Set up the workflow', async () => {
 		const keyed = siteState( {
 			n8n: PASSING,

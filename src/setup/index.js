@@ -190,10 +190,24 @@ export default function SetupIsland() {
 	useEffect( () => {
 		if ( pending && state ) {
 			setSaveError( '' );
-			setCurrent( pending === 'review' ? 'review' : resumeAt( state ) );
 			setPending( null );
 			if ( pending === 'guided' ) {
+				// Open where the removal lands, not on Set up by hand for
+				// as long as the write takes (showcase walk 2026-11-05):
+				// the path follows `manual`, which the write clears. Its
+				// answer, or a re-read when refused, replaces this guess.
+				const unchosen = {
+					...state,
+					manual: false,
+					manual_reason: null, // eslint-disable-line camelcase -- REST field name.
+				};
+				setState( unchosen );
+				setCurrent( resumeAt( unchosen ) );
 				guided.current();
+			} else {
+				setCurrent(
+					pending === 'review' ? 'review' : resumeAt( state )
+				);
 			}
 		}
 	}, [ pending, state ] );
