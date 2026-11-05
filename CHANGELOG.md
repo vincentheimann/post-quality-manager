@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.0...v3.12.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **n8n:** after Update workflow the page shows the new version, or says n8n is still switching ([0268941](https://github.com/vincentheimann/post-quality-manager/commit/0268941107f36890514105d1019736958113af1f))
+
 ## [3.12.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.11.2...v3.12.0) (2026-11-05)
 
 
