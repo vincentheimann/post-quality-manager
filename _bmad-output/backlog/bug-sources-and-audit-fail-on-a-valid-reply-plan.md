@@ -98,6 +98,7 @@ baseline_revision: 'f11a5b0157343bb81f5140856814da69c201ed83'
   | SEO | bare object | `needs_revision`, 55 (6 s) |
 
   All `end_turn`; `debug.log` only WP-CLI's own lines. License deactivated on the Account page before the restore; restore 3× "same"; n8n stopped by its PID, its folder and the walk files deleted. With the walk-recipe fix of the morning (wait for the editor's log line) the owner step took at the first form send.
+- Released 2026-11-06 in **3.12.3** (#254, release commit 5282f65; pre-release). Release run 42222318902 green. Zip `post-quality-manager-3.12.3.zip` sha256 `3bd2d23c…8bea`: one root folder, `admin/build/` inside, template v10 with the anchored `<thinking>` strip. Uploaded to Freemius as **deployment 171394**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded.
 
 ## Plan Change Log
 
