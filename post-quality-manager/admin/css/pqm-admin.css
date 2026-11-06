@@ -17,7 +17,7 @@
 .pqm-tabs-pending .pqm-tab-panel { display: none; } /* until the JS reads the hash */
 .js .pqm-tab-panel > h2:first-child { margin-top: 1em; }
 
-.pqm-hidden { display: none; }
+.pqm-hidden { display: none !important; } /* Bug 107: core's phone rules show form-table fields (display: block, 0,2,2); hidden wins. */
 .pqm-section-gap { margin-top: 2em; }
 .pqm-inline-notice { margin-bottom: 20px; }
 .pqm-radio-label { margin-right: 15px; }

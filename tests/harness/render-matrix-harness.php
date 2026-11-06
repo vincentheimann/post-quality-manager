@@ -1594,4 +1594,11 @@ check('Custom model ID: Custom selected, only it', substr_count($default_select,
     && str_contains($default_select, '<option value="custom" selected>'));
 $GLOBALS['tw_settings'] = [];
 
+/* Bug 107: below 783 px core's `.form-table td input[type="text"] { display: block; }` (0,2,2) beat the
+   plain hide class (0,1,0), so the Custom model ID field showed on phones with a listed model selected. */
+echo "Hide class on phones (bug 107)\n";
+check('.pqm-hidden declares display: none !important, so it wins over core\'s phone rules for form-table fields',
+    (bool) preg_match('/^\.pqm-hidden\s*\{\s*display:\s*none\s*!important;\s*\}/m',
+        (string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/css/pqm-admin.css')));
+
 harness_exit();
