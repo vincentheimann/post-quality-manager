@@ -3,7 +3,7 @@ title: "The AI Model section offers the provider's current models, and the regis
 type: 'feature'
 ticket: '101'
 created: '2026-11-04'
-status: 'built'
+status: 'done'
 baseline_revision: '5c629554e27ed993b0c0e5ef38834cc7383ed20d'
 route: 'full'
 route_source: 'auto'
@@ -69,7 +69,7 @@ context: []
 - [x] `unreleased.md`, memory -- the records
 - [x] Real-call proof (orchestrator, owner's consent at the checkpoint): one Review and one Key Takeaways request per listed model with its exact fragment on a fixture post, recording status, `stop_reason`, output tokens and latency against the node timeouts (Takeaways and Sources 30 s, SEO 60 s, the others 120 s). A 400, a `max_tokens` stop or a latency over half its node's timeout is fixed in this story (a timeout change is a template version bump and a release-notes line)
 - [x] (Change Log 1) budgets and template version 9 timeouts as in the Code Map -- every proof case above under half its new node timeout, no `max_tokens` stop
-- [ ] postquality.com, after the plugin PR merges: the cost copies (its drift check reads the plugin's figures) and the AI-tab capture and alt text on the Features page -- a site PR
+- [x] postquality.com, after the plugin PR merges: the cost copies (its drift check reads the plugin's figures) and the AI-tab capture and alt text on the Features page -- a site PR
 
 **Acceptance Criteria:**
 - Given the real-call proof, when it ends, then every listed model answered 200 on both requests with `stop_reason: end_turn`, and the results are in Implementation Notes.
@@ -150,6 +150,26 @@ context: []
   - No `max_tokens` stop.
 - Verification: 22 harnesses with 0 failing, `npm run test:unit` 174 of 174, `php -l` clean, `git diff --check` clean.
 - Not run: version 9 on a live n8n. Only the six Claude nodes' `options.timeout` values and the version stamps change; `template-guard-harness.php` (n8n 2.46.4's publish checks) passes on both templates. The walk at release 3.11.0 covers it.
+- Site task, part 1 (2026-11-05, Opus 5.5): postquality.com PR #14 (`fix/cost-copy-and-privacy-after-101`, 83fa04c), merged 2026-11-05 (site main 5cfbee4). It moved the Docs `#cost` answer and the home page's "Your own AI bill" item to the Sonnet 5.5 figures (`_tools/check_cost_copy.py`: NO PROBLEMS) and synced `privacy.md` with `docs/policies/` (the bug 112 and 113 sentences). The terms, refund and support pages were already the same. No local Jekyll build that day.
+- Site task, part 2: the `feature-ai` capture, in the licensed sitting of 2026-11-06 (Opus 5.5 session). The owner activated their license on the showcase, and the agent checked only `is_paying()` true, `PostQuality_Features::is_pro()` true and plan `pro`.
+  - The capture followed story 100's recipe: Blog Profile Technical / IT, no model saved, so the default shows; a 790 px window at 2x, a 720 px crop from the Settings heading to the end of the Blog Profile preset.
+  - The first frame showed the Default Model select cutting its label ("… ($2 / $10 pe"). WordPress core caps selects at 400 px, and the label needs 466. The owner chose to fix that first: bug 116, plugin PR #249 (`fix/model-select-width`). The capture was taken on that branch's Pro build.
+  - The SDK's activation notice was taken out of the frame at capture time.
+  - Result: `feature-ai.png` 1440 × 1712 (217 KB) and `.webp` (174 KB). Looked at full size: no site title, user name, post title or URL.
+  - The new alt names "the Default Model Claude Sonnet 5.5, best quality/cost balance at $2 / $10 per million tokens".
+  - Site draft PR #15 (`fix/features-ai-capture-after-101`, b149fe9); the site build passes. It merges after #249 ships in a release; until then the live page keeps the 4.6 capture.
+- Version 9 on a live n8n (2026-11-06, the licensed Pro-command walk): a disposable n8n 2.46.6, provisioned by the agent through `POST /n8n/provision` with the owner's key from `.secrets/` (never printed). The map held webhook, anthropic and wordpress; ping OK, round trip, version 9, Pro variant.
+  - On one demo post, Claude Sonnet 5.5, one run each:
+
+    | Command | Time | Output tokens | Budget | Stored |
+    |---|---|---|---|---|
+    | Sources | 5 s | 332 | 3,000 | `error` "Sources Agent returned invalid JSON." |
+    | SEO | 3 s | 371 | | `needs_revision`, 55 |
+    | Audit | 15 s | 2,042 | 8,000 | `error` "Audit Agent returned invalid JSON." |
+    | Rewrite | 5 s | 421 | 12,000 | `rewritten`; the post went to Pending with an excerpt and one revision |
+
+  - Every call answered 200 with `end_turn`, and every one finished under half its node timeout.
+  - The two errors are the template's Parse nodes, not the calls or the budgets. A closing sentence after the fence (Sources) and a `<thinking>` passage before it (Audit) defeat the fence regexes: bug 117, filed in this sitting's records PR. `debug.log` held only WP-CLI's own lines.
 
 ## Plan Change Log
 
