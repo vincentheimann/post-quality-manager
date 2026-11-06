@@ -350,7 +350,25 @@ function Provision( { state, onProvisioned, onConnected } ) {
 			<form className="pqm-setup-connect" onSubmit={ submit }>
 				<TextControl
 					label={ __( 'Anthropic API key', 'post-quality-manager' ) }
-					help={ createInterpolateElement(
+					aria-describedby="pqm-setup-key-help"
+					type="password"
+					autoComplete="new-password"
+					value={ key }
+					onChange={ setKey }
+					disabled={ busy }
+					__nextHasNoMarginBottom
+				/>
+				<Button
+					variant="primary"
+					type="submit"
+					isBusy={ busy }
+					disabled={ busy || ! key.trim() }
+				>
+					{ __( 'Set up the workflow', 'post-quality-manager' ) }
+				</Button>
+				{ /* Bug 115: the help line follows the button, so the button meets the input's bottom. */ }
+				<p id="pqm-setup-key-help" className="pqm-setup-help">
+					{ createInterpolateElement(
 						__(
 							'Create one on the <a>API keys page of the Anthropic Console</a>.',
 							'post-quality-manager'
@@ -366,13 +384,7 @@ function Provision( { state, onProvisioned, onConnected } ) {
 							),
 						}
 					) }
-					type="password"
-					autoComplete="new-password"
-					value={ key }
-					onChange={ setKey }
-					disabled={ busy }
-					__nextHasNoMarginBottom
-				/>
+				</p>
 				{ state.application_password_user && (
 					// Pro (bug 73): whose Application Password the setup creates, and that it is revoked with the setup.
 					<p className="pqm-muted">
@@ -386,14 +398,6 @@ function Provision( { state, onProvisioned, onConnected } ) {
 						) }
 					</p>
 				) }
-				<Button
-					variant="primary"
-					type="submit"
-					isBusy={ busy }
-					disabled={ busy || ! key.trim() }
-				>
-					{ __( 'Set up the workflow', 'post-quality-manager' ) }
-				</Button>
 			</form>
 			{ error && (
 				<Notice status="error" isDismissible={ false }>

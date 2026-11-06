@@ -65,6 +65,21 @@
 	min-width: 16em;
 }
 
+/* Bug 115: a help line or sentence after the button takes its own line,
+   under the field and the button. */
+.pqm-setup-connect > p {
+	flex-basis: 100%;
+	margin: 0;
+}
+
+/* A core control's help look (BaseControl's styled help: 12px, gray 700),
+   which a plain paragraph lacks. */
+.pqm-setup-help {
+	font-size: 12px;
+	font-style: normal;
+	color: #757575;
+}
+
 .pqm-setup-waiting {
 	display: flex;
 	align-items: center;

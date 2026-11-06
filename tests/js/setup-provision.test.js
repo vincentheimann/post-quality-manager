@@ -73,9 +73,11 @@ jest.mock(
 			value,
 			onChange,
 			disabled,
+			'aria-describedby': describedBy,
 		} ) => (
 			<input
 				aria-label={ label }
+				aria-describedby={ describedBy }
 				type={ type }
 				placeholder={ placeholder }
 				value={ value }
@@ -510,6 +512,33 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		expect(
 			document.querySelector( '.pqm-setup-step' ).textContent
 		).not.toContain( 'Application Password' );
+	} );
+
+	test( 'the key field names its help line, and the help line and the Pro sentence follow the button, so the button lines up with the field (bug 115)', async () => {
+		await openDialog(
+			// eslint-disable-next-line camelcase -- REST field name.
+			siteState( {
+				n8n: PASSING,
+				application_password_user: 'Anna Admin',
+			} )
+		);
+		const form = document.querySelector( '.pqm-setup-connect' );
+		const help = document.getElementById(
+			field( 'Anthropic API key' ).getAttribute( 'aria-describedby' )
+		);
+		expect( help.textContent ).toBe(
+			'Create one on the API keys page of the Anthropic Console.'
+		);
+		expect( [ ...form.children ].map( ( el ) => el.tagName ) ).toEqual( [
+			'INPUT',
+			'BUTTON',
+			'P',
+			'P',
+		] );
+		expect( form.children[ 2 ] ).toBe( help );
+		expect( form.children[ 3 ].textContent ).toContain(
+			'through an Application Password created for it on that profile'
+		);
 	} );
 
 	test( 'Pro without Application Passwords: proceeds, the Rewrite message shown as a warning', async () => {
