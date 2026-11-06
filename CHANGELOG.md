@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.1...v3.12.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **admin:** the model selects show the selected model's label whole ([fa2b121](https://github.com/vincentheimann/post-quality-manager/commit/fa2b121f2f317febc430d11520c2cbc7140b5137))
+
 ## [3.12.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.0...v3.12.1) (2026-11-05)
 
 

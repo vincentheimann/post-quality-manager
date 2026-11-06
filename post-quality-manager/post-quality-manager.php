@@ -4,7 +4,7 @@
  * Plugin URI:        https://postquality.com
  * Description:       Score every post, see what to fix next and keep your back-catalog sharp. AI content reviews, stored and tracked in WP Admin.
  * x-release-please-start-version
- * Version:           3.12.1
+ * Version:           3.12.2
  * x-release-please-end
  * Requires at least: 6.6
  * Requires PHP:      8.0
@@ -81,7 +81,7 @@ if (!function_exists('postquality_fs')) {
 }
 
 /* ─── Constants ──────────────────────────────────────────────────────── */
-define('POSTQUALITY_VERSION', '3.12.1'); // x-release-please-version
+define('POSTQUALITY_VERSION', '3.12.2'); // x-release-please-version
 define('POSTQUALITY_PLUGIN_FILE', __FILE__);
 define('POSTQUALITY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('POSTQUALITY_PLUGIN_URL', plugin_dir_url(__FILE__));
