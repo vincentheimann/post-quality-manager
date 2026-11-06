@@ -1600,5 +1600,16 @@ echo "Hide class on phones (bug 107)\n";
 check('.pqm-hidden declares display: none !important, so it wins over core\'s phone rules for form-table fields',
     (bool) preg_match('/^\.pqm-hidden\s*\{\s*display:\s*none\s*!important;\s*\}/m',
         (string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/css/pqm-admin.css')));
+/** The Custom model ID input's class attribute. */
+function custom_model_class(string $html): string {
+    preg_match('/<input type="text" id="pqm_custom_model".*?class="([^"]*)"/s', $html, $m);
+    return $m[1] ?? '(no input)';
+}
+check('a listed model saved: the Custom model ID field carries the hide class',
+    custom_model_class(render_for($admin_caps, true)) === 'regular-text code pqm-hidden');
+$GLOBALS['tw_settings'] = ['default_model' => 'custom', 'custom_model' => 'claude-fable-5-1'];
+check('Custom saved: the field shows (no hide class)',
+    custom_model_class(render_for($admin_caps, true)) === 'regular-text code');
+$GLOBALS['tw_settings'] = [];
 
 harness_exit();
