@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.12.3](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.2...v3.12.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **n8n:** the Parse nodes read Claude's JSON answer out of the reply around it ([4e7b87f](https://github.com/vincentheimann/post-quality-manager/commit/4e7b87fade3a8c16efe0ec35c29f07bb1980a955))
+
 ## [3.12.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.1...v3.12.2) (2026-11-06)
 
 
