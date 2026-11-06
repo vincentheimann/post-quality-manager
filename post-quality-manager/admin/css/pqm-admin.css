@@ -58,7 +58,7 @@
 .pqm-role-hint { display: none; margin-left: 6px; color: #50575e; font-size: 12px; }
 .pqm-roles-table input:not(:checked) + .pqm-role-hint { display: inline; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
-/* Bug 116: core caps selects at 25rem, narrower than the longest model labels; the cell is the cap. */
+/* Bug 116: the model labels need more than core's select cap (memory/admin-ui-rebuild.md). */
 #pqm_default_model, .pqm-wrap .pqm-agent-model { max-width: 100%; }
 
 /* Settings → AI: what each agent sends to Claude (story 67: moved from the Workflow page) */
