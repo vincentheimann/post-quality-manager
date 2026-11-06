@@ -1300,8 +1300,9 @@ class PostQuality_Admin
                 <?php /* Tells "tab posted with every box cleared" from "tab not
                        posted"; inert (never posted) inside the locked fieldset. */ ?>
                 <input type="hidden" name="postquality_settings[roles_posted]" value="1" />
-                <?php /* Bug 108: no layout of six columns fits a phone, so the table scrolls in this frame, not the page. */ ?>
-                <div class="pqm-roles-scroll">
+                <?php /* Bug 108: no layout of six columns fits a phone, so the table scrolls in this frame, not the page.
+                       Focusable and labelled, as on Post Reviews: on a free site no box inside can take focus. */ ?>
+                <div class="pqm-roles-scroll" role="region" aria-label="<?php esc_attr_e('What each role can do', 'post-quality-manager'); ?>" tabindex="0">
                 <table class="widefat striped pqm-roles-table">
                     <thead>
                         <tr>

@@ -1521,9 +1521,10 @@ foreach ([[true, 'licensed'], [false, 'free site']] as [$pro, $plan]) {
         ($note = strpos($panel, $quota_note)) !== false && $note > strpos($panel, '</table>'));
     check("$plan: one roles_posted marker, before the table", substr_count($panel, $marker) === 1 && strpos($panel, $marker) < strpos($panel, '<table'));
     // Bug 108: on a phone the page scrolled sideways; the table now scrolls in its own frame.
-    check("$plan: the table sits directly in its scroll frame, one frame, the quota note outside it",
-        substr_count($panel, '<div class="pqm-roles-scroll">') === 1
-        && preg_match('/<div class="pqm-roles-scroll">\s*<table class="widefat striped pqm-roles-table">.*?<\/table>\s*<\/div>\s*<p class="description">'
+    $frame = '<div class="pqm-roles-scroll" role="region" aria-label="What each role can do" tabindex="0">';
+    check("$plan: the table sits directly in its scroll frame, a focusable labelled region (one), the quota note outside it",
+        substr_count($panel, 'pqm-roles-scroll') === 1 && substr_count($panel, $frame) === 1
+        && preg_match('/' . preg_quote($frame, '/') . '\s*<table class="widefat striped pqm-roles-table">.*?<\/table>\s*<\/div>\s*<p class="description">'
             . preg_quote($quota_note, '/') . '/s', $panel) === 1);
     if ($pro) {
         check('licensed: no lock, no locked note, no fieldset in the panel',
@@ -1549,8 +1550,9 @@ foreach (['Admin without manage_options' => $admin_caps, 'Editor' => $editor_cap
 check('CSS: the hint is hidden unless its View reviews box is unchecked (no JS)',
     (bool) preg_match('/^\.pqm-role-hint \{ display: none;/m', $css)
     && (bool) preg_match('/^\.pqm-roles-table input:not\(:checked\) \+ \.pqm-role-hint \{ display: inline; \}/m', $css));
-check('CSS: the Roles frame scrolls sideways with a scroll padding for Tab (bug 108) and has the 8 px margin the table had; no rule of the table\'s own is left',
+check('CSS: the Roles frame scrolls sideways with a scroll padding for Tab and a focus outline (bug 108) and has the 8 px margin the table had; no rule of the table\'s own is left',
     (bool) preg_match('/^\.pqm-roles-scroll \{ margin: 8px 0; overflow-x: auto; scroll-padding-inline: 2\.5rem; \}/m', $css)
+    && str_contains($css, '.pqm-roles-scroll:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }')
     && !preg_match('/^\.pqm-roles-table \{/m', $css));
 $GLOBALS['tw_roles'] = [];
 
