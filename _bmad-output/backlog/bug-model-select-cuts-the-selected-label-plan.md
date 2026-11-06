@@ -37,6 +37,7 @@ Oneshot: one CSS rule in one file, no PHP, JS, schema, REST or template change. 
   - Label columns (AC2): between 783 and about 817 px windows the table cells grow to the select's 466 px and the label column gives way: at 790 px Default Model 224 px instead of 230, the agent boxes 202 instead of 230 (their Reasoning Effort, Temperature and pattern controls 28 px further left); at 817 px 230 / 229, from 830 px up all 230 as before. The frozen Approach's "nothing else on the page changes" holds from about 818 px up only; below that, showing the whole label and keeping the column are exclusive (the cell is 440–462 px there). Plan 101's capture at 790 px shows the Default Model column 6 px left of the Blog Profile's.
   - Custom selected (no save): the Custom model ID field under the select at 790, 1024 and 1280 px, never over it.
   - The capture: `feature-ai` 1440 × 1712 at 790 px (2x), label whole.
+- Merged 2026-11-06 (#249, e07e5dd), 14 s after 3.12.1's release PR, so it is not in 3.12.1. Released in **3.12.2** (release commit a7c3473; pre-release). Release run 42200212224 green. Zip `post-quality-manager-3.12.2.zip` sha256 `0e09b70b…f80f`, with the rule in `admin/css/pqm-admin.css`. Uploaded to Freemius as **deployment 171328**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Site #15 (the `feature-ai` capture) merged the same minute, so the live Features page matches 3.12.2.
 
 ## Plan Change Log
 

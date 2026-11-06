@@ -114,6 +114,7 @@ Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (bas
   - **Logs:** `debug.log` held 54 lines, all WP-CLI's own deprecations.
   - **One aside, not filed:** the first load after the Free build printed "Table 'wp_postquality_reviews' already exists" from the story-91 rename. The rename had completed (30 rows), most likely run at the same moment by a web request (an open showcase tab). Only pre-story-91 sites meet that upgrade, and no public site runs one.
   - **Restore:** plugin list, tables/reviews/users/log, plugin files + `wp-config.php` all "same". n8n stopped by its recorded PID and its task runner's, ports 5678/5688/5689 free, the n8n folder, the walk folders and the dist zip deleted.
+- Released 2026-11-06 in **3.12.1** (#248, merged 10:06Z, release commit c0cd093; pre-release). Release run 42200044650 green. Zip `post-quality-manager-3.12.1.zip` sha256 `eff0ab24…4770`: one root folder, `admin/build/` inside, template v9. Uploaded to Freemius as **deployment 171327**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded.
 
 ## Plan Change Log
 
