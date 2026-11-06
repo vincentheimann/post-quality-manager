@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.12.4](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.3...v3.12.4) (2026-11-06)
+
+
+### Bug Fixes
+
+* **admin:** the hidden Custom model ID field stays hidden on phones ([aea419c](https://github.com/vincentheimann/post-quality-manager/commit/aea419c8aa7bdc4106118c0d21ea512caf81ee8c))
+* **admin:** the Roles scroll frame is a focusable region, its findings in memory ([2639828](https://github.com/vincentheimann/post-quality-manager/commit/2639828597dea7618c7e097e07d25fedb3ac69e3))
+* **admin:** the Roles table scrolls inside its own frame on phones ([624f922](https://github.com/vincentheimann/post-quality-manager/commit/624f9224364aaf1792f524fdc2ffd63e83ebd380))
+* **setup:** the Set up the workflow button lines up with the Anthropic key field ([20ba8be](https://github.com/vincentheimann/post-quality-manager/commit/20ba8beb1ae6e7a6fea6b533d8df7b5d2f70e0a7))
+
 ## [3.12.3](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.2...v3.12.3) (2026-11-06)
 
 
