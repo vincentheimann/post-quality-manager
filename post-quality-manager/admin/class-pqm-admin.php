@@ -1300,6 +1300,8 @@ class PostQuality_Admin
                 <?php /* Tells "tab posted with every box cleared" from "tab not
                        posted"; inert (never posted) inside the locked fieldset. */ ?>
                 <input type="hidden" name="postquality_settings[roles_posted]" value="1" />
+                <?php /* Bug 108: no layout of six columns fits a phone, so the table scrolls in this frame, not the page. */ ?>
+                <div class="pqm-roles-scroll">
                 <table class="widefat striped pqm-roles-table">
                     <thead>
                         <tr>
@@ -1339,6 +1341,7 @@ class PostQuality_Admin
                     <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
                 <p class="description"><?php esc_html_e('A role with Run paid agents is not subject to the monthly quota (Usage & Limits).', 'post-quality-manager'); ?></p>
                 <?php if (!$is_pro): ?></fieldset><?php endif; ?>
                 </div><!-- #pqm-panel-roles -->

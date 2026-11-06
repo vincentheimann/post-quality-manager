@@ -54,7 +54,9 @@
 .pqm-locked-note { margin: 4px 0 12px; }
 
 /* Roles tab (story 42): the hint shows only while its View reviews box is unchecked — no JS. */
-.pqm-roles-table { margin: 8px 0; }
+/* Bug 108: on a phone the table scrolls here, not the page. The padding is wider than a phone's checkbox
+   (1.5625rem), so a box Tab reaches while partly out of view counts as hidden and is scrolled fully in. */
+.pqm-roles-scroll { margin: 8px 0; overflow-x: auto; scroll-padding-inline: 2.5rem; }
 .pqm-role-hint { display: none; margin-left: 6px; color: #50575e; font-size: 12px; }
 .pqm-roles-table input:not(:checked) + .pqm-role-hint { display: inline; }
 #pqm_custom_model { margin-left: 6px; vertical-align: middle; }
