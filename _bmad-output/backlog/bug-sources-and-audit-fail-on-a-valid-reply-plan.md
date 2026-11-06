@@ -3,7 +3,7 @@ title: 'The Parse nodes read the JSON object out of any reply around it'
 type: 'bugfix'
 ticket: '117'
 created: '2026-11-06'
-status: 'built'
+status: 'done'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -87,6 +87,17 @@ baseline_revision: 'f11a5b0157343bb81f5140856814da69c201ed83'
 - Review pass 2 patches (2026-11-06, the same implementer, records only): the reply-shapes paragraph of `memory/llm-options-architecture.md` and the diagram's v10 bullet say a passage after the object that holds a brace fails on v10, where v9's Parse Audit Result parsed the bare form; the release-note paragraph names what v10 reads (a closing sentence after the answer, reasoning before it) and says the Audit prompt allows the reasoning. The orchestrator narrowed the diagram bullet's title ("out of the reply around it"). Verification re-run on the final tree: harness files 23, 0 failed; `npm run test:unit` 181; `php -l` and `git diff --check` clean; LF.
 - Owner decisions (2026-11-06): severity P1 (the ticket proposed it), branch `fix/117-parse-json-in-reply`, the plan kept whole at both checkpoints.
 - bmad-build ran from the workspace root through the Skill tool (registered mid-session); implementers and both Quick lenses on Opus 5.5. Not run live: real calls on a disposable n8n go with the next release's walk.
+- **Walked live, 2026-11-06 afternoon (Opus 5.5 session; #253 merged as 4e7b87f):** the showcase on the Pro build of main 4e7b87f (template v10), licensed by the owner, a fresh disposable n8n 2.46.6 provisioned with the owner's key from `.secrets/` (never printed): ping OK, version 10 Pro variant. On the demo post where v9 failed in the morning, Claude Sonnet 5.5, one run each:
+
+  | Agent | Reply shape (n8n execution) | Stored |
+  |---|---|---|
+  | Sources | fenced JSON, then 942 characters of prose | `ship`, 85 (6 s; v9: "returned invalid JSON.") |
+  | Audit | `<thinking>` passage, then fenced JSON | `needs_revision`, 42 (15 s; v9: "returned invalid JSON.") |
+  | Review | bare object | `major_revision`, 22 (12 s) |
+  | Takeaways | fenced JSON | `needs_revision`, 50 (6 s) |
+  | SEO | bare object | `needs_revision`, 55 (6 s) |
+
+  All `end_turn`; `debug.log` only WP-CLI's own lines. License deactivated on the Account page before the restore; restore 3× "same"; n8n stopped by its PID, its folder and the walk files deleted. With the walk-recipe fix of the morning (wait for the editor's log line) the owner step took at the first form send.
 
 ## Plan Change Log
 
