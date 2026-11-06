@@ -47,7 +47,7 @@ Contract details, by the workflow version that introduced them:
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
 - **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
-  `{"ok":true,"workflow_version":9}` (its Response Data option, no extra node), so the
+  `{"ok":true,"workflow_version":10}` (its Response Data option, no extra node), so the
   plugin's test ping learns which workflow runs. An older import answers n8n's default
   body without a version, and the plugin reports it as an older version.
 - **The test ping proves the way back (v7, story 2).** Parse Input's ping item carries
@@ -70,13 +70,23 @@ Contract details, by the workflow version that introduced them:
   that thinks before it answers (Claude Opus 5.5) and long posts finish; the output
   budgets themselves ride the payload (`max_tokens`, v2). A v8 workflow keeps the
   older waits (Takeaways and Sources 30 s, Audit and Rewrite 120 s).
+- **The Parse nodes read the object out of the reply around it (v10, bug 117).** The five Parse … Result
+  nodes share two lines: drop the `<thinking>…</thinking>` passages that open the reply
+  (only those, so a JSON string quoting the tags stays whole), then parse the text from
+  its first `{` to its last `}`. A fence, a closing sentence or a passage before the
+  object no longer fails the run; a reply with no object still reports "<Agent> returned
+  invalid JSON.". A v9 workflow can fail that way on any of the five: each of its Parse
+  nodes strips only a leading and a trailing fence, and its Parse Audit Result removes
+  `<thinking>` only after the fence regexes have run. One reply fails on v10 that v9's
+  Parse Audit Result parsed in its bare form: a passage after the object that holds a
+  brace (the Audit prompt asks for the object last).
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connections into `/save-review` and the notification.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 9]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 10]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> RR

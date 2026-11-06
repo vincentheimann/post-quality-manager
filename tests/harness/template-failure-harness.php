@@ -101,23 +101,23 @@ function parsed_input(string $command, array $extra = []): array {
 
 echo "Parse Input\n";
 $base = parsed_input('review');
-check('stamps workflow_version 9', $base['workflow_version'] === 9 && $base['error'] === false);
+check('stamps workflow_version 10', $base['workflow_version'] === 10 && $base['error'] === false);
 check('passes post_rest_url through unchanged (story 35)', $base['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
 
 /* Row (story 2): the test ping — Parse Input → Ping OK → the body POST Result to WordPress sends back */
 echo "Round-trip ping\n";
 $ping_url = 'https://example.test/wp-json/post-quality/v1/ping/abcdefghij0123456789';
 $ping = run_code('Parse Input', ['body' => ['command' => 'ping', 'source' => 'pqm-test-connection', 'callback_url' => $ping_url, 'auth_token' => 'token']]);
-check('Parse Input: the ping item carries the callback address and token, stamps 8, no post, no notification',
+check('Parse Input: the ping item carries the callback address and token, stamps 10, no post, no notification',
     $ping['command'] === 'ping' && $ping['ping'] === true && $ping['error'] === false && $ping['callback_url'] === $ping_url && $ping['auth_token'] === 'token'
-    && $ping['notification_url'] === '' && $ping['workflow_version'] === 9 && !array_key_exists('post_id', $ping));
+    && $ping['notification_url'] === '' && $ping['workflow_version'] === 10 && !array_key_exists('post_id', $ping));
 $ok = run_code('Ping OK', $ping);
 check('Ping OK passes the item through with score 0, status \'\', result \'{}\' (no error)', $ok['callback_url'] === $ping_url && $ok['auth_token'] === 'token'
-    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 9);
+    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 10);
 check('Ping OK → Result Ready → POST Result to WordPress, the same connections every review takes',
     if_target('Ping OK', 0) === 'Result Ready' && if_target('Result Ready', 0) === 'POST Result to WordPress');
-check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 9, error_message \'\'',
-    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 9, 'error_message' => '']);
+check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 10, error_message \'\'',
+    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 10, 'error_message' => '']);
 $post_node = $NODES['POST Result to WordPress']['parameters'];
 check('the callback node reads its address and X-PQM-Token header from the item: /ping/{id} and the site\'s token', run_expr($post_node['url'], $ok) === $ping_url
     && run_expr(array_column($post_node['headerParameters']['parameters'], 'value', 'name')['X-PQM-Token'], $ok) === 'token');
@@ -160,7 +160,7 @@ foreach ($agents as $agent => $parse) {
     $body = post_body($item);
     check("$parse: error true, message names the agent and the API text", $item['error'] === true && $item['message'] === $want);
     check("$parse: POST body error_message = message, status '', result {}",
-        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 9);
+        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 10);
 }
 $item = run_code('Parse Review Result', ['error' => ['message' => 'connect ECONNREFUSED']], parse_refs($base, 'Parse Review Result'));
 check('no description → falls back to the error message', $item['message'] === 'Review Agent could not get an answer from the model: connect ECONNREFUSED');
@@ -179,7 +179,7 @@ foreach ($agents as $agent => $parse) {
 $item = run_code('Parse Review Result', ['error' => ['message' => '502 - "Bad Gateway"', 'error' => 'Bad Gateway']], parse_refs($base, 'Parse Review Result'));
 check('StatusCodeError with a string body → the body as is', $item['message'] === 'Review Agent could not get an answer from the model: Bad Gateway');
 
-/* Row: unparseable output — 2xx but not JSON / no delimiter */
+/* Row: unparseable output — 2xx but not JSON / no delimiter (bug 117: a reply with no object keeps this message) */
 echo "Unparseable output\n";
 $garbage = ['content' => [['type' => 'text', 'text' => 'Sorry, I cannot help with that.']]];
 foreach ($agents as $agent => $parse) {
@@ -259,6 +259,62 @@ foreach ($successes as $cmd => $item) {
     check("$cmd: every other field identical to the v2 body", $body === $v2 && $v2['status'] !== '');
 }
 check('rewrite success still stored as rewritten', $successes['rewrite']['status'] === 'rewritten');
+
+/* ─── Bug 117: the five Parse nodes read the JSON object out of any reply around it ── */
+echo "Reply shapes (bug 117)\n";
+
+/** Claude's reply: $text in one text block. */
+function text_reply(string $text): array {
+    return ['content' => [['type' => 'text', 'text' => $text]]];
+}
+
+/** Every matrix shape that wraps the object ($j compact, $p pretty-printed) and must read like the bare object. */
+function reply_shapes(string $j, string $p): array {
+    return [
+        'fenced'                                 => "```json\n$p\n```",
+        'a passage holding braces, then fenced'  => "<thinking>\nThe claim needs {a source}; the object ends {\"last\": true}.\n</thinking>\n\n```json\n$p\n```",
+        'fenced, then prose'                     => "```json\n$p\n```\n\nOne closing sentence.",
+        'two passages, then fenced'              => "<thinking>First, the structure.</thinking>\n<thinking>Then {the sources}.</thinking>\n```json\n$p\n```",
+        'a passage, then the bare object'        => "<thinking>Read the post.</thinking>\n$j",
+        'fenced, then a passage without braces'  => "```json\n$p\n```\n<thinking>Nothing to add.</thinking>",
+    ];
+}
+
+// One string each node reads holds a brace pair, a ```js fence and a quoted <thinking> pair (matrix rows 5 and 7).
+$tricky = "Show the rule in code: ```js\nconst rule = { max: 25 };\n``` then explain <thinking>...</thinking> in a sentence.";
+$review = json_decode($review_json, true);
+$review['top_edits'][0] = $tricky;
+$takeaways = ['block_found' => true, 'position_correct' => true, 'count' => 3, 'count_ok' => true, 'items_are_specific' => true,
+    'items_within_word_limit' => true, 'issues' => ['The second item repeats the title.'], 'rewritten_items' => [$tricky, 'Two.', 'Three.']];
+$sources = ['total_claims' => 2, 'sourced' => 1, 'unsourced_critical' => 1,
+    'claims' => [['claim' => 'Most readers skim.', 'severity' => 'critical', 'issue' => 'No source.', 'suggestion' => $tricky]],
+    'overall_verdict' => 'needs_sources', 'rewritten_sources' => ['A reading study, 2024.']];
+$seo = ['keyphrase_assessment' => 'ok', 'keyphrase_reason' => 'It leads the title.', 'keyphrase_changed' => false, 'proposed_keyphrase' => '',
+    'metadesc_assessment' => 'weak', 'metadesc_reason' => $tricky, 'metadesc_changed' => true, 'proposed_metadesc' => 'A shorter description.', 'char_count' => 22];
+$reply_objects = [ // agent => [object, overall_score, status]
+    'Review'    => [$review, 72, 'ship'],
+    'Takeaways' => [$takeaways, 80, 'ship'],
+    'Sources'   => [$sources, 55, 'needs_revision'],
+    'SEO'       => [$seo, 55, 'needs_revision'],
+    'Audit'     => [['review' => $review, 'takeaways' => $takeaways, 'sources' => $sources, 'seo' => $seo], 72, 'ship'],
+];
+foreach ($reply_objects as $agent => [$obj, $score, $status]) {
+    $parse = $agents[$agent];
+    $j = json_encode($obj, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); // literal </thinking> in the text, as Claude writes it
+    $p = json_encode($obj, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    $bare      = run_code($parse, text_reply($j), parse_refs($base, $parse));
+    $bare_body = post_body($bare);
+    check("$parse, bare: score $score, status $status, the object stored whole",
+        $bare['error'] === false && $bare_body['overall_score'] === $score && $bare_body['status'] === $status
+        && $bare_body['result'] === $obj && json_decode($bare['result'], true) === $obj && $bare_body['error_message'] === '');
+    foreach (reply_shapes($j, $p) as $shape => $text) {
+        $item = run_code($parse, text_reply($text), parse_refs($base, $parse));
+        check("$parse, $shape: the bare run's item and callback body", $item === $bare && post_body($item) === $bare_body);
+    }
+    $item = run_code($parse, text_reply("```json\n$p\n```\n<thinking>One more {thought}.</thinking>"), parse_refs($base, $parse));
+    check("$parse, fenced, then a passage holding a brace: \"$agent Agent returned invalid JSON.\"",
+        $item['error'] === true && $item['message'] === "$agent Agent returned invalid JSON." && post_body($item)['error_message'] === $item['message']);
+}
 
 /* ─── Bug 97: the notification branch reads the item at Result Ready, not WordPress's reply ── */
 const RESULT_NODES = ['Format Score', 'Parse Review Result', 'Parse Takeaways Result', 'Parse Sources Result', 'Parse SEO Result',

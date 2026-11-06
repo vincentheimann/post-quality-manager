@@ -92,7 +92,7 @@ define('POSTQUALITY_PRICING_URL', 'https://postquality.com/pricing/');
 // a re-import, together with the template's Parse Input stamp and its Webhook
 // Trigger reply. The workflow reports its version on a test ping (v5+) and in
 // every WP callback, so the n8n Workflow page can flag outdated imports.
-define('POSTQUALITY_WORKFLOW_VERSION', 9);
+define('POSTQUALITY_WORKFLOW_VERSION', 10);
 
 /* ─── Includes ───────────────────────────────────────────────────────── */
 // Every postquality_* helper lives in includes/pqm-functions.php, never here: PHP

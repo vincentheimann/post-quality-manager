@@ -309,7 +309,7 @@ check('every Parse Input stamp === POSTQUALITY_WORKFLOW_VERSION (the command ite
 
 /* ─── Story 35: the n8n connection is secured and host-agnostic ──────── */
 echo "Secured, host-agnostic connection (story 35)\n";
-check('POSTQUALITY_WORKFLOW_VERSION is 9', POSTQUALITY_WORKFLOW_VERSION === 9);
+check('POSTQUALITY_WORKFLOW_VERSION is 10', POSTQUALITY_WORKFLOW_VERSION === 10);
 $trigger = $nodes['Webhook Trigger'];
 check('Webhook Trigger answers on receipt with {"ok":true,"workflow_version":POSTQUALITY_WORKFLOW_VERSION} (the ping handshake)',
     !isset($trigger['parameters']['responseMode']) // n8n default: onReceived, the mode that shows responseData
