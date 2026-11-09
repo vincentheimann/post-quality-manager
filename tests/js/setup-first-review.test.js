@@ -7,7 +7,6 @@
  * the plan's I/O matrix. The WordPress-provided externals (api-fetch,
  * components, url) are not installed here: they are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
@@ -44,7 +43,6 @@ const REST = 'https://example.com/wp-json/';
 const NOW = Date.parse( '2026-10-22T10:00:00Z' );
 const MINUTE = 60 * 1000;
 
-/* eslint-disable camelcase -- REST field names. */
 /**
  * GET /posts item of the one published post; `values` override it.
  *
@@ -77,7 +75,6 @@ const processing = ( reviewedAt ) => ( {
 	result_data: null,
 	reviewed_at: reviewedAt,
 } );
-/* eslint-enable camelcase */
 
 let root;
 let replies;
@@ -177,7 +174,7 @@ afterEach( () => {
  * A fresh run: the trigger writes the `processing` row now, then the rows
  * answer from `reviews` (a function of the poll).
  *
- * @param {Function|Object} reviews GET /reviews reply.
+ * @param {(() => Object)|Object} reviews GET /reviews reply.
  */
 async function startRun( reviews ) {
 	await mount( {
@@ -189,7 +186,6 @@ async function startRun( reviews ) {
 }
 
 test( 'result lands in time: the score line, onComplete, no warning', async () => {
-	/* eslint-disable camelcase -- REST field names. */
 	const scored = {
 		command: 'review',
 		status: 'needs_revision',
@@ -197,7 +193,6 @@ test( 'result lands in time: the score line, onComplete, no warning', async () =
 		result_data: { summary: 'ok' },
 		reviewed_at: gmt( NOW + MINUTE ),
 	};
-	/* eslint-enable camelcase */
 	await startRun( () =>
 		Date.now() < NOW + MINUTE ? [ processing( gmt( NOW ) ) ] : [ scored ]
 	);
@@ -214,7 +209,6 @@ test( 'result lands in time: the score line, onComplete, no warning', async () =
 } );
 
 test( 'run fails: the failed notice, unchanged', async () => {
-	/* eslint-disable camelcase -- REST field names. */
 	await startRun( [
 		{
 			command: 'review',
@@ -224,7 +218,6 @@ test( 'run fails: the failed notice, unchanged', async () => {
 			reviewed_at: gmt( NOW ),
 		},
 	] );
-	/* eslint-enable camelcase */
 
 	await wait( POLL_INTERVAL );
 

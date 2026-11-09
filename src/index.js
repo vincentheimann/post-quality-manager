@@ -8,7 +8,7 @@
  * inside the page's body (#pqm-workflow-body), which every reply swaps
  * whole (story 67): it is mounted at load and again on every
  * postquality:workflow-status, on the fresh root node, reading its state anew.
- * React and all @wordpress/* dependencies are served by WordPress core via
+ * React and all `@wordpress/*` dependencies are served by WordPress core via
  * dependency extraction — nothing is bundled beyond this app's own code.
  */
 import { createRoot } from '@wordpress/element';

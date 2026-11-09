@@ -4,7 +4,7 @@
  * the score-band select and the quota note riding right. Page-local:
  * nothing outside Post Reviews consumes it.
  *
- * Chips are @wordpress/components Buttons with `isPressed`, which renders
+ * Chips are `@wordpress/components` Buttons with `isPressed`, which renders
  * `aria-pressed`; labels come from statusLabel() so chips and StatusBadge
  * share one source. Score bands align to the plugin's thresholds (owner
  * decision 2026-10-05): a band equals a ScoreBadge color.

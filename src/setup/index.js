@@ -115,7 +115,7 @@ function resumeAt( state ) {
  * path's first open step. A closed dialog stays closed.
  *
  * @param {Object} fresh The new GET /setup state.
- * @return {Function} Updater for the current step.
+ * @return {(key: string|null) => string|null} Updater for the current step.
  */
 function landing( fresh ) {
 	return ( key ) =>
@@ -199,7 +199,7 @@ export default function SetupIsland() {
 				const unchosen = {
 					...state,
 					manual: false,
-					manual_reason: null, // eslint-disable-line camelcase -- REST field name.
+					manual_reason: null,
 				};
 				setState( unchosen );
 				setCurrent( resumeAt( unchosen ) );
@@ -238,7 +238,7 @@ export default function SetupIsland() {
 					path: SETTINGS_PATH,
 					method: 'POST',
 					data: settings,
-			  } ).then( setState )
+				} ).then( setState )
 			: Promise.resolve();
 		return first
 			.then( () =>
@@ -258,11 +258,11 @@ export default function SetupIsland() {
 								? __(
 										'Could not save this setting. Try again.',
 										'post-quality-manager'
-								  )
+									)
 								: __(
 										'Could not save your progress. Try again.',
 										'post-quality-manager'
-								  ) )
+									) )
 					);
 					return false;
 				}
@@ -301,14 +301,12 @@ export default function SetupIsland() {
 			connected: true,
 			provisioned: true,
 			leftovers: false,
-			// eslint-disable-next-line camelcase -- REST field name.
 			leftovers_elsewhere: '',
 			steps: {
 				...prev.steps,
 				provision: !! reply.ping_ok,
 				manual: !! reply.ping_ok,
 			},
-			// eslint-disable-next-line camelcase -- REST field name.
 			webhook_url: reply.webhook_url || '',
 		} ) );
 
@@ -595,7 +593,6 @@ function StepStatus( { step, state, done } ) {
 		// postquality_manage_agents and locked on a free site: no Settings promise there.
 		const inSettings =
 			step.key !== 'schedule' ||
-			// eslint-disable-next-line camelcase -- REST field names.
 			( state.can_manage_agents && state.is_pro );
 		return done ? (
 			<p className="pqm-setup-done pqm-muted" role="status">
@@ -603,7 +600,7 @@ function StepStatus( { step, state, done } ) {
 					? __(
 							'Done — you can change this any time in Settings.',
 							'post-quality-manager'
-					  )
+						)
 					: __( 'Done.', 'post-quality-manager' ) }
 			</p>
 		) : null;
@@ -616,21 +613,21 @@ function StepStatus( { step, state, done } ) {
 			: __(
 					'This step ticks itself once the connection check passes.',
 					'post-quality-manager'
-			  );
+				);
 	} else if ( step.key === 'provision' || step.key === 'manual' ) {
 		text = done
 			? __( 'Done — the webhook URL is saved.', 'post-quality-manager' )
 			: __(
 					'This step ticks itself once a test ping gets through.',
 					'post-quality-manager'
-			  );
+				);
 	} else {
 		text = done
 			? __( 'Done — the first result is in.', 'post-quality-manager' )
 			: __(
 					'This step ticks itself when the first result arrives.',
 					'post-quality-manager'
-			  );
+				);
 	}
 
 	return (

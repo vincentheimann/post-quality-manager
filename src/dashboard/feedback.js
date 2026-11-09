@@ -157,11 +157,11 @@ export default function FeedbackCard( { feedback } ) {
 						? __(
 								'Could not hide the card. Try again in a moment.',
 								'post-quality-manager'
-						  )
+							)
 						: __(
 								'Could not reopen the card. Try again in a moment.',
 								'post-quality-manager'
-						  )
+							)
 				);
 			}
 		);

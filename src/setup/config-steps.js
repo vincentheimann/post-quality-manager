@@ -26,18 +26,18 @@ const PRICING_URL = 'https://postquality.com/pricing/';
 /**
  * A preset choice with its Custom text (Blog Profile, Editorial Standards).
  *
- * @param {Object}   props
- * @param {string}   props.why         One-line reason the setting matters.
- * @param {string}   props.label       Radio group label.
- * @param {string}   props.textLabel   Custom textarea label.
- * @param {Array}    props.options     `[{ value, label, text }]` from GET /setup.
- * @param {string}   props.choiceKey   Settings key of the radio.
- * @param {string}   props.textKey     Settings key of the Custom text.
- * @param {Object}   props.state       GET /setup state.
- * @param {string}   props.placeholder Custom textarea placeholder.
- * @param {string}   props.emptyHint   What the AI assumes for an empty text.
- * @param {boolean}  props.saving      Whether a save is in flight.
- * @param {Function} props.onSave      `( data )` saves and moves on.
+ * @param {Object}                 props
+ * @param {string}                 props.why         One-line reason the setting matters.
+ * @param {string}                 props.label       Radio group label.
+ * @param {string}                 props.textLabel   Custom textarea label.
+ * @param {Array}                  props.options     `[{ value, label, text }]` from GET /setup.
+ * @param {string}                 props.choiceKey   Settings key of the radio.
+ * @param {string}                 props.textKey     Settings key of the Custom text.
+ * @param {Object}                 props.state       GET /setup state.
+ * @param {string}                 props.placeholder Custom textarea placeholder.
+ * @param {string}                 props.emptyHint   What the AI assumes for an empty text.
+ * @param {boolean}                props.saving      Whether a save is in flight.
+ * @param {(data: Object) => void} props.onSave      Saves `data` and moves on.
  * @return {Element} The step body.
  */
 function PresetChoice( {
@@ -145,7 +145,6 @@ function Standards( props ) {
 				'Your Editorial Standards',
 				'post-quality-manager'
 			) }
-			// eslint-disable-next-line camelcase -- REST field name.
 			options={ props.state.voice_presets }
 			choiceKey="brand_voice_preset"
 			textKey="brand_voice"
@@ -165,10 +164,10 @@ function Standards( props ) {
  * Scheduled reviews: one click turns them on with the stored knobs (the
  * defaults on a new site), for a pro site and a user who manages agents.
  *
- * @param {Object}   props
- * @param {Object}   props.state  GET /setup state.
- * @param {boolean}  props.saving Whether a save is in flight.
- * @param {Function} props.onSave `( data )` saves and moves on.
+ * @param {Object}                 props
+ * @param {Object}                 props.state  GET /setup state.
+ * @param {boolean}                props.saving Whether a save is in flight.
+ * @param {(data: Object) => void} props.onSave Saves `data` and moves on.
  * @return {Element} The step body.
  */
 function Schedule( { state, saving, onSave } ) {
@@ -181,7 +180,6 @@ function Schedule( { state, saving, onSave } ) {
 		</p>
 	);
 	// Role first, then plan — like the Settings page (hidden beats locked).
-	// eslint-disable-next-line camelcase -- REST field name.
 	if ( ! state.can_manage_agents ) {
 		return (
 			<>
@@ -196,21 +194,20 @@ function Schedule( { state, saving, onSave } ) {
 		);
 	}
 
-	// eslint-disable-next-line camelcase -- REST field name.
 	if ( ! state.is_pro ) {
 		return (
 			<>
 				{ why }
 				<Notice status="info" isDismissible={ false }>
-					{ state.cron_enabled // eslint-disable-line camelcase -- REST field name.
+					{ state.cron_enabled
 						? __(
 								'Scheduled reviews are set up on this site, but changing their settings needs Pro.',
 								'post-quality-manager'
-						  )
+							)
 						: __(
 								'Scheduled reviews are available with Pro.',
 								'post-quality-manager'
-						  ) }{ ' ' }
+							) }{ ' ' }
 					<a href={ PRICING_URL }>
 						{ __( 'Get Pro', 'post-quality-manager' ) }
 					</a>
@@ -219,7 +216,6 @@ function Schedule( { state, saving, onSave } ) {
 		);
 	}
 
-	/* eslint-disable camelcase -- REST field names. */
 	const knobs = sprintf(
 		/* translators: 1: agent label, e.g. "Review"; 2: "every day" or "every week"; 3: posts per run; 4: score 0–100; 5: days */
 		__(
@@ -235,7 +231,6 @@ function Schedule( { state, saving, onSave } ) {
 		state.cron_max_age_days
 	);
 	const enabled = state.cron_enabled;
-	/* eslint-enable camelcase */
 
 	return (
 		<>
@@ -246,7 +241,7 @@ function Schedule( { state, saving, onSave } ) {
 					: __(
 							'Turn them on with these settings:',
 							'post-quality-manager'
-					  ) }{ ' ' }
+						) }{ ' ' }
 				{ knobs }
 			</p>
 			<p>
@@ -263,7 +258,6 @@ function Schedule( { state, saving, onSave } ) {
 				<div className="pqm-setup-save">
 					<Button
 						variant="primary"
-						// eslint-disable-next-line camelcase -- REST field name.
 						onClick={ () => onSave( { cron_enabled: true } ) }
 						isBusy={ saving }
 						disabled={ saving }

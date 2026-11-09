@@ -7,7 +7,6 @@
  * whatever it is. The WordPress-provided externals (api-fetch, components,
  * url) are not installed here: they are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
@@ -101,7 +100,6 @@ const OLD_BLOCK =
 const NEW_BLOCK =
 	'<div class="pqm-workflow-status"><p>Your workflow answers.</p></div>';
 
-/* eslint-disable camelcase -- REST field names. */
 const NOT_SET = {
 	base_url: '',
 	key_set: false,
@@ -187,7 +185,6 @@ function provisionedSite( values = {} ) {
  * @return {Object} Setup state.
  */
 function choiceSite() {
-	// eslint-disable-next-line camelcase -- REST field name.
 	return siteState( { manual: true, manual_reason: { kind: 'choice' } } );
 }
 
@@ -200,7 +197,6 @@ function choiceSite() {
 function probeSite() {
 	return siteState( {
 		manual: true,
-		// eslint-disable-next-line camelcase -- REST field name.
 		manual_reason: {
 			kind: 'probe',
 			message: 'The public API is turned off on this instance.',
@@ -230,7 +226,6 @@ function handMadeSite( values = {} ) {
 		...values,
 	} );
 }
-/* eslint-enable camelcase */
 
 let root;
 let replies;
@@ -329,7 +324,7 @@ const navButton = ( text ) =>
  *
  * @param {Object} next  GET /setup's answer afterwards.
  * @param {Object} reply The route's own reply (default: the passing key).
- * @return {Function} Reply function for `openDialog`'s answers.
+ * @return {() => Object} Reply function for `openDialog`'s answers.
  */
 function storeKey( next, reply = PASSING ) {
 	return () => {
@@ -434,7 +429,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 	} );
 
 	test( 'provision passes, ping ok: the key sent once, the field emptied, the status block swapped, the step done, then the first review', async () => {
-		/* eslint-disable camelcase -- REST field names. */
 		await openDialog( siteState( { n8n: PASSING } ), {
 			[ `POST ${ PROVISION }` ]: {
 				provisioned: true,
@@ -454,7 +448,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				data: { anthropic_key: PROVIDER_KEY },
 			},
 		] );
-		/* eslint-enable camelcase */
 		expect(
 			document.querySelector( '.mock-notice-success' ).textContent
 		).toBe( 'Ping OK — up to date.' );
@@ -476,9 +469,7 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		await openDialog( siteState( { n8n: PASSING } ), {
 			[ `POST ${ PROVISION }` ]: {
 				provisioned: true,
-				// eslint-disable-next-line camelcase -- REST field name.
 				ping_ok: false,
-				// eslint-disable-next-line camelcase -- REST field name.
 				webhook_url: `${ BASE }/webhook/${ PATH }`,
 				message: 'Your workflow is set up, but the test did not pass.',
 			},
@@ -495,7 +486,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 
 	test( 'Pro: the step says whose Application Password n8n gets and that it is revoked with the setup; nothing without the key (bug 73)', async () => {
 		await openDialog(
-			// eslint-disable-next-line camelcase -- REST field name.
 			siteState( {
 				n8n: PASSING,
 				application_password_user: 'Anna Admin',
@@ -516,7 +506,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 
 	test( 'the key field names its help line, and the help line and the Pro sentence follow the button, so the button lines up with the field (bug 115)', async () => {
 		await openDialog(
-			// eslint-disable-next-line camelcase -- REST field name.
 			siteState( {
 				n8n: PASSING,
 				application_password_user: 'Anna Admin',
@@ -545,12 +534,9 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		await openDialog( siteState( { n8n: PASSING } ), {
 			[ `POST ${ PROVISION }` ]: {
 				provisioned: true,
-				// eslint-disable-next-line camelcase -- REST field name.
 				ping_ok: true,
-				// eslint-disable-next-line camelcase -- REST field name.
 				webhook_url: `${ BASE }/webhook/${ PATH }`,
 				message: 'Ping OK. Rewrite stays off until …',
-				// eslint-disable-next-line camelcase -- REST field name.
 				rewrite_ready: false,
 			},
 		} );
@@ -624,7 +610,7 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 			siteState( {
 				n8n: PASSING,
 				leftovers: false,
-				leftovers_elsewhere: 'old.example.com', // eslint-disable-line camelcase -- REST field name.
+				leftovers_elsewhere: 'old.example.com',
 			} )
 		);
 		expect(
@@ -858,7 +844,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 		await openDialog(
 			siteState( {
 				manual: true,
-				// eslint-disable-next-line camelcase -- REST field name.
 				manual_reason: { kind: 'choice' },
 			} )
 		);
@@ -934,7 +919,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 
 	test( 'hand-made with the choice stored (a URL saved): the choice as the reason, no "Use the guided setup instead", no "Connect by key instead"', async () => {
 		await openDialog(
-			// eslint-disable-next-line camelcase -- REST field name.
 			handMadeSite( { manual_reason: { kind: 'choice' } } )
 		);
 		await act( async () => {
@@ -1025,7 +1009,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 	} );
 
 	test( 'reopened after provisioning whose ping failed: Set up the workflow is still open, with the paste-URL body', async () => {
-		/* eslint-disable camelcase -- REST field names. */
 		await openDialog(
 			siteState( {
 				n8n: PASSING,
@@ -1035,7 +1018,6 @@ describe( 'Setup dialog n8n steps (entry 6)', () => {
 				steps: { ...siteState().steps, n8n: true },
 			} )
 		);
-		/* eslint-enable camelcase */
 		expect( heading() ).toBe( 'Step 2 of 6: Set up the workflow' );
 		expect( field( 'Anthropic API key' ) ).toBeNull();
 		expect( field( 'Production webhook URL' ).value ).toBe(

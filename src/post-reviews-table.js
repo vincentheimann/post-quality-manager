@@ -4,7 +4,7 @@
  * Fetches GET post-quality/v1/posts and renders a native WP admin table
  * using the shared kit components (src/kit/): StatusBadge, ScoreBadge,
  * ProgressPills and QuotaNote, fed by the response's `viewer` block.
- * In wp-admin, core preconfigures @wordpress/api-fetch with the REST root
+ * In wp-admin, core preconfigures `@wordpress/api-fetch` with the REST root
  * and nonce middleware, so no localize bridge is needed.
  *
  * Story 5.3: status chips, score band, sortable headers and 20-per-page
@@ -299,7 +299,7 @@ function NotConnectedNotice( { canManage } ) {
 								url: 'admin.php?page=postquality-workflow',
 								variant: 'primary',
 							},
-					  ]
+						]
 					: []
 			}
 		>
@@ -313,11 +313,11 @@ function NotConnectedNotice( { canManage } ) {
 				? __(
 						'Import the pre-configured workflow into n8n and connect it to this site — about 10 minutes, one time.',
 						'post-quality-manager'
-				  )
+					)
 				: __(
 						'Ask an administrator to connect the n8n workflow to this site.',
 						'post-quality-manager'
-				  ) }
+					) }
 		</Notice>
 	);
 }

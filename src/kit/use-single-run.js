@@ -23,11 +23,11 @@ import { useToasts } from './toasts';
 import usePolling from './use-polling';
 
 /**
- * @param {Array|null} items                 Current list items (`post_id`, `in_flight`).
- * @param {string}     listKey               Identity of the query the items answer.
- * @param {Object}     callbacks             The page's own reactions.
- * @param {Function}   [callbacks.onStarted] `( postId, command )` after a run was accepted.
- * @param {Function}   [callbacks.onSettled] `( postId, command )` once a run's result landed.
+ * @param {Array|null}                                items                 Current list items (`post_id`, `in_flight`).
+ * @param {string}                                    listKey               Identity of the query the items answer.
+ * @param {Object}                                    callbacks             The page's own reactions.
+ * @param {(postId: number, command: string) => void} [callbacks.onStarted] After a run was accepted.
+ * @param {(postId: number, command: string) => void} [callbacks.onSettled] Once a run's result landed.
  * @return {Object} `refreshKey`, `settlePending( key )`, `awaited`, `pendingPostId`, `startRun( postId, command )`, `trigger( postId, command )`, `startError` (`{ postId, command, message }` or null), `dismissStartError()`, `toasts`, `addToast( content, status )`, `removeToast( id )`.
  */
 export default function useSingleRun( items, listKey, callbacks = {} ) {

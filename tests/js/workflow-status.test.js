@@ -150,7 +150,7 @@ function boot() {
 /**
  * Answer every fetch with this admin-ajax JSON body (or reject).
  *
- * @param {*}       json   Parsed JSON the server answers.
+ * @param {unknown} json   Parsed JSON the server answers.
  * @param {boolean} reject The request fails (network).
  */
 function answer( json, reject = false ) {
@@ -165,7 +165,7 @@ function answer( json, reject = false ) {
  * Answer the REST call with this HTTP status and JSON body (or reject).
  *
  * @param {number}  httpStatus The HTTP status (a REST error is 4xx/5xx).
- * @param {*}       json       Parsed JSON the route answers.
+ * @param {unknown} json       Parsed JSON the route answers.
  * @param {boolean} reject     The request fails (network).
  */
 function answerRest( httpStatus, json, reject = false ) {
@@ -176,7 +176,7 @@ function answerRest( httpStatus, json, reject = false ) {
 					ok: httpStatus < 400,
 					status: httpStatus,
 					json: () => Promise.resolve( json ),
-			  } )
+				} )
 	);
 }
 

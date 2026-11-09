@@ -7,7 +7,6 @@
  * but warned (D2). The api-fetch and components packages are
  * WordPress-provided externals, not installed here: both are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
@@ -58,7 +57,6 @@ async function connectWith( reply ) {
 	await act( async () => {
 		root.render(
 			<Connect
-				// eslint-disable-next-line camelcase -- REST field name.
 				state={ { webhook_url: URL } }
 				onConnected={ onConnected }
 			/>
@@ -98,7 +96,6 @@ describe( 'Setup dialog connect step', () => {
 			expect.objectContaining( {
 				path: '/post-quality/v1/setup/connect',
 				method: 'POST',
-				// eslint-disable-next-line camelcase -- REST field name.
 				data: { webhook_url: URL },
 			} )
 		);

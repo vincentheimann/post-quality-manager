@@ -36,11 +36,11 @@ function outcomeLine( result ) {
 }
 
 /**
- * @param {Object}   props
- * @param {Array}    props.selection `[{ post_id, title }]` — selected, selectable rows of the current page.
- * @param {Object}   props.viewer    The list's `viewer` block (quota, connected).
- * @param {Function} props.startRun  `( postId, command ) => Promise<{ ok, message }>` from the kit's useSingleRun (src/kit/use-single-run.js) — requestRun() plus polling re-arm; never rejects.
- * @param {Function} props.onStart   Called when a batch starts (clears the selection).
+ * @param {Object}                                                                       props
+ * @param {Array}                                                                        props.selection `[{ post_id, title }]` — selected, selectable rows of the current page.
+ * @param {Object}                                                                       props.viewer    The list's `viewer` block (quota, connected).
+ * @param {(postId: number, command: string) => Promise<{ok: boolean, message: string}>} props.startRun  From the kit's useSingleRun (src/kit/use-single-run.js) — requestRun() plus polling re-arm; never rejects.
+ * @param {() => void}                                                                   props.onStart   Called when a batch starts (clears the selection).
  */
 export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 	const [ confirming, setConfirming ] = useState( false );
@@ -120,7 +120,7 @@ export default function BulkBar( { selection, viewer, startRun, onStart } ) {
 									'post-quality-manager'
 								),
 								count
-						  )
+							)
 						: __( 'Review selected', 'post-quality-manager' ) }
 				</Button>
 				<span className="pqm-muted">{ hint }</span>

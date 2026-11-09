@@ -7,7 +7,6 @@
  * pick saves its key alone. The WordPress-provided externals (api-fetch,
  * components, url) are not installed here: they are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
@@ -84,7 +83,6 @@ const FOOD_TEXT = 'A food blog for home cooks.';
  * @return {Object} Setup state.
  */
 function completedState( values = {} ) {
-	/* eslint-disable camelcase -- REST field names. */
 	return {
 		complete: true,
 		connected: true,
@@ -130,7 +128,6 @@ function completedState( values = {} ) {
 		is_pro: false,
 		...values,
 	};
-	/* eslint-enable camelcase */
 }
 
 let root;
@@ -213,7 +210,6 @@ describe( 'Setup dialog configuration steps', () => {
 	} );
 
 	test( 'a stored preset is shown selected, its text read-only', async () => {
-		// eslint-disable-next-line camelcase -- REST field name.
 		await openDialog( completedState( { blog_profile: 'food' } ) );
 		expect( document.querySelector( 'input[value="food"]' ).checked ).toBe(
 			true
@@ -226,7 +222,6 @@ describe( 'Setup dialog configuration steps', () => {
 
 	test( 'Custom starts from the stored custom text, never from a preset', async () => {
 		await openDialog(
-			// eslint-disable-next-line camelcase -- REST field name.
 			completedState( { blog_profile: 'food', website_context: 'Mine.' } )
 		);
 		await act( async () => {
@@ -248,7 +243,6 @@ describe( 'Setup dialog configuration steps', () => {
 			{
 				path: SETTINGS,
 				method: 'POST',
-				// eslint-disable-next-line camelcase -- REST field name.
 				data: { blog_profile: 'marketing' },
 			},
 			{
@@ -317,9 +311,7 @@ describe( 'Setup dialog configuration steps', () => {
 	test( 'no postquality_manage_agents, even on a pro site: the schedule step explains, offers no switch', async () => {
 		await openDialog(
 			completedState( {
-				// eslint-disable-next-line camelcase -- REST field name.
 				can_manage_agents: false,
-				// eslint-disable-next-line camelcase -- REST field name.
 				is_pro: true,
 				steps: {
 					...completedState().steps,

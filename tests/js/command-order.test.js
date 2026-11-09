@@ -5,7 +5,6 @@
  * pill, tab or button. The modules read the print at import, so each case
  * loads them in isolation after setting it.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 
@@ -19,9 +18,9 @@ const FREE_LABELS = {
 	apply: 'Apply',
 };
 const viewer = {
-	can_trigger: true, // eslint-disable-line camelcase -- REST field name.
-	hidden_commands: [], // eslint-disable-line camelcase -- REST field name.
-	gated_commands: [], // eslint-disable-line camelcase -- REST field name.
+	can_trigger: true,
+	hidden_commands: [],
+	gated_commands: [],
 };
 
 /**

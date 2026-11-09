@@ -23,8 +23,8 @@ const ITEM_KEYS = {
  * The non-empty suggested items of a stored result, [] when the command
  * has no insert or the result has none.
  *
- * @param {string} command Command key.
- * @param {*}      data    The row's `result_data`.
+ * @param {string}  command Command key.
+ * @param {unknown} data    The row's `result_data`.
  * @return {Array} Items the server would insert.
  */
 export function insertItems( command, data ) {
@@ -35,17 +35,17 @@ export function insertItems( command, data ) {
 				( item ) =>
 					( typeof item === 'string' || typeof item === 'number' ) &&
 					String( item ).trim() !== ''
-		  )
+			)
 		: [];
 }
 
 /**
- * @param {Object}   props
- * @param {number}   props.postId   Post to insert into.
- * @param {string}   props.command  'takeaways' or 'sources'.
- * @param {number}   props.count    Number of items that will be inserted.
- * @param {boolean}  props.disabled True while the post is busy.
- * @param {Function} props.onNotify `( content, status )` — the page's toast.
+ * @param {Object}                                    props
+ * @param {number}                                    props.postId   Post to insert into.
+ * @param {string}                                    props.command  'takeaways' or 'sources'.
+ * @param {number}                                    props.count    Number of items that will be inserted.
+ * @param {boolean}                                   props.disabled True while the post is busy.
+ * @param {(content: string, status: string) => void} props.onNotify The page's toast.
  */
 export default function InsertBlock( {
 	postId,
@@ -94,7 +94,7 @@ export default function InsertBlock( {
 						'post-quality-manager'
 					),
 					count
-			  )
+				)
 			: sprintf(
 					/* translators: %d: number of suggested takeaways */
 					_n(
@@ -104,7 +104,7 @@ export default function InsertBlock( {
 						'post-quality-manager'
 					),
 					count
-			  );
+				);
 
 	return (
 		<>

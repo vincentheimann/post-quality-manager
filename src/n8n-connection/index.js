@@ -109,9 +109,9 @@ function errorMessage( err ) {
 }
 
 /**
- * @param {Object}    props
- * @param {Function=} props.onChange `( { base_url, key_set, key_hint, probe, connected, setup, adoptable, rotatable } )` after a call that read or stored the state.
- * @param {string=}   props.variant  The submit's and the confirm's Button variant: 'primary' (default) or 'secondary'.
+ * @param {Object}                     props
+ * @param {((state: Object) => void)=} props.onChange `( { base_url, key_set, key_hint, probe, connected, setup, adoptable, rotatable } )` after a call that read or stored the state.
+ * @param {string=}                    props.variant  The submit's and the confirm's Button variant: 'primary' (default) or 'secondary'.
  * @return {Element|null} The section.
  */
 export default function N8nConnection( { onChange, variant = 'primary' } ) {
@@ -222,10 +222,10 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 	 * One REST call: busy while it runs, a refusal in the failure Notice of
 	 * the block that made it; the other block's cause stays.
 	 *
-	 * @param {string}    block   'connection' | 'adoption'.
-	 * @param {Object}    options apiFetch options.
-	 * @param {Function}  done    `( data )` on success.
-	 * @param {Function=} refused `( err )` after a refusal.
+	 * @param {string}                   block   'connection' | 'adoption'.
+	 * @param {Object}                   options apiFetch options.
+	 * @param {(data: Object) => void}   done    `( data )` on success.
+	 * @param {((err: Object) => void)=} refused `( err )` after a refusal.
 	 */
 	const call = ( block, options, done, refused ) => {
 		setBusy( true );
@@ -311,10 +311,8 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 
 	const connect = ( event ) => {
 		event.preventDefault();
-		// eslint-disable-next-line camelcase -- REST field names.
 		const data = { base_url: url.trim() };
 		if ( key.trim() ) {
-			// eslint-disable-next-line camelcase -- REST field name.
 			data.api_key = key.trim();
 		}
 		send( { method: 'POST', data } );
@@ -347,7 +345,6 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 			{
 				path: ADOPTION_PATH,
 				method: 'POST',
-				// eslint-disable-next-line camelcase -- REST field name.
 				data: { workflow_id: proposal.workflow.id },
 			},
 			( data ) => {
@@ -423,7 +420,6 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 			{
 				path: SETUP_PATH,
 				method: 'DELETE',
-				// eslint-disable-next-line camelcase -- REST field name.
 				data: { remove_from_n8n: canRemove && removeToo },
 			},
 			( data ) => {
@@ -506,7 +502,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 						'post-quality-manager'
 					),
 					dateOf( state.setup.at )
-			  )
+				)
 			: sprintf(
 					/* translators: %s: date */
 					__(
@@ -514,7 +510,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 						'post-quality-manager'
 					),
 					dateOf( state.setup.at )
-			  );
+				);
 	}
 
 	/**
@@ -697,7 +693,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 												'post-quality-manager'
 											),
 											mapHost
-									  )
+										)
 									: sprintf(
 											/* translators: %s: the n8n host the setup was made on */
 											__(
@@ -705,7 +701,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 												'post-quality-manager'
 											),
 											mapHost
-									  ) }
+										) }
 							</p>
 						) }
 						<div className="pqm-n8n-connection-actions">
@@ -823,11 +819,11 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 										credentialName(
 											proposal.credentials.wordpress
 										)
-								  )
+									)
 								: __(
 										'WordPress: none. Rewrite stays off until a credential is set on Update WP Post (Rewrite).',
 										'post-quality-manager'
-								  ) }
+									) }
 						</li>
 					) }
 				</ul>
@@ -920,7 +916,7 @@ export default function N8nConnection( { onChange, variant = 'primary' } ) {
 								),
 								state.base_url.replace( /^https?:\/\//, '' ),
 								keyState
-						  ) }
+							) }
 				</p>
 				{ formOpen ? form : summary }
 				{ failureIn( 'connection' ) }

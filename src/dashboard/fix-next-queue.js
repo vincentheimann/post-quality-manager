@@ -16,14 +16,14 @@ import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
 
 /**
- * @param {Object}      props
- * @param {Array}       props.items               Queue rows (ship rows already dropped).
- * @param {boolean}     props.canReview           Whether the viewer may run Review.
- * @param {Function}    props.isBusy              `( postId ) => boolean` — trigger pending or result awaited.
- * @param {Function}    props.isStarting          `( postId ) => boolean` — start request pending.
- * @param {Function}    props.onReview            `( postId ) => void`.
- * @param {Object|null} props.startError          The last failed start, `{ postId, command, message }`, or null.
- * @param {Function}    props.onDismissStartError Closes the failed-start notice.
+ * @param {Object}                      props
+ * @param {Array}                       props.items               Queue rows (ship rows already dropped).
+ * @param {boolean}                     props.canReview           Whether the viewer may run Review.
+ * @param {(postId: number) => boolean} props.isBusy              Trigger pending or result awaited.
+ * @param {(postId: number) => boolean} props.isStarting          Start request pending.
+ * @param {(postId: number) => void}    props.onReview            Runs Review on the post.
+ * @param {Object|null}                 props.startError          The last failed start, `{ postId, command, message }`, or null.
+ * @param {() => void}                  props.onDismissStartError Closes the failed-start notice.
  */
 export default function FixNextQueue( {
 	items,
@@ -52,11 +52,11 @@ export default function FixNextQueue( {
 												'post-quality-manager'
 											),
 											item.latest_reviewed_display
-									  )
+										)
 									: __(
 											'Never reviewed',
 											'post-quality-manager'
-									  ) }
+										) }
 							</span>
 						</span>
 						<StatusBadge

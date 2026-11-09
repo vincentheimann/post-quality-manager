@@ -49,7 +49,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 ## Build from source
 
-The admin app (the Dashboard, Post Reviews and the n8n Workflow page's setup guide) is React, compiled from `src/` into `post-quality-manager/admin/build/`, which the plugin zip ships and git does not track. With Node 22, from the repository root:
+The admin app (the Dashboard, Post Reviews and the n8n Workflow page's setup guide) is React, compiled from `src/` into `post-quality-manager/admin/build/`, which the plugin zip ships and git does not track. With Node 22.22.2+, 24.15+ or 26+, from the repository root:
 
 1. `npm ci` installs the build tools (`@wordpress/scripts`).
 2. `npm run build` writes `post-quality-manager/admin/build/` from `src/`.

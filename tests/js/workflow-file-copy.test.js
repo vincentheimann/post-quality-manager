@@ -82,7 +82,7 @@ function clipboard( mode ) {
 								? Promise.resolve()
 								: Promise.reject( new Error( 'denied' ) )
 						),
-				  },
+					},
 		configurable: true,
 	} );
 }

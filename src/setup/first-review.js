@@ -84,7 +84,7 @@ function gaveUpText( webhookUrl, restUrl ) {
 				),
 				webhookUrl,
 				restUrl
-		  )
+			)
 		: sprintf(
 				/* translators: %s: the site's REST address n8n sends the result back to */
 				__(
@@ -92,7 +92,7 @@ function gaveUpText( webhookUrl, restUrl ) {
 					'post-quality-manager'
 				),
 				restUrl
-		  );
+			);
 	return `${ way } ${ __(
 		'Open Executions in n8n to see where the review stopped, or use Test again on the n8n Workflow page: it checks the way back in a few seconds.',
 		'post-quality-manager'
@@ -100,11 +100,11 @@ function gaveUpText( webhookUrl, restUrl ) {
 }
 
 /**
- * @param {Object}   props
- * @param {boolean}  props.connected  Whether a webhook URL is stored.
- * @param {string}   props.webhookUrl The stored n8n Webhook URL.
- * @param {string}   props.restUrl    The site's REST root (GET /setup).
- * @param {Function} props.onComplete Called once with the scored row.
+ * @param {Object}                props
+ * @param {boolean}               props.connected  Whether a webhook URL is stored.
+ * @param {string}                props.webhookUrl The stored n8n Webhook URL.
+ * @param {string}                props.restUrl    The site's REST root (GET /setup).
+ * @param {(row: Object) => void} props.onComplete Called once with the scored row.
  * @return {Element} The first-review step body.
  */
 export default function FirstReview( {

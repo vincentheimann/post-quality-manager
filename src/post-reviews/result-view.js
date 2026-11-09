@@ -24,7 +24,7 @@ const PILLARS = [
 /**
  * A pillar score as the agents store it: `{ score: 72 }` or a bare number.
  *
- * @param {*} value Stored pillar value.
+ * @param {unknown} value Stored pillar value.
  * @return {number|null} Score 0–100, null when not a number.
  */
 function pillarScore( value ) {
@@ -38,7 +38,7 @@ function pillarScore( value ) {
 /**
  * True when the object carries at least one pillar score (a review result).
  *
- * @param {*} data Stored result data.
+ * @param {unknown} data Stored result data.
  * @return {boolean} Whether `data` is review-shaped.
  */
 export function isReviewShape( data ) {
@@ -53,8 +53,8 @@ export function isReviewShape( data ) {
  * status color lives in the badge). The bar is decorative; label and
  * number carry the information.
  *
- * @param {Object} props
- * @param {*}      props.data Review data carrying the pillar scores.
+ * @param {Object}  props
+ * @param {unknown} props.data Review data carrying the pillar scores.
  */
 export function PillarMeters( { data } ) {
 	return (

@@ -73,7 +73,7 @@ function rowState( row ) {
  * Where the review's pillars live: the row itself, or a nested `review` (audit-style).
  *
  * @param {Object|undefined} row Stored review row.
- * @return {*} The review data.
+ * @return {unknown} The review data.
  */
 function reviewData( row ) {
 	const data = row && row.result_data;
@@ -174,13 +174,13 @@ function ResultMeta( { row } ) {
  * request is pending) or while n8n is not connected (the page notice
  * says why).
  *
- * @param {Object}   props
- * @param {string}   props.command   Command key.
- * @param {boolean}  props.hasRun    Whether a stored row exists for the command.
- * @param {Object}   props.viewer    The list's `viewer` block.
- * @param {boolean}  props.disabled  True while the post is busy.
- * @param {boolean}  props.starting  True while the post's start request is pending.
- * @param {Function} props.onTrigger `( command ) => void`.
+ * @param {Object}                    props
+ * @param {string}                    props.command   Command key.
+ * @param {boolean}                   props.hasRun    Whether a stored row exists for the command.
+ * @param {Object}                    props.viewer    The list's `viewer` block.
+ * @param {boolean}                   props.disabled  True while the post is busy.
+ * @param {boolean}                   props.starting  True while the post's start request is pending.
+ * @param {(command: string) => void} props.onTrigger Runs the command.
  */
 function CommandButton( {
 	command,
@@ -399,17 +399,17 @@ function HistoryTab( { rows } ) {
 /* ─── Panel ────────────────────────────────────────────────────────── */
 
 /**
- * @param {Object}      props
- * @param {number}      props.postId              Post whose reviews to show.
- * @param {string}      props.editLink            Edit URL, '' when the viewer cannot edit.
- * @param {Object}      props.viewer              The list's `viewer` block.
- * @param {boolean}     props.busy                True while the post is awaited or a trigger is pending.
- * @param {boolean}     props.starting            True while the post's start request is pending.
- * @param {number}      props.version             Bump to refetch (a run completed or started).
- * @param {Function}    props.onTrigger           `( command ) => void`.
- * @param {Function}    props.onNotify            `( content, status ) => void` — the page's toast (Insert into Post).
- * @param {string|null} props.startError          This post's failed-start message, null when none.
- * @param {Function}    props.onDismissStartError Closes the failed-start notice.
+ * @param {Object}                                    props
+ * @param {number}                                    props.postId              Post whose reviews to show.
+ * @param {string}                                    props.editLink            Edit URL, '' when the viewer cannot edit.
+ * @param {Object}                                    props.viewer              The list's `viewer` block.
+ * @param {boolean}                                   props.busy                True while the post is awaited or a trigger is pending.
+ * @param {boolean}                                   props.starting            True while the post's start request is pending.
+ * @param {number}                                    props.version             Bump to refetch (a run completed or started).
+ * @param {(command: string) => void}                 props.onTrigger           Runs the command.
+ * @param {(content: string, status: string) => void} props.onNotify            The page's toast (Insert into Post).
+ * @param {string|null}                               props.startError          This post's failed-start message, null when none.
+ * @param {() => void}                                props.onDismissStartError Closes the failed-start notice.
  */
 export default function DetailPanel( {
 	postId,

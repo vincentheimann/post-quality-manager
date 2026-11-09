@@ -81,7 +81,7 @@ export function inFlight( item, command = 'review' ) {
 /**
  * Plain object (not null, not an array).
  *
- * @param {*} value Any value.
+ * @param {unknown} value Any value.
  * @return {boolean} Whether `value` is a plain object.
  */
 export function isObject( value ) {
@@ -93,7 +93,7 @@ export function isObject( value ) {
 /**
  * Null, '', [] or {} — what a failed n8n run stores as its result.
  *
- * @param {*} value Any value.
+ * @param {unknown} value Any value.
  * @return {boolean} Whether `value` is empty.
  */
 export function isEmpty( value ) {

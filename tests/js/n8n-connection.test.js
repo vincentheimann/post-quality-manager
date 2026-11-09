@@ -10,7 +10,6 @@
  * masked placeholder. The api-fetch and components packages are
  * WordPress-provided externals, not installed here: both are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
@@ -78,11 +77,8 @@ jest.mock(
 const BASE = 'https://n8n.example.com';
 const PATH = '/post-quality/v1/n8n/connection';
 const CONNECTED = {
-	// eslint-disable-next-line camelcase -- REST field name.
 	base_url: BASE,
-	// eslint-disable-next-line camelcase -- REST field name.
 	key_set: true,
-	// eslint-disable-next-line camelcase -- REST field name.
 	key_hint: 'ab12',
 	probe: {
 		ok: true,
@@ -96,11 +92,8 @@ const CONNECTED = {
 	rotatable: false,
 };
 const NOT_SET = {
-	// eslint-disable-next-line camelcase -- REST field name.
 	base_url: '',
-	// eslint-disable-next-line camelcase -- REST field name.
 	key_set: false,
-	// eslint-disable-next-line camelcase -- REST field name.
 	key_hint: '',
 	probe: null,
 	connected: false,
@@ -126,8 +119,8 @@ let root;
 /**
  * Mount the section with GET /n8n/connection answering `state`.
  *
- * @param {Object}    state    GET reply.
- * @param {Function=} onChange The setup wizard's prop (entry 6).
+ * @param {Object}                     state    GET reply.
+ * @param {((state: Object) => void)=} onChange The setup wizard's prop (entry 6).
  */
 async function mount( state, onChange ) {
 	document.body.innerHTML = '<div id="pqm-n8n-connection-root"></div>';
@@ -228,7 +221,6 @@ describe( 'n8n Instance section: the connection block', () => {
 	} );
 
 	test( 'a short stored key (no hint): "set" without an ending; Change shows no placeholder', async () => {
-		// eslint-disable-next-line camelcase -- REST field name.
 		await mount( { ...CONNECTED, key_hint: '' } );
 		expect( summaryLine() ).toBe( 'n8n at n8n.example.com · API key: set' );
 		await click( '.pqm-n8n-change' );
@@ -280,13 +272,11 @@ describe( 'n8n Instance section: the connection block', () => {
 		await mount( NOT_SET );
 		await typeInto( 'n8n address', ` ${ BASE }/home/workflows ` );
 		await typeInto( 'n8n API key', ' secret-key-0123-wxyz ' );
-		// eslint-disable-next-line camelcase -- REST field name.
 		apiFetch.mockResolvedValueOnce( { ...CONNECTED, key_hint: 'wxyz' } );
 		await submit();
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field names.
 			data: {
 				base_url: `${ BASE }/home/workflows`,
 				api_key: 'secret-key-0123-wxyz',
@@ -380,7 +370,6 @@ describe( 'n8n Instance section: the connection block', () => {
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field name.
 			data: { base_url: BASE },
 		} );
 		expect( $( '.mock-notice-success' ).textContent ).toContain(
@@ -397,16 +386,13 @@ describe( 'n8n Instance section: the connection block', () => {
 		await typeInto( 'n8n API key', 'new-key-wxyz' );
 		apiFetch.mockResolvedValueOnce( {
 			...CONNECTED,
-			// eslint-disable-next-line camelcase -- REST field names.
 			base_url: 'https://other.example.com',
-			// eslint-disable-next-line camelcase -- REST field name.
 			key_hint: 'wxyz',
 		} );
 		await submit();
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field names.
 			data: {
 				base_url: 'https://other.example.com',
 				api_key: 'new-key-wxyz',
@@ -465,7 +451,6 @@ describe( 'n8n Instance section: the connection block', () => {
 
 	test( 'Forget key from the summary: DELETE, Connecting with the address kept and "not set"; focus on the address', async () => {
 		await mount( CONNECTED );
-		// eslint-disable-next-line camelcase -- REST field names.
 		apiFetch.mockResolvedValueOnce( {
 			base_url: BASE,
 			key_set: false,
@@ -519,7 +504,6 @@ describe( 'n8n Instance section: the connection block', () => {
 		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
 		expect( $( 'input' ) ).toBeNull();
 
-		// eslint-disable-next-line camelcase -- REST field names.
 		const forgotten = {
 			base_url: BASE,
 			key_set: false,
@@ -544,7 +528,7 @@ describe( 'Story 74: the connection state tells the truth', () => {
 	/**
 	 * Count postquality:workflow-refresh events while `run` runs.
 	 *
-	 * @param {Function} run Async steps.
+	 * @param {() => Promise<void>} run Async steps.
 	 * @return {Promise<Array>} Each event's detail.
 	 */
 	async function refreshesDuring( run ) {
@@ -639,7 +623,6 @@ describe( 'Story 74: the connection state tells the truth', () => {
 	test( 'a new key passes after a refusal: the summary back, the page re-reads its body (Update, Rotate and the offer return)', async () => {
 		await mount( REFUSED );
 		await typeInto( 'n8n API key', 'new-key-wxyz' );
-		// eslint-disable-next-line camelcase -- REST field name.
 		apiFetch.mockResolvedValueOnce( { ...CONNECTED, key_hint: 'wxyz' } );
 		const refreshes = await refreshesDuring( () => submit() );
 		expect( $( '.pqm-n8n-summary' ) ).not.toBeNull();
@@ -737,13 +720,11 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 			anthropic: { id: 'c-k1', name: 'my claude key' },
 			wordpress: { id: 'c-b1', name: 'wp basic' },
 		},
-		// eslint-disable-next-line camelcase -- REST field name.
 		rewrite_ready: true,
 	};
 	const ADOPTED = {
 		...CONNECTED,
-		setup: { wizard_created: false, at: 1760000000 }, // eslint-disable-line camelcase -- REST field name.
-		// eslint-disable-next-line camelcase -- REST field name.
+		setup: { wizard_created: false, at: 1760000000 },
 		rewrite_ready: true,
 	};
 	const offer = () => $( '.pqm-n8n-adopt' );
@@ -828,7 +809,6 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 				webhook: PROPOSAL.credentials.webhook,
 				anthropic: PROPOSAL.credentials.anthropic,
 			},
-			// eslint-disable-next-line camelcase -- REST field name.
 			rewrite_ready: false,
 		} );
 		await click( '.pqm-n8n-adopt' );
@@ -861,7 +841,6 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: ADOPTION_PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field name.
 			data: { workflow_id: 'wf-hand' },
 		} );
 		expect( $( '.pqm-n8n-adoption .pqm-n8n-managed' ).textContent ).toBe(
@@ -881,7 +860,6 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 	test( 'Managed: a provisioned site says "set this workflow up on", no offer', async () => {
 		await mount( {
 			...CONNECTED,
-			// eslint-disable-next-line camelcase -- REST field name.
 			setup: { wizard_created: true, at: 1760000000 },
 		} );
 		expect( $( '.pqm-n8n-adoption .pqm-n8n-managed' ).textContent ).toBe(
@@ -984,7 +962,6 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		await typeInto( 'n8n API key', 'new-key' );
 		apiFetch.mockResolvedValueOnce( {
 			...HAND_MADE,
-			// eslint-disable-next-line camelcase -- REST field name.
 			base_url: 'https://other.example.com',
 		} );
 		await submit();
@@ -999,7 +976,6 @@ describe( 'Adoption of a hand-made workflow (n8n provisioning, entry 8): the ado
 		await click( '.pqm-n8n-adopt' );
 		apiFetch.mockResolvedValueOnce( {
 			...NOT_SET,
-			// eslint-disable-next-line camelcase -- REST field name.
 			base_url: BASE,
 		} );
 		await click( '.pqm-n8n-forget' );
@@ -1028,7 +1004,7 @@ describe( 'After an adoption (story 67): the page re-reads its body', () => {
 	};
 	const ADOPTED = {
 		...CONNECTED,
-		setup: { wizard_created: false, at: 1760000000 }, // eslint-disable-line camelcase -- REST field name.
+		setup: { wizard_created: false, at: 1760000000 },
 	};
 
 	test( 'a confirmed adoption dispatches postquality:workflow-refresh once (its reply carries no body); a refused one does not', async () => {
@@ -1070,16 +1046,16 @@ describe( 'Start over (story 71)', () => {
 		at: 1760000000,
 		host: 'n8n.example.com',
 		same_instance: true,
-	}; // eslint-disable-line camelcase -- REST field names.
+	};
 	const WIZARD = {
 		...CONNECTED,
 		rotatable: true,
-		setup: { ...MAP, wizard_created: true }, // eslint-disable-line camelcase -- REST field name.
+		setup: { ...MAP, wizard_created: true },
 	};
 	const ADOPTED = {
 		...CONNECTED,
 		rotatable: true,
-		setup: { ...MAP, wizard_created: false }, // eslint-disable-line camelcase -- REST field name.
+		setup: { ...MAP, wizard_created: false },
 	};
 	const ELSEWHERE = {
 		...CONNECTED,
@@ -1088,14 +1064,14 @@ describe( 'Start over (story 71)', () => {
 			host: 'old.example.com',
 			same_instance: false,
 			wizard_created: true,
-		}, // eslint-disable-line camelcase -- REST field names.
+		},
 	};
 	const STARTED_OVER = {
 		...CONNECTED,
 		message:
 			'The setup was removed here and in n8n. Set n8n up again when you are ready.',
 		status_html:
-			'<div class="pqm-workflow-status" data-state="connected"><p>Connected to n8n at n8n.example.com. The workflow is not set up yet.</p></div>', // eslint-disable-line camelcase -- REST field name.
+			'<div class="pqm-workflow-status" data-state="connected"><p>Connected to n8n at n8n.example.com. The workflow is not set up yet.</p></div>',
 	};
 	const modal = () => $( '.mock-modal' );
 	const checkbox = () =>
@@ -1181,7 +1157,7 @@ describe( 'Start over (story 71)', () => {
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: SETUP_PATH,
 			method: 'DELETE',
-			data: { remove_from_n8n: false }, // eslint-disable-line camelcase -- REST field name.
+			data: { remove_from_n8n: false },
 		} );
 	} );
 
@@ -1227,7 +1203,7 @@ describe( 'Start over (story 71)', () => {
 		expect( apiFetch ).toHaveBeenLastCalledWith( {
 			path: SETUP_PATH,
 			method: 'DELETE',
-			data: { remove_from_n8n: true }, // eslint-disable-line camelcase -- REST field name.
+			data: { remove_from_n8n: true },
 		} );
 		expect( refreshed ).toHaveBeenCalledTimes( 1 );
 		expect( refreshed.mock.calls[ 0 ][ 0 ].detail.focus ).toBe(
@@ -1335,11 +1311,9 @@ describe( 'Start over (story 71)', () => {
 			await pressUpdate();
 			apiFetch.mockResolvedValueOnce( {
 				updated: true,
-				// eslint-disable-next-line camelcase -- REST field name.
 				ping_ok: true,
 				outdated: false,
 				message: 'Workflow updated.',
-				// eslint-disable-next-line camelcase -- REST field name.
 				status_html: UPDATED_BODY,
 			} );
 			await click( '.pqm-n8n-update-confirm' );
@@ -1390,7 +1364,6 @@ describe( 'Start over (story 71)', () => {
 				code: 'pqm_update_failed',
 				message:
 					'The plugin could not finish updating the workflow (n8n answered 500). Try again in a moment.',
-				// eslint-disable-next-line camelcase -- REST field name.
 				data: { status: 502, status_html: refused },
 			} );
 			await click( '.pqm-n8n-update-confirm' );

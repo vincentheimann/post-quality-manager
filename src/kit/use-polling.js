@@ -60,7 +60,7 @@ function awaitedPosts( tracked ) {
  * @param {Array|null} items    Current list items (`post_id`, `in_flight`).
  * @param {string}     listKey  Identity of the query the items answer; a change resets tracking.
  * @param {Object}     handlers `onTick()`, `onSettled( postId, command )`, `onGiveUp( postId, command )`.
- * @return {{awaited: Set<number>, restart: Function}} Actively awaited post ids; `restart( postId, command )` re-arms a key after a new trigger.
+ * @return {{awaited: Set<number>, restart: (postId: number, command: string) => void}} Actively awaited post ids; `restart( postId, command )` re-arms a key after a new trigger.
  */
 export default function usePolling( items, listKey, handlers ) {
 	const tracked = useRef( new Map() ); // key → { postId, command, startedAt, gaveUp }

@@ -43,9 +43,9 @@ export function keyPasses( state ) {
 /**
  * Save the webhook URL and ping it (POST /setup/connect).
  *
- * @param {Object}   props
- * @param {Object}   props.state       GET /setup state.
- * @param {Function} props.onConnected `( url, pingOk )` once the URL is stored.
+ * @param {Object}                                 props
+ * @param {Object}                                 props.state       GET /setup state.
+ * @param {(url: string, pingOk: boolean) => void} props.onConnected Once the URL is stored.
  * @return {Element} The connect form and its outcome.
  */
 export function Connect( { state, onConnected } ) {
@@ -60,7 +60,6 @@ export function Connect( { state, onConnected } ) {
 		apiFetch( {
 			path: CONNECT_PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field name.
 			data: { webhook_url: url.trim() },
 		} ).then(
 			( data ) => {
@@ -143,11 +142,11 @@ export function Connect( { state, onConnected } ) {
  * state, and the way to the manual path while the step is open (once the
  * key passes, it outranks the manual choice).
  *
- * @param {Object}   props
- * @param {Object}   props.state       GET /setup state.
- * @param {Function} props.onN8nChange The island's `onChange`.
- * @param {Function} props.onByHand    Stores the manual choice and opens the Workflow File section.
- * @param {boolean}  props.saving      Whether a progress save is in flight.
+ * @param {Object}                  props
+ * @param {Object}                  props.state       GET /setup state.
+ * @param {(state: Object) => void} props.onN8nChange The island's `onChange`.
+ * @param {() => void}              props.onByHand    Stores the manual choice and opens the Workflow File section.
+ * @param {boolean}                 props.saving      Whether a progress save is in flight.
  * @return {Element} The step body.
  */
 function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
@@ -193,10 +192,10 @@ function ConnectN8n( { state, onN8nChange, onByHand, saving } ) {
  * failed (now, or on an earlier visit: the step stays open), or a setup
  * map without a saved URL, leads to the paste-URL body.
  *
- * @param {Object}   props
- * @param {Object}   props.state         GET /setup state.
- * @param {Function} props.onProvisioned `( reply )` once the workflow is set up.
- * @param {Function} props.onConnected   Connect's `onConnected`.
+ * @param {Object}                                 props
+ * @param {Object}                                 props.state         GET /setup state.
+ * @param {(reply: Object) => void}                props.onProvisioned Once the workflow is set up.
+ * @param {(url: string, pingOk: boolean) => void} props.onConnected   Connect's `onConnected`.
  * @return {Element} The step body.
  */
 function Provision( { state, onProvisioned, onConnected } ) {
@@ -264,7 +263,6 @@ function Provision( { state, onProvisioned, onConnected } ) {
 		apiFetch( {
 			path: PROVISION_PATH,
 			method: 'POST',
-			// eslint-disable-next-line camelcase -- REST field name.
 			data: { anthropic_key: key.trim() },
 		} ).then(
 			( reply ) => {
@@ -419,13 +417,13 @@ function Provision( { state, onProvisioned, onConnected } ) {
  * saved) keeps this path whatever the key (adoption, 6.8), so neither is
  * offered there.
  *
- * @param {Object}   props
- * @param {Object}   props.state              GET /setup state.
- * @param {Function} props.onConnected        Connect's `onConnected`.
- * @param {Function} props.onN8nChange        The island's `onChange`.
- * @param {Function} props.onGuided           Removes the stored choice and leads to the key path.
- * @param {Function} props.onShowWorkflowFile Closes the dialog on the page's Set up by hand disclosure.
- * @param {boolean}  props.saving             Whether a progress save is in flight.
+ * @param {Object}                                 props
+ * @param {Object}                                 props.state              GET /setup state.
+ * @param {(url: string, pingOk: boolean) => void} props.onConnected        Connect's `onConnected`.
+ * @param {(state: Object) => void}                props.onN8nChange        The island's `onChange`.
+ * @param {() => void}                             props.onGuided           Removes the stored choice and leads to the key path.
+ * @param {() => void}                             props.onShowWorkflowFile Closes the dialog on the page's Set up by hand disclosure.
+ * @param {boolean}                                props.saving             Whether a progress save is in flight.
  * @return {Element} The step body.
  */
 function Manual( {

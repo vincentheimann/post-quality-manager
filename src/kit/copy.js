@@ -5,7 +5,7 @@
  * kept here: they come translated from the PHP registry
  * (PostQuality_Features::registry()), printed as window.postqualityCommandLabels before
  * the bundle. Copy follows docs/brand.md; every string here flows
- * through @wordpress/i18n.
+ * through `@wordpress/i18n`.
  */
 import { __, sprintf } from '@wordpress/i18n';
 
@@ -63,12 +63,12 @@ export function runLabel( command, hasRun = false ) {
 				/* translators: %s: agent command label, e.g. "Review" */
 				__( 'Re-run %s', 'post-quality-manager' ),
 				label
-		  )
+			)
 		: sprintf(
 				/* translators: %s: agent command label, e.g. "Review" */
 				__( 'Run %s', 'post-quality-manager' ),
 				label
-		  );
+			);
 }
 
 /**

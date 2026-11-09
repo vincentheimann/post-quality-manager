@@ -7,7 +7,6 @@
  * the card makes. The api-fetch, components and compose packages are
  * WordPress-provided externals, not installed here: all three are mocked.
  */
-// eslint-disable-next-line import/no-extraneous-dependencies -- React comes with @wordpress/element (wp-scripts); act is not re-exported there.
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
 import apiFetch from '@wordpress/api-fetch';
