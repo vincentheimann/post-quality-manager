@@ -3,7 +3,7 @@ title: 'The plugin requires PHP 8.1, and the project''s checks run on it'
 type: 'chore'
 ticket: 118
 created: '2026-11-09'
-status: 'built'
+status: done
 baseline_revision: '46ac40b4e2e054ee1318c8a800b7dacaf45048b0'
 route: 'full'
 route_source: 'pinned'
@@ -86,6 +86,7 @@ Lines as of 46ac40b; every one re-verified 2026-11-09.
 - Website: branch `chore/118-php-floor-8-1` created locally from `main` (a3241bb); with no fetch, whether that `main` is current with origin was not re-checked.
 - The 8.3 harness run used the default temp folder (the three harnesses that write temp files remove them at shutdown); the 8.1.29 run used `-d sys_temp_dir=` the scratch folder, empty afterwards.
 - Orchestrator, 2026-11-09 (step 3): the implementer ran on Opus (owner rule 2026-10-26). The 8.3 run's default temp folder breaks the owner's brief (temporary files in the scratchpad); `%TEMP%` was listed afterwards (read only): no `pqm-free-build-*`, `pqm-n8n-runner-*` or `pqm-n8n-compile-*` entry. Diffs staged in the session scratchpad, not the system temp folder, by the same brief. Matrix audit re-run by the orchestrator: 8.3.32 and 8.1.29 sweeps 23 passed, 0 failed, no PHP message (both with `sys_temp_dir` in the scratchpad); touched PHP files lint clean on both; a `readonly class` file fails `-l` on 8.1.29 ("unexpected token \"readonly\"") and passes on 8.3.32; Row 8 passes on the branch, and its rule fails for CI versions (8.0, 8.3, 8.3) and (8.2, 8.3, 8.3). Rows `/lcm` and `/release` are skill text, checked by reading step 4 of `lcm/SKILL.md` and step 7 of `release/SKILL.md`; no executable test exists for them. Row "CI green" is proven by the PR's checks (step 5).
+- 2026-11-09, the orchestrator: draft PR #266 opened on 50e5244; website PR vincentheimann/postquality.com#16 (25c28b1) merged by the owner as f0f4407. `gh pr checks 266` (run 42613217158): Build admin app pass, PHP lint and harness sweep pass (42 s; its log sets up PHP 8.1.34 and 8.3.36, 22 harness summaries with 0 failed on each, 14 clean lints on each, row 8 "ci.yml's php job sets up PHP 8.1, 8.3"), Plugin Check pass, Free build Plugin Check pass. Criterion 2 met on CI; plan marked `done` with `tickets.py mark` (lands on merge), as chore 103 did on #262.
 
 ## Plan Change Log
 
