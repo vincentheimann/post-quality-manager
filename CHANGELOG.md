@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.13.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.4...v3.13.0) (2026-11-09)
+
+
+### Features
+
+* **admin:** a Post Quality meta box shows the post's review and runs a new one ([e85d0df](https://github.com/vincentheimann/post-quality-manager/commit/e85d0df7e0425409a9f305b2ba980d15badae3b9))
+
 ## [3.12.4](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.3...v3.12.4) (2026-11-06)
 
 
