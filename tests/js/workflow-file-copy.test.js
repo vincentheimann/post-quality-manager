@@ -1,14 +1,14 @@
 /**
  * The Workflow File section's Copy rows (n8n provisioning, entry 2): one
- * binding in pqm-admin.js over every .pqm-copy-row, the import URL row
- * included, run in jsdom. The fixture mirrors PostQuality_Admin::render_copy_value();
+ * binding in pqm-admin.js over every .pqm-copy-row, run in jsdom; every row
+ * says "Copied." (story 111: the import URL row and its own line are gone).
+ * The fixture mirrors PostQuality_Admin::render_copy_value();
  * render-matrix-harness.php locks the PHP side (rows, labels, aria-live).
  */
 
 const SCRIPT = '../../post-quality-manager/admin/js/pqm-admin.js';
 
 const I18N = {
-	copied: 'Copied! Paste it in n8n under "Import", then "From URL".',
 	copiedValue: 'Copied.',
 	copyFailed:
 		'Could not copy automatically. The value is selected — press Ctrl+C.',
@@ -38,11 +38,10 @@ function renderSection() {
 		<div class="wrap pqm-wrap">
 			<h2>Workflow File</h2>
 			<ol class="pqm-workflow-steps">
-				<li><div class="pqm-import-url">${ row(
-					'Workflow import URL',
-					'https://example.com/wp-json/post-quality/v1/workflow?token=tok'
-				) }</div></li>
-				<li>${ row( 'Name', 'X-PQM-Token' ) }${ row( 'Value', 'tok-123' ) }</li>
+				<li>${ row(
+					'Credential name',
+					'Post Quality webhook - example.com'
+				) }${ row( 'Name', 'X-PQM-Token' ) }${ row( 'Value', 'tok-123' ) }</li>
 			</ol>
 		</div>`;
 }
@@ -129,17 +128,17 @@ describe( 'Copy rows in the Workflow File section', () => {
 		expect( feedback( header ).textContent ).toBe( 'Copied.' );
 	} );
 
-	test( 'the import URL row keeps its own line: where to paste it', async () => {
+	test( 'the first row says "Copied." too: no row has a line of its own', async () => {
 		renderSection();
 		clipboard( 'granted' );
 		boot();
-		const [ importRow ] = rows();
-		click( importRow );
+		const [ credential ] = rows();
+		click( credential );
 		await flush();
 		expect( window.navigator.clipboard.writeText ).toHaveBeenCalledWith(
-			'https://example.com/wp-json/post-quality/v1/workflow?token=tok'
+			'Post Quality webhook - example.com'
 		);
-		expect( feedback( importRow ).textContent ).toBe( I18N.copied );
+		expect( feedback( credential ).textContent ).toBe( 'Copied.' );
 	} );
 
 	test( 'clipboard refused: the value is selected and the line says Ctrl+C', async () => {

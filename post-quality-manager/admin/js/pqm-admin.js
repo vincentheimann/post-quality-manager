@@ -532,7 +532,7 @@
 
     /* ================================================================
      *  WORKFLOW STATUS REFRESH (workflow page, D1)
-     *  A download, an import from URL or a command's report may land
+     *  A download, a fetch of GET /workflow or a command's report may land
      *  while the user is away: re-read the body whenever the tab
      *  regains focus — unless the owner is typing in it. The setup
      *  dialog (src/setup/) asks for the same refresh when it closes
@@ -576,8 +576,8 @@
 
     /* ================================================================
      *  COPY ROWS (workflow page): every value Set up by hand asks the
-     *  reader to enter in n8n, the import URL and the webhook token
-     *  included (PostQuality_Admin::render_copy_value()). Clipboard refused: the
+     *  reader to enter in n8n, the webhook token included
+     *  (PostQuality_Admin::render_copy_value()). Clipboard refused: the
      *  value stays selected and the feedback says to press Ctrl+C. Runs
      *  again after each body swap; a row binds once.
      * ================================================================ */
@@ -597,14 +597,12 @@
             var feedback = row.querySelector('.pqm-copy-feedback');
             if (!field || !copyBtn || !feedback || row.pqmBound) return;
             row.pqmBound = true;
-            // The import URL row also says where to paste it.
-            var copied = row.closest('.pqm-import-url') ? i18n.copied : i18n.copiedValue;
 
             field.addEventListener('focus', function () { this.select(); });
 
             copyBtn.addEventListener('click', function () {
                 function report(ok) {
-                    setFeedback(feedback, ok, ok ? copied : i18n.copyFailed);
+                    setFeedback(feedback, ok, ok ? i18n.copiedValue : i18n.copyFailed);
                     if (feedback.pqmTimer) clearTimeout(feedback.pqmTimer);
                     feedback.pqmTimer = setTimeout(function () { setFeedback(feedback, null, ''); }, 4000);
                 }

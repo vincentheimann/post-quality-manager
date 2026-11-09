@@ -614,13 +614,22 @@ check('Workflow File (entry 2): the four steps, two credentials, the two Claude 
     && str_contains($workflow_file, 'Then double-click the Webhook Trigger and pick the webhook credential, even if one is already set. Last, open each node — the Webhook Trigger and the two Claude nodes — and check the credential name.')
     && str_contains($workflow_file, 'Pick <strong>Post Quality webhook - example.com</strong> in the Webhook Trigger and <strong>Anthropic - Claude</strong> in the two Claude nodes.')
     && !str_contains($workflow_file, 'WordPress - ') && !str_contains($workflow_file, 'profile.php') && !str_contains($workflow_file, 'six Claude'));
-check('... Copy rows: import URL, then the webhook and Anthropic credentials\' values',
-    array_map(static fn($r) => $r[1], $rows) === ['Workflow import URL', 'Credential name', 'Name', 'Value', 'Credential name', 'Name']
-    && $rows[1][2] === 'Post Quality webhook - example.com' && $rows[4][2] === 'Anthropic - Claude' && $rows[5][2] === 'x-api-key');
+check('... Copy rows: the webhook and Anthropic credentials\' values (story 111: no import URL row)',
+    array_map(static fn($r) => $r[1], $rows) === ['Credential name', 'Name', 'Value', 'Credential name', 'Name']
+    && $rows[0][2] === 'Post Quality webhook - example.com' && $rows[3][2] === 'Anthropic - Claude' && $rows[4][2] === 'x-api-key');
 check('... the first-credential warning and the re-import note, as on Pro; the n8n link is the stored instance',
     str_contains($workflow_file, 'Before you import: n8n fills in credentials by itself. A node gets the credential of its type you saved most recently')
     && str_contains($workflow_file, 'n8n publishes the new one only once the old one is unpublished')
-    && str_contains($workflow_file, 'In <a href="https://n8n.example">your n8n</a>, open'));
+    && str_contains($workflow_file, 'then in <a href="https://n8n.example">your n8n</a> open'));
+/* AC4 (story 111), on the Free build: the same step 1 as Pro, no import link in the section or in the page script's strings */
+$url_import = '/from url|(?<!re-)import (url|link)|pqm-import-url/i'; // "Re-import link" is the status block's other link
+check('AC4 (story 111): step 1 downloads, then names "Import" → "From file" (n8n 2.36+) and "Import JSON" (n8n 3), then the Download button; no import link, no "From URL"',
+    str_contains($workflow_file, 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.')
+    && strpos($workflow_file, 'Pick the file you downloaded.') < strpos($workflow_file, 'class="button">Download n8n workflow</a>')
+    && !preg_match($url_import, $workflow_file) && !str_contains($workflow_file, '/workflow?token='));
+check('... the Free build\'s page script strings name no URL import either (class-pqm-admin.php\'s localized strings, pqm-admin.js)',
+    is_file($free . '/admin/js/pqm-admin.js') && !preg_match($url_import, (string) file_get_contents($free . '/admin/js/pqm-admin.js'))
+    && !preg_match($url_import, (string) file_get_contents($free . '/admin/class-pqm-admin.php')));
 check('n8n Workflow page carries the n8n connection disclosure, as on Pro; a stored n8n API key is not in its source',
     str_contains($workflow_html, '<summary><h2>n8n connection</h2></summary>')
     && (str_contains($workflow_html, 'id="pqm-n8n-connection-root"') || !is_file($free . '/admin/build/index.asset.php'))

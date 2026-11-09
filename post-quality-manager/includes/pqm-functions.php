@@ -348,7 +348,7 @@ function postquality_site_host(): string
  * The Webhook Trigger's path for this site (__PQM_WEBHOOK_PATH__), so two
  * sites on one n8n instance never collide: `pqm-execute-example-com`. The one
  * derivation of it; plain PHP, no filterable WordPress function, so the
- * download, the import URL and provisioning all yield the same path. The
+ * download, GET /workflow and provisioning all yield the same path. The
  * `pqm-execute-` prefix marks a plugin path. Known ceiling: two installs on
  * one host (another port or a sub-directory) share the path, as they already
  * share the credential names; add the port and path to the slug when an

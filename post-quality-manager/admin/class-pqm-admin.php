@@ -156,7 +156,7 @@ class PostQuality_Admin
 
         // Story 36: the n8n Workflow page also mounts the setup dialog from
         // the bundle; pqm-admin.js below keeps the page's own controls
-        // (ping, import-URL copy) — the two touch different DOM.
+        // (ping, copy rows) — the two touch different DOM.
         if ($hook === self::$workflow_hook) {
             self::enqueue_app();
         }
@@ -206,7 +206,6 @@ class PostQuality_Admin
                 'testing' => __('Testing the connection…', 'post-quality-manager'),
                 'networkError' => __('The request did not go through. Check your connection and try again.', 'post-quality-manager'),
                 'stateLoading' => __('The page is still loading its state. Try again in a moment.', 'post-quality-manager'), // story 76
-                'copied' => __('Copied! Paste it in n8n under "Import", then "From URL".', 'post-quality-manager'),
                 'copiedValue' => __('Copied.', 'post-quality-manager'),
                 'copyFailed' => __('Could not copy automatically. The value is selected — press Ctrl+C.', 'post-quality-manager'),
             ],
@@ -1393,15 +1392,6 @@ class PostQuality_Admin
     }
 
     /**
-     * The n8n "Import from URL" link: the workflow route with the webhook
-     * token. Shared by this page and the setup dialog (GET /setup).
-     */
-    public static function workflow_import_url(): string
-    {
-        return add_query_arg('token', rawurlencode(postquality_get_settings()['webhook_token']), rest_url(POSTQUALITY_REST_NAMESPACE . '/workflow'));
-    }
-
-    /**
      * The n8n Workflow page (story 67): the H1, the setup dialog's mount
      * point (story 36) and one body, #pqm-workflow-body, rendered by
      * render_workflow_body() from the site's state. Every reply that
@@ -1962,15 +1952,10 @@ class PostQuality_Admin
                 <p><?php
                     printf(
                         /* translators: %s: "your n8n", linked to the n8n instance when its address is known, else "n8n" */
-                        esc_html__('In %s, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import", then "From URL", and paste this link:', 'post-quality-manager'),
+                        esc_html__('Download the workflow, then in %s open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.', 'post-quality-manager'),
                         $n8n // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
                     );
                 ?></p>
-                <div class="pqm-import-url">
-                    <?php self::render_copy_value(__('Workflow import URL', 'post-quality-manager'), self::workflow_import_url()); ?>
-                    <p class="description"><?php esc_html_e('It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.', 'post-quality-manager'); ?></p>
-                </div>
-                <p><?php esc_html_e('Importing from the URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import", then "From file", in the same menu.', 'post-quality-manager'); ?></p>
                 <p><a href="<?php echo esc_url($download); ?>" class="button"><?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?></a></p>
             </li>
             <li>
@@ -2440,9 +2425,9 @@ class PostQuality_Admin
     /**
      * Answer the n8n Workflow page's body, `{status_html}`, as it renders
      * now. The open page asks whenever its tab regains focus and whenever
-     * the setup dialog closes (story 67), so a download, an import from
-     * URL, a command's report or what the dialog did shows without a
-     * reload (D1). Reads only — never pings n8n.
+     * the setup dialog closes (story 67), so a download, a fetch of
+     * GET /workflow, a command's report or what the dialog did shows
+     * without a reload (D1). Reads only — never pings n8n.
      */
     public static function ajax_workflow_status(): void
     {

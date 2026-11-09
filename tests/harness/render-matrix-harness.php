@@ -510,21 +510,23 @@ $section = $section_of($connected);
 preg_match_all('/<li>\s*<h3>([^<]+)<\/h3>/', $section, $steps);
 check('four numbered steps, in journey order', str_contains($section, '<ol class="pqm-workflow-steps">')
     && $steps[1] === ['Import the workflow', 'Create the credentials', 'Check the credential in each node', 'Publish and connect']);
-$import_at = strpos($section, 'value="/wp-json/post-quality/v1/workflow?token=tok-35"');
-$download_at = strpos($section, 'Download n8n workflow');
+/* Story 111: step 1 is the file import n8n 2 and n8n 3 both offer; the menu's words per version are in memory/n8n-provisioning.md */
+$step1 = 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.';
+$import_at = strpos($section, $step1);
+$download_at = strpos($section, '<a href="/wp-admin/admin-post.php?action=postquality_download_workflow&_wpnonce=stub" class="button">Download n8n workflow</a>');
 $step2_at = strpos($section, 'Create the credentials');
-check('step 1 imports as the dialog does: the import URL row, then Download as the fallback; no credential is listed above them',
-    $import_at !== false && $import_at < $download_at && $download_at < $step2_at
-    && str_contains($section, 'Importing from the URL not working (for example, n8n cannot reach this site)? Download the file and choose "Import", then "From file", in the same menu.')
-    && str_contains($section, '<a href="/wp-admin/admin-post.php?action=postquality_download_workflow&_wpnonce=stub" class="button">Download n8n workflow</a>')
+check('step 1 (story 111): download, then the workflow menu\'s file import, then the Download button; no credential is listed above them',
+    $import_at !== false && $download_at !== false && $import_at < $download_at && $download_at < $step2_at
     && !str_contains(substr($section, 0, $step2_at), 'Post Quality webhook - ') && !str_contains(substr($section, 0, $step2_at), 'Anthropic - Claude'));
-check('... the import URL row, and only it, sits in .pqm-import-url (pqm-admin.js picks its "where to paste" line by that wrapper)',
-    preg_match('/<div class="pqm-import-url">\s*<div class="pqm-copy-row">\s*<span class="pqm-copy-label">Workflow import URL<\/span>/', $section) === 1
-    && substr_count($section, 'class="pqm-import-url"') === 1);
-check('n8n labels as 2.42.3 shows them (en.json at the tag): "Import" → "From URL" / "From file", "Create credential"; none of the older names',
-    str_contains($section, 'choose "Import", then "From URL"') && str_contains($section, 'choose "Import", then "From file"')
-    && str_contains($section, 'open the arrow beside "Create workflow" on the n8n Overview page, choose "Create credential"')
-    && !preg_match('/Import from (URL|File)"|"Create" in the side menu|first credential of/', $section));
+/* AC4: the rendered steps name both menu entries and carry no import link; the script strings are checked where the page enqueues them */
+$no_link = static fn(string $s): bool => !preg_match('/from url|(?<!re-)import (url|link)/i', $s) && !str_contains($s, 'pqm-import-url')
+    && !str_contains($s, '/workflow?token=') && !str_contains($s, 'keep it private');
+check('AC4 (story 111): step 1 names "Import" → "From file" (n8n 2.36+) and "Import JSON" (n8n 3); no import link, no .pqm-import-url, no "From URL" in the section',
+    str_contains($section, 'choose "Import", then "From file" — in n8n 3, "Import JSON".') && $no_link($section)
+    && str_contains($section_of($fresh), 'choose "Import", then "From file" — in n8n 3, "Import JSON".') && $no_link($section_of($fresh)));
+check('n8n labels (memory/n8n-provisioning.md): "Create credential" from the arrow beside "Create workflow"; none of the older names ("Import from URL/File", "From URL", "Create" in the side menu, "first credential of")',
+    str_contains($section, 'open the arrow beside "Create workflow" on the n8n Overview page, choose "Create credential"')
+    && !preg_match('/Import from (URL|File)|"From URL"|"Create" in the side menu|first credential of/i', $section));
 check('step 4: save, Publish (older n8n: Active), copy the production URL, paste it here (story 67: the field is in the step)',
     str_contains($section, 'Save the workflow, then click "Publish" in the header above the canvas (older n8n versions: switch the "Active" toggle on).')
     && str_contains($section, 'Double-click the Webhook Trigger, choose "Production URL" and copy the address')
@@ -558,9 +560,8 @@ check('step 4: the production URL ends in /webhook/ + postquality_webhook_path()
 /* Story 40 AC2: a Copy row for every value typed into n8n */
 preg_match_all('/<div class="pqm-copy-row">\s*<span class="pqm-copy-label">([^<]+)<\/span>\s*<span class="pqm-copy-controls">\s*<input type="text" class="regular-text code pqm-copy-field" value="([^"]*)" readonly\s+aria-label="([^"]+)" \/>\s*<button type="button" class="button pqm-copy-button" aria-label="Copy ([^"]+)">Copy<\/button>\s*<\/span>\s*<p class="pqm-copy-feedback" aria-live="polite"><\/p>\s*<\/div>/', $section, $rows, PREG_SET_ORDER);
 $copied = array_map(static fn($r) => [$r[1], $r[2]], $rows);
-check('Copy rows (Pro): import URL, then each credential\'s name and fields, the WordPress one with the current user',
+check('Copy rows (Pro): each credential\'s name and fields, the WordPress one with the current user (story 111: no import URL row)',
     $copied === [
-        ['Workflow import URL', '/wp-json/post-quality/v1/workflow?token=tok-35'],
         ['Credential name', 'Post Quality webhook - example.com'], ['Name', 'X-PQM-Token'], ['Value', 'tok-35'],
         ['Credential name', 'Anthropic - Claude'], ['Name', 'x-api-key'],
         ['Credential name', 'WordPress - example.com'], ['User', 'editor-jo'],
@@ -568,7 +569,6 @@ check('Copy rows (Pro): import URL, then each credential\'s name and fields, the
 check('... each row: the field\'s aria-label = the Copy button\'s object, naming the credential inside a credential block; aria-live feedback, no id on a row',
     count($rows) === substr_count($section, 'pqm-copy-row') && !array_filter($rows, static fn($r) => $r[3] !== $r[4])
     && array_column($rows, 3) === [
-        'Workflow import URL',
         'Post Quality webhook - example.com: Credential name', 'Post Quality webhook - example.com: Name', 'Post Quality webhook - example.com: Value',
         'Anthropic - Claude: Credential name', 'Anthropic - Claude: Name',
         'WordPress - example.com: Credential name', 'WordPress - example.com: User',
@@ -577,9 +577,7 @@ check('... each row: the field\'s aria-label = the Copy button\'s object, naming
 preg_match_all('/<button[^>]* aria-label="([^"]+)"/', $section, $buttons);
 check('... no two buttons in the section share an aria-label', $buttons[1] !== [] && count($buttons[1]) === count(array_unique($buttons[1])));
 check('the token is a labeled value row, never part of a sentence', !str_contains($section, '<code>tok-35</code>')
-    && substr_count($section, 'tok-35') === 2); // the Value row and the import URL row
-check('import URL copy says the token also opens the n8n trigger',
-    str_contains($section, 'It includes your webhook token, which also opens your n8n workflow\'s trigger — keep it private.'));
+    && substr_count($section, 'tok-35') === 1); // the Value row only (story 111: the import URL row left)
 
 /* Story 40 AC3: links only where they are accurate, naming their destination */
 $app_off = 'Password: Application Passwords are turned off on this site, so none can be created for this user. Usually the site does not run on HTTPS; sometimes a security plugin turns them off. Only Rewrite needs this credential.';
@@ -602,13 +600,13 @@ check('... not in another state (not set up): the line is state 4\'s', !str_cont
 $GLOBALS['tw_app_passwords'] = true;
 check('Anthropic key: links to the API keys page of the Anthropic Console, as the dialog names it',
     str_contains($section, 'Value: your Anthropic API key. Create one on the <a href="https://platform.claude.com/settings/keys">API keys page of the Anthropic Console</a>.'));
-$n8n_link = static fn(string $s): ?string => preg_match('/In <a href="([^"]+)">your n8n<\/a>, open a new, empty workflow/', $s, $m) ? $m[1] : null;
+$n8n_link = static fn(string $s): ?string => preg_match('/then in <a href="([^"]+)">your n8n<\/a> open a new, empty workflow/', $s, $m) ? $m[1] : null;
 check('n8n link: only the webhook URL saved → its origin', $n8n_link($section) === 'https://n8n.example');
 $with_base = $section_of($render_workflow([], [PostQuality_N8n::OPTION => ['base_url' => 'https://n8n.owner.example:8443', 'api_key' => 'n8n-key-SECRET-42', 'probe' => null]]));
 check('n8n link: a stored n8n connection address wins', $n8n_link($with_base) === 'https://n8n.owner.example:8443');
 check('... and the stored n8n API key is not in the page', !str_contains($with_base, 'n8n-key-SECRET-42'));
 check('n8n link: neither stored → no link, plain words', $n8n_link($section_of($fresh)) === null
-    && str_contains($section_of($fresh), 'In n8n, open a new, empty workflow, open the workflow menu (the three dots at the top right), choose "Import", then "From URL", and paste this link:'));
+    && str_contains($section_of($fresh), 'Download the workflow, then in n8n open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.'));
 check('n8n link: a saved webhook URL with a port and a sub-path → scheme, host and port only',
     $n8n_link($section_of($render_workflow(['n8n_webhook_url' => 'http://192.168.1.20:5678/n8n/webhook/pqm-execute-example-com']))) === 'http://192.168.1.20:5678');
 foreach (['not a url', 'ftp://n8n.example/webhook/pqm-execute-example-com', 'https:///webhook/pqm-execute'] as $odd) {
@@ -1233,7 +1231,7 @@ check('fresh site: ' . ($built ? 'the status block\'s Set up n8n opens the dialo
     ($built ? str_contains($fresh_page, 'pqm-open-setup') : !str_contains($fresh_page, 'pqm-open-setup') && $primaries($fresh_page) === 0
         && $state_of($fresh_page) === 'not-set-up' && $sentence_of($fresh_page) === 'Not connected to n8n yet.')
     && !str_contains($fresh_page, 'pqm-copy-button'));
-check('connected site: Set up by hand (import-URL copy) and the test button render', str_contains($html, 'pqm-copy-button') && str_contains($html, 'pqm-test-connection'));
+check('connected site: Set up by hand (its copy rows) and the test button render', str_contains($html, 'pqm-copy-button') && str_contains($html, 'pqm-test-connection'));
 $GLOBALS['tw_settings'] = [];
 
 /* The Workflow hook loads both the app bundle (island) and pqm-admin.js (ping, copy) */
@@ -1250,10 +1248,15 @@ PostQuality_Admin::register_pages();
 PostQuality_Admin::enqueue_assets('post-quality_page_postquality-workflow');
 check('Workflow page enqueues pqm-admin.js' . ($built ? ' and the app bundle' : ' (app bundle skipped: unbuilt)'),
     in_array('postquality-admin', $GLOBALS['tw_enqueued'], true) && ($built ? in_array('postquality-app', $GLOBALS['tw_enqueued'], true) : true));
-check('Copy feedback: the import URL\'s own line, a generic "Copied." for every other row, a "value is selected" fallback',
-    ($GLOBALS['tw_localized']['postquality-admin']['i18n']['copied'] ?? null) === 'Copied! Paste it in n8n under "Import", then "From URL".'
+check('Copy feedback (story 111): "Copied." for every row, a "value is selected" fallback; no import line of its own',
+    !array_key_exists('copied', $GLOBALS['tw_localized']['postquality-admin']['i18n'] ?? [])
     && ($GLOBALS['tw_localized']['postquality-admin']['i18n']['copiedValue'] ?? null) === 'Copied.'
     && ($GLOBALS['tw_localized']['postquality-admin']['i18n']['copyFailed'] ?? null) === 'Could not copy automatically. The value is selected — press Ctrl+C.');
+$url_import = '/from url|(?<!re-)import (url|link)|pqm-import-url/i'; // "Re-import link" is the status block's other link
+check('AC4 (story 111): the page script\'s strings name no URL import (the localized data, pqm-admin.js)',
+    isset($GLOBALS['tw_localized']['postquality-admin']['i18n'])
+    && !preg_match($url_import, (string) json_encode($GLOBALS['tw_localized']['postquality-admin'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))
+    && !preg_match($url_import, (string) file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/js/pqm-admin.js')));
 check('the inline wizard\'s i18n keys are gone', !isset($GLOBALS['tw_localized']['postquality-admin']['i18n']['saving'])
     && !isset($GLOBALS['tw_localized']['postquality-admin']['i18n']['savedPingFailed']));
 check('the REST actions (story 67): the REST root and a wp_rest nonce are localized; the busy labels ride the buttons (data-pqm-busy), the test\'s and the network line in i18n; no Settings-field line',

@@ -8,7 +8,7 @@
  *  POST /post-quality/v1/ping/{id}        — n8n calls the test ping back: the round trip (story 2)
  *  GET  /post-quality/v1/reviews/{id}     — fetch stored reviews for a post
  *  POST /post-quality/v1/trigger-review   — WordPress triggers n8n review
- *  GET  /post-quality/v1/workflow         — site-configured workflow for n8n "Import from URL"
+ *  GET  /post-quality/v1/workflow         — site-configured workflow by token: the n8n "Import from URL" link the page offered until story 111, kept for links already copied
  *  GET  /post-quality/v1/posts            — read-only post list with latest scores (Post Reviews app)
  *  GET  /post-quality/v1/dashboard        — average score, 8-week trend, nudge flags, the feedback card's lines (Dashboard app)
  *  POST /post-quality/v1/dashboard/feedback — hide or reopen the feedback card for the current user (story 79)
@@ -74,7 +74,8 @@ class PostQuality_REST_API {
             'args'                => self::trigger_review_args(),
         ] );
 
-        // Serve the site-configured workflow for n8n "Import from URL".
+        // Serve the site-configured workflow for n8n "Import from URL". The page
+        // no longer offers that link (story 111); the route stays for links already copied.
         register_rest_route( POSTQUALITY_REST_NAMESPACE, '/workflow', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ __CLASS__, 'workflow_callback' ],
@@ -784,7 +785,7 @@ class PostQuality_REST_API {
         ], 200 );
     }
 
-    /* ─── 5. GET /workflow (n8n "Import from URL") ───────────────────── */
+    /* ─── 5. GET /workflow (n8n "Import from URL"; kept for links already copied, story 111) ─── */
 
     public static function workflow_callback() {
         $json = postquality_workflow_json();
