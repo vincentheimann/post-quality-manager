@@ -202,7 +202,7 @@ What the walk created, and what removes it:
 
 ## Other checks on the same site
 
-- **Plugin Check:** `lwp plugin check post-quality-manager` (Plugin Check is installed on the showcase).
+- **Plugin Check:** `(cd "$S" && python -I "$OLDPWD/bin/local-wp.py" --site "$SITE" plugin check post-quality-manager)` (Plugin Check is installed on the showcase). Run it from a folder that holds no `post-quality-manager/` folder, such as `$S`: from the repository root, Plugin Check takes the name as that folder and checks the repository's source instead of the installed build (`memory/local-verification.md`, 2026-11-09). Its `FILE:` lines name the site's plugin folder when it checked the build.
 - **Deleting the plugin:** the Freemius SDK registers the plugin's uninstall callback only when an administrator deactivates it and runs it only for a user who can `activate_plugins`, so a WP-CLI walk of deletion passes `--user=<an administrator>` on both `lwp plugin deactivate` and `lwp plugin uninstall`; without it the files go and every option, user meta, capability and the reviews table stay (`memory/freemium-and-roles.md`, real licensing). The restore brings the plugin back.
 - **A plan's manual checks:** the steps a story plan's Verification section lists run in the same frame: backup, build, the checks through `lwp` (options, `eval` with `rest_do_request()`, the capture), restore.
 
