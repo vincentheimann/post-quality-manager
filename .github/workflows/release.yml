@@ -166,7 +166,7 @@ jobs:
           # Is this version on Freemius already? Only the newest deployment can
           # say, and only the fields used here are kept from its reply
           # (memory/delivery-pipeline.md).
-          TAG=$(api "$API/tags/latest.json?type=all&is_premium=false" | jq -c '{id, version, has_free, release_mode}')
+          TAG=$(api "$API/tags/latest.json?type=all&is_premium=false" | jq -c '{id, version, has_free, release_mode, requires_programming_language_version}')
 
           if [ "$(jq -r .version <<<"$TAG")" = "$V" ]; then
             ID=$(jq -r .id <<<"$TAG")
@@ -175,6 +175,19 @@ jobs:
             ID=$(api -X POST -F "file=@$ZIP;type=application/zip" "$API/tags.json" | jq -er .id)
             TAG=$(api -X PUT -H 'Content-Type: application/json' -d '{"release_mode":"pending"}' "$API/tags/$ID.json")
             echo "Uploaded $ZIP to Freemius as deployment $ID, release mode $(jq -r .release_mode <<<"$TAG")."
+          fi
+          # The PHP requirement Freemius recorded for the version, which the SDK
+          # hands to WordPress's update gate for Pro updates; Freemius reads it
+          # from readme.txt (memory/delivery-pipeline.md). /release step 7 reads
+          # this line and says what a warning calls for.
+          WANT=$(sed -n 's/^Requires PHP:[[:space:]]*//p' post-quality-manager/readme.txt | head -n 1 | tr -d '[:space:]')
+          GOT=$(jq -r '.requires_programming_language_version // empty' <<<"$TAG")
+          if [ -z "$GOT" ]; then
+            echo "::warning::Freemius's reply for $V carries no PHP requirement (readme.txt says ${WANT:-none}): read the Deployment page's Min PHP version column (/release step 7)"
+          elif [ "$GOT" != "$WANT" ]; then
+            echo "::warning::Freemius records Requires PHP $GOT for $V while readme.txt says ${WANT:-none} (/release step 7)"
+          else
+            echo "Freemius records Requires PHP $GOT for $V, as readme.txt says."
           fi
           echo "id=$ID" >> "$GITHUB_OUTPUT"
 
