@@ -858,6 +858,12 @@ class PostQuality_REST_API {
                 'required'          => false,
                 'type'              => 'integer',
             ],
+            // Story 109: one post only (the meta box, the Post Reviews link);
+            // type only, absint() in the callback.
+            'post_id' => [
+                'required'          => false,
+                'type'              => 'integer',
+            ],
         ];
     }
 
@@ -914,6 +920,10 @@ class PostQuality_REST_API {
      *
      * Ticket 32 appends `connected` and `can_manage_settings` to `viewer`
      * (the GET /dashboard flags): Post Reviews' not-connected notice.
+     *
+     * Story 109 adds the optional `post_id` filter (0 or absent = every
+     * post): the meta box reads its `viewer` block through it, and Post
+     * Reviews' `postquality_post` link narrows the list to that post.
      */
     public static function list_posts_callback( WP_REST_Request $request ): WP_REST_Response {
         $per_page = absint( $request->get_param( 'per_page' ) );
@@ -943,6 +953,7 @@ class PostQuality_REST_API {
             'min_score' => self::score_bound( $request->get_param( 'min_score' ) ),
             'max_score' => self::score_bound( $request->get_param( 'max_score' ) ),
             'filter'    => $filter,
+            'post_id'   => absint( $request->get_param( 'post_id' ) ),
         ] );
 
         $post_ids  = array_map( 'intval', array_column( $result['items'], 'post_id' ) );

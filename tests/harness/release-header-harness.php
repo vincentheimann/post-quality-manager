@@ -75,9 +75,12 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($plugin_di
     $script_translations = array_merge($script_translations, $m[0]);
 }
 check('no load_plugin_textdomain( in the plugin outside vendor/' . ($loaders ? ' (found in ' . implode(', ', $loaders) . ')' : ''), $loaders === []);
-check("the admin app's script translations name the handle and the domain, no path (" . count($script_translations) . ' call(s))',
-    count($script_translations) === 1
-    && preg_match("/^wp_set_script_translations\(\s*'postquality-app'\s*,\s*'post-quality-manager'\s*\);$/", $script_translations[0]) === 1);
+// Story 109: one call per build entry — the app and the post editor's meta box.
+sort($script_translations);
+check("the build entries' script translations name the handle and the domain, no path (" . count($script_translations) . ' call(s))',
+    count($script_translations) === 2
+    && preg_match("/^wp_set_script_translations\(\s*'postquality-app'\s*,\s*'post-quality-manager'\s*\);$/", $script_translations[0]) === 1
+    && preg_match("/^wp_set_script_translations\(\s*'postquality-meta-box'\s*,\s*'post-quality-manager'\s*\);$/", $script_translations[1]) === 1);
 check('no languages/ folder ships', !file_exists($plugin_dir . '/languages'));
 
 echo "Row 5 — the tests/i18n fixtures parse and name strings the plugin still uses\n";

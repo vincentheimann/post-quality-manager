@@ -1,0 +1,22 @@
+/**
+ * Post Quality meta box (story 109) — the box's own layout. The result,
+ * notes and notices it shares with Post Reviews are styled by the kit
+ * (src/kit/style.css); the rules here never contradict those, so the
+ * order the two stylesheets load in does not matter.
+ */
+.pqm-meta-box > .components-notice {
+	margin: 0 0 12px;
+}
+
+.pqm-meta-box .pqm-quota-note {
+	display: block;
+	margin: 12px 0 0;
+}
+
+.pqm-meta-box-action {
+	margin: 8px 0 0;
+}
+
+.pqm-meta-box-link {
+	margin: 12px 0 0;
+}

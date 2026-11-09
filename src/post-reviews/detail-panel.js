@@ -13,7 +13,9 @@
  * reads as success. A failed start (not connected, n8n unreachable or
  * refusing, gate / quota refusal) shows as a dismissible warning Notice
  * above the tabs (ticket 32); while n8n is not connected the Run buttons
- * are disabled.
+ * are disabled. The pieces it shares with the post editor's meta box (row
+ * state, running and failed notes, meta line, meters, the Review result)
+ * live in src/kit/review-summary.js (story 109).
  */
 import apiFetch from '@wordpress/api-fetch';
 import {
@@ -37,89 +39,28 @@ import {
 	runLabel,
 } from '../kit/copy';
 import QuotaNote from '../kit/quota-note';
+import ReviewSummary, {
+	FailedNote,
+	ResultMeta,
+	RunningNote,
+	rowState,
+} from '../kit/review-summary';
 import {
 	canRender,
 	isConnected,
 	isFailedRow,
 	isGated,
-	isObject,
 	reviewsPath,
 } from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
 import StatusBadge from '../kit/status-badge';
 import InsertBlock, { insertItems } from './insert-block';
-import ResultView, { PillarMeters, isReviewShape } from './result-view';
+import ResultView from './result-view';
 
 /** Tabs: every canonical command except Rewrite, then History. */
 const TAB_COMMANDS = COMMAND_ORDER.filter( ( c ) => c !== 'rewrite' );
 
-/**
- * 'none' | 'running' | 'failed' | 'done' for the latest row of a command.
- *
- * @param {Object|undefined} row Latest stored row of the command.
- * @return {string} Row state.
- */
-function rowState( row ) {
-	if ( ! row ) {
-		return 'none';
-	}
-	if ( row.status === 'processing' ) {
-		return 'running';
-	}
-	return isFailedRow( row ) ? 'failed' : 'done';
-}
-
-/**
- * Where the review's pillars live: the row itself, or a nested `review` (audit-style).
- *
- * @param {Object|undefined} row Stored review row.
- * @return {unknown} The review data.
- */
-function reviewData( row ) {
-	const data = row && row.result_data;
-	if ( isReviewShape( data ) ) {
-		return data;
-	}
-	return isObject( data ) && isObject( data.review ) ? data.review : data;
-}
-
-/* ─── Small presentational pieces ──────────────────────────────────── */
-
-function RunningNote( { command } ) {
-	return (
-		<p className="pqm-muted pqm-detail-note">
-			<Spinner />{ ' ' }
-			{ sprintf(
-				/* translators: %s: agent command label, e.g. "Review" */
-				__(
-					'%s is running in n8n — results appear here when it finishes.',
-					'post-quality-manager'
-				),
-				commandLabel( command )
-			) }
-		</p>
-	);
-}
-
-function FailedNote( { row, command } ) {
-	const data = row.result_data;
-	const stored = isObject( data ) && data.error ? String( data.error ) : '';
-
-	return (
-		<Notice status="warning" isDismissible={ false }>
-			{ sprintf(
-				/* translators: 1: agent command label, e.g. "Review"; 2: stored error text or "No result was returned." */
-				__(
-					'%1$s could not complete: %2$s Check the n8n execution log, then try again.',
-					'post-quality-manager'
-				),
-				commandLabel( command ),
-				stored ||
-					__( 'No result was returned.', 'post-quality-manager' )
-			) }
-		</Notice>
-	);
-}
+/* ─── Small presentational pieces (the shared ones: kit/review-summary.js) ── */
 
 function NotRunNote( { command, viewer } ) {
 	let copy;
@@ -138,30 +79,6 @@ function NotRunNote( { command, viewer } ) {
 		copy = __( 'Not run yet.', 'post-quality-manager' );
 	}
 	return <p className="pqm-muted pqm-detail-note">{ copy }</p>;
-}
-
-/**
- * Status · score · date line above a result.
- *
- * @param {Object} props
- * @param {Object} props.row Stored review row.
- */
-function ResultMeta( { row } ) {
-	return (
-		<p className="pqm-result-meta">
-			{ ( row.status || isFailedRow( row ) ) && (
-				<StatusBadge
-					status={ isFailedRow( row ) ? 'error' : row.status }
-				/>
-			) }
-			{ row.overall_score > 0 && (
-				<ScoreBadge score={ row.overall_score } />
-			) }
-			<span className="pqm-muted">
-				{ row.reviewed_at_display || row.reviewed_at }
-			</span>
-		</p>
-	);
 }
 
 /**
@@ -234,11 +151,6 @@ function ReviewTab( {
 	latest,
 } ) {
 	const state = rowState( row );
-	const data = state === 'done' ? reviewData( row ) : null;
-	const topEdits =
-		isObject( data ) && Array.isArray( data.top_edits )
-			? data.top_edits
-			: [];
 	const anyButton =
 		canRender( viewer, 'review' ) || canRender( viewer, 'rewrite' );
 
@@ -251,24 +163,7 @@ function ReviewTab( {
 			{ state === 'none' && (
 				<NotRunNote command="review" viewer={ viewer } />
 			) }
-			{ state === 'done' && (
-				<>
-					<ResultMeta row={ row } />
-					<PillarMeters data={ data } />
-					{ topEdits.length > 0 && (
-						<>
-							<h3 className="pqm-detail-heading">
-								{ __( 'Top edits', 'post-quality-manager' ) }
-							</h3>
-							<ol className="pqm-top-edits">
-								{ topEdits.map( ( edit, index ) => (
-									<li key={ index }>{ String( edit ) }</li>
-								) ) }
-							</ol>
-						</>
-					) }
-				</>
-			) }
+			{ state === 'done' && <ReviewSummary row={ row } /> }
 			<div className="pqm-panel-actions">
 				{ editLink && (
 					<Button variant="primary" href={ editLink }>

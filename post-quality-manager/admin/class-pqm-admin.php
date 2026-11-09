@@ -241,22 +241,40 @@ class PostQuality_Admin
         // No path: the JSON comes from the language packs in WP_LANG_DIR/plugins (story 95).
         wp_set_script_translations('postquality-app', 'post-quality-manager');
 
-        // Command labels come from the PHP registry, the one label source;
-        // src/kit/copy.js commandLabel() reads them.
+        self::add_command_labels('postquality-app');
+        self::enqueue_app_style($version);
+    }
+
+    /**
+     * Print the command labels before a bundle: the PHP registry is the one
+     * label source, src/kit/copy.js commandLabel() reads them. Shared by the
+     * app and the post editor's meta box (story 109).
+     */
+    public static function add_command_labels(string $handle): void
+    {
         wp_add_inline_script(
-            'postquality-app',
+            $handle,
             'window.postqualityCommandLabels = ' . wp_json_encode(array_map(
                 static fn(array $entry): string => $entry['label'],
                 PostQuality_Features::registry()
             )) . ';',
             'before'
         );
+    }
 
+    /**
+     * Core's @wordpress/components styles and the kit's (story 5.2):
+     * wp-scripts extracts src/kit/style.css and the pages' style.css into
+     * build/style-index.css. The meta box loads it too (story 109): a
+     * style.css both entries import lands in the chunk named after the
+     * first entry, so the kit's rules live only in style-index.css.
+     * Versioned from the caller's asset manifest, no filemtime.
+     */
+    public static function enqueue_app_style(string $version): void
+    {
         // @wordpress/components styling is served by core, not the bundle.
         wp_enqueue_style('wp-components');
 
-        // Kit styles (story 5.2): wp-scripts extracts src/kit/style.css
-        // into the build. Versioned from the asset manifest, no filemtime.
         if (file_exists(POSTQUALITY_PLUGIN_DIR . 'admin/build/style-index.css')) {
             wp_enqueue_style(
                 'postquality-app',
@@ -664,9 +682,10 @@ class PostQuality_Admin
     /**
      * The root div the bundle mounts on (src/index.js) — or, on a fresh
      * clone without built assets, the next step instead of a blank spot.
-     * Shared by the React pages and the setup island (story 36).
+     * Shared by the React pages, the setup island (story 36) and the post
+     * editor's meta box (story 109).
      */
-    private static function render_app_root(string $root_id): void
+    public static function render_app_root(string $root_id): void
     {
         if (self::app_built()) {
             printf('<div id="%s"></div>', esc_attr($root_id));

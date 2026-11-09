@@ -8,8 +8,9 @@
  *
  * Since story 5.7 the React pages load only this bundle; pqm-admin.css is
  * the stylesheet of the Settings and n8n Workflow pages. This file holds
- * the rules both React pages share; page rules live next to each page
- * (src/dashboard/style.css, src/post-reviews/style.css).
+ * the rules both React pages share, and since story 109 the rules of the
+ * kit pieces the post editor's meta box renders too; page rules live
+ * next to each page (src/dashboard/style.css, src/post-reviews/style.css).
  */
 
 /* ─── Page frame (pqm-admin.css keeps its own copy for the Settings and
@@ -146,4 +147,68 @@
 
 .pqm-toasts .components-snackbar-list__notice-container {
 	margin-top: 8px;
+}
+
+/* ─── Review summary (review-summary.js; moved from the Post Reviews rules,
+   story 109): notes, pillar meters, top edits, the meta line ────── */
+.pqm-detail-note {
+	margin: 0 0 8px;
+}
+
+/* Pillar meters: single-hue WP blue, magnitude only (DESIGN.md; mockup .pillars/.meter). */
+.pqm-pillars {
+	display: grid;
+	grid-template-columns: 110px 1fr 34px;
+	gap: 6px 10px;
+	align-items: center;
+	max-width: 460px;
+	margin: 8px 0;
+}
+
+.pqm-meter {
+	display: block;
+	height: 10px;
+	border-radius: 3px;
+	background: #e3e5e8;
+	overflow: hidden;
+}
+
+.pqm-meter i {
+	display: block;
+	height: 100%;
+	border-radius: 3px;
+	background: #2271b1;
+}
+
+.pqm-pillar-score {
+	font-weight: 600;
+	text-align: right;
+}
+
+.pqm-detail-heading {
+	margin: 14px 0 4px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.pqm-top-edits {
+	margin: 0;
+	padding-left: 18px;
+}
+
+.pqm-top-edits li {
+	margin-bottom: 4px;
+}
+
+.pqm-result-meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 0 0 10px;
+}
+
+/* ─── Not-connected notice (not-connected-notice.js, ticket 32, story 109) ── */
+.pqm-connect-notice.components-notice {
+	margin: 0 0 12px;
 }

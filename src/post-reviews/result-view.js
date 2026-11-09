@@ -4,78 +4,15 @@
  * `Parse …` nodes: takeaways, sources, seo, audit). Keys are humanized,
  * arrays become lists, booleans ✓/✗ with hidden yes/no text, nested
  * objects become sections; a nested object shaped like a review (the
- * audit's `review` block) renders through PillarMeters. Empty values are
- * skipped so a sparse result never shows blank rows.
+ * audit's `review` block) renders through PillarMeters (moved to
+ * src/kit/review-summary.js in story 109). Empty values are skipped so a
+ * sparse result never shows blank rows.
  */
 import { VisuallyHidden } from '@wordpress/components';
-import { Fragment } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
+import { PILLARS, PillarMeters, isReviewShape } from '../kit/review-summary';
 import { isEmpty, isObject } from '../kit/runs';
-
-/** The four universal pillars (memory/lessons.md 2026-03-27), in display order. */
-const PILLARS = [
-	{ key: 'structure', label: __( 'Structure', 'post-quality-manager' ) },
-	{ key: 'readability', label: __( 'Readability', 'post-quality-manager' ) },
-	{ key: 'engagement', label: __( 'Engagement', 'post-quality-manager' ) },
-	{ key: 'credibility', label: __( 'Credibility', 'post-quality-manager' ) },
-];
-
-/**
- * A pillar score as the agents store it: `{ score: 72 }` or a bare number.
- *
- * @param {unknown} value Stored pillar value.
- * @return {number|null} Score 0–100, null when not a number.
- */
-function pillarScore( value ) {
-	const score = isObject( value ) ? value.score : value;
-	const n = Number( score );
-	return Number.isFinite( n )
-		? Math.max( 0, Math.min( 100, Math.round( n ) ) )
-		: null;
-}
-
-/**
- * True when the object carries at least one pillar score (a review result).
- *
- * @param {unknown} data Stored result data.
- * @return {boolean} Whether `data` is review-shaped.
- */
-export function isReviewShape( data ) {
-	return (
-		isObject( data ) &&
-		PILLARS.some( ( { key } ) => pillarScore( data[ key ] ) !== null )
-	);
-}
-
-/**
- * Four single-hue horizontal meters (DESIGN.md: WP blue, magnitude only —
- * status color lives in the badge). The bar is decorative; label and
- * number carry the information.
- *
- * @param {Object}  props
- * @param {unknown} props.data Review data carrying the pillar scores.
- */
-export function PillarMeters( { data } ) {
-	return (
-		<div className="pqm-pillars">
-			{ PILLARS.map( ( { key, label } ) => {
-				const score = pillarScore( data && data[ key ] );
-				return (
-					<Fragment key={ key }>
-						<span className="pqm-pillar-label">{ label }</span>
-						<span className="pqm-meter" aria-hidden="true">
-							<i style={ { width: `${ score || 0 }%` } } />
-						</span>
-						<span className="pqm-pillar-score">
-							{ score === null ? '—' : score }
-						</span>
-					</Fragment>
-				);
-			} ) }
-		</div>
-	);
-}
 
 /**
  * `unsourced_critical` → "Unsourced critical".

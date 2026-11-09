@@ -2,32 +2,26 @@
  * FirstReview (story 36) — the setup's last step: pick a published post,
  * run its review from the dialog and wait for the result. The run goes
  * through the one trigger path (requestRun(), POST /trigger-review: gate,
- * quota, the `processing` row); the wait polls GET /reviews/{id} at the
- * kit's pace until the post's newest review row leaves `processing`, and
- * gives up three minutes (the kit's limit) after the run started — counted
- * from the `processing` row's `reviewed_at`, so a reopened dialog does not
- * wait afresh for a run that started long ago (story 2, goal b). Giving up
- * names where the review went and the site address n8n must reach to send
- * the result back. A scored result calls `onComplete` (POST /setup
- * { complete: true }); a failed run says where to look and leaves the step
- * open.
+ * quota, the `processing` row); the wait is the kit's useReviewWait (story
+ * 109): it polls GET /reviews/{id} at the kit's pace until the post's newest
+ * review row leaves `processing`, and gives up three minutes (the kit's
+ * limit) after the run started — counted from the `processing` row's
+ * `reviewed_at`, so a reopened dialog does not wait afresh for a run that
+ * started long ago (story 2, goal b). Giving up names where the review went
+ * and the site address n8n must reach to send the result back. A scored
+ * result calls `onComplete` (POST /setup { complete: true }); a failed run
+ * says where to look and leaves the step open.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, SelectControl, Spinner } from '@wordpress/components';
-import { useEffect, useRef, useState } from '@wordpress/element';
+import { useEffect, useState } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs } from '@wordpress/url';
 
 import { statusLabel } from '../kit/copy';
-import {
-	POSTS_PATH,
-	inFlight,
-	isFailedRow,
-	requestRun,
-	reviewsPath,
-} from '../kit/runs';
+import { POSTS_PATH, inFlight, isFailedRow, requestRun } from '../kit/runs';
 import ScoreBadge from '../kit/score-badge';
-import { GIVE_UP_AFTER, POLL_INTERVAL } from '../kit/use-polling';
+import useReviewWait from '../kit/use-review-wait';
 
 // One page is plenty to pick a post from; the title order makes it findable.
 const PICK_PATH = addQueryArgs( POSTS_PATH, {
@@ -47,22 +41,6 @@ const PICK_PATH = addQueryArgs( POSTS_PATH, {
 function failureText( row ) {
 	const error = row && row.result_data && row.result_data.error;
 	return typeof error === 'string' && error ? `${ error } ` : '';
-}
-
-/**
- * When a run started, in ms, from its `processing` row's `reviewed_at`
- * (GMT `Y-m-d H:i:s`); NaN for a blank or zero date.
- *
- * Ceiling: the start comes from the server's clock, the limit from the
- * browser's; a skew of minutes shortens or lengthens the wait by as much.
- * Upgrade path: a server-computed age on the row, if a site reports it.
- *
- * @param {Object} row Review row.
- * @return {number} Start time in ms, or NaN.
- */
-function runStart( row ) {
-	const at = typeof row.reviewed_at === 'string' ? row.reviewed_at : '';
-	return at ? Date.parse( `${ at.replace( ' ', 'T' ) }Z` ) : NaN;
 }
 
 /**
@@ -121,10 +99,6 @@ export default function FirstReview( {
 	const [ startError, setStartError ] = useState( '' );
 	const [ row, setRow ] = useState( null );
 
-	// Latest callback without restarting the polling effect.
-	const completed = useRef( onComplete );
-	completed.current = onComplete;
-
 	useEffect( () => {
 		if ( ! connected ) {
 			return;
@@ -161,67 +135,19 @@ export default function FirstReview( {
 		);
 	}, [ connected ] );
 
-	useEffect( () => {
-		if ( phase !== 'waiting' ) {
-			return undefined;
-		}
-		// The mount time until the run's own start is read from its
-		// `processing` row (once, at the first poll that sees it).
-		let startedAt = Date.now();
-		let startRead = false;
-		let stopped = false;
-
-		const expired = () => Date.now() - startedAt > GIVE_UP_AFTER;
-		const giveUp = () => {
-			stopped = true;
-			clearInterval( id );
-			setPhase( 'gaveup' );
-		};
-
-		const id = setInterval( () => {
-			if ( expired() ) {
-				giveUp();
+	// The hook keeps the latest handlers, so onComplete never restarts the wait.
+	useReviewWait( postId, phase === 'waiting', {
+		onGiveUp: () => setPhase( 'gaveup' ),
+		onSettled: ( latest ) => {
+			setRow( latest );
+			if ( isFailedRow( latest ) ) {
+				setPhase( 'failed' );
 				return;
 			}
-			apiFetch( { path: reviewsPath( postId ) } ).then(
-				( rows ) => {
-					const latest = ( Array.isArray( rows ) ? rows : [] ).find(
-						( r ) => r.command === 'review'
-					);
-					if ( stopped || ! latest ) {
-						return;
-					}
-					if ( latest.status === 'processing' ) {
-						if ( ! startRead ) {
-							startRead = true;
-							const at = runStart( latest );
-							startedAt = Number.isNaN( at ) ? startedAt : at;
-						}
-						// A run that started long ago gives up at once.
-						if ( expired() ) {
-							giveUp();
-						}
-						return;
-					}
-					stopped = true;
-					clearInterval( id );
-					setRow( latest );
-					if ( isFailedRow( latest ) ) {
-						setPhase( 'failed' );
-						return;
-					}
-					setPhase( 'done' );
-					completed.current( latest );
-				},
-				() => {} // A missed poll is retried on the next tick.
-			);
-		}, POLL_INTERVAL );
-
-		return () => {
-			stopped = true;
-			clearInterval( id );
-		};
-	}, [ phase, postId ] );
+			setPhase( 'done' );
+			onComplete( latest );
+		},
+	} );
 
 	if ( ! connected ) {
 		return (

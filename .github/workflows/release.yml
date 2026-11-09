@@ -79,6 +79,8 @@ jobs:
         run: |
           test -f post-quality-manager/admin/build/index.js
           test -f post-quality-manager/admin/build/index.asset.php
+          test -f post-quality-manager/admin/build/meta-box.js
+          test -f post-quality-manager/admin/build/meta-box.asset.php
 
       - name: Zip the plugin folder
         id: zip

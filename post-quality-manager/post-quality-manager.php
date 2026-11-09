@@ -107,6 +107,7 @@ require_once POSTQUALITY_PLUGIN_DIR . 'includes/class-pqm-blocks.php';
 require_once POSTQUALITY_PLUGIN_DIR . 'includes/class-pqm-n8n.php';
 require_once POSTQUALITY_PLUGIN_DIR . 'includes/class-pqm-rest-api.php';
 require_once POSTQUALITY_PLUGIN_DIR . 'admin/class-pqm-admin.php';
+require_once POSTQUALITY_PLUGIN_DIR . 'admin/class-pqm-meta-box.php';
 
 /* ─── Activation / Deactivation / Uninstall ──────────────────────────── */
 register_activation_hook(__FILE__, ['PostQuality_Activator', 'activate']);
@@ -178,6 +179,9 @@ if (is_admin()) {
     add_action('wp_ajax_postquality_test_connection', ['PostQuality_Admin', 'ajax_test_connection']);
     add_action('wp_ajax_postquality_workflow_status', ['PostQuality_Admin', 'ajax_workflow_status']);
     add_action('admin_post_postquality_download_workflow', ['PostQuality_Admin', 'download_workflow']);
+    // Story 109: the Post Quality box under the content of posts, and its script on the post edit screens.
+    add_action('add_meta_boxes_post', ['PostQuality_Meta_Box', 'register']);
+    add_action('admin_enqueue_scripts', ['PostQuality_Meta_Box', 'enqueue']);
 }
 
 /* ─── Cron (Pro build only) ──────────────────────────────────────────── */

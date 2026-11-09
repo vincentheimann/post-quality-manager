@@ -51,7 +51,7 @@ if ( branch === 'HEAD' ) {
 // From empty: wp-scripts' clean keeps fonts/ and images/ an older build left.
 fs.rmSync( path.join( root, 'post-quality-manager/admin/build' ), { recursive: true, force: true } );
 execSync( 'npm run build', { cwd: root, stdio: 'inherit' } );
-for ( const file of [ 'index.js', 'index.asset.php' ] ) {
+for ( const file of [ 'index.js', 'index.asset.php', 'meta-box.js', 'meta-box.asset.php' ] ) {
 	if ( ! fs.existsSync( path.join( root, 'post-quality-manager/admin/build', file ) ) ) {
 		console.error( `The build did not write admin/build/${ file }.` );
 		process.exit( 1 );

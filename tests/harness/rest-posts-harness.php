@@ -23,6 +23,11 @@
  *
  * Ticket 32 appends the viewer's `connected` / `can_manage_settings` flags
  * (webhook URL set or empty × admin or author).
+ *
+ * Story 109 appends the optional `post_id` filter (the meta box and the
+ * Post Reviews link): declared by type only, absent / 0 = the list as
+ * before, N = a prepared `p.ID = %d` in the count and items queries; the
+ * counts, the key order and the viewer block stay as they are.
  */
 
 date_default_timezone_set('UTC'); // deterministic latest_reviewed_display assertions
@@ -436,6 +441,45 @@ check('counts query ignores the active status / band filters',
     strpos($counts_sql, 'lr.status =') === false && strpos($counts_sql, 'HAVING') === false);
 check('counts query shares the placeholder exclusion (chips never count a running review)',
     strpos($counts_sql, "WHERE command = 'review' AND status <> 'processing'") !== false);
+
+/* ─── One post: post_id (story 109) ──────────────────────────────────── */
+
+/* Row: the arg — optional integer, no sanitize_callback (absint() runs in the callback; lessons 2026-10-05) */
+echo "One post (post_id)\n";
+check('post_id: optional integer, declared by type only',
+    ($routes[$ns . '/posts']['args']['post_id'] ?? null) === ['required' => false, 'type' => 'integer']);
+
+/* Row: absent or 0 — the list as before, no p.ID clause */
+foreach (['absent' => [], '0' => ['post_id' => 0]] as $label => $params) {
+    $wpdb = list_with($params);
+    $limit = limit_args($wpdb);
+    check("post_id $label → no p.ID = %d in the items or count query, nothing prepared for it",
+        prepared_with($wpdb, 'p.ID = %d') === null
+        && $limit !== null && strpos($limit['sql'], 'p.ID = %d') === false
+        && strpos($wpdb->last_var_sql, 'p.ID = %d') === false);
+}
+
+/* Row: N — prepared p.ID = %d in the WHERE of both queries, ANDed with the other filters */
+$wpdb = list_with(['post_id' => '12', 'status' => 'ship']);
+$p = prepared_with($wpdb, 'p.ID = %d');
+check("post_id '12' → prepared p.ID = %d with [12] (absint)", $p !== null && $p['args'] === [12]);
+$limit = limit_args($wpdb);
+check('p.ID = %d sits in the WHERE of the items query, ANDed with the status filter',
+    $limit !== null && strpos($limit['sql'], 'lr.status = %s AND p.ID = %d') !== false);
+check('p.ID = %d sits in the count query too (total counts the one post)',
+    strpos($wpdb->last_var_sql, 'lr.status = %s AND p.ID = %d') !== false);
+
+/* Row: the response — key order, counts and viewer as without post_id; an unlisted post (a draft) → items [] */
+$wpdb = fresh_wpdb([[], [['status' => 'ship', 'cnt' => '3']]], [0]);
+$data = PostQuality_REST_API::list_posts_callback(new WP_REST_Request(['post_id' => 99]))->get_data();
+check('unlisted post 99 → 200, items [], total 0',
+    $data['items'] === [] && $data['total'] === 0 && $data['pages'] === 0);
+check('key order unchanged: {items,total,pages,counts,viewer,yoast_active}',
+    array_keys($data) === ['items', 'total', 'pages', 'counts', 'viewer', 'yoast_active']);
+check('counts stay filter-independent (no p.ID clause, ship 3)',
+    strpos(end($wpdb->results_sql), 'p.ID = %d') === false && $data['counts']['ship'] === 3);
+check('viewer block present while items are empty (the meta box reads it), equal to the unfiltered one',
+    $data['viewer'] === viewer_block());
 
 /* ─── Viewer block (story 5.2) — read-only mirror of PostQuality_Features ────── */
 

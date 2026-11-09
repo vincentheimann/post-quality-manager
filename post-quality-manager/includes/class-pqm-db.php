@@ -233,6 +233,7 @@ class PostQuality_DB {
      *     @type int|null $min_score  Lowest latest score to include (inclusive). Null = unbounded.
      *     @type int|null $max_score  Highest latest score to include (inclusive). Null = unbounded.
      *     @type string   $filter     'needs_review' or 'all'. Kept for the REST contract only (the legacy `filter` arg of GET /posts); the React pages never send it.
+     *     @type int      $post_id    One post only (story 109). 0 = every post.
      * }
      * @return array { items: array, total: int, pages: int }
      */
@@ -248,6 +249,7 @@ class PostQuality_DB {
             'min_score' => null,
             'max_score' => null,
             'filter'    => 'all',
+            'post_id'   => 0,
         ];
         $args = wp_parse_args( $args, $defaults );
 
@@ -277,6 +279,10 @@ class PostQuality_DB {
             $where_clauses[] = "(lr.status IS NULL OR lr.status = '')";
         } elseif ( ! empty( $args['status'] ) ) {
             $where_clauses[] = $wpdb->prepare( 'lr.status = %s', $args['status'] );
+        }
+
+        if ( (int) $args['post_id'] > 0 ) {
+            $where_clauses[] = $wpdb->prepare( 'p.ID = %d', (int) $args['post_id'] );
         }
 
         $where_sql  = implode( ' AND ', $where_clauses );

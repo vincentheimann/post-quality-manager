@@ -34,6 +34,10 @@
  * Workflow page for `can_manage_settings`, an administrator otherwise —
  * and the Run / Review selected buttons are disabled. A failed single-run
  * start shows inline in the open DetailPanel, not as a toast.
+ *
+ * Story 109: the Post Quality meta box links here with `postquality_post`
+ * (POST_PARAM): the list narrows to that post (`post_id` on GET /posts)
+ * with its detail panel open; "Show all posts" clears it like any filter.
  */
 import apiFetch from '@wordpress/api-fetch';
 import { Button, Notice, Spinner } from '@wordpress/components';
@@ -42,6 +46,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { addQueryArgs, getQueryArgs, removeQueryArgs } from '@wordpress/url';
 
 import { STATUS_NONE } from './kit/copy';
+import NotConnectedNotice from './kit/not-connected-notice';
 import ProgressPills from './kit/progress-pills';
 import { POSTS_PATH, canRender, inFlight, isConnected } from './kit/runs';
 import ScoreBadge from './kit/score-badge';
@@ -71,9 +76,21 @@ const DEFAULT_QUERY = {
 };
 const QUERY_KEYS = Object.keys( DEFAULT_QUERY );
 
+/**
+ * The meta box's link (story 109): one post, its panel open. Kept out of
+ * DEFAULT_QUERY because the URL and the REST route name it differently
+ * (`post` in state, `post_id` on GET /posts).
+ */
+const POST_PARAM = 'postquality_post';
+
 function scoreParam( value ) {
 	const n = parseInt( value, 10 );
 	return Number.isInteger( n ) && n >= 0 && n <= 100 ? n : null;
+}
+
+function postParam( value ) {
+	const n = parseInt( value, 10 );
+	return Number.isInteger( n ) && n > 0 ? n : null;
 }
 
 /** Initial state from window.location — unknown values fall back to defaults, like the REST route. */
@@ -90,6 +107,7 @@ function readQueryFromUrl() {
 			: DEFAULT_QUERY.orderby,
 		order: args.order === 'asc' ? 'asc' : 'desc',
 		paged: Number.isInteger( paged ) && paged > 1 ? paged : 1,
+		post: postParam( args[ POST_PARAM ] ),
 	};
 }
 
@@ -112,8 +130,16 @@ function activeParams( query ) {
 function writeQueryToUrl( query ) {
 	const url = addQueryArgs(
 		// 'filter': strip the retired ?filter=needs_review deep link too.
-		removeQueryArgs( window.location.href, ...QUERY_KEYS, 'filter' ),
-		activeParams( query )
+		removeQueryArgs(
+			window.location.href,
+			...QUERY_KEYS,
+			POST_PARAM,
+			'filter'
+		),
+		{
+			...activeParams( query ),
+			...( query.post ? { [ POST_PARAM ]: query.post } : {} ),
+		}
 	);
 	window.history.replaceState( null, '', url );
 }
@@ -130,6 +156,7 @@ function restPath( query ) {
 		per_page: PER_PAGE,
 		page: paged || 1,
 		...rest,
+		...( query.post ? { post_id: query.post } : {} ),
 	} );
 }
 
@@ -137,7 +164,8 @@ function hasActiveFilters( query ) {
 	return (
 		query.status !== '' ||
 		query.min_score !== null ||
-		query.max_score !== null
+		query.max_score !== null ||
+		query.post !== null
 	);
 }
 
@@ -275,53 +303,6 @@ function PostRow( {
 	);
 }
 
-/**
- * n8n not connected (ticket 32): why Run is disabled, and the next step —
- * the n8n Workflow page for admins, an administrator for everyone else.
- *
- * @param {Object}  props
- * @param {boolean} props.canManage Whether the viewer may open the n8n Workflow page.
- */
-function NotConnectedNotice( { canManage } ) {
-	return (
-		<Notice
-			status="warning"
-			isDismissible={ false }
-			className="pqm-connect-notice"
-			actions={
-				canManage
-					? [
-							{
-								label: __(
-									'Set up the n8n workflow',
-									'post-quality-manager'
-								),
-								url: 'admin.php?page=postquality-workflow',
-								variant: 'primary',
-							},
-						]
-					: []
-			}
-		>
-			<strong>
-				{ __(
-					'n8n is not connected yet, so agents cannot run.',
-					'post-quality-manager'
-				) }
-			</strong>{ ' ' }
-			{ canManage
-				? __(
-						'Import the pre-configured workflow into n8n and connect it to this site — about 10 minutes, one time.',
-						'post-quality-manager'
-					)
-				: __(
-						'Ask an administrator to connect the n8n workflow to this site.',
-						'post-quality-manager'
-					) }
-		</Notice>
-	);
-}
-
 export default function PostReviewsTable() {
 	const [ query, setQuery ] = useState( readQueryFromUrl );
 	const [ items, setItems ] = useState( null );
@@ -337,7 +318,8 @@ export default function PostReviewsTable() {
 	// Story 5.4 state: the open panel and the panel's refetch version.
 	// The single-run plumbing (refetch trigger, busy post, polling, toasts)
 	// is the kit's useSingleRun; a run start or completion bumps the panel.
-	const [ openPostId, setOpenPostId ] = useState( null );
+	// The meta box's link (story 109) opens its post's panel.
+	const [ openPostId, setOpenPostId ] = useState( query.post );
 	const [ detailVersion, setDetailVersion ] = useState( 0 );
 	const bumpDetail = () => setDetailVersion( ( v ) => v + 1 );
 	const {
@@ -438,14 +420,17 @@ export default function PostReviewsTable() {
 	const setSort = ( orderby, order ) =>
 		setQuery( { ...query, orderby, order, paged: 1 } );
 	const setPage = ( paged ) => setQuery( { ...query, paged } );
+	// Also "Show all posts" for the meta box's one-post link (story 109).
 	const clearFilters = () =>
 		setQuery( {
 			...query,
 			status: '',
 			min_score: null,
 			max_score: null,
+			post: null,
 			paged: 1,
 		} );
+	const showAllPosts = __( 'Show all posts', 'post-quality-manager' );
 	const toggleDetails = ( postId ) =>
 		setOpenPostId( ( open ) => ( open === postId ? null : postId ) );
 
@@ -521,6 +506,15 @@ export default function PostReviewsTable() {
 					startRun={ startRun }
 					onStart={ () => setSelected( new Set() ) }
 				/>
+			) }
+			{ /* The meta box's one-post link (story 109); an empty result
+			     offers the same button in the table. */ }
+			{ query.post !== null && items.length > 0 && (
+				<p className="pqm-show-all">
+					<Button variant="link" onClick={ clearFilters }>
+						{ showAllPosts }
+					</Button>
+				</p>
 			) }
 			{ /* The page's one live region. Refetches keep the current rows
 			     visible; the table only dims. Toasts render outside it —
@@ -696,10 +690,12 @@ export default function PostReviewsTable() {
 											variant="link"
 											onClick={ clearFilters }
 										>
-											{ __(
-												'Clear filters',
-												'post-quality-manager'
-											) }
+											{ query.post !== null
+												? showAllPosts
+												: __(
+														'Clear filters',
+														'post-quality-manager'
+													) }
 										</Button>
 									</td>
 								</tr>

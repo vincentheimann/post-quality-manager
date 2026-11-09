@@ -205,13 +205,14 @@ export function giveUpMessage( command ) {
 }
 
 /**
- * Toast for a run that just left `in_flight`, from its stored row.
+ * Toast for a run that just left `in_flight`, from its stored row. The
+ * post editor's meta box announces its `content` (story 109).
  *
  * @param {string}      command Command key.
  * @param {Object|null} row     Latest stored row for the command, null when unknown.
  * @return {{status: string, content: string}} SnackbarList notice fields.
  */
-function outcomeToast( command, row ) {
+export function outcomeToast( command, row ) {
 	const label = commandLabel( command );
 
 	if ( ! row ) {
