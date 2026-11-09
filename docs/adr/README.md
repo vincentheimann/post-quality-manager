@@ -50,3 +50,4 @@ What becomes easier, what becomes harder, what we committed to.
 - [0015 — The plugin provisions n8n itself through the n8n public API](0015-plugin-provisions-n8n-via-public-api.md)
 - [0016 — The funnel is read from WordPress.org, Freemius and GitHub; postquality.com stays unmeasured](0016-funnel-read-from-existing-sources-site-unmeasured.md)
 - [0017 — Life cycle management: tracked components, a monthly and pre-release check, a ticket for what moved](0017-life-cycle-management-by-a-recurring-check.md)
+- [0018 — The PHP floor is 8.1 and follows WordPress core's 5 % share rule](0018-php-floor-follows-wordpress-share-rule.md)

@@ -1,6 +1,6 @@
 # 0017. Life cycle management: tracked components, a monthly and pre-release check, a ticket for what moved
 
-- Status: accepted
+- Status: accepted; the PHP rule superseded by [0018](0018-php-floor-follows-wordpress-share-rule.md), the rest stands
 - Date: 2026-11-03
 
 ## Context

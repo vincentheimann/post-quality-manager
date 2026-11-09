@@ -31,6 +31,8 @@ The plugin requires PHP 8.0, whose security support ended on 2023-11-26. WordPre
 ## References
 
 - decision — docs/adr/0017-life-cycle-management-by-a-recurring-check.md (the PHP rule)
+- decision — docs/adr/0018-php-floor-follows-wordpress-share-rule.md (the answer: 8.1, then the 5 % share rule)
+- findings — _bmad-output/backlog/spike-php-floor-review-findings.md
 - record — memory/lifecycle.md
 
 ## Notes

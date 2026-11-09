@@ -1,8 +1,8 @@
 # Spike 104 — findings: the PHP floor
 
-Research run on 2026-11-09 by two agents (Opus 5.5): one read the public sources (each read that day; URLs below), one read this repository and the website repository (paths and lines below). The orchestrator re-derived the share figures from the raw API and the support dates from endoflife.date, and listed Local's PHP builds on this PC. The owner decides; the draft ADR is section 6.
+Research run on 2026-11-09 by two agents (Opus 5.5): one read the public sources (each read that day; URLs below), one read this repository and the website repository (paths and lines below). The orchestrator re-derived the share figures from the raw API and the support dates from endoflife.date, and listed Local's PHP builds on this PC. The owner chose 8.1 on 2026-11-09 ("Ok for PHP 8.1"); the decision is [ADR 0018](../../docs/adr/0018-php-floor-follows-wordpress-share-rule.md), and the change is the follow-up story. The verdict below is as proposed; section 6 is the draft the ADR was written from.
 
-## Verdict (proposed, for the owner)
+## Verdict (proposed, then chosen by the owner on 2026-11-09)
 
 Move `Requires PHP` from 8.0 to **8.1** before the first public release. From then on, the floor is the oldest PHP version whose share on WordPress.org is at least 5 %, which is the rule WordPress core uses for itself. It also has to be a version the project actually runs its checks on.
 
@@ -121,7 +121,7 @@ From WordPress 7.1.4's source (https://core.svn.wordpress.org/tags/7.1.4/), comp
 7. The PHP defaults of hosts other than WP Cloud.
 8. The labels WordPress's compatibility table showed at each release from 6.6 to 6.9. The table and the May 2026 post disagree on 6.7 × 8.4; this does not change the verdict.
 
-## 6. Draft ADR (recorded only after the owner decides)
+## 6. Draft ADR (as proposed; recorded as ADR 0018 on 2026-11-09)
 
 > **0018. The PHP floor is 8.1 and follows WordPress core's 5 % rule**
 >
