@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.13.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.0...v3.13.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* **admin:** Set up by hand imports the workflow from a file, for n8n 2 and n8n 3 ([0e33cfc](https://github.com/vincentheimann/post-quality-manager/commit/0e33cfc170be8bb9fff1708b376020266d342b70))
+
 ## [3.13.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.12.4...v3.13.0) (2026-11-09)
 
 
