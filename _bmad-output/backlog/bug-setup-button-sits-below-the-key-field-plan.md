@@ -44,6 +44,7 @@ Oneshot: two source files and one test file (`src/setup/steps.js` L350–396, `s
 
   The button is 36 px tall and the input 40 px, so bottoms level means tops 4 px apart (the components' default heights). `aria-describedby` named the help line in every run, and there were no console errors. `debug.log` held only WP-CLI's own lines. Restore: 3× "same".
 - Not measured, and why: step 1's form (Connect by URL, L105) and the first review's row (`.pqm-setup-run`) hold no `<p>` child, and the new rule matches only `.pqm-setup-connect > p`; their markup is unchanged. Before the fix, the owner's 2026-11-04 screenshot is the evidence: about 30 px lower, the button's bottom on the help line's.
+- Released 2026-11-06 in **3.12.4** (#260, release commit d3dbbc7; pre-release). Release run 42241927319 green. Zip `post-quality-manager-3.12.4.zip` sha256 `f5fd0fce…a462`: one root folder, `admin/build/` inside, its `style-index.css` with `.pqm-setup-connect>p` and `.pqm-setup-help`. Uploaded to Freemius as **deployment 171447**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Release check 2026-11-09: the zip's 218 files equal the plugin folder on main, which chore 103's showcase walk installed that day on WordPress 7.1.4; the clean WordPress 6.6 install waits for story 38's pre-production site.
 
 ## Plan Change Log
 

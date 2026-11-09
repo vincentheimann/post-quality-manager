@@ -58,6 +58,7 @@ Oneshot: one wrapper `<div>` in the Roles markup, one CSS rule changed, harness 
 
   From 782 px up every column starts and ends where it did on main. No page errors; `debug.log` only WP-CLI's own lines; restore 3× "same".
 - Follow-up outside this build: the site's Features page may now take a phone crop of the Roles section (ticket Notes); it needs a licensed capture sitting. That sitting also runs `measure.js` on the licensed tab, the one AC 1 names (review row 3).
+- Released 2026-11-06 in **3.12.4** (#260, release commit d3dbbc7; pre-release). Release run 42241927319 green. Zip `post-quality-manager-3.12.4.zip` sha256 `f5fd0fce…a462`: one root folder, `admin/build/` inside, the Roles table inside `<div class="pqm-roles-scroll" role="region" … tabindex="0">`. Uploaded to Freemius as **deployment 171447**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Release check 2026-11-09: the zip's 218 files equal the plugin folder on main, which chore 103's showcase walk installed that day on WordPress 7.1.4; the clean WordPress 6.6 install waits for story 38's pre-production site.
 
 ## Plan Change Log
 

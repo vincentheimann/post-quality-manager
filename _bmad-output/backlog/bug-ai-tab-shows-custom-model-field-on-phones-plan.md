@@ -42,6 +42,7 @@ Oneshot: one CSS line and one harness row, no PHP, JS, schema, REST or template 
 
   No page errors; `debug.log` only WP-CLI's own lines; restore 3× "same". The pre-fix state at 400 px is the ticket's reproduction (story 100's phone capture); it was not re-captured.
 - Follow-up outside this build: the site's Features page may now take a phone crop of the AI section (ticket Notes); it needs a licensed capture sitting.
+- Released 2026-11-06 in **3.12.4** (#260, release commit d3dbbc7; pre-release). Release run 42241927319 green. Zip `post-quality-manager-3.12.4.zip` sha256 `f5fd0fce…a462`: one root folder, `admin/build/` inside, `admin/css/pqm-admin.css` with the `!important` `.pqm-hidden` rule. Uploaded to Freemius as **deployment 171447**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Release check 2026-11-09: the zip's 218 files equal the plugin folder on main, which chore 103's showcase walk installed that day on WordPress 7.1.4; the clean WordPress 6.6 install waits for story 38's pre-production site.
 
 ## Plan Change Log
 
