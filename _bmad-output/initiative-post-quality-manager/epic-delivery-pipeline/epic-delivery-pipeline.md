@@ -16,7 +16,7 @@ Nothing has ever been released: no tag, no GitHub Release, and `3.0.0` is declar
 
 ## Outcome
 
-Cutting a release is merging one PR, and a broken template, out-of-step versions, a PHP 8.0 parse error or a Plugin Check error never ship; the signal is the first public GitHub Release carrying a CI-built zip that installs and activates on a clean WordPress 6.6.
+Cutting a release is merging one PR, and a broken template, out-of-step versions, a parse error on the declared PHP floor (8.1 since story 118, ADR 0018; 8.0 before) or a Plugin Check error never ship; the signal is the first public GitHub Release carrying a CI-built zip that installs and activates on a clean WordPress 6.6.
 
 ## Requirements
 
@@ -25,7 +25,7 @@ Cutting a release is merging one PR, and a broken template, out-of-step versions
 ## Done when
 
 1. Merging to `main` opens or updates a release PR; merging it creates the tag and the GitHub Release with the CI-built zip attached, release notes from `docs/release-notes/<version>.md` included (CAP-1, CAP-2).
-2. CI fails on a broken workflow template, on plugin versions out of step, on PHP syntax the declared floor 8.0 cannot parse, and on a Plugin Check error (CAP-3, CAP-4, CAP-6, CAP-7).
+2. CI fails on a broken workflow template, on plugin versions out of step, on PHP syntax the declared floor (8.1 since story 118, ADR 0018; 8.0 before) cannot parse, and on a Plugin Check error (CAP-3, CAP-4, CAP-6, CAP-7).
 3. Translations in the plugin's `languages/` folder load on PHP admin pages and on React pages (CAP-5).
 4. The first public release is published on GitHub and its zip installs and activates, with `WP_DEBUG` on and no notices, on a clean WordPress 6.6 (production delivery).
 

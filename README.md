@@ -35,7 +35,7 @@ Content is scored on four universal pillars — **Structure, Readability, Engage
 
 ## Requirements
 
-- WordPress 6.6+, PHP 8.0+
+- WordPress 6.6+, PHP 8.1+
 - An n8n instance (self-hosted or cloud) and a Claude API key
 - WordPress and n8n must reach each other over the network: the plugin calls the n8n webhook, and n8n calls back the site's REST API (results, rewrites). A local or password-protected site cannot be reached from n8n Cloud. The rewrite also needs HTTPS (or a WordPress environment type of `local`): it signs in with an Application Password, which WordPress core offers only there.
 - Yoast SEO (optional — its metadata enriches the review payload, and while it is active the Post Reviews screen shows its SEO and readability scores in a Yoast SEO column)

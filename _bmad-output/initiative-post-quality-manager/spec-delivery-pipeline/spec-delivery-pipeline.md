@@ -33,7 +33,7 @@ A mandate and an opportunity. The plugin has never been released: no tag and no 
   - **success:** A test `.mo` and script JSON for one locale show translated text on a PHP admin page and on a React page.
 - **CAP-6**
   - **intent:** A release never promises a PHP version it does not parse on.
-  - **success:** An 8.1-only syntax on a branch fails CI, because the plugin is also linted on PHP 8.0, the declared minimum.
+  - **success:** A syntax newer than the declared minimum on a branch fails CI, because the plugin is also linted on the declared minimum: PHP 8.1 since story 118 (ADR 0018), 8.0 before.
 - **CAP-7**
   - **intent:** The official WordPress Plugin Check runs in CI on every push and pull request, against the built plugin folder, so directory-review findings surface while they are cheap (backlog story 38).
   - **success:** `main` reports zero Plugin Check errors, and a seeded unescaped output on a branch fails CI.

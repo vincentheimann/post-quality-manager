@@ -7,7 +7,7 @@
  * Version:           3.12.4
  * x-release-please-end
  * Requires at least: 6.6
- * Requires PHP:      8.0
+ * Requires PHP:      8.1
  * Author:            Vincent Heimann
  * Author URI:        https://postquality.com
  * License:           GPL-2.0-or-later

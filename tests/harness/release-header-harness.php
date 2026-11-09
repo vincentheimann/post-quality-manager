@@ -17,6 +17,9 @@
  * encloses exactly its Stable tag, and its headers agree with the plugin
  * header the way Plugin Check compares them. Story 95 adds the directory's
  * 10 KB cap (10,240 bytes, read as the file's byte size).
+ * Row 8 (story 118, ADR 0018): every php-version in ci.yml's php job is at
+ * least the header's Requires PHP, and the header's value is among them, so
+ * CI keeps running the checks on the floor when the floor moves.
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -146,5 +149,14 @@ check('the marker lines sit inside the header block (no blank line around them),
 $rp = json_decode((string) file_get_contents($root . '/release-please-config.json'), true);
 check('release-please-config.json lists readme.txt as a generic extra file', in_array(
     ['type' => 'generic', 'path' => 'post-quality-manager/readme.txt'], $rp['packages']['.']['extra-files'] ?? [], true));
+
+echo "Row 8 — CI runs the checks on the Requires PHP floor and on nothing below it (story 118, ADR 0018)\n";
+$floor = (string) header_value($data, 'Requires PHP');
+$ci = str_replace("\r", '', (string) file_get_contents($root . '/.github/workflows/ci.yml'));
+$php_job = preg_match('/^  php:\n(.*?)(?=^  \S|\z)/ms', $ci, $j) ? $j[1] : ''; // the php job, up to the next job key
+preg_match_all('/^\s*php-version:\s*[\'"]?([\d.]+)[\'"]?\s*$/m', $php_job, $m);
+$ci_php = $m[1];
+check("ci.yml's php job sets up PHP " . implode(', ', $ci_php) . ": the header's Requires PHP $floor is among them and none is below it",
+    in_array($floor, $ci_php, true) && array_filter($ci_php, static fn($v) => version_compare($v, $floor, '<')) === []);
 
 harness_exit();

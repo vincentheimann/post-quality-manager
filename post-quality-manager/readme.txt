@@ -3,7 +3,7 @@ Contributors: postquality
 Tags: content quality, ai, editorial, review
 Requires at least: 6.6
 Tested up to: 7.1
-Requires PHP: 8.0
+Requires PHP: 8.1
 Release-please: x-release-please-start-version
 Stable tag: 3.12.4
 Release-please: x-release-please-end

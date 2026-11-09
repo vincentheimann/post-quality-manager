@@ -20,10 +20,10 @@
 # release.yml builds the released commit itself when zipping the
 # post-quality-manager/ subfolder. The build job lints src/ and tests/js/
 # first (npm run lint:js) and runs the JS unit tests (npm run test:unit); the
-# php job lints every plugin PHP file on 8.0 (the header's Requires PHP floor)
-# and then on 8.3 in one job (two setup-php steps), and runs the full
-# tests/harness sweep on 8.3 only (harnesses may use newer PHP than the
-# plugin).
+# php job lints every plugin PHP file and runs the full tests/harness sweep on
+# 8.1, the header's Requires PHP floor (ADR 0018: the floor runs the project's
+# checks, harnesses included), then does both again on 8.3, in one job (two
+# setup-php steps).
 #
 # WordPress Plugin Check (stories 4.4, 4.5) runs on the built plugin folder —
 # the same post-quality-manager/ release.yml zips, with admin/build/ restored
@@ -131,16 +131,26 @@ jobs:
 
       # vendor/ holds the Freemius SDK as released (story 44): not ours to lint.
       # bin/ holds the Free-build scripts (story 54), on the same PHP floor.
+      # 8.1 is the header's Requires PHP floor (ADR 0018), and the harnesses
+      # run on it too; release-header-harness.php fails when no php-version
+      # in this job is the floor or one is below it.
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.0'
+          php-version: '8.1'
 
-      - name: Lint plugin PHP on 8.0
+      - name: Lint plugin PHP on 8.1
         run: |
           php -v | head -n 1
           find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      # !cancelled(): a failed 8.0 lint still lets 8.3 lint and the sweep
+      - name: Harness sweep on 8.1
+        run: |
+          for f in tests/harness/*.php; do
+            echo "== $f"
+            php "$f" || exit 1
+          done
+
+      # !cancelled(): a failed 8.1 step still lets the 8.3 lint and sweep
       # report; the job fails if any step failed.
       - uses: shivammathur/setup-php@v2
         if: ${{ !cancelled() }}
@@ -153,7 +163,7 @@ jobs:
           php -v | head -n 1
           find post-quality-manager bin -path '*/vendor' -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
 
-      - name: Harness sweep
+      - name: Harness sweep on 8.3
         if: ${{ !cancelled() }}
         run: |
           for f in tests/harness/*.php; do
