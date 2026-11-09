@@ -3,7 +3,7 @@ title: 'The hidden Custom model ID field stays hidden on phones'
 type: 'bugfix'
 ticket: '107'
 created: '2026-11-06'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'

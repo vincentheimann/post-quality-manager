@@ -3,7 +3,7 @@ title: 'The Set up the workflow button lines up with the Anthropic key field'
 type: 'bugfix'
 ticket: '115'
 created: '2026-11-06'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'

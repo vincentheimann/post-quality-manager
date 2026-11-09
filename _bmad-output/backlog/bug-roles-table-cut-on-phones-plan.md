@@ -3,7 +3,7 @@ title: 'On a phone, the Roles table scrolls inside its own frame'
 type: 'bugfix'
 ticket: '108'
 created: '2026-11-06'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
