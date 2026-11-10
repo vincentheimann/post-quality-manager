@@ -8,7 +8,7 @@ _How an agent session checks the plugin on a real WordPress, headlessly, through
 - **Nothing site-specific in the repository.** A site is named by its Local name on the command line; its address, folder, Local id, port and database credentials are read from Local at run time and are never written into a repository file, ticket, plan or memory line. Neither are dumps, captures, post titles or user names from a site.
 - **Nothing leaves the machine.** The webhook listener binds to 127.0.0.1; the plugin's payload (post content, the site's webhook token) goes to it and to no other host. One exception, the owner's to allow: a walk with [a disposable n8n](#a-disposable-n8n) sends the commands it runs (a few of the site's sample posts) to the AI provider, with the owner's key.
 - **Export first, restore last.** Every walk starts with the backup below and ends with the restore, then checks the site is as it was. Every file the walk writes lives in the session's scratchpad, outside the repository, and is deleted when the walk ends (owner rule 2026-10-20: nothing an agent creates outlives the work).
-- **One walk per site at a time.** A busy port 8765 or `pq-smoke-*` users already on the site mean a walk is running or was left unrestored, maybe another session's: its backup would hold the other walk's half-done state, and step 11 would still print "same". Stop and ask the owner.
+- **One walk per site at a time.** A busy port 8765, `pq-smoke-*` users already on the site, or the [Add Plugins preview](#add-plugins-preview-story-70) in its mu-plugins folder (`postquality-directory-preview.php` or the `postquality-directory-preview/` folder) mean a walk is running or was left unrestored, maybe another session's: its backup would hold the other walk's half-done state, and step 11 would still print "same". Stop and ask the owner.
 - **A defect found becomes its own ticket.** The walk changes no plugin code.
 - **Shell.** The commands below are for the agents' shell, Git Bash on Windows, run from the repository root. Shell state, the working folder included, does not survive between tool calls: start every call with the lines of [Variables](#variables).
 
@@ -205,6 +205,84 @@ What the walk created, and what removes it:
 - **Plugin Check:** `(cd "$S" && python -I "$OLDPWD/bin/local-wp.py" --site "$SITE" plugin check post-quality-manager)` (Plugin Check is installed on the showcase). Run it from a folder that holds no `post-quality-manager/` folder, such as `$S`: from the repository root, Plugin Check takes the name as that folder and checks the repository's source instead of the installed build (`memory/local-verification.md`, 2026-11-09). Its `FILE:` lines name the site's plugin folder when it checked the build.
 - **Deleting the plugin:** the Freemius SDK registers the plugin's uninstall callback only when an administrator deactivates it and runs it only for a user who can `activate_plugins`, so a WP-CLI walk of deletion passes `--user=<an administrator>` on both `lwp plugin deactivate` and `lwp plugin uninstall`; without it the files go and every option, user meta, capability and the reviews table stay (`memory/freemium-and-roles.md`, real licensing). The restore brings the plugin back.
 - **A plan's manual checks:** the steps a story plan's Verification section lists run in the same frame: backup, build, the checks through `lwp` (options, `eval` with `rest_do_request()`, the capture), restore.
+
+### Add Plugins preview (story 70)
+
+_Shows the plugin's card on Plugins → Add New Plugin and its More Details view as the WordPress.org directory would build them, before the plugin is listed. `bin/directory-preview.php`, a development-only must-use plugin, answers WordPress's `plugins_api` for a search for the plugin and for its slug's details with the record the directory's API sends for a new listing, read from the installed build's readme and header and from the directory images in `assets/`; every other request keeps its own answer. The readme goes through Plugin Check's copy of the directory's readme parser, with the directory's own Markdown, which the walk fetches into `$S` and which never enters the repository. Written by story 70; story 60 reruns it for the Description rewrite._
+
+The frame is the walk: [Variables](#variables), Preview 0, walk step 1, walk step 2 with the Free build (the directory hosts it), Preview 1 to 4, then walk steps 9 to 11. Walk steps 3 to 8 are skipped. Plugin Check must be active on the site (it is on the showcase): the preview uses its parser.
+
+#### Preview 0. Check the site is free, before walk step 1
+
+```sh
+lwp plugin is-active plugin-check && echo "Plugin Check: active" || { echo "STOP: Plugin Check is not active"; exit 1; }
+M="$(lwp --skip-plugins eval 'echo WPMU_PLUGIN_DIR;')"; [ -n "$M" ] || { echo "STOP: no mu-plugins path"; exit 1; }
+[ -e "$M/postquality-directory-preview" ] || [ -e "$M/postquality-directory-preview.php" ] && { echo "STOP: a preview is already in mu-plugins"; exit 1; }
+echo "no preview in mu-plugins"
+```
+
+Expected: `Plugin Check: active`, then `no preview in mu-plugins`. The block only reads the site. A `STOP` line ends it with exit 1 before anything on the site changes, and nothing is restored: Plugin Check inactive (ask the owner), or a preview's file or folder already in mu-plugins, which means a walk is running or was left unrestored, maybe another session's ([Rules](#rules)): the site is that walk's to restore, never write over the preview or delete it; stop and ask the owner.
+
+#### Preview 1. Fetch the Markdown
+
+```sh
+C=d0621733b16ef8300d506edc4390bef01e34ba8e
+B="https://raw.githubusercontent.com/WordPress/wordpress.org/$C/wordpress.org/public_html/wp-content/plugins/plugin-directory"
+L=libs/michelf-php-markdown-1.6.0/Michelf
+mkdir -p "$S/md/$L"
+curl -fsSo "$S/md/class-markdown.php" "$B/class-markdown.php"
+for f in MarkdownExtra.inc.php MarkdownInterface.php Markdown.php MarkdownExtra.php; do curl -fsSo "$S/md/$L/$f" "$B/$L/$f"; done
+[ "$(find "$S/md" -type f -size +0 | wc -l)" -eq 5 ] && echo "Markdown: 5 files" || { echo "STOP: the Markdown download is incomplete"; exit 1; }
+```
+
+`C` pins one commit of [WordPress/wordpress.org](https://github.com/WordPress/wordpress.org) (trunk on 2026-11-09). `class-markdown.php` is the directory's Markdown class (GPLv2); it includes the Michelf MarkdownExtra 1.6.0 library (BSD-3-Clause) from `libs/` beside itself, so `$S/md` keeps that layout, and the four library files are the ones `MarkdownExtra.inc.php` loads. Expected: `Markdown: 5 files`. A `STOP` line ends the block with exit 1: a download failed (the count is of files that are not empty); delete `$S/md` and run the block again. A later commit may serve a later walk: check first that the five paths still exist there.
+
+#### Preview 2. Copy it into the site
+
+```sh
+M="$(lwp --skip-plugins eval 'echo WPMU_PLUGIN_DIR;')"; [ -n "$M" ] || { echo "STOP: no mu-plugins path"; exit 1; }
+lwp --skip-plugins eval 'echo is_dir( WPMU_PLUGIN_DIR ) ? implode( " ", array_diff( scandir( WPMU_PLUGIN_DIR ), [ ".", ".." ] ) ) : "no mu-plugins folder", PHP_EOL;' > "$S/before-mu.txt"; cat "$S/before-mu.txt"
+[ -d "$M" ] || { mkdir "$M" && touch "$S/mu-created"; }
+mkdir "$M/postquality-directory-preview" && touch "$S/preview-created" || { echo "STOP: a preview is already in mu-plugins"; exit 1; }
+cp bin/directory-preview.php "$M/postquality-directory-preview.php"
+cp assets/icon.svg assets/icon-128x128.png assets/icon-256x256.png assets/banner-772x250.png assets/banner-1544x500.png assets/screenshot-1.png assets/screenshot-2.png assets/screenshot-3.png "$M/postquality-directory-preview/"
+cp -r "$S/md/." "$M/postquality-directory-preview/"
+lwp plugin list --status=must-use --fields=name,status
+lwp eval 'require_once ABSPATH . "wp-admin/includes/plugin-install.php"; $q = plugins_api( "query_plugins", [ "search" => "post%20quality" ] ); $p = $q->plugins[0]; $d = plugins_api( "plugin_information", [ "slug" => "post-quality-manager" ] ); echo count( $q->plugins ), " card: ", $p["name"], " ", $p["version"], ", tested ", $p["tested"], PHP_EOL, "tabs: ", implode( " ", array_keys( $d->sections ) ), ", ", count( $d->screenshots ), " screenshots", PHP_EOL;'
+```
+
+Expected: the mu-plugins folder's entries before the copy (`no mu-plugins folder` on the showcase, so the walk creates it and `$S/mu-created` records that); no output from the copies; `postquality-directory-preview	must-use`; then `1 card: Post Quality Manager <version>, tested <the site's version>` and `tabs: description installation faq changelog screenshots, 3 screenshots`. The `mkdir` stop repeats Preview 0's check for a preview that appeared since: it ends the block with exit 1 before anything is copied; never write over that preview or delete it, ask the owner. `$S/preview-created` records that this walk made the preview; Preview 4 removes nothing without it. The eight images are the directory files `assets/` holds for WordPress.org (`docs/brand.md` § Imagery); the card shows `icon.svg`, as the directory does when a plugin has one.
+
+#### Preview 3. Open the screens
+
+The owner opens them in a browser logged into the site (Local's WP Admin button): Plugins → Add New Plugin, search `Post Quality Manager`, then **More Details** on the card. Directly: `<site>/wp-admin/plugin-install.php?s=Post%20Quality%20Manager&tab=search&type=term`, and `<site>/wp-admin/plugin-install.php?tab=plugin-information&plugin=post-quality-manager` for the dialog's content alone. An agent reads the same pages with Playwright (`node_modules/playwright-core` driving Edge, a session cookie minted by WP-CLI for user 1, `TEMP` and `TMP` at the scratchpad: `memory/local-verification.md`), typing the search into the search field once as well, since the screen's live search sends the term percent-encoded. Captures stay in `$S`.
+
+What a new listing shows, and what the preview does too:
+
+- **The card:** the icon, the name, the readme's short description (the tagline), "By postquality" linked to that WordPress.org profile (the directory's author is the submitting account, the readme's Contributors account in `docs/distribution.md`, shown by its profile's display name, the username until one is set; the plugin header's Author and Author URI feed neither the card nor the sidebar), empty stars with `(0)`, "Last Updated: <n> seconds ago" (the preview's time is the request's), "Less Than 10 Active Installations", "Compatible with your version of WordPress", and the button "Active" (the plugin is installed and active on the site; "Install Now" elsewhere).
+- **More Details:** the banner, then the tabs Description, Installation, FAQ, Changelog and Screenshots: the parser puts a section it does not expect (External services) at the end of Description under its own heading, and WordPress hides Reviews while a plugin has no rating. Screenshots holds the three images with the readme's captions. The sidebar reads Version (the installed build's), Author (`postquality`, as on the card), Last Updated, Requires WordPress Version, Compatible up to (the site's version), Requires PHP Version, Active Installations "Less Than 10", Plugin Homepage, and Contributors `postquality` linked to its WordPress.org profile.
+- **Not like the listing:** WordPress shows no "WordPress.org Plugin Page" link for an answer a filter gave. The directory also runs each section through its own `the_content` (curly quotes among others); the preview leaves the site's content filters out. The contributor's avatar is the site's default avatar; the listing shows the profile's Gravatar (`d=monsterid` when the profile has none).
+
+#### Preview 4. Remove it
+
+Before the restore (walk step 10), with the browser closed:
+
+```sh
+[ -f "$S/preview-created" ] || { echo "STOP: this walk did not make the preview"; exit 1; }
+M="$(lwp --skip-plugins eval 'echo WPMU_PLUGIN_DIR;')"; [ -n "$M" ] || { echo "STOP: no mu-plugins path"; exit 1; }
+rm -r "${M:?}/postquality-directory-preview" "${M:?}/postquality-directory-preview.php" && echo "preview: removed"
+[ -f "$S/mu-created" ] && rmdir "${M:?}" && echo "mu-plugins folder: removed"
+```
+
+A `STOP` line ends the block with exit 1, nothing removed: without `$S/preview-created` the preview in mu-plugins is not this walk's (Preview 2 stopped, or another session made it); ask the owner.
+
+Then walk step 9 (`debug.log`), step 10 and step 11, and after step 11's three lines:
+
+```sh
+lwp --skip-plugins eval 'echo is_dir( WPMU_PLUGIN_DIR ) ? implode( " ", array_diff( scandir( WPMU_PLUGIN_DIR ), [ ".", ".." ] ) ) : "no mu-plugins folder", PHP_EOL;' | diff "$S/before-mu.txt" - && echo "mu-plugins: same, the preview is gone"
+```
+
+Expected: `preview: removed`, then `mu-plugins folder: removed` when the walk created it (`rmdir` leaves a folder that is not empty); in step 9 `no debug.log`, or only WP-CLI's own lines (a line `Post Quality directory preview: missing …` names what the preview lacked, and the screens then showed the directory's real answer); step 11's three "same"; `mu-plugins: same, the preview is gone`. Step 10 can print `debug.log deleted` after step 9's `no debug.log`: its `plugin install` and `import` run while the log is still on, with the preview already gone. Step 11's plugin list would show the preview too while its file stays (`must-use`), but not its folder; this last line covers both. The session cookie an agent minted is a session in the database, gone with step 10's import; `$S/md`, the captures and the cookie file go with `$S`.
 
 ## A disposable n8n
 

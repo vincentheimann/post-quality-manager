@@ -22,7 +22,7 @@ Before installing, a site owner sees the plugin's card in WP Admin â†’ Plugins â
 1. **The card shows the plugin as a new listing would**
    **Given** the showcase with the Free build installed, and a preview that answers for the directory with the plugin's own readme, header and image files
    **When** the Add Plugins screen searches for the plugin
-   **Then** its card shows the icon, the name, the tagline verbatim as the short description, the author linked to the author's site, "Compatible with your version of WordPress", and the values a new listing has for rating, active installs and last updated
+   **Then** its card shows the icon, the name, the tagline verbatim as the short description, the submitting WordPress.org account by its profile's display name, linked to that profile, "Compatible with your version of WordPress", and the values a new listing has for rating, active installs and last updated
 2. **More Details shows every readme section and the images**
    **Given** the same preview
    **When** More Details is opened from the card
@@ -72,3 +72,5 @@ Before installing, a site owner sees the plugin's card in WP Admin â†’ Plugins â
 - Decision (owner, 2026-11-10): story 96 waits on this one; 70 joins its `after`.
 - Decision (owner delegated, 2026-11-10): from the check's suggestions, the sidebar joins criterion 2, the approval record joins criterion 3, and the after-restore line above replaces the open question on must-use plugins. The restore stays a Boundary, not a criterion: it is the walk's standing rule (`docs/local-verification.md` Rules), not plugin behavior.
 - Fact: the `validate.md` check ran on 2026-11-10 (a fresh agent, read-only, on this branch's base `chore/records-111-done`). It found the parser blocker above, corrected the External services source and the facts on Row 7 and the Free build comparison, and confirmed every path, the three external links, the prerequisites (10, 51, 41, 95 done) and the other facts.
+- Decision (owner, 2026-11-10, the sitting): criterion 1 named "the author linked to the author's site", but the directory's "By" line is the submitting WordPress.org account by its profile's display name, linked to that profile, never the plugin header's Author (the build's review pass 1, checked on the live API). Criterion 1 now says so. The owner sets the `postquality` profile's display name on WordPress.org before story 38 submits (`docs/distribution.md`).
+- Decision (owner, 2026-11-10, the sitting; the changes delegated to best practice): approved, with two readme fixes in this story (caption 2 names what the image shows; the readme's URLs are Markdown links, which the directory renders as links) and story 122 (a banner that leaves its lower left to the name label, and a new screenshot 2 with today's tabs), which story 38 waits on.

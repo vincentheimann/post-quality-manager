@@ -26,6 +26,7 @@ Account and submission:
 | wordpress.org username (readme `Contributors`, the submitting account) | `postquality` (created 2026-10-09, https://profiles.wordpress.org/postquality/, login hello@postquality.com) | story 38 |
 | Plugin slug | post-quality-manager (derived from the Plugin Name at submission, checked free 2026-10-08) | docs/brand.md § Naming |
 | Support forum | https://wordpress.org/support/plugin/post-quality-manager/ once listed; Free support channel, best effort | ADR 0013 D9 |
+| Display name of that account (the listing's "By" line) | OWNER sets it on the profile before submission; still `postquality` on 2026-11-10. The card and More Details show the submitting account's display name, linked to its profile, never the plugin header's Author | story 70 (2026-11-10); story 38 |
 | SVN deploy credentials | the wordpress.org username and password as GitHub secrets `SVN_USERNAME` and `SVN_PASSWORD` (the names the 10up deploy action reads) | story 38 AC7 creates them; never in the repository |
 
 `readme.txt` header (`post-quality-manager/readme.txt`, a minimal file since 2026-10-13 because Freemius refuses a zip without it; story 95 completed it on 2026-10-29, under the directory's 10 KB cap; `release-header-harness.php` Row 7 checks the rows below against the plugin header, and the size):
@@ -62,6 +63,8 @@ Assets (`assets/` in SVN, not in the zip; story 51 produced the icon, story 41 t
 | icon-512x512.png | uploaded as the Freemius product image 2026-10-12 (owner); the postquality.com favicon is `icon.svg` with `icon-128x128.png`, wired by story 85 (site PR, 2026-10-22) in the site's `_includes/head.html` |
 | banner-772x250.png, banner-1544x500.png | produced (story 41, 2026-10-24): `assets/banner-772x250.png`, `assets/banner-1544x500.png`, rendered from `assets/src/banner.html` (docs/brand.md § Imagery); approved by the owner at the story 41 PR (#186, merged 2026-10-24) |
 | screenshot-1.png, screenshot-2.png, screenshot-3.png | produced (story 41, 2026-10-24): `assets/screenshot-1.png` … `-3.png`, the postquality.com captures; numbers match the readme Screenshots section |
+
+Card preview approved 2026-11-10 (story 70): the owner reviewed the Add Plugins card and More Details on the showcase, rendered from the readme, the plugin header and the eight directory files by `bin/directory-preview.php` (recipe: `docs/local-verification.md`, "Add Plugins preview (story 70)"). Approved: the card (icon, name, tagline, new-listing values) and More Details (banner, the Description, Installation, FAQ, Changelog and Screenshots tabs, the sidebar), with two readme fixes made then (caption 2 names what the image shows; the readme's URLs are links). Open before submission: the account's display name (the "By" line, row above) and story 122 (a banner that leaves its lower left to the name label WordPress lays over it, and a new screenshot 2 with today's tabs).
 
 ## Licensing provider: Freemius (story 44)
 
