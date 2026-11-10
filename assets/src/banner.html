@@ -1,10 +1,17 @@
 <!doctype html>
 <!--
-  The WordPress.org listing banners, source of assets/banner-772x250.png and assets/banner-1544x500.png (story 41).
-  Derived from the site's sharing card (postquality.com/_tools/og-card.html): the band #33496b full-bleed, lockup B at
-  a 64 px tile, the tagline verbatim from docs/brand.md in white, a 40 px safe margin, no screenshot, no third-party
-  mark, no domain line (the listing names the plugin). The icon is a copy of assets/icon.svg; the wordmark is Inter
-  (installed locally, SIL OFL 1.1), the same face as the outlined lockup SVGs. Never a web font.
+  The WordPress.org listing banners, source of assets/banner-772x250.png and assets/banner-1544x500.png (story 41,
+  re-laid by story 122): the band #33496b full-bleed, lockup B at a 64 px tile, the tagline verbatim from docs/brand.md
+  in white, a 40 px safe margin, no screenshot, no third-party mark, no domain line (the listing names the plugin).
+  The icon is a copy of assets/icon.svg; the wordmark is Inter (installed locally, SIL OFL 1.1), the same face as the
+  outlined lockup SVGs. Never a web font.
+
+  Why the content sits at the top: in More Details (a window of 792 px or more) WordPress lays the plugin's name in a
+  dark label over the banner's lower left (core's #plugin-information-title.with-banner h2: 26 px from the left,
+  174 px from the top, 30 px type at line height 1.68, a 30 px glow), so everything here must end above y 174 with
+  band between. Hence the lockup at the top margin and the tagline 16 px under it, at 20 px over the full 692 px
+  measure, in two lines (at 22 px two lines do not fit); its descenders end at y 168 (169 in the 2x file). Below
+  792 px core moves the label over the lockup: out of scope, a limit of core's layout.
 
   Render (docs/brand.md § Imagery and the WordPress.org assets), with a fresh throwaway profile folder each time:
     msedge --headless=new --hide-scrollbars --disable-lcd-text --force-color-profile=srgb
@@ -30,7 +37,7 @@
     padding: 40px; /* safe margin */
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start; /* top-aligned: clear of the name label, see the comment above */
     background: #33496b; /* the band: the tile never sits on navy */
     font-family: Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -39,7 +46,7 @@
   .tile { display: block; width: 64px; height: 64px; flex: none; }
   .name { font-weight: 600; color: #ffffff; }
   .manager { font-weight: 400; color: #c3ccd9; }
-  .tagline { margin: 20px 0 0; max-width: 620px; font-size: 22px; line-height: 1.25; color: #ffffff; text-wrap: balance; }
+  .tagline { margin: 16px 0 0; max-width: 692px; font-size: 20px; line-height: 1.25; color: #ffffff; text-wrap: balance; }
   .nowrap { white-space: nowrap; }
 </style>
 </head>
