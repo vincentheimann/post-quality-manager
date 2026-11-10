@@ -6,7 +6,7 @@ parent: none
 covers: [UV7]
 after: [10, 51, 95]
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: low
 ---
@@ -66,4 +66,5 @@ Before installing, a site owner sees the plugin's card in WP Admin → Plugins �
 - Decision (owner, 2026-11-10): wording fixes in the readme and the plugin header land in this story. A new capture, a name or tagline change, and the Description rewrite (story 60's) each become a ticket that story 38 waits on.
 - Assumption: the preview is a must-use plugin on `plugins_api`. It answers a search with the plugin, and the details request for the slug with the full record, both read from the installed Free build's header and readme; it answers nothing else. Its source lives in `bin/`, its recipe in `docs/local-verification.md` § Other checks; the walk copies it and the eight images into the showcase and the restore removes them. Story 60's rewrite can reuse it.
 - Assumption: the captures the owner looks at stay in the session scratchpad and are deleted after the sitting (`docs/local-verification.md` Rules: no capture from a site goes into the repository); the plan and `docs/distribution.md` record the approval date and what was approved.
+- Fact: refined 2026-11-10 against the repository (a read-only review by a fresh agent: prerequisites, every reference, each claim of the old text); the owner approved it the same day ("Approve both"). The `validate.md` check on the refined ticket runs before its build.
 - Open question: whether WP-CLI's `plugin list` shows a must-use plugin; the walk's after-restore check needs a line for the preview and its images if not.
