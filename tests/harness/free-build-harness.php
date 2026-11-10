@@ -624,12 +624,16 @@ check('... the first-credential warning and the re-import note, as on Pro; the n
 /* AC4 (story 111), on the Free build: the same step 1 as Pro, no import link in the section or in the page script's strings */
 $url_import = '/from url|(?<!re-)import (url|link)|pqm-import-url/i'; // "Re-import link" is the status block's other link
 check('AC4 (story 111): step 1 downloads, then names "Import" → "From file" (n8n 2.36+) and "Import JSON" (n8n 3), then the Download button; no import link, no "From URL"',
-    str_contains($workflow_file, 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.')
+    str_contains($workflow_file, 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots right after the workflow\'s name, at the top left) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.')
     && strpos($workflow_file, 'Pick the file you downloaded.') < strpos($workflow_file, 'class="button">Download n8n workflow</a>')
     && !preg_match($url_import, $workflow_file) && !str_contains($workflow_file, '/workflow?token='));
 check('... the Free build\'s page script strings name no URL import either (class-pqm-admin.php\'s localized strings, pqm-admin.js)',
     is_file($free . '/admin/js/pqm-admin.js') && !preg_match($url_import, (string) file_get_contents($free . '/admin/js/pqm-admin.js'))
     && !preg_match($url_import, (string) file_get_contents($free . '/admin/class-pqm-admin.php')));
+check('bug 120, on the Free build: nothing on the page or in its script strings sends the user to the top right (n8n puts Publish there; the menu is at the top left)',
+    !preg_match('/top[ -]right/i', $workflow_html)
+    && !preg_match('/top[ -]right/i', (string) file_get_contents($free . '/admin/js/pqm-admin.js'))
+    && !preg_match('/top[ -]right/i', (string) file_get_contents($free . '/admin/class-pqm-admin.php')));
 check('n8n Workflow page carries the n8n connection disclosure, as on Pro; a stored n8n API key is not in its source',
     str_contains($workflow_html, '<summary><h2>n8n connection</h2></summary>')
     && (str_contains($workflow_html, 'id="pqm-n8n-connection-root"') || !is_file($free . '/admin/build/index.asset.php'))

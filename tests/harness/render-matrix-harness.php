@@ -510,8 +510,11 @@ $section = $section_of($connected);
 preg_match_all('/<li>\s*<h3>([^<]+)<\/h3>/', $section, $steps);
 check('four numbered steps, in journey order', str_contains($section, '<ol class="pqm-workflow-steps">')
     && $steps[1] === ['Import the workflow', 'Create the credentials', 'Check the credential in each node', 'Publish and connect']);
-/* Story 111: step 1 is the file import n8n 2 and n8n 3 both offer; the menu's words per version are in memory/n8n-provisioning.md */
-$step1 = 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.';
+/* Story 111: step 1 is the file import n8n 2 and n8n 3 both offer; the menu's words per version are in memory/n8n-provisioning.md.
+   Bug 120: the menu sits right after the workflow's name, at the top left (n8n 2.36+ and 3.x); "at the top right" is Publish. */
+$step1 = 'Download the workflow, then in <a href="https://n8n.example">your n8n</a> open a new, empty workflow, open the workflow menu (the three dots right after the workflow\'s name, at the top left) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.';
+check('bug 120: no step sends the user to the top right, with or without a known n8n address',
+    !preg_match('/top[ -]right/i', $connected) && !preg_match('/top[ -]right/i', $fresh));
 $import_at = strpos($section, $step1);
 $download_at = strpos($section, '<a href="/wp-admin/admin-post.php?action=postquality_download_workflow&_wpnonce=stub" class="button">Download n8n workflow</a>');
 $step2_at = strpos($section, 'Create the credentials');
@@ -606,7 +609,7 @@ $with_base = $section_of($render_workflow([], [PostQuality_N8n::OPTION => ['base
 check('n8n link: a stored n8n connection address wins', $n8n_link($with_base) === 'https://n8n.owner.example:8443');
 check('... and the stored n8n API key is not in the page', !str_contains($with_base, 'n8n-key-SECRET-42'));
 check('n8n link: neither stored → no link, plain words', $n8n_link($section_of($fresh)) === null
-    && str_contains($section_of($fresh), 'Download the workflow, then in n8n open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.'));
+    && str_contains($section_of($fresh), 'Download the workflow, then in n8n open a new, empty workflow, open the workflow menu (the three dots right after the workflow\'s name, at the top left) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.'));
 check('n8n link: a saved webhook URL with a port and a sub-path → scheme, host and port only',
     $n8n_link($section_of($render_workflow(['n8n_webhook_url' => 'http://192.168.1.20:5678/n8n/webhook/pqm-execute-example-com']))) === 'http://192.168.1.20:5678');
 foreach (['not a url', 'ftp://n8n.example/webhook/pqm-execute-example-com', 'https:///webhook/pqm-execute'] as $odd) {

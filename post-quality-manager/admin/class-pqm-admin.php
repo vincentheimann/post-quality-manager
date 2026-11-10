@@ -1952,7 +1952,7 @@ class PostQuality_Admin
                 <p><?php
                     printf(
                         /* translators: %s: "your n8n", linked to the n8n instance when its address is known, else "n8n" */
-                        esc_html__('Download the workflow, then in %s open a new, empty workflow, open the workflow menu (the three dots at the top right) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.', 'post-quality-manager'),
+                        esc_html__('Download the workflow, then in %s open a new, empty workflow, open the workflow menu (the three dots right after the workflow\'s name, at the top left) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.', 'post-quality-manager'),
                         $n8n // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
                     );
                 ?></p>
