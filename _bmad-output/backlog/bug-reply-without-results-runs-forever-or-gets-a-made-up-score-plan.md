@@ -3,7 +3,7 @@ title: 'Bug 121 — a reply without results is stored as an error and always rep
 type: 'bugfix'
 ticket: '121'
 created: '2026-11-10'
-status: 'draft'
+status: 'ready-for-dev'
 route: 'full'
 route_source: 'pinned'
 review: ''
@@ -67,6 +67,8 @@ context: ['{project-root}/_bmad-output/backlog/bug-reply-without-results-runs-fo
 - Given a site whose workflow reports 10, when the plugin with version 11 loads, then the n8n Workflow page says the workflow needs updating (the existing handshake rows, pins at 11).
 
 ## Implementation Notes
+
+- 2026-11-10, checkpoint 1: about 1,850 tokens (characters / 4) against the 1,600 target; the owner kept the full plan and approved it ("Approve and continue"), and approved ticket 121 as refined. bmad-build ran through the Skill tool, rendered on the full route; every subagent runs on Opus (owner rule). Branch `fix/121-reply-without-results`, named by the owner. Investigation inline (no subagent): the five Parse nodes, the callback and notification path (an error item already reaches both), the harness layout, each prompt's fields (2026-11-10).
 
 ## Plan Change Log
 

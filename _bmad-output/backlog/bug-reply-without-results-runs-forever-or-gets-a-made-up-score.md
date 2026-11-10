@@ -6,7 +6,7 @@ parent: none
 covers: [UV1, UV3]
 after: []
 assignee: ""
-refined: false
+refined: true
 hitl: true
 risk: medium
 severity: P2
@@ -81,3 +81,4 @@ Each Parse node's `try` covers only the JSON parse. The node reads the parsed ob
 - Assumption: "a field the score or status is computed from" is the minimum the check requires. A missing list the report only displays (`top_edits`, `issues`, `rewritten_items`, `rewritten_sources`) does not make the reply unusable, but reading it must not end the run (criterion 2).
 - Assumption: out of this bug: a score field that is present with a value outside the prompt's set (a Sources verdict outside its list scores 50, an SEO assessment of "good" scores 55) keeps today's fallback. It is not a missing result, and a strict check there risks turning near-miss replies into errors.
 - Decision (owner, 2026-11-10, hitl): the build is verified by the tests, then by a live run of all five commands on the new version, on the showcase against a disposable n8n, as on 2026-11-06. The agent provisions with the owner's Anthropic key read from its file, never printed. The owner activates the license on the showcase before the run (Sources, SEO and Audit need it) and deactivates it after. `docs/local-verification.md` ("A disposable n8n"), which still has the owner type the key in the setup dialog, is brought in line with this way.
+- Fact: refined 2026-11-10. The `validate.md` check by a fresh agent the same day: 6 fixes applied (the Free template's two commands in criteria 1 and 4, a reply of any shape reports back in criterion 2, the stored result in the Description, the SEO fields, the severity and risk reasons); suggestions adopted (the former criterion 3 folded into 1, the release-notes half of 4 left to the Definition of Done, no mechanics words in criteria, an actionable message, the out-of-set boundary, the n8n default marked as not run, the source plan referenced); its question answered by the owner (the key from its file). The owner approved the ticket the same day ("Approve both").
