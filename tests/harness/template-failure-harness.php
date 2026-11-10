@@ -11,6 +11,11 @@
  * Bug 97: the notification branch's expressions are evaluated with $json =
  * WordPress's /save-review reply and Result Ready stubbed with the item, on
  * both templates (the Free one is derived from this one).
+ *
+ * Bug 121: replies that parse but hold no result run through each Parse node
+ * of the template that carries it (five on Pro, Review and Takeaways on Free);
+ * a node that throws counts as a failed row, since n8n ends the run there,
+ * before the callback.
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -41,7 +46,8 @@ fn('code' in spec ? $input : spec.input, $)
 JS);
 register_shutdown_function(fn() => @unlink($runner));
 
-function run_node(array $spec) {
+/** Runs a spec through `node`; with $may_throw, null when the code throws (otherwise that stops the harness). */
+function run_node(array $spec, bool $may_throw = false) {
     global $runner;
     $p = proc_open(['node', $runner], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     fwrite($pipes[0], json_encode($spec));
@@ -50,6 +56,9 @@ function run_node(array $spec) {
     $stderr = stream_get_contents($pipes[2]);
     proc_close($p);
     $res = json_decode($stdout, true);
+    if ($may_throw && isset($res['fail'])) {
+        return null;
+    }
     if (!is_array($res) || isset($res['fail'])) {
         fwrite(STDERR, "FATAL: node run failed\n" . ($res['fail'] ?? $stdout . $stderr) . "\n");
         exit(1);
@@ -57,11 +66,11 @@ function run_node(array $spec) {
     return $res['ok'];
 }
 
-/** Runs a Code node and returns the json of its first output item. */
-function run_code(string $node, array $input, array $refs = []): array {
+/** Runs a Code node of $nodes (the Pro template's by default) and returns the json of its first output item; with $may_throw, null when the node throws. */
+function run_code(string $node, array $input, array $refs = [], ?array $nodes = null, bool $may_throw = false): ?array {
     global $NODES;
-    $items = run_node(['code' => $NODES[$node]['parameters']['jsCode'], 'input' => $input, 'nodes' => (object) $refs]);
-    return $items[0]['json'];
+    $items = run_node(['code' => ($nodes ?? $NODES)[$node]['parameters']['jsCode'], 'input' => $input, 'nodes' => (object) $refs], $may_throw);
+    return $items === null ? null : $items[0]['json'];
 }
 
 /** Evaluates an n8n `={{ … }}` expression against $json, with `$('<Node>').first().json` stubbed by $refs. */
@@ -70,10 +79,10 @@ function run_expr(string $expr, array $json, array $refs = []) {
     return run_node(['expr' => trim($m[1]), 'input' => $json, 'nodes' => (object) $refs]);
 }
 
-/** The body POST Result to WordPress sends for an item (decoded). */
-function post_body(array $item): array {
+/** The body POST Result to WordPress of $nodes (the Pro template's by default) sends for an item (decoded). */
+function post_body(array $item, ?array $nodes = null): array {
     global $NODES;
-    return json_decode(run_expr($NODES['POST Result to WordPress']['parameters']['body'], $item), true);
+    return json_decode(run_expr(($nodes ?? $NODES)['POST Result to WordPress']['parameters']['body'], $item), true);
 }
 
 /** Today's (v2) body expression, to prove completing runs post the same review fields. */
@@ -85,8 +94,8 @@ function if_target(string $if, int $output): ?string {
     return $tpl['connections'][$if]['main'][$output][0]['node'] ?? null;
 }
 
-/* ─── Parse Input item, produced by the real Parse Input node ────────── */
-function parsed_input(string $command, array $extra = []): array {
+/* ─── Parse Input item, produced by the real Parse Input node (of $nodes, the Pro template's by default) ── */
+function parsed_input(string $command, array $extra = [], ?array $nodes = null): array {
     return run_code('Parse Input', ['body' => $extra + [
         'command'      => $command,
         'post_id'      => 7,
@@ -96,28 +105,28 @@ function parsed_input(string $command, array $extra = []): array {
         'link'         => 'https://example.test/a-post-title/',
         'post_rest_url' => 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7',
         'content'      => 'Body text.',
-    ]]);
+    ]], [], $nodes);
 }
 
 echo "Parse Input\n";
 $base = parsed_input('review');
-check('stamps workflow_version 10', $base['workflow_version'] === 10 && $base['error'] === false);
+check('stamps workflow_version 11', $base['workflow_version'] === 11 && $base['error'] === false);
 check('passes post_rest_url through unchanged (story 35)', $base['post_rest_url'] === 'http://example.test:8080/blog/?rest_route=/wp/v2/pages/7');
 
 /* Row (story 2): the test ping — Parse Input → Ping OK → the body POST Result to WordPress sends back */
 echo "Round-trip ping\n";
 $ping_url = 'https://example.test/wp-json/post-quality/v1/ping/abcdefghij0123456789';
 $ping = run_code('Parse Input', ['body' => ['command' => 'ping', 'source' => 'pqm-test-connection', 'callback_url' => $ping_url, 'auth_token' => 'token']]);
-check('Parse Input: the ping item carries the callback address and token, stamps 10, no post, no notification',
+check('Parse Input: the ping item carries the callback address and token, stamps 11, no post, no notification',
     $ping['command'] === 'ping' && $ping['ping'] === true && $ping['error'] === false && $ping['callback_url'] === $ping_url && $ping['auth_token'] === 'token'
-    && $ping['notification_url'] === '' && $ping['workflow_version'] === 10 && !array_key_exists('post_id', $ping));
+    && $ping['notification_url'] === '' && $ping['workflow_version'] === 11 && !array_key_exists('post_id', $ping));
 $ok = run_code('Ping OK', $ping);
 check('Ping OK passes the item through with score 0, status \'\', result \'{}\' (no error)', $ok['callback_url'] === $ping_url && $ok['auth_token'] === 'token'
-    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 10);
+    && $ok['overall_score'] === 0 && $ok['status'] === '' && $ok['result'] === '{}' && $ok['error'] === false && $ok['workflow_version'] === 11);
 check('Ping OK → Result Ready → POST Result to WordPress, the same connections every review takes',
     if_target('Ping OK', 0) === 'Result Ready' && if_target('Result Ready', 0) === 'POST Result to WordPress');
-check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 10, error_message \'\'',
-    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 10, 'error_message' => '']);
+check('the callback body: command ping, no post_id, score 0, status \'\', result {}, version 11, error_message \'\'',
+    post_body($ok) === ['command' => 'ping', 'overall_score' => 0, 'status' => '', 'result' => [], 'workflow_version' => 11, 'error_message' => '']);
 $post_node = $NODES['POST Result to WordPress']['parameters'];
 check('the callback node reads its address and X-PQM-Token header from the item: /ping/{id} and the site\'s token', run_expr($post_node['url'], $ok) === $ping_url
     && run_expr(array_column($post_node['headerParameters']['parameters'], 'value', 'name')['X-PQM-Token'], $ok) === 'token');
@@ -160,7 +169,7 @@ foreach ($agents as $agent => $parse) {
     $body = post_body($item);
     check("$parse: error true, message names the agent and the API text", $item['error'] === true && $item['message'] === $want);
     check("$parse: POST body error_message = message, status '', result {}",
-        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 10);
+        $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['workflow_version'] === 11);
 }
 $item = run_code('Parse Review Result', ['error' => ['message' => 'connect ECONNREFUSED']], parse_refs($base, 'Parse Review Result'));
 check('no description → falls back to the error message', $item['message'] === 'Review Agent could not get an answer from the model: connect ECONNREFUSED');
@@ -396,6 +405,92 @@ foreach ($variants as $variant => $t) {
     check('ping: the IF reads \'\', so nothing is posted', notification($t, $ok, $saved)['if'] === '');
     check('save refused (the 4xx error item goes on): the report still goes to the address',
         notification($t, $score_item, $refused) === ['if' => $hook, 'url' => $hook, 'text' => $score_item['chat_message']]);
+}
+
+/* ─── Bug 121: a reply without the fields the score and status come from is an error, and every reply reports back ── */
+$json_text = static fn(array $obj) => json_encode($obj, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+$without   = static fn(array $obj, string $field) => array_diff_key($obj, [$field => true]);
+$audit     = $reply_objects['Audit'][0];
+$no_result = [ // label => Claude's reply text
+    'a bare {}'                             => '{}',
+    'a sentence holding {}'                 => 'I cannot review an empty post, so I return {}.',
+    'an object holding only an error field' => '{"error": "no content"}',
+];
+$lacking = [ // agent => [label => the bug 117 object without one field its score or status comes from, a score the site cannot take, or a status outside the three]
+    'Review'    => ['without status' => $without($review, 'status'), 'overall_score "72/100"' => ['overall_score' => '72/100'] + $review,
+        // Number() reads null, '' and a boolean as 0 or 1, a made-up score; /save-review takes only a string status
+        'overall_score null' => ['overall_score' => null] + $review, 'overall_score ""' => ['overall_score' => ''] + $review,
+        'overall_score true' => ['overall_score' => true] + $review, 'status 1' => ['status' => 1] + $review,
+        'status ["ship"]' => ['status' => ['ship']] + $review, 'status {}' => ['status' => new stdClass()] + $review,
+        // a status is usable only as ship, needs_revision or major_revision (owner, review pass 4): an empty one would be made up,
+        // a longer one fails the 20-character column, and the site's sanitizer rewrites "<" (to 23 characters here) and blanks " "
+        'status ""' => ['status' => ''] + $review, 'status "major_revision_needed" (21 characters)' => ['status' => 'major_revision_needed'] + $review,
+        'status "Ship"' => ['status' => 'Ship'] + $review, 'status "needs_minor_revision" (20 characters)' => ['status' => 'needs_minor_revision'] + $review,
+        'status "needs_revision (<50)"' => ['status' => 'needs_revision (<50)'] + $review, 'status " "' => ['status' => ' '] + $review],
+    'Takeaways' => ['without count_ok' => $without($takeaways, 'count_ok'), 'block_found null' => ['block_found' => null] + $takeaways],
+    'Sources'   => ['without overall_verdict' => $without($sources, 'overall_verdict')],
+    'SEO'       => ['without metadesc_assessment' => $without($seo, 'metadesc_assessment')],
+    'Audit'     => ['review without overall_score' => ['review' => $without($review, 'overall_score')] + $audit,
+        'review.overall_score null' => ['review' => ['overall_score' => null] + $review] + $audit,
+        'review.status 1' => ['review' => ['status' => 1] + $review] + $audit,
+        'review.status ""' => ['review' => ['status' => ''] + $review] + $audit,
+        'review.status "Ship"' => ['review' => ['status' => 'Ship'] + $review] + $audit],
+];
+$wrong_type = [ // agent => [label, the bug 117 object with one field the report reads in a type it cannot read]
+    'Review'    => ['top_edits "x"', ['top_edits' => 'x'] + $review],
+    'Takeaways' => ['rewritten_items "x"', ['rewritten_items' => 'x'] + $takeaways],
+    'Sources'   => ['claims [null]', ['claims' => [null]] + $sources],
+    'SEO'       => ['keyphrase_reason {"toString": 1}', ['keyphrase_reason' => ['toString' => 1]] + $seo], // joining it to the text throws
+    'Audit'     => ['review.top_edits "x"', ['review' => ['top_edits' => 'x'] + $review] + $audit],
+];
+$results = [ // replies that hold their results: [node, label, the object, the score sent, the status]
+    ['Parse Takeaways Result', 'no block found, the other three checks null', // v10's score 50: a null check is an answer
+        ['block_found' => false, 'position_correct' => null, 'count_ok' => null, 'items_are_specific' => null] + $takeaways, 50, 'needs_revision'],
+    ['Parse Takeaways Result', 'no block found, the other three checks absent', // v10's score 50: without a block they have no answer
+        array_diff_key(['block_found' => false] + $takeaways, array_flip(['position_correct', 'count_ok', 'items_are_specific'])), 50, 'needs_revision'],
+    ['Parse Takeaways Result', 'block_found "false", position_correct absent', // only block_found true needs the other three; v10's score 50
+        array_diff_key(['block_found' => 'false'] + $takeaways, ['position_correct' => true]), 50, 'needs_revision'],
+    ['Parse Review Result', 'overall_score 72.5', ['overall_score' => 72.5] + $review, 73, 'ship'], // the site takes only a whole number
+    ['Parse Review Result', 'overall_score "72"', ['overall_score' => '72'] + $review, 72, 'ship'],
+    ['Parse Audit Result', 'review.overall_score 72.5', ['review' => ['overall_score' => 72.5] + $review] + $audit, 73, 'ship'],
+];
+foreach ($variants as $variant => $t) {
+    echo "Replies without results ($variant template, bug 121)\n";
+    $nodes = array_column($t['nodes'], null, 'name');
+    foreach (array_keys($reply_objects) as $agent) {
+        $parse = $agents[$agent];
+        if (!isset($nodes[$parse])) {
+            continue; // the Free template carries Review and Takeaways only
+        }
+        $want    = "$agent Agent returned no usable result. Run the command again.";
+        $from    = parsed_input(strtolower($agent), ['notification_url' => $hook], $nodes);
+        $replies = $no_result + array_map($json_text, $lacking[$agent]) + [$wrong_type[$agent][0] => $json_text($wrong_type[$agent][1])];
+        foreach ($replies as $label => $text) {
+            $item = run_code($parse, text_reply($text), parse_refs($from, $parse), $nodes, true);
+            $body = $item === null ? null : post_body($item, $nodes);
+            check("$parse, $label: \"$want\", sent back and notified", $item !== null && $item['error'] === true && $item['message'] === $want
+                && $body['error_message'] === $want && $body['status'] === '' && $body['result'] === [] && $body['post_id'] === 7 && $body['command'] === strtolower($agent)
+                && notification($t, $item, $saved) === ['if' => $hook, 'url' => $hook, 'text' => '❌ ' . $want]);
+        }
+    }
+    $no_rewrite = $without($takeaways, 'rewritten_items');
+    $item = run_code('Parse Takeaways Result', text_reply($json_text($no_rewrite)), parse_refs(parsed_input('takeaways', ['notification_url' => $hook], $nodes), 'Parse Takeaways Result'), $nodes, true);
+    $body = $item === null ? null : post_body($item, $nodes);
+    check('Parse Takeaways Result, without rewritten_items: a result, score 80 from its checks, no rewrite listed, notified',
+        $item !== null && $item['error'] === false && $body['overall_score'] === 80 && $body['status'] === 'ship' && $body['result'] === $no_rewrite
+        && $body['error_message'] === '' && str_ends_with($item['chat_message'], '✏️ **Suggested rewrite:**')
+        && notification($t, $item, $saved) === ['if' => $hook, 'url' => $hook, 'text' => $item['chat_message']]);
+    foreach ($results as [$parse, $label, $obj, $score, $status]) {
+        if (!isset($nodes[$parse])) {
+            continue; // Audit: Pro only
+        }
+        $from = parsed_input(strtolower(array_search($parse, $agents, true)), ['notification_url' => $hook], $nodes);
+        $item = run_code($parse, text_reply($json_text($obj)), parse_refs($from, $parse), $nodes, true);
+        $body = $item === null ? null : post_body($item, $nodes);
+        check("$parse, $label: a result, score $score, status $status, the object stored, notified",
+            $item !== null && $item['error'] === false && $body['overall_score'] === $score && $body['status'] === $status && $body['result'] === $obj
+            && $body['error_message'] === '' && notification($t, $item, $saved) === ['if' => $hook, 'url' => $hook, 'text' => $item['chat_message']]);
+    }
 }
 
 harness_exit();

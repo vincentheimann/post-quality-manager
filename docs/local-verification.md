@@ -213,7 +213,7 @@ _Written by chore 105 on 2026-11-04, to prove the workflow template on a new n8n
 - **Which release:** the version the ticket names; by default npm's `latest` that day (`npm view n8n dist-tags`). A `beta` or `next` release waits until it is `latest`.
 - **What it holds:** its owner account, its API key, and everything the plugin provisions (the credentials, the owner's provider key inside one of them, the workflow) live in its SQLite database under `$N`, and go when `$N` is deleted. Nothing of it is written into a repository file, ticket, plan or memory line.
 - **The site side** is the walk above: backup first (walk step 1), the build installed (walk step 2), restore and check last (walk steps 10 and 11). Skip walk steps 3, 4 and 7: the disposable n8n replaces the listener (step 3), runs the workflow and calls the site back; step 4 would write the listener's address into `n8n_webhook_url` over the URL provisioning saved; step 7 reads the listener's capture, and a command now runs from the plugin and lands through n8n's callback.
-- **The provider key** is typed by the owner into the plugin's setup dialog; the agent never sees, writes or passes it.
+- **The provider key** (owner, 2026-11-10): the agent provisions with the owner's Anthropic key, read from its file (`../.secrets/anthropic-key.txt`, beside the repository) by the `wp eval-file` script of step n8n 6. The key is never printed, and nothing the script prints holds `status_html` (the n8n Workflow page's markup, the webhook token in it) or `webhook_url`. The owner's alternative: they type the key into the plugin's setup dialog themselves, and the agent never sees, writes or passes it.
 
 ### n8n variables
 
@@ -308,7 +308,9 @@ wc -c < "$N/api-key.txt"
 
 ### n8n 6. Connect the site
 
-The owner opens the plugin's setup dialog on the Local site and enters the n8n address `http://127.0.0.1:5688` (the plugin takes `http://` on localhost and 127.0.0.1 only) and the key from `$N/api-key.txt`, which the agent hands over, then types their provider key. From there the plugin provisions the workflow; the Local site and n8n run on the same PC, so n8n can call the `.local` site back, which an n8n elsewhere cannot.
+The agent connects the site with a PHP script in `$N` (it holds no key, and goes with the folder), run as an administrator: `lwp --user=<an administrator> eval-file "$N/connect.php"`. The script reads the n8n key from `$N/api-key.txt` and the provider key from its file (the provider-key bullet above), then sends two requests through `rest_do_request()`, the form of walk step 6: `POST /post-quality/v1/n8n/connection` with `base_url` `http://127.0.0.1:5688` (the plugin takes `http://` on localhost and 127.0.0.1 only) and `api_key`, then, when that answers 200 with a passing probe, `POST /post-quality/v1/n8n/provision` with `anthropic_key`. For each it prints the status and the reply with `status_html` and `webhook_url` removed; it never prints a key, and it stops at the first refusal. The plugin then provisions the workflow; the Local site and n8n run on the same PC, so n8n can call the `.local` site back, which an n8n elsewhere cannot. Expected: `200` for both; the provision reply's `ping_ok` and `message` say whether the test ping after the setup passed.
+
+The owner's alternative (the provider-key bullet): they open the plugin's setup dialog on the Local site, enter the n8n address `http://127.0.0.1:5688` and the key from `$N/api-key.txt`, which the agent hands over, then type their provider key.
 
 ### n8n 7. Stop it and delete it
 

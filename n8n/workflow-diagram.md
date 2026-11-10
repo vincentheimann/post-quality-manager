@@ -47,7 +47,7 @@ Contract details, by the workflow version that introduced them:
   limitation: a v3 import ignores the header and the new field, so it keeps working
   but its trigger stays unauthenticated until you re-import.
 - **The test ping reads the version (v5).** The Webhook Trigger answers on receipt with
-  `{"ok":true,"workflow_version":10}` (its Response Data option, no extra node), so the
+  `{"ok":true,"workflow_version":11}` (its Response Data option, no extra node), so the
   plugin's test ping learns which workflow runs. An older import answers n8n's default
   body without a version, and the plugin reports it as an older version.
 - **The test ping proves the way back (v7, story 2).** Parse Input's ping item carries
@@ -80,13 +80,41 @@ Contract details, by the workflow version that introduced them:
   `<thinking>` only after the fence regexes have run. One reply fails on v10 that v9's
   Parse Audit Result parsed in its bare form: a passage after the object that holds a
   brace (the Audit prompt asks for the object last).
+- **A reply without results is an error (v11, bug 121).** Right after the parse, each of
+  the five Parse … Result nodes checks the fields its score and status come from (Review
+  `overall_score` and `status`; Takeaways `block_found`, `position_correct`, `count_ok`
+  and `items_are_specific`; Sources `overall_verdict`; SEO `keyphrase_assessment` and
+  `metadesc_assessment`; Audit `review.overall_score` and `review.status`). A reply
+  lacking one, such as `{}`, a sentence holding `{}` or `{"error": "no content"}`, gives
+  the error item "<Agent> Agent returned no usable result. Run the command again.".
+  What counts as lacking depends on the field: a score (Review, Audit) that is neither a
+  number nor a string holding one, such as `null`, `""`, `true` or `"72/100"`; a status
+  (Review, Audit) other than exactly `ship`, `needs_revision` or `major_revision`, the
+  prompt's three values (owner, 2026-11-10), since `/save-review` takes only a string,
+  rewrites it with `sanitize_text_field()` and stores it in a 20-character column (an
+  empty one would have been stored as `needs_revision`); Takeaways' `block_found` when
+  absent or `null`, and the other three checks only when `block_found` is `true` and the
+  check is absent, since `null` is an answer read as false (any other `block_found`
+  leaves the score to its expression, 50 without a block, so the three may be absent);
+  any other field (Sources, SEO) when `undefined` or `null`. A score is sent rounded to a
+  whole number, the only kind `/save-review` takes (`72.5` → 73). The report building
+  after the check runs in a `try` that returns the same item, and a missing display list
+  reads as empty, so no reply that parses ends the run before the callback. A Sources
+  verdict or an SEO assessment outside the prompt's set keeps its fallback (a verdict
+  outside the list scores 50, an assessment other than `ok` 55). A v10 workflow stores
+  such a reply as a result with a default score (Review, Sources, SEO), or ends the run
+  without a callback and leaves the post `processing` (Takeaways, Audit); it also sends a
+  Review or Audit score such as `72.5`, or a status that is not a string or is longer
+  than 20 characters once the site sanitizes it (`needs_revision (<50)` becomes 23), as
+  it is, which `/save-review` refuses (400, or 500 when the column cannot hold the
+  status), so that post stays `processing` too.
 
 Solid edges are the connections in the template; dotted edges show the failure items
 travelling the same connections into `/save-review` and the notification.
 
 ```mermaid
 flowchart TD
-    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 10]
+    A[Webhook Trigger<br>POST from WP plugin or any client<br>Header Auth: X-PQM-Token] --> B[Parse Input<br>stamps workflow_version 11]
     B --> C{Route Command}
 
     C -->|score| SC[Format Score] --> RR
@@ -105,7 +133,7 @@ flowchart TD
     C -->|fallback| EF[Error Fallback] --> RR
 
     SC -.->|empty post:<br>error true + message| RR
-    P1 & P2 & P3 & P4 & P5 -.->|empty post, model API error or invalid JSON:<br>error true + message| RR
+    P1 & P2 & P3 & P4 & P5 -.->|empty post, model API error, invalid JSON or no usable result:<br>error true + message| RR
     FR -.->|empty post, model API error, parse failure or save failure:<br>error true + message| RR
     EF -.->|command without a branch:<br>error true + message| RR
 
