@@ -3,7 +3,7 @@ title: 'Story 111 — the manual setup imports the workflow from a file, for n8n
 type: 'feature'
 ticket: '111'
 created: '2026-11-09'
-status: 'built'
+status: done
 baseline_revision: '0991b56a4e20ca867859f05cf87015fc136b9609'
 route: 'full'
 route_source: 'pinned'
@@ -74,6 +74,12 @@ context: ['{project-root}/_bmad-output/backlog/story-n8n-3-readiness.md', '{proj
 
 - 2026-11-09, step 03 (coordinator): diff read against 0991b56 (13 files). Harness sweep 24/24 green (render-matrix 462, free-build 100, rest-reviews 79 with the `GET /workflow` row unchanged); Jest 211/211 in three full runs (the implementer's one failure in `tests/js/workflow-status.test.js`, a suite this build does not touch, did not reproduce: noted as a possible flaky test); the plan's grep finds only the route's comments, the release-notes line and the status block's unrelated "Re-import link" comment (L1683). Matrix audit: steps 1 Pro/Free and no link by the AC4 rows of `render-matrix-harness.php` and `free-build-harness.php`, copy rows by `workflow-file-copy.test.js` and the Copy-feedback row, route kept by `rest-reviews-harness.php`, public text by the grep; all ran and passed.
 - Released 2026-11-09 in **3.13.1** (#272, release commit 89ff90d; pre-release). Release run 42649698955 green. Zip `post-quality-manager-3.13.1.zip` sha256 `4d25e9c9…b0e1` (the release asset's digest and Freemius's upload): one root folder, 259 files, both build entries; its `class-pqm-admin.php` carries "Import JSON" and no "From URL". Uploaded to Freemius as **deployment 172268**, release mode pending, Pro build root `post-quality-manager-premium`; the Free build check said "PHP identical: 13 files."; the -free and -pro artifacts were uploaded. Header `Version` 3.13.1, `Requires PHP` 8.1 as in 3.13.0 (no PHP read due), workflow template unchanged (version 10). Release check 2026-11-09: steps 1–5, 7 and 8 green; step 6's clean WordPress 6.6 install is story 38's; step 9 not applicable yet.
+- 2026-11-10, the manual check (hitl), run by the agent on the owner's word ("Run story 111's walk"; the owner started the showcase in Local): `docs/local-verification.md`'s walk on the showcase (WordPress 7.1.4) with the Free build of main 5288cb3 (3.13.1 + #273, which touches no plugin file), against a disposable n8n **2.46.7** (npm `latest` that day; 3.1.0 is still the newest 3.x, a pre-release). Clicks through Playwright driving headless Edge, a WP-CLI session for user 1. Results:
+  - The page in its first state ("Not connected to n8n yet.") → **Set up by hand instead** → the "Set up by hand" disclosure opens with the focus inside it; step 1 "Import the workflow" reads "… choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded."; no "From URL" in the section, no `.pqm-import-url` row; 0 console errors.
+  - **Download n8n workflow** → `post-quality-workflow-<host>.json`, valid JSON, 16 nodes, 15 connection sources, no `__PQM_*__` placeholder left.
+  - n8n: a new workflow → the workflow menu (three dots) holds "Import", whose submenu shows "From URL" and "From file"; "From file" opens the browser's file picker; the downloaded file lands: the workflow's name, all 16 nodes, its connections on the canvas, and n8n keeps it (its REST API lists one workflow: 16 nodes, 15 connection sources, not published). **Pass.**
+  - Finding, outside this story's criteria: step 1 places the workflow menu "at the top right"; on n8n 2.46.7 the three dots sit beside the workflow's name at the top left (top right is Publish). The words predate this story (entry 2, 21de5b3); filed as **bug 120** (`bug-manual-step-1-puts-the-workflow-menu-top-right.md`), not fixed here (the walk changes no plugin code).
+  - `debug.log`: none written by the walk's page loads. Restore: plugin list, tables/reviews/users/log, plugin files + `wp-config.php` all "same". n8n stopped by its PID (34684, its task runner with it), ports 5688/5689 free, its folder deleted; screenshots, the download and the backups lived in the session scratchpad and were deleted with it.
 
 ## Plan Change Log
 
