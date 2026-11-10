@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.13.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.1...v3.13.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **workflow:** a reply without results is stored as an error and always reports back (bug 121) ([7ef4535](https://github.com/vincentheimann/post-quality-manager/commit/7ef453523be00d3519970c3ccdb10418125a55a3))
+
 ## [3.13.1](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.0...v3.13.1) (2026-11-09)
 
 
