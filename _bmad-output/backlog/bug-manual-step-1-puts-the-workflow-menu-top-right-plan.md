@@ -3,7 +3,7 @@ title: 'Bug 120 — step 1 places the n8n workflow menu right after the workflow
 type: 'bugfix'
 ticket: '120'
 created: '2026-11-10'
-status: 'built'
+status: done
 baseline_revision: 'c53ff26ac3ac6d832dc44fc5181e3a19ac429f67'
 route: 'oneshot'
 route_source: 'pinned'
@@ -28,6 +28,7 @@ context: ['{project-root}/_bmad-output/backlog/bug-manual-step-1-puts-the-workfl
 
 - 2026-11-10, coordinator: oneshot pinned by the owner at `/prioritize` ("refine, validate, build it as a oneshot"); one translatable string in `post-quality-manager/admin/class-pqm-admin.php` (L1955), three harness rows, one memory line; no schema, REST, template or JS change, so no `unreleased.md` line (a wording fix sites meet without needing to be told).
 - 2026-11-10, coordinator (built directly, the oneshot route): `class-pqm-admin.php` L1955, the parenthesis now "(the three dots right after the workflow\'s name, at the top left)" (`\'` as L1600 and L1998 write it; real WordPress escapes it to `&#039;`, the harness stubs pass it through). `render-matrix-harness.php`: `$step1` and the no-address row carry the new words; a new row, "bug 120: no step sends the user to the top right, with or without a known n8n address", checks both renders with `/top[ -]right/i`. `free-build-harness.php`: AC4's row carries the new words; a new row checks the Free build's page and its two sources the same way. `memory/n8n-provisioning.md` L36: the source reading of the three tags replaces "(the page's "at the top right" is bug 120)", and its opening says the 2026-10-14 check missed the position. Verified: `php -l` on the three PHP files; every harness green (25 files; render-matrix 463, free-build 101); the shipped-source grep empty; `git diff --check` clean. Mutation, run from a script file after a shell-escaped first try was stopped by its own assertion before any write (lessons 2026-10-24): the old words back → render-matrix 4 rows fail, free-build 1; "At the top right" added to the re-import note → both bug 120 rows fail under their own label; the file restored byte for byte each time. No JS touched, so no Jest run.
+- 2026-11-10, after #282 merged (9b810d9; its CI 4/4 green): done on the owner's word, marked with `tickets.py mark`. The fix ships in release 3.13.3 (release-please #283).
 
 ## Review Triage Log
 
