@@ -4,7 +4,7 @@ type: story
 title: "Each release reaches the WordPress.org listing, and sites see the update"
 parent: none
 covers: [UV7]
-after: [58, 95]
+after: [58, 95, 70]
 assignee: ""
 refined: true
 hitl: true
@@ -90,7 +90,7 @@ Once story 38's listing is approved, every published release brings its checked 
 - Fix (for this story): `docs/distribution.md`'s row "SVN deploy credentials" says "the wordpress.org username and password". It becomes `SVN_USERNAME` = `postquality` and `SVN_PASSWORD` = the SVN password.
 - Assumption: the eight directory files move from `assets/` into `.wordpress-org/`, one copy with no drift. `docs/brand.md` § Imagery and `docs/distribution.md` follow the new paths. `assets/` keeps `src/`, the lockups, `icon-512x512.png` and `portfolio/`.
 - Assumption: the README's "Install from WordPress.org" link and the support forum link in the issue forms' config land with the first deploy (audit #41, #42); a Free vs Pro table stays out.
-- Assumption (agent, 2026-10-29, the set's collision check; for the owner to confirm): this story is built after entry 4.8's launch PR, because both change the release workflow (the launch PR moves the publish step after the Free build check), and the dry run runs on the public repository. `tickets.py` cannot express that, so this line carries it. It is also built after story 70, because 70's approved changes can touch the directory images this story moves; 70 could join `after`.
+- Assumption (agent, 2026-10-29, the set's collision check; for the owner to confirm): this story is built after entry 4.8's launch PR, because both change the release workflow (the launch PR moves the publish step after the Free build check), and the dry run runs on the public repository. `tickets.py` cannot express that, so this line carries it. It is also built after story 70, because 70's approved changes can touch the directory images this story moves; 70 joined `after` (owner, 2026-11-10, at story 70's `validate.md` check).
 - Assumption: criterion 7 runs on the clean site story 38's pass used, with an earlier Free build installed, and on a site holding the Pro build of the same release.
 - Open question (for the build): how the deploy tells a dry run from a real one, so a release on the public repository before approval runs it without an SVN repository (a repository variable, or the SVN secrets being present).
 - Open question (for the build): the release run's artifact is kept 90 days. If the approval comes later, the manual deploy needs another source; a re-run of that release's `package` job fetches the Free build from Freemius again (story 58 AC3).
