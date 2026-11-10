@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.13.3](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.2...v3.13.3) (2026-11-10)
+
+
+### Bug Fixes
+
+* **admin:** step 1 places the n8n workflow menu right after the workflow's name (bug 120) ([9b810d9](https://github.com/vincentheimann/post-quality-manager/commit/9b810d93d2d6c3bacc97ab984eaf9ba0c35535e7))
+
 ## [3.13.2](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.1...v3.13.2) (2026-11-10)
 
 
