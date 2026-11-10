@@ -96,6 +96,7 @@ context: ['{project-root}/_bmad-output/backlog/bug-reply-without-results-runs-fo
   | Audit | `major_revision`, 35 | success, 15 s |
 
   Each stored result holds Claude's own fields (the 50 and 55 come from the answers above, not from a reply without results); each `processing` row was followed by its result row; `debug.log` held only WP-CLI's own lines. No reply without results came up, so the error path stays proven by the harness rows only. The agent then deactivated the license on the Account page through headless Edge (owner: "You do it"; "Your license was successfully deactivated, you are back to the Free plan."; `is_paying()` no). Restore 3× "same"; n8n stopped by its PID; its folder, the walk files and the Pro zip deleted. Manual check passed; status done via `tickets.py mark`, landing with the merge of #275.
+- Released 2026-11-10 in **3.13.2** (#277, release commit 25c612a; pre-release). Release run 42819212572 green. Zip `post-quality-manager-3.13.2.zip` sha256 `4228b088…ded2`: one root folder, `admin/build/` inside, both templates stamped 11, the plugin expecting version 11. Uploaded to Freemius as **deployment 172560**, release mode pending; the job's first PHP line: "Freemius records Requires PHP 8.1 for 3.13.2, as readme.txt says." (8.1 as in 3.13.1); the Free build check said "PHP identical: 13 files."; the -free and -pro artifacts were uploaded. The same release carries story 70's readme fixes (#278).
 
 ## Plan Change Log
 
