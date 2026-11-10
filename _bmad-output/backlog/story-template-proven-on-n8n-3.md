@@ -48,3 +48,4 @@ Story 111 read n8n 3's rules at the pre-release 3.1.0 and found nothing in the t
 - Open question: whether the stable release keeps 3.1.0's defaults (SSRF protection off, the task runner at 60 seconds).
 - Open question: whether the guided setup's probe, which calls `/activate` and `PATCH /credentials` with an unknown id, still reads n8n 3's answers as "the route exists".
 - Open question: how long the template's Code nodes run against the 60-second task timeout.
+- Handoff (bug 120, 2026-11-10): the manual path's step 1 places the workflow menu "right after the workflow's name, at the top left", read from n8n 3.1.0 and 3.2.0 pre-release source. The proof also checks that position in n8n 3's running editor, not only the labels the steps quote; a moved menu is filed like a changed label.
