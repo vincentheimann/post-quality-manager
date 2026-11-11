@@ -164,6 +164,15 @@ Its `feat:` commit is the releasable commit release-please needs: there is none 
   - Left for a separate bug: the n8n error message `class-pqm-n8n.php` L462 still says "the Workflow File section" (asserted by three harnesses and one Jest file).
   - The issue chooser's dead WordPress.org entry (review finding 7) is removed here too.
 
+- 2026-11-11, after the merges (orchestrator):
+  - The owner merged #3 at 12:13 UTC and the release PR #4 at 12:18 UTC; `/release` steps 1 to 8 ran after the merge.
+  - Versions read 4.0.0 everywhere; the changelog starts after 3.13.3 with the one `feat` line; `4.0.0.md` is in place.
+  - Release run 43019155750 was green on every step, publish last, and v4.0.0 is Latest, not a pre-release, with one asset: the Free build.
+  - The asset checks: root `post-quality-manager/`, `admin/build/` inside, the Free template only, Version 4.0.0, no premium marker.
+  - Freemius has deployment 172983 pending, with Requires PHP 8.1 and the Pro root `post-quality-manager-premium`.
+  - Order step 6 (`release-as` and `last-release-sha` removed) is on branch `chore/after-4-0-0`.
+  - Still open before `done`: the owner sets Released in Freemius (`/release` step 9), and the install check on a clean WordPress 6.6 site (order step 5, the AC's install row).
+
 ## Plan Change Log
 
 ## Review Triage Log
