@@ -124,7 +124,7 @@ Then the owner submits the same Free build, and the agent carries the review to 
   3. The agent checks: WordPress 6.6.x, PHP 8.1.x (`cli info`), MySQL, an empty `plugin list`, no `pq-smoke-*` user, nothing on port 8765.
   
   This is criterion 1's Given.
-- [ ] Builds -- `gh release download v4.0.0` and `gh run download 43019155750 -n post-quality-manager-4.0.0-pro.zip`, into the scratchpad. Record each sha256; the Free one must equal the release digest.
+- [x] Builds -- `gh release download v4.0.0` and `gh run download 43019155750 -n post-quality-manager-4.0.0-pro.zip`, into the scratchpad. Record each sha256; the Free one must equal the release digest.
 - [ ] Free walk -- one frame:
   1. install and activate the Free asset;
   2. add the logger;
@@ -549,6 +549,15 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   - P147 went back to shipped: story 42 retired only its method ("View as"), and a real Editor user runs it.
   - The other 18 retired rows were checked: each cited commit exists and its subject names the retiring ticket.
   - A hygiene scan against the private pattern found no site address. It did find the generic ".local" and "WordPress66"; the latter is already in entry 8's plan on main.
+- Plan PR: draft #8 (a84193b), 2026-11-11.
+- Builds (2026-11-11, into the session scratchpad):
+  - **Free:** `post-quality-manager-4.0.0.zip`, sha256 `776cd175f513597c0282cdaaedd47a6a6b9f320c29710c3a28c1bc28d1b14c3b`, equal to the release digest. 255 files under `post-quality-manager/`, `Version: 4.0.0`, no cron class, the Free template only.
+  - **Pro:** `post-quality-manager-4.0.0-pro.zip` from run 43019155750, sha256 `0416455841a6b8a199f7d3e90b012cdbc0e8ebba8da01346abe75a870a51b583`. 257 files under **`post-quality-manager-premium/`**, the folder Freemius serves to a customer, so it installs beside the Free folder, not over it. `Version: 4.0.0`, with the cron class and both templates.
+- Frame on a clean site:
+  - The site starts with no plugin, so the backup records an empty plugin list and a checksum list of `wp-content/plugins/` and `wp-content/mu-plugins/` instead of zipping a plugin folder.
+  - The restore deletes the walk's plugin folders by their exact paths (`post-quality-manager/`, `post-quality-manager-premium/`, Plugin Check's, and the logger file), then imports the dump and copies `wp-config.php` back.
+  - Commands that name the slug take `post-quality-manager-premium` in the Pro walk.
+  - The leftover check after the 4.0.0 deletion is the baseline's proof.
 
 ## Plan Change Log
 
