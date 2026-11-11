@@ -3,7 +3,7 @@ title: 'The launch PR: 4.0.0 is published as the first public release, with the 
 type: 'feature'
 ticket: 8
 created: '2026-11-11'
-status: 'built'
+status: done
 baseline_revision: '5ce165de29e624a8bbca0f157ae0157dd1388ceb'
 route: 'full'
 route_source: 'pinned'
@@ -181,6 +181,14 @@ Its `feat:` commit is the releasable commit release-please needs: there is none 
   - Still open before `done`:
     - ~~the owner sets Released in Freemius (`/release` step 9)~~: done 2026-11-11 through Claude in Chrome. Deployment 172983 "Released" (all websites, not incremental, Min PHP 8.1); the other 20 versions are still Unreleased;
     - the two criteria only later merges can show: a docs-only PR reports the four checks, and the next `feat:` proposes 4.1.0.
+
+- 2026-11-11, done on the owner's word ("#18 merged, #5 merged"):
+  - postquality.com#18 merged: the site offers the free plugin from the latest GitHub release, and the interest email waits for the WordPress.org listing; GitHub Pages redeployed (run 43025046678, green).
+  - #5 merged (order step 6): `release-as` and `last-release-sha` are gone, so versions follow the commits again. Its Release run on `main` (43025586463) was green and opened no release PR, since #5 holds no `feat` or `fix` commit.
+  - Marked `done` with `tickets.py mark`; every entry of the epic is now done.
+  - Left to later merges, without blocking `done`:
+    - a docs-only PR reports the four checks: the PR carrying this note touches only records, so its own checks are the first reading;
+    - the next `feat:` proposes 4.1.0: `/release` step 1 reads it on that release PR.
 
 ## Plan Change Log
 
