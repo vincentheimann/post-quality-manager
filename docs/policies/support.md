@@ -1,12 +1,12 @@
 # Support policy
 
-_Last updated 2026-10-23. Published at https://postquality.com/support._
+_Last updated 2026-11-11. Published at https://postquality.com/support._
 
 ## Free plugin
 
-Post Quality Manager is not installable yet; [leave your email](mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available) and you will hear once, when you can install it.
+Download the free version from the [latest release on GitHub](https://github.com/vincentheimann/post-quality-manager/releases/latest) and install it in WordPress under Plugins → Add New Plugin → Upload Plugin. It is not in the WordPress.org plugin directory yet; [leave your email](mailto:hello@postquality.com?subject=Tell%20me%20when%20Post%20Quality%20Manager%20is%20available) and you will hear once, when it is listed there.
 
-Until the plugin is listed in the WordPress.org plugin directory, questions and bug reports for the free plugin go to hello@postquality.com; once it is listed, they go to its support forum there. They are answered on a best-effort basis; confirmed bugs are fixed in a following release.
+Until the plugin is listed in the WordPress.org plugin directory, questions about the free plugin go to hello@postquality.com; once it is listed, they go to its support forum there. Bug reports and feature requests can also go to [GitHub issues](https://github.com/vincentheimann/post-quality-manager/issues/new/choose). They are answered on a best-effort basis; confirmed bugs are fixed in a following release.
 
 ## Pro customers
 
@@ -16,4 +16,4 @@ Support covers the plugin and the n8n workflow template it ships: installing, co
 
 ## Security problems
 
-Report a security problem privately, never on a public forum: write to hello@postquality.com.
+Report a security problem privately, never on a public forum or in a public issue: write to hello@postquality.com, or use GitHub's private vulnerability reporting ([security policy](https://github.com/vincentheimann/post-quality-manager/security/policy)).
