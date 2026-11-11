@@ -118,7 +118,7 @@ Then the owner submits the same Free build, and the agent carries the review to 
 
 **Execution:**
 - [x] Pass list -- this plan's `## Pre-production pass` section: the merged inventory (plan, check, build, means, `shipped` or `retired-by-<ticket>` with evidence) -- criterion 3's Given.
-- [ ] Site gate (hitl) -- Decision Q1:
+- [x] Site gate (hitl) -- Decision Q1:
   1. The owner switches the PHP and starts the site.
   2. The agent deletes 4.0.0 as an administrator and runs the leftover check.
   3. The agent checks: WordPress 6.6.x, PHP 8.1.x (`cli info`), MySQL, an empty `plugin list`, no `pq-smoke-*` user, nothing on port 8765.
@@ -569,6 +569,8 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   - After the deletion: no `postquality_*` option, no table, capability, user meta, post meta or cron event, and no plugin folder. This matches `docs/policies/privacy.md` L29.
   - **Six Freemius SDK options stayed:** `fs_accounts`, which still names this plugin (its `plugin_data`, `plugins`, `file_slug_map` and product id), plus `fs_active_plugins`, `fs_api_cache` (an empty array, so no API reply was cached), `fs_debug_mode` and the two `fs_garbage_collection` site transients.
   - Under Decision Q1 that trace sends the question back to the owner.
+  - **Owner, 2026-11-11 (5a):** the six options are deleted by exact name, which keeps the site's genuine 6.6 database. The check then read all zeros: no plugin or Freemius option, table, capability, meta, cron event, plugin folder or must-use folder; one user; `debug.log` none. **The site gate passed.**
+  - Why the SDK keeps its state: `_uninstall_plugin_event()` ends with `// @todo Decide if we want to delete plugin information from db.` (SDK 2.13.5, `class-freemius.php` L9773). `_uninstall_plugin_hook()` removes only the SDK reference, then fires `after_uninstall` (L9855, L9878). The SDK's `delete_account_event()` clears that state but sends `DELETE` to the API (L8097), so the plugin cannot call it at deletion without a request from a site that skipped the opt-in (ADR 0013 D8).
 
 ## Plan Change Log
 
