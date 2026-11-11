@@ -28,7 +28,11 @@ Built by story 4.1 (tracer bullet, 2026-10-08):
   - its one asset is `post-quality-manager-4.0.0.zip`, the Free build (sha256 `776cd175…`, root `post-quality-manager/`, `admin/build/` inside, the Free template only, no premium marker);
   - Freemius has it as deployment 172983, pending, with Requires PHP 8.1 as `readme.txt` says, and the Pro build root folder `post-quality-manager-premium`;
   - both keys were removed the same day (`chore/after-4-0-0`), so versions follow the commits again;
-  - still open: the owner sets Released in Freemius, and the install check on a clean WordPress 6.6 site.
+  - done the same day:
+    - the install check on the owner's clean WordPress 6.6 Local site passed (entry 8's plan);
+    - the owner released 4.0.0 in Freemius through Claude in Chrome, with a read-back first and after: deployment 172983 is "Released", rolled out to all websites, not incremental, Min PHP version 8.1;
+    - the other 20 versions (3.5.1 to 3.13.3) stay Unreleased;
+    - the Deployment page opened by its address, because the left menu's link did not respond to the click.
 - The repo setting "Allow GitHub Actions to create and approve pull requests" must be on for release-please to open its PR. Owner turned it on 2026-10-08; it lets the workflow open its PR, and nothing in the repo approves or merges.
 - **Rebase merging only (owner, 2026-10-08).** "Allow merge commits" and "Allow squash merging" are off. GitHub's default merge-commit message carries the PR title in its body, and release-please splits a commit message at every paragraph starting with a Conventional type, so each merged PR's `feat:`/`fix:` was counted twice (once from the branch commit, once from the merge commit). Rebase merging lands the branch commits as they are, with no merge commit. Consequences: commit SHAs change on `main`, so after a merge a local branch reads as unmerged; check that its commits landed, then delete it with `git branch -D`. Every branch commit must follow Conventional Commits, because each one reaches the CHANGELOG.
 - **CHANGELOG fix (2026-10-08):** release PR #64 listed `feat(release): release PR and a CI-built plugin zip` twice, because merge commit `d4dff03` (PR #63) predates rebase-only merging. The duplicate line was deleted from `CHANGELOG.md` and from the v3.0.0 release text after the release; release-please never rewrites a released section.
