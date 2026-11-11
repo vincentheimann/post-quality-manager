@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '314bdc4e706065b4cc46a941d5a87d7eceba3f3c'
+baseline_revision: '15c42f80d3c7dc5b23a4eb2bba2c381364a18e39'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/failure-modes.md', '{project-root}/docs/brand.md']
 ---
 

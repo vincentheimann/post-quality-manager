@@ -4,7 +4,7 @@ type: 'refactor'
 ticket: '88'
 created: '2026-10-26'
 status: done
-baseline_revision: '9b8ac0f143aaadb01669392906ba27b31d2ef424'
+baseline_revision: '4c3dd70e15bbf430808363681e71a4f261c54ebe'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -41,7 +41,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/naming.md']
 
 ## Code Map
 
-Rename table (inventory on main 9b8ac0f; the implementer re-derives it with the same categories and adds any name found):
+Rename table (inventory on main 4c3dd70; the implementer re-derives it with the same categories and adds any name found):
 - Classes (9): `PQM_Activator`, `_Admin`, `_Blocks`, `_Cron`, `_DB`, `_Features`, `_License`, `_N8n`, `_REST_API` → `PostQuality_…`.
 - Functions (25 + accessor): every top-level `pqm_*` in `post-quality-manager/` (`includes/pqm-functions.php` and the main file), incl. `pqm_fs` → `postquality_fs`; global `$pqm_fs`.
 - Constants (8 `define`s): `PQM_PLUGIN_DIR`, `_PLUGIN_FILE`, `_PLUGIN_URL`, `_PRICING_URL`, `_REST_NAMESPACE`, `_SETUP_OPTION`, `_VERSION`, `_WORKFLOW_VERSION` → `POSTQUALITY_…` (values unchanged: `_SETUP_OPTION` still holds `'pqm_setup_progress'`).
@@ -70,7 +70,7 @@ Rename table (inventory on main 9b8ac0f; the implementer re-derives it with the 
 ## Implementation Notes
 
 - Plan approved by the owner 2026-10-26 (approve and continue). Commits, push and a draft PR are allowed this sprint (owner, 2026-10-26), overriding the house "user commits" rule. Implementer subagent on Fable 5.1 (`model: "fable"`, owner rule 2026-10-16).
-- **Built 2026-10-26 (implementer subagent, branch `chore/postquality-prefix-code-names` on 9b8ac0f).** Harness first: `tests/harness/prefix-harness.php` on the baseline gave 3 passed, 13 failed, naming 66 offenders (9 classes, 25 free functions incl. `pqm_fs`, 8 constants, `$pqm_fs`, 4 hooks, 3 actions, 3 nonces, the option group, 2 handles, 2 JS globals, 4 slugs, 2 query args). After the rename: 16 passed, 0 failed. One harness fix on the way: `$wpdb` and `$post` are core globals the plugin reads, so they sit on a `CORE_GLOBALS` allow-list.
+- **Built 2026-10-26 (implementer subagent, branch `chore/postquality-prefix-code-names` on 4c3dd70).** Harness first: `tests/harness/prefix-harness.php` on the baseline gave 3 passed, 13 failed, naming 66 offenders (9 classes, 25 free functions incl. `pqm_fs`, 8 constants, `$pqm_fs`, 4 hooks, 3 actions, 3 nonces, the option group, 2 handles, 2 JS globals, 4 slugs, 2 query args). After the rename: 16 passed, 0 failed. One harness fix on the way: `$wpdb` and `$post` are core globals the plugin reads, so they sit on a `CORE_GLOBALS` allow-list.
 - Rename table re-derived from the tree (same categories as the Code Map; 24 helpers in `includes/pqm-functions.php` plus `pqm_fs`, not 25 + accessor) and applied by a scratchpad script with `read_bytes()`/`write_bytes()`, identifier boundaries for PHP/JS names, `[A-Za-z0-9_.-]` boundaries for slugs and handles (so file names, CSS classes and `_page_` hook suffixes were untouched; the four `_page_pqm-…` suffixes got their own entries), longest-first; the table stays out of the repository. Hand corrections after the pass: `src/dashboard.js` `className="pqm-dashboard"` restored (a CSS class, same spelling as the slug); the two page guards `strpos($screen->id, 'pqm-')` (L111) and `strpos($hook, 'pqm-')` (L144) in `class-pqm-admin.php`, which the Code Map did not list, became `'postquality-'` (the render-matrix harness caught both: 8 rows failed until then); two prettier wraps after the longer names (`src/kit/copy.js`, `tests/js/workflow-file-copy.test.js`); the Edit tool wrote `memory/agent-conventions.md` as CRLF once, restored to LF by bytes (lesson 2026-10-24).
 - Beyond the plan's record list, the same table ran over three "recurring how" files that would otherwise contradict the code: `.claude/skills/release/SKILL.md` (`POSTQUALITY_VERSION` in the release checklist), `.github/workflows/release.yml` (a comment) and `_bmad/custom/bmad-code-review.toml` (the premium-wrapper lens text `if ( postquality_fs()->is__premium_only() )`, which would otherwise flag every premium block). ADRs, `_bmad-output/`, `CHANGELOG.md`, past release notes and `PORTFOLIO.md` untouched. Memory lines that record past events in code names (e.g. `workspace-layout.md`'s 2026-07-22 reorg "aligned to `PQM_VERSION` 3.0.0") now read with the new name, as the exact-token decision implies.
 - Not renamed, by design: the i18n fixture `tests/i18n/post-quality-manager-de_DE-pqm-app.json` (file names stay; `release-header-harness.php` reads it by name). Its name no longer matches the handle WordPress derives it from, so `tests/i18n/README.md` now says to copy it as `post-quality-manager-de_DE-postquality-app.json` on the site. Owner call whether a `git mv` follows.

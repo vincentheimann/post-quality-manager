@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '3f3ef21797e8dd2bbb52d87520e0d3eb8e13ef66'
+baseline_revision: 'e50acabe792b006d7722db5a39948d4c8b376d0a'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/failure-modes.md', '{project-root}/_bmad-output/backlog/spike-n8n-provisioning-api-findings.md']
 ---
 <frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">

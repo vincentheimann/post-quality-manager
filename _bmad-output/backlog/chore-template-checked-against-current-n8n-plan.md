@@ -4,7 +4,7 @@ type: 'chore'
 ticket: '105'
 created: '2026-11-04'
 status: 'done'
-baseline_revision: '93eec0bd933ce1ae4fbc9cde81bc95c680c22848'
+baseline_revision: '743e4cc6f50349cc81b8286d0e60a13ec69fedfe'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -74,13 +74,13 @@ context: ['{project-root}/docs/local-verification.md']
   - The 2.43.0 publish check refused nothing in either template, on creation or on PUT. 2.46.5 became npm `latest` the same day; the validation files are identical in 2.46.4, 2.46.5 and 2.47.0 (`beta`).
   - Cleanup: every n8n object deleted by id (unpublish, then delete: `DELETE` answered 409 before), n8n stopped by its verified PID (node.exe, listening on 5688) both times, the folder with its secrets file and the walk scripts deleted; the showcase restored (plugin zip, database dump, `wp-config.php`, `debug.log` deleted): plugin list, tables/reviews/users/log and plugin files/`wp-config.php` all "same"; the walk folder and the Pro zip deleted. Three showcase reviews went to the AI provider on the owner's key, which only the disposable n8n's credential held.
   - Left for the owner: Windows showed a Defender Firewall prompt at n8n's first listen; the owner could only Cancel, which left two inbound rules named `node.exe` for the deleted scratchpad `node.exe` path (removing them needs an administrator; the owner's call).
-- Done 2026-11-05 (records PR): #237 merged 2026-11-04 (main 12becc7). The two bugs the walk filed are fixed (113 by #240, 112 by #242), and the sprint walk of 2026-11-04 ran template v9 on n8n 2.46.6 (bug 113's plan); `memory/lifecycle.md` names that version. The same records PR restored a lost backslash in Review Triage row 3 (`%LocalAppData%\npm-cache`).
+- Done 2026-11-05 (records PR): #237 merged 2026-11-04 (main 02063f9). The two bugs the walk filed are fixed (113 by #240, 112 by #242), and the sprint walk of 2026-11-04 ran template v9 on n8n 2.46.6 (bug 113's plan); `memory/lifecycle.md` names that version. The same records PR restored a lost backslash in Review Triage row 3 (`%LocalAppData%\npm-cache`).
 
 ## Plan Change Log
 
 ## Review Triage Log
 
-**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since 93eec0b, before the walk's results):** high 0 · medium 3 · low 6 · false 1 · maybe-false 0.
+**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since 743e4cc, before the walk's results):** high 0 · medium 3 · low 6 · false 1 · maybe-false 0.
 
 | # | Finding | Verdict | Route | Evidence / action |
 |---|---------|---------|-------|-------------------|

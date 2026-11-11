@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: '82'
 created: '2026-10-20'
 status: done
-baseline_revision: '57766d60d67429ad58bd94b1b498f77d9dc5e51d'
+baseline_revision: '526a8bf82eaa7894e71f4e87cfeeac49622f32f5'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -79,7 +79,7 @@ context: ['{project-root}/memory/n8n-provisioning.md']
 - Open for the checkpoint: D1/D2 as planned; the manual check (two `POST /n8n/provision` in the same millisecond on the Local sandbox, `wp option get pqm_n8n_provisioning` → not found) is not run here. Risk noted: a persistent object cache that still holds the lock in `notoptions` or a stale value makes a run lose (409), never win twice — as the Design Notes accept; the next request claims the free row.
 - 2026-10-20, review fix: `claim()` now returns false only on `false === $held` (released meanwhile); any other non-fresh value, a scalar included, reaches the compare-and-set, so a hand-edited or corrupted lock cannot answer 409 for ever against the ceiling. Harness row added: a stored scalar lock value is taken over and the run proceeds (n8n-api 481). The memory line's parenthesis names the new mechanism, the appended clause carries the add_option history.
 
-- 2026-10-20, agentic walk on the owner's Local sandbox (the branch's `class-pqm-n8n.php` copied over the installed main 57766d6 build, since `npm run zip` packages HEAD; REST calls with a temporary Application Password, removed after): the reproduction of bug 82 run three times — two `POST /n8n/provision` with a bogus key from processes started in the same millisecond — answered each time one 400 `pqm_provider_key_invalid` (the run that reached Anthropic) and one 409 `pqm_already_provisioned`, the lock gone afterwards; on bug 72's code the same test had let both through. A lock planted 400 s old was taken over by the compare-and-set and the run proceeded, lock gone after. The plan's manual check is met. The sandbox keeps that copied file until the next install; nothing was created in n8n (the key was refused before any outgoing call).
+- 2026-10-20, agentic walk on the owner's Local sandbox (the branch's `class-pqm-n8n.php` copied over the installed main 526a8bf build, since `npm run zip` packages HEAD; REST calls with a temporary Application Password, removed after): the reproduction of bug 82 run three times — two `POST /n8n/provision` with a bogus key from processes started in the same millisecond — answered each time one 400 `pqm_provider_key_invalid` (the run that reached Anthropic) and one 409 `pqm_already_provisioned`, the lock gone afterwards; on bug 72's code the same test had let both through. A lock planted 400 s old was taken over by the compare-and-set and the run proceeded, lock gone after. The plan's manual check is met. The sandbox keeps that copied file until the next install; nothing was created in n8n (the key was refused before any outgoing call).
 
 ## Plan Change Log
 

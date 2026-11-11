@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '74'
 created: '2026-10-20'
 status: done
-baseline_revision: '5ace98115622ad9dcdb6c56069f6bfd7358f819d'
+baseline_revision: '11be240d46a9104c6a3575f217fabc21478151f7'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -88,7 +88,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/n8n-provisionin
 
 ## Implementation Notes
 
-- 2026-10-20, planning: `bmad-build` rendered by hand (route `full`) from the workspace root, steps followed in order; branch `feat/n8n-connection-truth` created from `main` at 5ace981 as story 71's precedent (rename at the checkpoint if wanted). Story 74 is unrefined (`refined: false`): its ACs are taken as written; D1–D5 above are the planning decisions for the owner's confirmation.
+- 2026-10-20, planning: `bmad-build` rendered by hand (route `full`) from the workspace root, steps followed in order; branch `feat/n8n-connection-truth` created from `main` at 11be240 as story 71's precedent (rename at the checkpoint if wanted). Story 74 is unrefined (`refined: false`): its ACs are taken as written; D1–D5 above are the planning decisions for the owner's confirmation.
 - 2026-10-20, build (implementer subagent, Opus 5.5, from the workspace root; no commit): all five tasks built as mapped. `PQM_N8n::connected()` (public, replaces `connected_key()`), `record_refusal()` (writes `probe` only, its four keys), the 401 hook in `request()`, `key_refused_sentence()` shared with `failure()` (one `401 === $code` branch now covers list and route), `scoped` on a route JSON 403, `not_connected()` answering a stored refusal's message, the mis-wiring gate in `rotate_token()`, the 401 sentence in `could_not()`; `connect_n8n_callback()` records the stored key's `key`/`scoped` refusal; `setup_state()`, `pqm_manual_reason()`, `workflow_page_state()` ask `connected()`; `PQM_REST_API::with_body()` adds `status_html` to the `/n8n/token` and `/n8n/workflow` errors, swapped by `pqm-admin.js` on an error reply; the island and `keyPasses()` read `connected`. Deviations and choices, each the smallest reading of the matrix:
   - `provision()`'s gate is `connected()` instead of "a key is stored" (matrix "after a refusal … provision"). `free-build-harness.php`'s provisioning fixture stored a key with `probe: null`, which the old gate let through; it now carries a passing probe (and its `WP_Error` stub gained `get_error_data()`/`add_data()`).
   - `could_not()`'s 401 sentence is one translatable string with the step only, not `answer()` spliced in, so "Create a new one" stays readable for translators; `answer()`'s 401 ("n8n refused the API key") serves `stopped()` in provisioning.

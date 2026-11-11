@@ -48,7 +48,7 @@ function fragment(string $model, string $agent, string $effort, float $temperatu
 
 /**
  * Today's fragment for the four earlier models: postquality_llm_params() and
- * their registry entries as they were at 5c62955 (before story 101),
+ * their registry entries as they were at 4337d6f (before story 101),
  * transcribed. The matrix row "Earlier models unchanged" compares with it.
  */
 function baseline_fragment(string $model, string $agent, array $settings): array {

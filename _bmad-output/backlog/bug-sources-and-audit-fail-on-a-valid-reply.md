@@ -21,7 +21,7 @@ The licensed Pro-command walk (2026-11-06, template v9 on n8n 2.46.6, Claude Son
 
 ## Reproduction
 
-1. The showcase, the Pro build of main 12c7a77 (3.12.0 + bug 99), licensed; a disposable n8n 2.46.6 provisioned with a real Anthropic key; default model Claude Sonnet 5.5.
+1. The showcase, the Pro build of main 02af748 (3.12.0 + bug 99), licensed; a disposable n8n 2.46.6 provisioned with a real Anthropic key; default model Claude Sonnet 5.5.
 2. `POST /trigger-review` with `command` `sources`, then `audit`, on a published demo post (about 60 words).
 3. Actual, read from n8n's executions:
    - **Sources:** the text block is a fenced ```` ```json ```` object (172 characters), then 805 characters of prose after the closing fence. `Parse Sources Result` fails.

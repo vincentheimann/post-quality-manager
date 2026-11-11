@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 1
-baseline_revision: 'f9dcd82961a457b14256e6d51e7ca9fb21a3d0a8'
+baseline_revision: '4bf25c839670933000d48ec9d20b8c8f612cfde3'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/EXPERIENCE.md', '{project-root}/docs/brand.md']
 ---
 

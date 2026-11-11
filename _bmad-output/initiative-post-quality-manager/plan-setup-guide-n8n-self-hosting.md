@@ -3,7 +3,7 @@ title: 'The setup guide points a site without n8n to self-hosting, not to n8n Cl
 type: 'bugfix'
 ticket: ''
 created: '2026-10-29'
-baseline_revision: '271ea8e329228f9a17257c5775d490e583c59570'
+baseline_revision: '85bd6aeec1502f0f693b2ffd7faca12b37effa79'
 status: 'done'
 route: 'oneshot'
 route_source: 'auto'

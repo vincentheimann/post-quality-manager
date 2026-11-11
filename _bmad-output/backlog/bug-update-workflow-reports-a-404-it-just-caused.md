@@ -20,7 +20,7 @@ An administrator clicks **Update workflow** on the n8n Workflow page. n8n accept
 
 ## Reproduction
 
-1. The owner's production site, 2026-10-22, plugin built from main 67879a0 (template version 7), a workflow the plugin manages at version 6, the owner's self-hosted n8n.
+1. The owner's production site, 2026-10-22, plugin built from main ed06a8b (template version 7), a workflow the plugin manages at version 6, the owner's self-hosted n8n.
 2. n8n Workflow page → **Update workflow**.
 3. Actual: the block turns red with the 404 sentence above and still reads "Version 6 · checked 6 days ago by a test."
 4. **Test again**, seconds later: green, "Your workflow answers. Version 7 · checked just now by a test."

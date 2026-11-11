@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '8b89edc88b216db55b5eccbd21e0eb5e3d52710d'
+baseline_revision: 'c247a60f74d931bf8cf47238bbfb1bf554ba105c'
 context: ['{project-root}/memory/delivery-pipeline.md']
 ---
 
@@ -22,7 +22,7 @@ context: ['{project-root}/memory/delivery-pipeline.md']
 
 **Approach:** Add the verbatim GPL-2.0 text as `LICENSE` at the repository root; delete `_archives/turbo-drill/` and every note that tells agents to ignore it; record the history scan (gitleaks 8.30.1, all refs, run from a scratchpad download, nothing installed) and settle each finding with the owner. The owner switches visibility only in 4.8.
 
-**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`1b3ba98`, `e06713d`, `6e0265c`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`https://<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
+**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`a060153`, `93e9b2a`, `14d68ae`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`https://<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
 
 **Decisions (owner, 2026-10-08):** both findings are rotated and accepted, history is not rewritten. The owner deletes or regenerates the old kChat slash command and incoming webhook (or confirms they are gone); the personal data in the same exports (own public blog URLs, kChat ids, username, request IPs) is accepted as is.
 
@@ -65,9 +65,9 @@ context: ['{project-root}/memory/delivery-pipeline.md']
 - `README.md`: besides the License line, the "Repository layout" bullet for `_archives/` went too; the folder no longer exists, so the line would be false.
 - `memory/delivery-pipeline.md` names the folder only as `_archives/`, so the grep in Verification stays empty on `memory/`.
 - `AGENTS.md:28` still names the deleted folder; it sits inside the managed block, so the owed `bmad-project-context` refresh drops it (not hand-edited).
-- Scan re-run on this branch (gitleaks 8.30.1, checksum-verified release zip in the session scratchpad, nothing installed): 201 commits, 2 findings, rule `generic-api-key`, same token in both files at commit `1b3ba98` (`Tier-4-Enhanced.json:1382`, `Tier-3-Final (7).json:1204`), nothing new. The webhook grep finds one URL only (36 hits); `git log -G` shows it also in `c781bbe` (added) and `8afada0` (removed), both 2026-03-17, on top of the three planning commits. Same URL, not a new finding; recorded in memory. Neither value is in `HEAD`.
+- Scan re-run on this branch (gitleaks 8.30.1, checksum-verified release zip in the session scratchpad, nothing installed): 201 commits, 2 findings, rule `generic-api-key`, same token in both files at commit `a060153` (`Tier-4-Enhanced.json:1382`, `Tier-3-Final (7).json:1204`), nothing new. The webhook grep finds one URL only (36 hits); `git log -G` shows it also in `c781bbe` (added) and `8afada0` (removed), both 2026-03-17, on top of the three planning commits. Same URL, not a new finding; recorded in memory. Neither value is in `HEAD`.
 - Out of plan, not touched: the user's private auto-memory mirror (`~/.claude/projects/c--Git-Post-Quality/memory/workspace-layout.md` and its `MEMORY.md` line) still names the archive.
-- Review found a third item: the owner's old n8n trigger `https://<owner-n8n>/webhook/pq-review` (commits `1b3ba98`, `e06713d`, `6e0265c`; no auth on the webhook node, only a static token check, so the leaked token opens it while that workflow is active). The frozen Scan result and Decisions do not name it; the owner's hitl task covers it (deactivate the old n8n workflow or change its path and token) once the owner confirms. Recorded in `memory/delivery-pipeline.md`.
+- Review found a third item: the owner's old n8n trigger `https://<owner-n8n>/webhook/pq-review` (commits `a060153`, `93e9b2a`, `14d68ae`; no auth on the webhook node, only a static token check, so the leaked token opens it while that workflow is active). The frozen Scan result and Decisions do not name it; the owner's hitl task covers it (deactivate the old n8n workflow or change its path and token) once the owner confirms. Recorded in `memory/delivery-pipeline.md`.
 
 ## Plan Change Log
 
@@ -77,10 +77,10 @@ context: ['{project-root}/memory/delivery-pipeline.md']
 
 | # | Finding | Verdict | Route | Evidence / action |
 |---|---------|---------|-------|-------------------|
-| 1 | Old n8n trigger `<owner-n8n>/webhook/pq-review` in history, not in the scan record or the owner's rotation task | high | patch | Verified in `1b3ba98`: webhook node "kChat Trigger" has `options: {}`, "Parse & Route Input" only compares `body.token` to static `webhook_token`. Same rotate-and-accept reading as the owner's decision (one reading, no rewrite). Memory now lists it as item 3; owner confirms the workflow is deactivated or re-keyed. |
+| 1 | Old n8n trigger `<owner-n8n>/webhook/pq-review` in history, not in the scan record or the owner's rotation task | high | patch | Verified in `a060153`: webhook node "kChat Trigger" has `options: {}`, "Parse & Route Input" only compares `body.token` to static `webhook_token`. Same rotate-and-accept reading as the owner's decision (one reading, no rewrite). Memory now lists it as item 3; owner confirms the workflow is deactivated or re-keyed. |
 | 2 | Memory said "rotated and accepted" while the rotation task is open | medium | patch | `memory/MEMORY.md` and `delivery-pipeline.md` now say rotation pending owner confirmation. |
 | 3 | "2 findings" mixed gitleaks' two hits with the token + webhook pair | low | patch | Memory now says gitleaks reports one token once per file and lists the three settled items. |
-| 4 | Token path `n8n/post_quality_workflow.json` (renamed `e06713d`, removed `6e0265c`) missing | low | patch | Confirmed with `git log -G`; path added to memory. |
+| 4 | Token path `n8n/post_quality_workflow.json` (renamed `93e9b2a`, removed `14d68ae`) missing | low | patch | Confirmed with `git log -G`; path added to memory. |
 | 5 | `AGENTS.md:28` still names the deleted folder, untracked | medium | defer | Agent-context file inside the managed block; entry appended to `deferred-work.md` for the owed `bmad-project-context` refresh. |
 | 6 | Private auto-memory mirror still names the archive | false | reject | The orchestrator updated the mirror's `MEMORY.md` line and `workspace-layout.md` during step 3, before the review returned. |
 

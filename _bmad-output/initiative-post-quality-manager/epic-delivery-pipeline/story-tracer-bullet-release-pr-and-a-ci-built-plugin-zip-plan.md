@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: 'a631055242aee512e5a166e032ea8060c37cc115'
+baseline_revision: 'dca18cf88f58e3c29b5ceb81676f974ab06cb40f'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md', '{project-root}/memory/delivery-pipeline.md']
 ---
 
@@ -22,7 +22,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
 
 **Approach:** release-please on Conventional Commits opens or updates one release PR on every push to `main`. That PR proposes **3.0.0** and bumps the plugin header `Version`, `PQM_VERSION`, `package.json` and `package-lock.json` together. Merging it creates the tag `v3.0.0` and a **draft** GitHub Release. In the same workflow, a packaging job builds `admin/build/` from the released commit and zips `post-quality-manager/` as `post-quality-manager-<version>.zip`, with that root folder. It attaches the zip, appends `docs/release-notes/<version>.md` to the release body when the file exists, and publishes the release. A manual dispatch runs only the packaging and uploads the zip as a workflow artifact: no tag and no release.
 
-**Decision (owner, 2026-10-08):** the first CHANGELOG starts after `main` at `237b1b9f02bfc4145dc9bee9a126da87a9c8f95b` (`bootstrap-sha`). It lists the commits from this story up to the 3.0.0 cut, and story 15's release notes file tells the story of 3.0.0 itself.
+**Decision (owner, 2026-10-08):** the first CHANGELOG starts after `main` at `084bd27fcb0282a2ba53012f7a6b8eb9c2e7b1ea` (`bootstrap-sha`). It lists the commits from this story up to the 3.0.0 cut, and story 15's release notes file tells the story of 3.0.0 itself.
 
 ## Boundaries & Constraints
 
@@ -47,7 +47,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
   - `release-please` (`on: push` to `main` only) runs `googleapis/release-please-action@v5`, which bundles release-please ^17.6, where `force-tag-creation` exists since 17.2. Permissions: `contents: write`, `issues: write`, `pull-requests: write`. Outputs: `release_created`, `tag_name`.
   - `package` (`needs: release-please`, `if: always()` and either a dispatch or `release_created == 'true'`) checks out the tag on a release and the dispatched ref on a dispatch. Then: Node 22 `npm ci`, `npm run build`, the asset assertion copied from `ci.yml:37-40`, `V=$(node -p "require('./package.json').version")`, and `zip -rq "post-quality-manager-$V.zip" post-quality-manager` from the repo root. It uploads the zip with `actions/upload-artifact@v4` every time. On a release only, it also runs `gh release upload`, appends the notes file to the body read by `gh release view --json body`, then `gh release edit --notes-file … --draft=false`.
 - `release-please-config.json` (new) -- top level:
-  - `bootstrap-sha`: `237b1b9f02bfc4145dc9bee9a126da87a9c8f95b` (owner's decision in the Intent)
+  - `bootstrap-sha`: `084bd27fcb0282a2ba53012f7a6b8eb9c2e7b1ea` (owner's decision in the Intent)
   - `include-component-in-tag: false`, so the tag is `v3.0.0`, not `post-quality-manager-v3.0.0`
   - `draft: true` and `force-tag-creation: true`. Without the latter, a draft has no tag, release-please cannot find the previous release, and the next CHANGELOG pulls the whole history.
 

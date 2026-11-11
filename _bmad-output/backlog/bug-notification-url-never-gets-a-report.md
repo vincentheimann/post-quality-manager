@@ -20,7 +20,7 @@ An administrator enters a chat webhook under Settings → Connection → **Notif
 
 ## Reproduction
 
-1. Both workflow templates as of main 2b2b8b3 (template version 7), Pro and Free.
+1. Both workflow templates as of main 9861178 (template version 7), Pro and Free.
 2. Static trace, 2026-10-29: the only connection into "Has Notification URL?" comes from "POST Result to WordPress", an HTTP Request node (options: `timeout` only) whose output is the reply of `POST /save-review`, `{success, id, message}` (`includes/class-pqm-rest-api.php` L564–568). "Has Notification URL?" reads `$json.notification_url` and "Send Notification" reads `$json.notification_url` and `$json.chat_message`, so both read fields the reply does not have.
 3. Run in n8n, still to do: run a command with a Notification URL set. Expected today: no POST reaches the address.
 4. Expected: one POST to the Notification URL carrying the command's report.
@@ -69,4 +69,4 @@ The notification branch was attached after the WordPress callback and reads `$js
 - Decision: owner, 2026-10-29 — today's sprint pick while CI waits for the Actions reset; branch `fix/bug-97-notification-never-sent`.
 - Decision: owner, 2026-10-29 — the run in n8n uses the `score` command (no model call); the agent asks before touching the owner's n8n.
 - Assumption: Slack, kChat and Teams incoming webhooks accept the current `{"text": …}` body; the body's shape is not this bug's scope.
-- Done 2026-11-02: merged in PR #215 (825a0e3), shipped in 3.10.0 and 3.10.1 (template v8). Proven on the owner's n8n before the merge (plan, Verification); CI on main is green from 65c32f9, the first run since the Actions reset. Every site needs Update workflow or a re-import (release notes).
+- Done 2026-11-02: merged in PR #215 (37e9f86), shipped in 3.10.0 and 3.10.1 (template v8). Proven on the owner's n8n before the merge (plan, Verification); CI on main is green from 96b4e55, the first run since the Actions reset. Every site needs Update workflow or a re-import (release notes).

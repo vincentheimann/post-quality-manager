@@ -10,8 +10,8 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_commit: 'baa5d506c61fd5d9d212c2e8f208db550f5ec4f0'
-baseline_revision: 'baa5d506c61fd5d9d212c2e8f208db550f5ec4f0'
+baseline_commit: '4bec742a4ff5bc6b58d6815d4c428ea126fd9335'
+baseline_revision: '4bec742a4ff5bc6b58d6815d4c428ea126fd9335'
 context: ['{project-root}/docs/brand.md', '{project-root}/docs/local-verification.md']
 ---
 
@@ -139,7 +139,7 @@ Built 2026-10-29 by a subagent (Opus) standing in for `bmad-build`'s implementer
 
 ## Review Triage Log
 
-**Pass 1 (2026-10-29, review loop 0):** one lens, `quick`, on Opus (the owner's 2026-10-26 rule), on the diff from baa5d50. 9 findings: high 0, medium 3, low 4, false 0, maybe-false 0, plus 2 rejected because their fix is an edit to this plan. Routes: 7 patch, 1 defer, 2 reject.
+**Pass 1 (2026-10-29, review loop 0):** one lens, `quick`, on Opus (the owner's 2026-10-26 rule), on the diff from 4bec742. 9 findings: high 0, medium 3, low 4, false 0, maybe-false 0, plus 2 rejected because their fix is an edit to this plan. Routes: 7 patch, 1 defer, 2 reject.
 
 | # | Finding | Verdict | Route | Evidence / action |
 |---|---|---|---|---|

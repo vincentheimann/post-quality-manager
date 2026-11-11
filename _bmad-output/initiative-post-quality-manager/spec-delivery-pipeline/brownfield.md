@@ -1,4 +1,4 @@
-# Brownfield — delivery pipeline (scanned 2026-10-07, `main` at 297367f)
+# Brownfield — delivery pipeline (scanned 2026-10-07, `main` at 24fb793)
 
 What already exists, what the epic envelope got wrong, and what downstream must not break.
 
@@ -13,7 +13,7 @@ Triggers: every push and PR. The envelope's line "the repo has no `.github/workf
 
 ## Versions
 
-- `3.0.0` in three places: plugin header `Version:` (`post-quality-manager/post-quality-manager.php:6`), `PQM_VERSION` (`:20`), `package.json` `"version"`. Commit 495f61a once fixed a header/constant mismatch by hand — CAP-3 makes that a check.
+- `3.0.0` in three places: plugin header `Version:` (`post-quality-manager/post-quality-manager.php:6`), `PQM_VERSION` (`:20`), `package.json` `"version"`. Commit a05b3b5 once fixed a header/constant mismatch by hand — CAP-3 makes that a check.
 - `PQM_WORKFLOW_VERSION` (`:28`, currently 4) is the template handshake, not the plugin version.
 - No git tag, no GitHub Release, no `CHANGELOG.md`, no release-please config. release-please therefore needs a bootstrap point: the first release is 3.0.0 (owner, 2026-10-07).
 

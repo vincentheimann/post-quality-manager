@@ -19,11 +19,11 @@ estimate: ""
 
 Story 111's walk (2026-11-10) followed the n8n Workflow page's Set up by hand steps on a disposable n8n 2.46.7. Step 1 says to "open the workflow menu (the three dots at the top right)". In n8n 2.46.7's editor the three dots sit beside the workflow's name at the top left; the top right holds **Publish** and its chevron. A blogger who looks where the step says finds Publish, not the menu. The import itself works once the menu is found (story 111's walk: "Import" → "From file" lands the workflow).
 
-Cause (hypothesis): the words came with the Workflow File section (provisioning entry 2, 21de5b3, 2026-10-14). Its label check says it read the `editor-ui` components "for where they sit" at `n8n@2.42.3`, but `MainHeader/WorkflowDetails.vue` at that tag already puts the ⋯ right after the workflow's name, as at 2.46.7: the check confirmed the labels and missed the position.
+Cause (hypothesis): the words came with the Workflow File section (provisioning entry 2, a33a836, 2026-10-14). Its label check says it read the `editor-ui` components "for where they sit" at `n8n@2.42.3`, but `MainHeader/WorkflowDetails.vue` at that tag already puts the ⋯ right after the workflow's name, as at 2.46.7: the check confirmed the labels and missed the position.
 
 ## Reproduction
 
-1. The showcase, the Free build of main 5288cb3 (3.13.1); a disposable n8n 2.46.7 (`docs/local-verification.md`, "A disposable n8n").
+1. The showcase, the Free build of main ea7cd38 (3.13.1); a disposable n8n 2.46.7 (`docs/local-verification.md`, "A disposable n8n").
 2. n8n Workflow page → **Set up by hand instead** → step 1, "Import the workflow".
 3. In n8n, open a new workflow and look at the top right.
 4. Actual: Publish and its chevron. The three dots are at the top left, right after the workflow's name ("My workflow").

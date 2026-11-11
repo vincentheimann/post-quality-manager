@@ -21,7 +21,7 @@ On a site updated from a build that still used the `pqm_` stored names (3.9.0 an
 ## Reproduction
 
 Walked 2026-10-28 on the showcase site (WordPress 7.1.3, PHP 8.5, a 3.9.0-era Free build with `pqm_` options, capabilities and the `wp_pqm_reviews` table):
-1. Install the Free build of main ff517c5 over it (`bin/local-wp.py … plugin install <zip> --force`, the plugin stays active; no admin page loaded in between).
+1. Install the Free build of main 5cc20db over it (`bin/local-wp.py … plugin install <zip> --force`, the plugin stays active; no admin page loaded in between).
 2. As the administrator, open `admin.php?page=postquality-workflow` as the first admin request.
 3. Reload it.
 

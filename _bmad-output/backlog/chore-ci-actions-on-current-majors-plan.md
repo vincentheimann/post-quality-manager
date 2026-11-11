@@ -4,7 +4,7 @@ type: 'chore'
 ticket: '102'
 created: '2026-11-04'
 status: 'done'
-baseline_revision: '93eec0bd933ce1ae4fbc9cde81bc95c680c22848'
+baseline_revision: '743e4cc6f50349cc81b8286d0e60a13ec69fedfe'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -65,7 +65,7 @@ Research (2026-11-04, every skipped major's release notes, READMEs, action.yml f
 
 ## Implementation Notes
 
-- Implemented 2026-11-04 from the Code Map, with no deviation: 9 `uses:` strings in `ci.yml`, 5 in `release.yml`, and `cache: npm` removed from release.yml's `setup-node` (`node-version: 22` kept). `setup-php@v2`, `release-please-action@v5` and the SHA-pinned `plugin-check-action` are untouched. `git diff 93eec0b -- .github/workflows`: only those lines change.
+- Implemented 2026-11-04 from the Code Map, with no deviation: 9 `uses:` strings in `ci.yml`, 5 in `release.yml`, and `cache: npm` removed from release.yml's `setup-node` (`node-version: 22` kept). `setup-php@v2`, `release-please-action@v5` and the SHA-pinned `plugin-check-action` are untouched. `git diff 743e4cc -- .github/workflows`: only those lines change.
 - Checked upstream before writing the memory lines (`gh api`, 2026-11-04): the tags `checkout@v7`, `setup-node@v7`, `upload-artifact@v7` and `download-artifact@v8` exist, and each `action.yml` declares `node24`. Every kept `with:` input is still declared: upload-artifact v7 has `name`, `path`, `if-no-files-found` and `overwrite`; download-artifact v8 has `name` and `path`. In upload-artifact v7.0.2, `src/upload/upload-artifact.ts` calls `deleteArtifactIfExists` when `overwrite` is set. setup-node v7's `package-manager-cache` defaults to `true` but caches only when `package.json` has a `packageManager` or `devEngines.packageManager` naming npm; ours has neither, so the release job runs without a cache. `memory/lifecycle.md` records that condition.
 - Local checks: both workflows parse as YAML (PyYAML), all four touched files are LF, and the harness sweep passes 22 of 22 (no harness reads `.github/`). Not run here: the PR's CI, the annotation check and the Release dispatch (AC1, AC2). They need a push, which step 3 excludes. AC3 waits for 3.11.0.
 - Matrix test audit (orchestrator, 2026-11-04): a workflow file has no unit or harness test. Row 1 (PR CI) is proven by the PR's own checks, row 2 (Release dispatch) by the dispatched run, row 3 (next release) by 3.11.0's package job; each result is recorded below when it runs. The implementer ran on Opus 5.5 (owner rule 2026-10-26).
@@ -76,7 +76,7 @@ Research (2026-11-04, every skipped major's release notes, READMEs, action.yml f
 
 ## Review Triage Log
 
-**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since 93eec0b):** high 0 · medium 0 · low 2 · false 1 · maybe-false 0. The lens found no defect in `ci.yml` or `release.yml` (14 `uses:` lines, one removed `cache: npm`; upstream tags, node24 runtimes, kept inputs, the empty-`ref` fallback and the fork-PR guard checked with `gh api`).
+**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since 743e4cc):** high 0 · medium 0 · low 2 · false 1 · maybe-false 0. The lens found no defect in `ci.yml` or `release.yml` (14 `uses:` lines, one removed `cache: npm`; upstream tags, node24 runtimes, kept inputs, the empty-`ref` fallback and the fork-PR guard checked with `gh api`).
 
 | # | Finding | Verdict | Route | Evidence / action |
 |---|---------|---------|-------|-------------------|
@@ -84,7 +84,7 @@ Research (2026-11-04, every skipped major's release notes, READMEs, action.yml f
 | 2 | `memory/lifecycle.md` L13 says setup-node v7 caches "if `package.json` gained a `packageManager` or `devEngines` field"; v7.1.0 caches only when `packageManager` or `devEngines.packageManager` names npm | low | patch | Direct correction of the record; story 103 may add `devEngines.runtime`, which does not turn caching on. The same wording in this plan's Implementation Notes is left as written (a fix that edits the plan is rejected). Sent to the implementer. |
 | 3 | `memory/lifecycle.md` L13 keeps "Last checked" 2026-11-03 while the cell states facts checked 2026-11-04 | low | patch | Direct correction: keep the `/lcm` date, mark the 2026-11-04 facts as story 102's. Sent to the implementer. |
 
-Patch round (2026-11-04, the same Opus implementer): rows 2 and 3 fixed in `memory/lifecycle.md` L13 after a fresh `gh api` read (latest releases unchanged, #484 open). The implementer also gave this plan's Implementation Notes the same npm-only wording; accepted (outside the frozen block). Re-run: `git diff 93eec0b -- .github/workflows` shows only the 14 `uses:` lines and the removed `cache: npm`; `git diff --check` clean.
+Patch round (2026-11-04, the same Opus implementer): rows 2 and 3 fixed in `memory/lifecycle.md` L13 after a fresh `gh api` read (latest releases unchanged, #484 open). The implementer also gave this plan's Implementation Notes the same npm-only wording; accepted (outside the frozen block). Re-run: `git diff 743e4cc -- .github/workflows` shows only the 14 `uses:` lines and the removed `cache: npm`; `git diff --check` clean.
 
 ## Design Notes
 
@@ -95,4 +95,4 @@ A Node `DeprecationWarning` **log line** may remain: download-artifact v8.0.2 pr
 **Commands:**
 - `gh pr checks <n> --repo vincentheimann/post-quality-manager` -- expected: every check passes
 - `gh api repos/vincentheimann/post-quality-manager/check-runs/<id>/annotations` for each job of the PR run and the dispatched Release run -- expected: no "Node.js 20 is deprecated" annotation
-- `git diff 93eec0b -- .github/workflows` -- expected: only `uses:` version strings change, plus the removed `cache: npm` line in release.yml
+- `git diff 743e4cc -- .github/workflows` -- expected: only `uses:` version strings change, plus the removed `cache: npm` line in release.yml

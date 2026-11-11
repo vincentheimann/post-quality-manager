@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '91'
 created: '2026-10-26'
 status: done
-baseline_revision: '40366cfd383cd44dbc6b482b2e4d13440b2947a4'
+baseline_revision: '868c6ee9aa35acb12fe8ba8ebfd242975af952f8'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -43,7 +43,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/memory/naming.md', '{p
 
 ## Code Map
 
-Stored names on main 40366cf (implementer re-derives; `tests/harness/prefix-harness.php` `STORED_LITERALS` is the list):
+Stored names on main 868c6ee (implementer re-derives; `tests/harness/prefix-harness.php` `STORED_LITERALS` is the list):
 - Options (11): `pqm_settings`, `_db_version`, `_workflow_version_seen`, `_cron_nudge_dismissed`, `_caps_version`, `_setup_progress` (`POSTQUALITY_SETUP_OPTION`), `_n8n_api`, `_n8n_setup`, `_n8n_leftovers`, `_n8n_provisioning` (constants in `includes/class-pqm-n8n.php` L39–90), `_ping` (`PostQuality_Admin::PING_OPTION` L2157). Writes in `admin/class-pqm-admin.php` L2076/2090, `class-pqm-n8n.php` L1490, `class-pqm-rest-api.php` L1467, `class-pqm-activator.php` L27; `register_setting` L316 (on `admin_init`, main file L148); form fields `name="pqm_settings[…]"` in `class-pqm-admin.php`.
 - User meta (3): `pqm_monthly_usage` (`PostQuality_Features::USAGE_META_KEY`), `pqm_feedback_dismissed` (`PostQuality_REST_API::FEEDBACK_META`), `pqm_view_as` (retired by story 42, kept "one release": the migration deletes it instead of moving it). Author voice meta does not exist yet (story 37): nothing to move.
 - Capabilities (5): keys of `PostQuality_Features::capabilities()` and the `capability` values in `registry()` / `paid_registry__premium_only()`; `register_capabilities()` grants defaults only while no `manage_options` role holds a cap (so order matters); `remove_capabilities()` strips roles and users' own grants (`get_users(['capability__in'])`).
@@ -69,7 +69,7 @@ Stored names on main 40366cf (implementer re-derives; `tests/harness/prefix-harn
 ## Implementation Notes
 
 - Plan approved by the owner 2026-10-26 (approve and continue). Commits, push and a draft PR are allowed this sprint (owner, 2026-10-26), overriding the house "user commits" rule. Implementer subagent on Fable 5.1 (`model: "fable"`, owner rule 2026-10-16).
-- **Built 2026-10-26 (implementer subagent, Fable 5.1), on `feat/postquality-stored-names` over main 40366cf.** Proof first: `tests/harness/stored-names-harness.php` on the unmigrated tree — 3 passed, 43 failed, exit 1; with the migration call commented out of `maybe_upgrade()` and `activate()` after the build — 27 passed, 19 failed (AC1's second half); restored — 46 passed, 0 failed.
+- **Built 2026-10-26 (implementer subagent, Fable 5.1), on `feat/postquality-stored-names` over main 868c6ee.** Proof first: `tests/harness/stored-names-harness.php` on the unmigrated tree — 3 passed, 43 failed, exit 1; with the migration call commented out of `maybe_upgrade()` and `activate()` after the build — 27 passed, 19 failed (AC1's second half); restored — 46 passed, 0 failed.
 - The rename was one `sed` over the 21 stored literals (word-bounded, so `pqm_settings[` and `wp_pqm_reviews` followed and `pqm_ping_unknown`, DOM ids and the `WP_Error` codes did not) across the plugin, `src/`, `tests/`, `README.md`, `AGENTS.md` and `memory/`; `_bmad-output/`, `CHANGELOG.md`, past release notes and ADRs stay as written (story 88's convention). The activator and prefix-harness were rewritten by hand afterwards; three comments in the admin class and the features docblocks that said `pqm_` caps now say `postquality_`.
 - Design, as planned, with these particulars: the legacy map is `PostQuality_Activator::LEGACY_NAMES` (one private const, keyed by kind; `user_meta_deleted` holds `pqm_view_as`); `uninstall()` iterates it, so no old literal exists outside the map (prefix-harness Row 10 strips the map's text from the tree and proves it) — `PostQuality_Features::remove_capabilities()` took an optional `$caps` list for that, default unchanged. Options keep their autoload flag through `wp_load_alloptions()`. The sanitizer is detached by callable (`['PostQuality_Admin', 'sanitize_settings']` on `sanitize_option_postquality_settings`) and re-attached with its priority. Cron: a recurrence this build does not know (the Free build registers no weekly schedule) makes `wp_schedule_event()` refuse, and the old event, callback-less on either build, is cleared all the same; the migration still finishes. Table: `SHOW TABLES LIKE` with `esc_like()`, `%i` for the identifiers; a new table with rows beside the old one leaves both (uninstall drops both).
 - Harness adjustments: `caps-harness.php` seeds `postquality_names_version = 1` in its worlds (the migration is the new harness's), checks `postquality_` keys, expects both drops, both hook clears and the interleaved option deletes; `render-matrix-harness.php` reads the Roles checkbox values as `postquality_` and checks neither slug in visible text; `free-build-harness.php`, `rest-posts-harness.php`, `rest-reviews-harness.php` static checks read the map and the loop instead of a literal `delete_*` line; `lib/wp-stubs.php` gained guarded `has_filter` / `remove_filter` / `wp_load_alloptions`; `lib/wp-admin/includes/upgrade.php` (new) stubs `dbDelta()` so a harness defining `ABSPATH` as `lib/` can call `activate()`.

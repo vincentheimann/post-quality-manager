@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '41'
 created: '2026-10-24'
 status: 'done'
-baseline_revision: '40b9d4d9d37670d772fa11e7b7024d225c8f53db'
+baseline_revision: '853d2184348b7da89c72a7828e3843e40e5be0c2'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -74,7 +74,7 @@ context: ['{project-root}/docs/brand.md']
 
 ## Implementation Notes
 
-- Plan written 2026-10-24 (Fable 5.1, bmad-build by hand from the workspace root). Checkpoint 1 taken under the owner's advance approval of this session ("already approve and continue"). Branch `feat/wporg-assets` from main `40b9d4d`. Implementer subagent on Fable 5.1 (owner's 2026-10-16 decision).
+- Plan written 2026-10-24 (Fable 5.1, bmad-build by hand from the workspace root). Checkpoint 1 taken under the owner's advance approval of this session ("already approve and continue"). Branch `feat/wporg-assets` from main `853d218`. Implementer subagent on Fable 5.1 (owner's 2026-10-16 decision).
 - Built 2026-10-24 (implementer subagent, Fable 5.1). Files: `bin/outline-wordmark.py`, `assets/lockup-b.svg`, `assets/lockup-b-dark.svg`, `assets/src/banner.html`, `assets/banner-772x250.png` (31,198 B after the review re-render), `assets/banner-1544x500.png` (68,653 B), `assets/screenshot-1..3.png` (96,445 / 173,981 / 210,734 B, `cmp` byte-identical to the site captures), `docs/brand.md`, `memory/naming.md`, `docs/distribution.md`, the story file, and two copy-sweep fixes inside the plugin folder: `post-quality-manager/includes/class-pqm-cron.php` (cron label) and `post-quality-manager/post-quality-manager.php` (header Description = the tagline).
 - Renders: `msedge --headless=new --hide-scrollbars --disable-lcd-text --force-color-profile=srgb --disable-features=msEdgeSidebarV2,msUndersideButton,EdgeCollections --user-data-dir=<scratchpad>/edge-profile-<ns> --window-size=772,250 --screenshot=assets/banner-772x250.png file:///C:/Git/Post%20Quality/post-quality-manager/assets/src/banner.html`, then the same with `--force-device-scale-factor=2 --screenshot=assets/banner-1544x500.png`; each profile folder was created for that one render and removed by its exact path (none left). A control render with `font-family: Inter, monospace` produced a byte-identical PNG, so Edge resolved the installed Inter, not a fallback. The lockup SVGs were rendered at 400 × 92 to the scratchpad and checked by eye: ring and check intact, cap height on the ring's centre line, "Manager" lighter, the dark one on the band.
 - Reading of the geometry: the Design Notes' "cap height equals 0.63 T" is taken as brand.md states it, wordmark (font-size) 0.63 T "so its cap height matches the Q's ring" (the plan's `opsz` 20 is that em at T = 32). Cap height comes out at 14.67 units against the ring's 14.1; a cap height of 0.63 T would make the wordmark 1.4× the ring. The cap height is centred on the ring's centre line (y 31.5, the tile centre is 32), which also equals Inter's line-box centre at `line-height: 1`, so the SVG matches the HTML lockups.

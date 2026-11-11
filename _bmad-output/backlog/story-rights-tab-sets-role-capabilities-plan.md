@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 1
-baseline_revision: 'e974e0637551b6b1b8fa999aa0314f6df717d9a5'
+baseline_revision: '790206f3862e437a85d1a34c4477e21fd66f9b82'
 context: ['{project-root}/docs/brand.md', '{project-root}/_bmad-output/initiative-post-quality-manager/spec-freemium-and-roles/access-matrix.md']
 ---
 

@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '2'
 created: '2026-10-21'
 status: 'done'
-baseline_revision: '628634a606ab85177ef56b73604b612c9e83c64a'
+baseline_revision: 'c488ddc7a20e8c8b291830b6ce0bb31499021837'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -131,4 +131,4 @@ Copy drafts (brand: say what was tested, gentle, actionable):
 4. Optional, the wizard: Set up by hand → step 4 Save and test with the saved URL — expected: the proven sentence in the dialog's notice and the step ticked.
 Record the outcome here with the environment named.
 
-**Outcome (owner, 2026-10-22, the owner's production site, plugin = local zip of main 67879a0):** all four checks passed as expected. Check 1: the update itself passed (the workflow in n8n at version 7), but the ping right after it answered 404 ("The workflow was updated in n8n. n8n responded with 404…"; the block red, still "Version 6"); Test again then passed: "Your workflow answers. Version 7 · checked just now by a test." — green, which on a v7 reply only a received callback records. The 404 is n8n's publication window after the PUT republishes the workflow (`memory/n8n-provisioning.md`, publication outbox finding): `update_n8n_workflow_callback()` pings once, where provisioning retries a 404 (`ping_after_activation()`, bug 80) — a follow-up bug, not a defect of this story's round trip. Checks 2–4 (Test again, the wrong token refused and restored, the wizard's Save and test) passed.
+**Outcome (owner, 2026-10-22, the owner's production site, plugin = local zip of main ed06a8b):** all four checks passed as expected. Check 1: the update itself passed (the workflow in n8n at version 7), but the ping right after it answered 404 ("The workflow was updated in n8n. n8n responded with 404…"; the block red, still "Version 6"); Test again then passed: "Your workflow answers. Version 7 · checked just now by a test." — green, which on a v7 reply only a received callback records. The 404 is n8n's publication window after the PUT republishes the workflow (`memory/n8n-provisioning.md`, publication outbox finding): `update_n8n_workflow_callback()` pings once, where provisioning retries a 404 (`ping_after_activation()`, bug 80) — a follow-up bug, not a defect of this story's round trip. Checks 2–4 (Test again, the wrong token refused and restored, the wizard's Save and test) passed.

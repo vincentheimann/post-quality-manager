@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: 113
 created: '2026-11-04'
 status: 'done'
-baseline_revision: 'c3f4b45c6e322f590a620abed4f89995b97abc63'
+baseline_revision: '065e9c2530466359b3d387b224b2b1ca62201d0a'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -90,14 +90,14 @@ context: ['{project-root}/memory/n8n-provisioning.md', '{project-root}/docs/bran
   - The ping sent right after the update reported the Free variant as outdated; a second ping a moment later: OK, up to date (bug 99 reproduced; its ticket carries the line). Pro Review 17 s (score 22), Takeaways 10 s.
   - **Not run:** Sources, SEO, Audit and Rewrite answered 403 "Sources is a Pro agent": the showcase has had no license since its restore, and none was active by 17:18. So Rewrite at run time (the WordPress credential saving a rewrite) is unproven; it is carried by the licensed Pro-command walk on v9. AC2 (an adopted map without `wordpress`) runs the same block, which keys on the missing role, not on how the map was made: harness rows; on a real n8n only the Free → Pro map.
   - Restore: plugin list, tables/reviews/users/log, plugin files and `wp-config.php` all "same"; n8n stopped by its verified PID, the n8n and walk folders deleted. The recipe's owner step gave a false success once (n8n 2.46.6 start-up); `docs/local-verification.md` "n8n 5" now checks it (records PR, 2026-11-05).
-- Done 2026-11-05 (records PR): #240 merged 2026-11-04 (main 0c00cca), released in 3.11.1 (pre-release; Freemius deployment 170594, pending).
-- **Rewrite at run time, proven 2026-11-06 (the licensed Pro-command walk, Opus 5.5 session):** the showcase on the licensed Pro build of main 12c7a77 (3.12.0 + bug 99), a fresh disposable n8n 2.46.6 provisioned on the Pro build (map: webhook, anthropic, wordpress; one Application Password). Rewrite on a demo post stored `rewritten` in 5 s: n8n's Update WP Post (Rewrite) node PATCHed the post through the WordPress credential (status Pending, an excerpt, one revision). Provisioning and Update workflow make that credential with the same `wordpress_credential__premium_only()` (`class-pqm-n8n.php` L967 and L1595), so the run-time half the 2026-11-04 walk left unproven now stands for the Update path's credential too. AC2's adopted case stays harness-only. The same walk found bug 117 (Sources and Audit parse failures, template side). Records in plan 101's Implementation Notes.
+- Done 2026-11-05 (records PR): #240 merged 2026-11-04 (main b77f4ed), released in 3.11.1 (pre-release; Freemius deployment 170594, pending).
+- **Rewrite at run time, proven 2026-11-06 (the licensed Pro-command walk, Opus 5.5 session):** the showcase on the licensed Pro build of main 02af748 (3.12.0 + bug 99), a fresh disposable n8n 2.46.6 provisioned on the Pro build (map: webhook, anthropic, wordpress; one Application Password). Rewrite on a demo post stored `rewritten` in 5 s: n8n's Update WP Post (Rewrite) node PATCHed the post through the WordPress credential (status Pending, an excerpt, one revision). Provisioning and Update workflow make that credential with the same `wordpress_credential__premium_only()` (`class-pqm-n8n.php` L967 and L1595), so the run-time half the 2026-11-04 walk left unproven now stands for the Update path's credential too. AC2's adopted case stays harness-only. The same walk found bug 117 (Sources and Audit parse failures, template side). Records in plan 101's Implementation Notes.
 
 ## Plan Change Log
 
 ## Review Triage Log
 
-**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since c3f4b45):** high 0 · medium 0 · low 4 · false 1 · maybe-false 0 · rejected by rule 1.
+**Pass 1 (2026-11-04, Quick lens on Opus 5.5; diff since 065e9c2):** high 0 · medium 0 · low 4 · false 1 · maybe-false 0 · rejected by rule 1.
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---|---|---|---|

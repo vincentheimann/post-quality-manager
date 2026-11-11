@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: 65
 created: '2026-10-28'
 status: done
-baseline_revision: '8502d8497fdaacc27123466f9173740dffc3549e'
+baseline_revision: '1eea10ea4ffcee1b4d56b9dc5eb7eb656709a135'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -58,7 +58,7 @@ context:
 
 ## Walk Record (criterion 1, 2026-10-28)
 
-Showcase, main 8502d84's builds (Free from `bin/build-free.php`; Pro from `npm run zip`, root renamed `post-quality-manager-premium/`), SDK 2.13.5, WP-CLI for state, headless Edge for screens; restored from the backup between paths.
+Showcase, main 1eea10e's builds (Free from `bin/build-free.php`; Pro from `npm run zip`, root renamed `post-quality-manager-premium/`), SDK 2.13.5, WP-CLI for state, headless Edge for screens; restored from the backup between paths.
 - **Path 1** (v3.3.0, Freemius traces removed, Free updated in place): first load no notice; then on every admin page the sticky "We made a few tweaks to the plugin, Opt in to make "Post Quality Manager" better!" (dismissible), link `admin.php?page=postquality-dashboard`, which shows the opt-in screen ("Thank you for updating…"). Skip: anonymous, notice removed, no opt-in prompt on Dashboard, Plugins or the plugin's pages. Matches: no change.
 - **Path 3** (fresh Free, activated from Plugins, skipped; Pro installed beside it and activated): Free deactivated by itself; the redirect opens the license screen ("To get started, please enter your license key"); every page then shows "W00t! Premium plugin version was successfully activated." and "You are just one step away - Complete "Post Quality Manager" Activation Now", linked to the license screen. Matches: no change.
 - **Variant 1b** (path 1's notice stored, Pro activated before any choice) and **3b** (the showcase's own skipped test-build state, Free updated in place, Pro activated): every page shows "W00t!…" and the opt-in sticky; the link opens the license screen; no "Complete … Activation" notice; `is_plugin_new_install` false. The defect.

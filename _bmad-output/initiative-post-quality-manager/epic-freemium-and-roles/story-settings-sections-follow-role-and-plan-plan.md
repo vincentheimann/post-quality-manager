@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '5'
 created: '2026-10-01'
 status: done
-baseline_revision: 'cca876621ed8a5e2236ad0af47b537fd20dff4a4'
+baseline_revision: '9f95956daf2d9613c501481cfc328aba93b1222f'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -70,7 +70,7 @@ context: ['{project-root}/docs/brand.md']
 
 ## Implementation Notes
 
-Built 2026-10-01 against baseline `cca8766`.
+Built 2026-10-01 against baseline `9f95956`.
 
 - `class-pqm-admin.php`: Settings submenu cap → `pqm_manage_agents` (Workflow stays `pqm_manage_settings`); `option_page_capability_pqm_settings_group` → `pqm_manage_agents`; `sanitize_settings()` restructured into two section-wise branches — admin-only keys (`n8n_webhook_url`, `webhook_token`, `notification_url`, `blog_profile`, `brand_voice_preset`, `brand_voice`, `website_context`, `author_quota`, `default_model`, `custom_model`) from `$input` only with `pqm_manage_settings`, else carried from `pqm_get_settings()`; `cron_*` + `agent_prompts` from `$input` only when `PQM_Features::is_pro()`, else carried wholesale from stored (per-knob stored fallback for model-locked temperature/effort kept on the pro path; `cron_command` still forced to the fixed default on the pro path). Every branch returns a complete settings array.
 - `render_settings()`: `$registry` hoisted above the form (the overrides boxes need it without the AI Model section); admin-only block (n8n Connection, AI Model, AI Prompts & Context) and Monthly Quota wrapped in `current_user_can('pqm_manage_settings')`; the "New here?" setup notice gated the same way (it links to the admin-only Workflow page). Agent-Specific Overrides promoted from `h3` to its own `h2` section; it and Automated Reviews each get, when not pro: a muted `dashicons-lock` in the heading (`.pqm-section-lock`, `aria-hidden`), a `.pqm-locked-note` upgrade description (copy exactly per Design Notes), and one `<fieldset disabled class="pqm-locked-section">` around the whole section body — JS-proof, nothing inside can POST or be re-enabled. Pro output unchanged (no wrapper rendered).

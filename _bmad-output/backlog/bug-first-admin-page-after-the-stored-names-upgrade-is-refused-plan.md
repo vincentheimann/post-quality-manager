@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: 94
 created: '2026-10-28'
 status: done
-baseline_revision: '7ab43d2e0ea44eb07716bc088a540f66191bed63'
+baseline_revision: 'b997c77d4de2a66f16924a2c84e20586e322a624'
 route: 'full'
 route_source: 'auto'
 review: 'quick'

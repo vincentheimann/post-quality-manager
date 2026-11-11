@@ -1,12 +1,12 @@
 # Review log: walkthrough-4-9-ready-to-go-public
 
-Target: commit 3c4ca39 on main (PR #83, entry 4.9 "The repository is ready to go public")
+Target: commit b2e218d on main (PR #83, entry 4.9 "The repository is ready to go public")
 
 ## 1 — Orientation — narrative created
 
 Session: unavailable · Timestamp: 2026-10-08T20:53:42+02:00
 
-- Action: built the narrative from the plan's frozen Intent, the PR #83 description and `git show --stat 3c4ca39`; six blocks (Intent, Broad strokes, License detection, Archive removal, Scan and rotation, Periphery).
+- Action: built the narrative from the plan's frozen Intent, the PR #83 description and `git show --stat b2e218d`; six blocks (Intent, Broad strokes, License detection, Archive removal, Scan and rotation, Periphery).
 - Result: no findings yet; all blocks unvisited, current block 1.
 - Evidence: ../epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md; https://github.com/vincentheimann/post-quality-manager/pull/83
 

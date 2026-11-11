@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 1
-baseline_revision: 'c0e7b109dd71e406fe9f26d6fe49d91a86e2f424'
+baseline_revision: 'fbf3e7f7c67d5fd23ba52c250f7bea2d49f35393'
 context: ['{project-root}/docs/brand.md', '{project-root}/docs/local-verification.md']
 ---
 
@@ -115,7 +115,7 @@ Plugin repo `post-quality-manager/` (code read-only):
 
 ## Review Triage Log
 
-Quick lens (Opus 5.5), pass 1, 2026-11-03, on the diff of both repositories (plugin `c0e7b10..9b16249`, site `f951757..8480c12`).
+Quick lens (Opus 5.5), pass 1, 2026-11-03, on the diff of both repositories (plugin `fbf3e7f..78dc540`, site `f951757..8480c12`).
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---------|---------|-------|----------|
@@ -129,7 +129,7 @@ Quick lens (Opus 5.5), pass 1, 2026-11-03, on the diff of both repositories (plu
 | 8 | The build guard lets `width=""` through | low | reject | No include passes an empty size; catching it needs extra conditions in the guard, for a mistake no one makes in use. |
 | 9 | Bugs 107 and 108 are untracked, and the notes leave their ids open | low | patch | Files exist only in the working tree; the coordinator filed them after the walk's report. |
 
-Quick lens (Opus 5.5), pass 2, 2026-11-03, after the pass-1 patches (plugin `c0e7b10..8c34e47`, site `f951757..5eab9e2`). Rows 1–9 above are fixed as routed (site `5eab9e2`, plugin `bb0fc1c`, `8c34e47`).
+Quick lens (Opus 5.5), pass 2, 2026-11-03, after the pass-1 patches (plugin `fbf3e7f..517c68a`, site `f951757..5eab9e2`). Rows 1–9 above are fixed as routed (site `5eab9e2`, plugin `d94ef90`, `517c68a`).
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---------|---------|-------|----------|
@@ -141,7 +141,7 @@ Quick lens (Opus 5.5), pass 2, 2026-11-03, after the pass-1 patches (plugin `c0e
 | 15 | The Review and Takeaways figures show Pro tabs and Re-run Rewrite in sections the page calls free, without saying so | low | patch | `COMMAND_ORDER` filters by the registry; Sources, SEO, Audit and Rewrite come from `paid_registry__premium_only()`. The Pro capture set is the owner's choice; the caption can say "on Pro", as Connection's does. |
 | 16 | The Takeaways and Audit alts misstate the checks shown | low | patch | `feature-takeaways.png` also shows Count 0 and Count ok ✗; the Audit takeaways part shows Block found, Position correct, Count, Count ok, Items are specific, without Position note or the word-limit check. |
 | 17 | "PQM" reaches users in the Connection capture (`X-PQM-Token`, `pqm-execute-demo`) | false | reject | `docs/brand.md` L130: the owner kept the `X-PQM-Token` header and the `pqm-execute-` webhook path prefix as they are (2026-10-26); the hint is the plugin's own string and the placeholder mirrors the real path's prefix. |
-| 18 | Story 100 ran ahead of story 98 (`after: [86, 98]`), and "LCM" appears nowhere | false | reject | The branch starts at `c0e7b10`, before #227 (story 98 done) and #228 (ADR 0017, life cycle management) merged on main `b0afebf`; the rebase before the push brings both. |
+| 18 | Story 100 ran ahead of story 98 (`after: [86, 98]`), and "LCM" appears nowhere | false | reject | The branch starts at `fbf3e7f`, before #227 (story 98 done) and #228 (ADR 0017, life cycle management) merged on main `c95e2a4`; the rebase before the push brings both. |
 
 ## Verification
 

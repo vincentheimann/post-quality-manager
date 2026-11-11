@@ -4,7 +4,7 @@ The owner walks this on the real site and ticks each box, or files a bug in `_bm
 
 **Same sitting (2026-10-06, `/prioritize`):** backlog stories 1 and 6 run in the same walk; their criteria skip what this checklist covers. Suggested order: section 0, story 6 (fresh install, wizard and round trip, so later sections have real reviews), story 1, then sections 1–6.
 
-## Pre-checked by the agent (2026-10-05, `main` at `d4f7887`)
+## Pre-checked by the agent (2026-10-05, `main` at `160bd62`)
 
 These are the parts of Done when 3 and 5 that don't need a browser. Each was verified against the code:
 
@@ -18,7 +18,7 @@ These are the parts of Done when 3 and 5 that don't need a browser. Each was ver
 
 ## 0. Setup
 
-- [ ] The site runs the current `main` build: `npm run build` at `d4f7887` or later, or the CI `admin-build` artifact.
+- [ ] The site runs the current `main` build: `npm run build` at `160bd62` or later, or the CI `admin-build` artifact.
 - [ ] Users exist for Administrator, Editor and Author. The site has published posts that are Ship, Needs revision, Major revision and Not analyzed, plus at least one post Pending Review.
 - [ ] Browser DevTools console is open on every page. Any React key, prop or i18n warning fails the step it shows up in.
 
@@ -79,7 +79,7 @@ The plugin ships no translations, so use the agent's pseudo-translation pack. It
 - Bugs filed (ids):
 - Closing actions once green:
   - Mark 5.8 and 5.9 done.
-  - In deferred-work, the owner closes three entries (the file is append-only): the 5.2 `error` badge (resolved by 5.4), the AGENTS.md jQuery line (resolved by `dec9aca`), and the lint-crash half of the 5.5 entry (resolved by 5.8; the Jest question stays open).
+  - In deferred-work, the owner closes three entries (the file is append-only): the 5.2 `error` badge (resolved by 5.4), the AGENTS.md jQuery line (resolved by `0994d77`), and the lint-crash half of the 5.5 entry (resolved by 5.8; the Jest question stays open).
   - The n8n template failure-path entry is already filed as backlog bug 31 (2026-10-06); nothing to fold.
   - Remove the pseudo pack from the site's `languages/` folder.
   - Run `bmad-retrospective` for `epic-ui-rebuild`.

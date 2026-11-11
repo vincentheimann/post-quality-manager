@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '39b5e80d66752a2b03fe7d5a0ebd13bb00775cd9'
+baseline_revision: '302f56b8fef6df5c19203b9521c94f0e1f0531f6'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/failure-modes.md', '{project-root}/_bmad-output/backlog/spike-n8n-provisioning-api-findings.md']
 ---
 

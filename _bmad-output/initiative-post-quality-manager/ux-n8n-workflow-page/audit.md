@@ -1,4 +1,4 @@
-# Audit — the n8n Workflow page as it ships (main 524975d, 2026-10-14)
+# Audit — the n8n Workflow page as it ships (main 4b56564, 2026-10-14)
 
 Story 67, AC1. Read from the code (`admin/class-pqm-admin.php` `render_workflow()` and helpers, `src/setup/`, `src/n8n-connection/`, `admin/js/pqm-admin.js`); spot-checked. The page needs `pqm_manage_settings`. Every section below renders in every state (code comment: "The sections below always show"); only lines inside them change.
 
