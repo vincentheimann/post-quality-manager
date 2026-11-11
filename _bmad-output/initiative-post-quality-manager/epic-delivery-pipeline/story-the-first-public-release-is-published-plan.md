@@ -179,7 +179,7 @@ Its `feat:` commit is the releasable commit release-please needs: there is none 
     - Settings shows the Free tabs only (Connection, AI, Usage & Limits), and the n8n Workflow page reads "Not connected to n8n yet." with **Set up n8n**.
     The pages were loaded through a WP-CLI session for user `agent`, because the given password was refused; that session was removed afterwards, `wp-config.php` was restored as found, and the plugin stays installed.
   - Still open before `done`:
-    - the owner sets Released in Freemius (`/release` step 9);
+    - ~~the owner sets Released in Freemius (`/release` step 9)~~: done 2026-11-11 through Claude in Chrome. Deployment 172983 "Released" (all websites, not incremental, Min PHP 8.1); the other 20 versions are still Unreleased;
     - the two criteria only later merges can show: a docs-only PR reports the four checks, and the next `feat:` proposes 4.1.0.
 
 ## Plan Change Log
