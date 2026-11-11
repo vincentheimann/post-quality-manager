@@ -2,10 +2,11 @@
  * The Dashboard's feedback card (story 79, src/dashboard/feedback.js) run
  * in jsdom: the pure builders (subject per kind, body = message + the
  * environment lines, the mailto: encoding), the disabled state on an empty
- * message, the Bug kind's security line, Copy and its refusal, and the
- * per-user Hide / Send feedback toggle — one POST each, the only requests
- * the card makes. The api-fetch, components and compose packages are
- * WordPress-provided externals, not installed here: all three are mocked.
+ * message, the Bug kind's security line and issue link, Copy and its
+ * refusal, and the per-user Hide / Send feedback toggle — one POST each, the
+ * only requests the card makes. The api-fetch, components and compose
+ * packages are WordPress-provided externals, not installed here: all three
+ * are mocked.
  */
 import { act } from 'react';
 import { createRoot } from '@wordpress/element';
@@ -266,16 +267,25 @@ describe( 'the card', () => {
 		expect( apiFetch ).not.toHaveBeenCalled();
 	} );
 
-	test( 'Bug kind: the bug subject and the security sentence; Feedback has neither', async () => {
+	test( 'Bug kind: the bug subject, the security sentence and the issue link; Feedback has none of them', async () => {
 		await mount();
 		await click( 'Write a message' );
 		expect( text() ).not.toContain( 'A security problem?' );
+		expect( text() ).not.toContain( 'open an issue on GitHub' );
+		expect( $( 'a[href*="github.com"]' ) ).toBeNull();
 		await act( async () => {
 			$( 'input[aria-label="Bug"]' ).click();
 		} );
-		expect( text() ).toContain(
-			'A security problem? Email it, never post it in public.'
+		expect( $( '.pqm-feedback-security' ).textContent ).toBe(
+			'A security problem? Email it, never post it in public. For anything else, you can also open an issue on GitHub.'
 		);
+		const issue = buttonNamed( 'open an issue on GitHub' );
+		expect( issue.tagName ).toBe( 'A' );
+		expect( issue.getAttribute( 'href' ) ).toBe(
+			'https://github.com/vincentheimann/post-quality-manager/issues/new/choose'
+		);
+		expect( issue.getAttribute( 'target' ) ).toBe( '_blank' );
+		expect( issue.getAttribute( 'rel' ) ).toBe( 'noreferrer' );
 		await type( 'The queue is empty' );
 		expect( buttonNamed( 'Send by email' ).getAttribute( 'href' ) ).toBe(
 			mailtoUrl( 'bug', 'The queue is empty', ENV )

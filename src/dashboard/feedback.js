@@ -5,7 +5,8 @@
  * email" opens the mail client on a mailto: to the support mailbox; Copy
  * puts the same text on the clipboard for a browser without a mail client.
  * The server sends nothing: the only request is the per-user Hide / Send
- * feedback toggle, POST /dashboard/feedback.
+ * feedback toggle, POST /dashboard/feedback. The Bug kind also links the
+ * public issue tracker (ISSUES_URL, entry 8), opening in a new tab.
  *
  * The pure builders are exported for the Jest rows.
  */
@@ -19,11 +20,18 @@ import {
 	RadioControl,
 	TextareaControl,
 } from '@wordpress/components';
-import { useEffect, useRef, useState } from '@wordpress/element';
+import {
+	createInterpolateElement,
+	useEffect,
+	useRef,
+	useState,
+} from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 
 export const FEEDBACK_PATH = '/post-quality/v1/dashboard/feedback';
 export const SUPPORT_EMAIL = 'hello@postquality.com';
+export const ISSUES_URL =
+	'https://github.com/vincentheimann/post-quality-manager/issues/new/choose';
 
 // Read by the maintainer, so not translated (like the environment lines).
 const SUBJECTS = {
@@ -287,6 +295,22 @@ export default function FeedbackCard( { feedback } ) {
 							{ __(
 								'A security problem? Email it, never post it in public.',
 								'post-quality-manager'
+							) }{ ' ' }
+							{ createInterpolateElement(
+								__(
+									'For anything else, you can also <a>open an issue on GitHub</a>.',
+									'post-quality-manager'
+								),
+								{
+									a: (
+										// eslint-disable-next-line jsx-a11y/anchor-has-content -- content comes from the translated string.
+										<a
+											href={ ISSUES_URL }
+											target="_blank"
+											rel="noreferrer"
+										/>
+									),
+								}
 							) }
 						</p>
 					) }
