@@ -21,6 +21,8 @@ context: ['{project-root}/_bmad-output/backlog/chore-history-names-the-new-proje
 
 **Approach:** Rewrite a bare clone of `main` and the 28 tags once with `git filter-repo` and the private recipe of 2026-10-29. Check it (AC5, AC8), then the owner publishes it as a fresh private repository under the same name, with the current one renamed and kept private as the archive. One forward commit, by pull request, fixes the cited commit ids. The rewrite runs once #285 and this plan's PR have merged: entry 8's gates (stories 15, 44, 48, bug 93, entries 7 and 9) are all done, and entry 8's launch PR follows on the new repository (owner order 87 → 4.8 → 38, 2026-11-10/11).
 
+**Decisions (owner, 2026-11-11):** the GitHub archive is named `post-quality-manager-archive`. The local folder `post-quality-manager` is renamed `post-quality-manager-archive`, and its `origin` points at the archive, with its 148 branches kept. The new repository is cloned fresh into `post-quality-manager/`, and `.claude/settings.local.json` is copied into it. The full plan is kept (about 2,300 tokens).
+
 ## Boundaries & Constraints
 
 **Always:** the map, the search pattern, the drop list, the helper scripts and the mirror stay in the session scratchpad and the agent's private notes. None of them goes into the repository, a commit, a PR text or the plan. Every fix to the map reruns from a fresh clone, never on a rewritten mirror. The search prints the commit, path and count, never the matched text, because the dropped exports hold a dead token. Owner-only steps stay the owner's: the rename, the repository creation, the first push and the secret.
@@ -36,7 +38,7 @@ context: ['{project-root}/_bmad-output/backlog/chore-history-names-the-new-proje
 | False positive | a hit inside a hash or a binary | listed with its location for the owner | never replaced (no `package-lock.json` blob in history has a replaceable token, read 2026-11-11) |
 | Pruned commit | a commit left empty by the drops | `commit-map` gives it an all-zero id | AC6 skips it; a tip citation of it is listed for the owner and left as written |
 | Main moves | a merge on the archive after the clone | the mirror is stale | the owner holds merges until the push; otherwise reclone and rerun |
-| Old branch | one of the clone's 148 old-history branches pushed to the new repository | must not happen | Open Question 1 |
+| Old branch | one of the clone's 148 old-history branches pushed to the new repository | must not happen | the old folder becomes the archive's clone; only the fresh clone points at the new repository |
 
 </frozen-after-approval>
 
@@ -58,7 +60,7 @@ context: ['{project-root}/_bmad-output/backlog/chore-history-names-the-new-proje
 - [ ] `<scratchpad>/chore87/` -- the checks in the matrix's Rewrite row, plus a look at the swapped image and PDF -- AC5
 - [ ] AC8 delta -- scan what the 121 commits since the 2026-10-29 review add outside the plugin code (`memory/`, `_bmad-output/`, `.claude/`, the portfolio, `docs/distribution.md`); flags go to the owner in chat; answers become map rows, then rerun -- AC8 (the 2026-10-29 answers stand)
 - [ ] owner commands -- written out for the owner: rename the repository to the archive name, create the private one, copy the settings above, add the secret, push `main` and the tags from the mirror -- AC4 (owner only)
-- [ ] local clone -- as Open Question 1 decides -- no old branch can reach the new repository
+- [ ] local folders -- rename `post-quality-manager` to `post-quality-manager-archive` (no session may hold a file open in it), set its `origin` to the archive, clone the new repository into `post-quality-manager/`, copy `.claude/settings.local.json`, run `npm ci` -- no old branch can reach the new repository
 - [ ] AC7 -- read the new repository's settings beside the archive's through the API; the first push's CI and Release runs pass (`gh run list`) -- AC7
 - [ ] `chore/87-cited-commit-ids` on the new repository -- cited ids at the tip rewritten from `commit-map`, pruned ones skipped, tags checked; then AC5 again on a fresh clone; draft PR -- AC6
 - [ ] `memory/delivery-pipeline.md`, `memory/workspace-layout.md`, this plan, agent notes -- the switch, the archive's name, the cleanup -- durable facts; mirror deleted after the owner confirms
@@ -88,8 +90,3 @@ The forward commit goes by pull request rather than into the mirror before the p
 
 **Manual checks (if no CLI):**
 - the owner looks at the AC8 flags and the swapped image and PDF before the push.
-
-## Open Questions
-
-1. **The local clone after the switch.** (A) Rename the folder `post-quality-manager` to `post-quality-manager-archive`, point its `origin` at the renamed archive, clone the new repository into `post-quality-manager/`, and copy `.claude/settings.local.json`. The 148 branches stay as they are, and none of them can reach the public repository. (B) Keep the folder and point its `main` at the new history. The 148 old-history branches stay in the clone, and a push of any of them by its explicit URL would publish the old history.
-2. **The archive's name on GitHub.** `post-quality-manager-archive`, or a name you choose.
