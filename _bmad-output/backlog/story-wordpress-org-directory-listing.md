@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89, 91, 95, 70, 122]
+after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89, 91, 95, 70, 122, 125, 128, 129, 130]
 assignee: ""
 refined: true
 hitl: true
@@ -78,6 +78,8 @@ The Free build of the release that goes to WordPress.org is submitted to the plu
 - Decision (owner, 2026-10-29, Q5 A): each fix for a review-team finding ships in a patch release, and the reply carries that release's checked Free build.
 - Decision (owner, 2026-10-29, Q6 A): story 70 (the Add Plugins card and More Details preview) comes before submission and joins `after`.
 - Decision (owner, 2026-11-10, story 70's sitting): story 122 joins `after`: a banner whose lower left stays clear of the name label in More Details, and screenshot 2 recaptured with today's tabs.
+- Decision (owner, 2026-11-11): bug 125 (the form's scan flags 32 low-severity errors in 4.0.0's Free build) joins `after`; its fix ships in patch release 4.0.1 before submission, and the pre-production pass runs on 4.0.1.
+- Decision (owner, 2026-11-11, 7a): the look triage's defects ship in 4.0.1 before submission too: bug 128 (a), bug 129 (b) and bug 130 (c)–(e) join `after`.
 - Decision (owner, 2026-10-29, Q9 A): risk high (was medium). The slug can never change after approval. The check outside the criteria: the owner reads the slug the form shows before submitting, and the approval email names it.
 - State of `after` on 2026-10-29 (`tickets.py status`): 9, 10, 15, 41, 44, 46, 47, 54, 65, 88, 89, 91 done. 58 in progress: its AC3 re-run waits for the first release after the GitHub Actions minutes reset on 2026-10-30; 3.10.0 is not released yet. 95 and 70 not started. Entry 4.8 and chore 87 not started.
 - Fact (WordPress.org, read 2026-10-29): since 2024-10-01 every plugin owner and committer account needs two-factor sign-in, and the submission form runs Plugin Check's Plugin Repo category, blocking error-level findings; it does not replace the manual review.

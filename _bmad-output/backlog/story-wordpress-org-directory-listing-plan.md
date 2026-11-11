@@ -549,7 +549,7 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   - P147 went back to shipped: story 42 retired only its method ("View as"), and a real Editor user runs it.
   - The other 18 retired rows were checked: each cited commit exists and its subject names the retiring ticket.
   - A hygiene scan against the private pattern found no site address. It did find the generic ".local" and "WordPress66"; the latter is already in entry 8's plan on main.
-- Plan PR: draft #8 (a84193b), 2026-11-11.
+- Plan PR: draft #8 (a84193b), 2026-11-11. The owner merged it with F1's records on 2026-11-11, and the work continues on `fix/4.0.1-submission-blockers`. That branch carries the 4.0.1 fixes (bugs 125, 128–130) and this plan's later records. The session paused there on the owner's word, with those builds not started.
 - Builds (2026-11-11, into the session scratchpad):
   - **Free:** `post-quality-manager-4.0.0.zip`, sha256 `776cd175f513597c0282cdaaedd47a6a6b9f320c29710c3a28c1bc28d1b14c3b`, equal to the release digest. 255 files under `post-quality-manager/`, `Version: 4.0.0`, no cron class, the Free template only.
   - **Pro:** `post-quality-manager-4.0.0-pro.zip` from run 43019155750, sha256 `0416455841a6b8a199f7d3e90b012cdbc0e8ebba8da01346abe75a870a51b583`. 257 files under **`post-quality-manager-premium/`**, the folder Freemius serves to a customer, so it installs beside the Free folder, not over it. `Version: 4.0.0`, with the cron class and both templates.
@@ -604,7 +604,27 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
       - Only a record whose type is exactly `ERROR` sets the verdict to false (`plugin-directory/jobs/class-plugin-scan.php`, `run_plugin_check()`), so these do not block the upload.
       - The upload handler (`shortcodes/class-upload-handler.php`, `check_plugin()`) shows them as "ERROR*" with "This may be a false-positive, and will be manually checked by a reviewer."
       - The scan runs under `timeout -k 15s 45s`.
-    - Story 95's "0 errors" (2026-10-29) came from a default-severity run. The form's `--error-severity=7 --include-low-severity-errors` was never run, and Plugin Check reports these 32 below the default threshold, so neither CI nor that run showed them.
+    - Why nothing showed them earlier: the source carries every translator note and every `phpcs:ignore`. Freemius's rewrite of the Free build collapses multi-line expressions, which drops the notes inside them and moves trailing ignores off their line (seen: `includes/class-pqm-rest-api.php` L730–737 becomes build L682). CI and story 95 (2026-10-29) scanned the CI-built zip, never Freemius's Free build. A default-severity run would not have hidden them: Plugin Check 2.2.0 filters by severity only when a severity option is given (`get_filtered_results_by_severity()`), so a default run reports these 32 as `ERROR`. Corrected 2026-11-11 from the ticket agent's read of the source; this line first said the default threshold hid them. Bug 125.
+  - **The look's triage** (an Opus agent, read-only, 2026-11-11; verdicts with file:line):
+    - **The prompt was wrong, by design in the code:**
+      - Details disabled on posts 8 and 9: disabled while any command runs on the post, for 3 minutes from first sight (`src/post-reviews-table.js` L286–296, `src/kit/use-polling.js` L110–150; story 5.4 plan L45, L55).
+      - The missing "New here?" line: printed only while no webhook URL is saved (`admin/class-pqm-admin.php` L768–775). The prompt quoted it from the read taken before the URL was set, which breaks `memory/lessons.md` 2026-11-05.
+    - **By design:**
+      - the meta box's switch from "running" to the 3-minute give-up text, and "Re-run Review" re-enabled on a stale processing row (story 109 plan L36, L103; story 5.4 plan L116);
+      - the privacy guide describing Pro and Freemius in the Free build (story 95: one text for both builds);
+      - the License section shown on the Connection tab.
+    - **Defects:**
+      - (a) The Dashboard shows "Processing…" for a post where only Key Takeaways runs. Post Reviews follows story 5.4's decision (review only), but `src/dashboard/fix-next-queue.js` L62–68 uses `busy || inFlight(item)`.
+      - (b) The warning "Welcome… set up the n8n workflow first" (`class-pqm-admin.php` L126–136, until `postquality_setup_complete()`) and the Dashboard's "You are all set — run your first review" (`src/dashboard.js` L219) show together on every site with a URL saved and no result yet. Each condition is right alone; no spec covers the overlap.
+      - (c) The Blog Profile and Editorial Standards radios crowd their labels on every WordPress version. Core's `.form-table td fieldset label{margin:… !important}` overrides the plugin's `margin`; the 7.1.4 capture on postquality.com shows the same.
+      - (d) The n8n Workflow page's status box is 797 px against 760 px dividers (content-box sizing).
+      - (e) `claude-sonnet-5-5` breaks at its hyphens in the AI tab's table.
+    - **Cosmetic, from core's styles:** row alignment, the faint disabled checkbox on WordPress 6.6, a disabled Details drawn grey, the 720 px intro cap.
+  - **Owner decisions (2026-11-11):**
+    - A: fix the form scan's 32 findings before the submission, in patch release 4.0.1; the pass then runs on 4.0.1.
+    - 7a: defects (a)–(e) ride in 4.0.1 too.
+    - 8a: once a webhook URL is saved, the welcome notice says the next step is the first review (copy per `docs/brand.md`, approved at the PR).
+    - Tickets: one bug for the scan, one for (a), one for (b), and one for (c)–(e). Plus a docs story for the tooling findings and one for the privacy sentence (6b).
   - **Restore:** the listener was stopped by its PID. Plugin Check and the plugin were deleted, the logger and its folder removed, the database and `wp-config.php` restored. The three checks read "same", and WordPress is 6.6. Both walk folders are deleted; the scan output, the route list and the page reads stay in the scratchpad's `s38/findings/`.
 - Tooling findings, filed in one batch through `bmad-ticket` with the walk's other findings:
   1. `docs/local-verification.md` step 4's `option patch insert` waits forever when stdin is an open pipe, as in agent shells. WP-CLI 2.12.0 reads the value with `get_value_from_arg_or_stdin( $args, -1 )`, which never finds index -1, so it reads stdin to its end. `</dev/null` fixes it.
