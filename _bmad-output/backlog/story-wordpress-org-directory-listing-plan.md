@@ -570,7 +570,35 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   - **Six Freemius SDK options stayed:** `fs_accounts`, which still names this plugin (its `plugin_data`, `plugins`, `file_slug_map` and product id), plus `fs_active_plugins`, `fs_api_cache` (an empty array, so no API reply was cached), `fs_debug_mode` and the two `fs_garbage_collection` site transients.
   - Under Decision Q1 that trace sends the question back to the owner.
   - **Owner, 2026-11-11 (5a):** the six options are deleted by exact name, which keeps the site's genuine 6.6 database. The check then read all zeros: no plugin or Freemius option, table, capability, meta, cron event, plugin folder or must-use folder; one user; `debug.log` none. **The site gate passed.**
+  - Owner, 6b: the SDK's behaviour goes into `memory/freemium-and-roles.md` (done), and a docs ticket adds one sentence to the privacy policy; it is filed with the walk's findings.
   - Why the SDK keeps its state: `_uninstall_plugin_event()` ends with `// @todo Decide if we want to delete plugin information from db.` (SDK 2.13.5, `class-freemius.php` L9773). `_uninstall_plugin_hook()` removes only the SDK reference, then fires `after_uninstall` (L9855, L9878). The SDK's `delete_account_event()` clears that state but sends `DELETE` to the API (L8097), so the plugin cannot call it at deletion without a request from a site that skipped the opt-in (ADR 0013 D8).
+
+- Frames: the Free walk splits into frames, each from its own backup to its own "same" restore. F1 carries criterion 1, the owner's look and the form scan. Later frames carry the pass list's rows in batches, one frame on the site at a time.
+- **F1, first run (2026-11-11), discarded.** Activation, the opt-in and the page reads passed on 6.6.
+  - Then `wp cron event run --all` ran core's `wp_maybe_auto_update`. Major auto-updates are on by default for new installs (`auto_update_core_major` enabled), so WordPress upgraded itself to 7.1.4, files and database, and row 2 ran on 7.1.4.
+  - Recovery:
+    1. The listener was stopped by its recorded PID, and the walk's restore brought the database back to the 6.6 schema (57155).
+    2. The core files went back to 6.6 through `core download --version=6.6 --force --skip-content`, run with `-d sys_temp_dir=<scratchpad>`. WP-CLI removed 747 files 6.6 does not have.
+    3. Checksums verify against 6.6, `wp-content` was untouched (every theme dates from the site's creation), and the three "same" checks passed.
+    4. Two half-extracted folders from failed download attempts were removed from `C:\Windows\TEMP` by their exact names.
+  - Guard: `AUTOMATIC_UPDATER_DISABLED` true is now in the site's `wp-config.php`, part of the baseline (owner told 2026-11-11). Each walk checks `wp core version` at its start and end.
+- **F1, rerun (2026-11-11, folder `walk-f1b`, WordPress 6.6, PHP 8.1.29), through the owner's pause:**
+  - **Row 1 passes.** The checked Free asset was installed by WP-CLI and activated from the Plugins screen in headless Edge. The activation opened Freemius's opt-in ("Never miss an important update"), and Skip landed on the plugin's Dashboard. Every plugin page and tab was then read, along with Posts, a post's editor, Profile, the privacy guide and Plugins, followed by one run of all 12 cron events. The request logger recorded 13 outgoing requests, all from core (api.wordpress.org, rpc.pingomatic.com, wp-cron). None came from the plugin's folder, the SDK included.
+  - **Row 2 passes.** Review (post 8) and Key Takeaways (post 9) reached the listener with `X-PQM-Token`. `sources`, `seo`, `audit` and `rewrite` answered 400 `rest_invalid_param`. Per role, `GET /posts` answered 200 for administrator, editor and author and 403 `rest_forbidden` for contributor.
+  - **Row 3 passes** (the agent's DOM read; the owner's look is still to come):
+    - No page holds a Pro command or setting.
+    - The only upsell is Settings → License, "Current plan: Free — Review and Key Takeaways are included. Get Pro" (→ postquality.com/pricing/), shown on every Settings tab.
+    - The Plugins row reads "Opt In | Deactivate"; the SDK's opt-in link is not an upsell.
+    - The Settings tabs on Free are Connection, AI and Usage.
+    - The browser's only other-host requests are core's gravatar and the block editor's welcome image.
+    - The Free build has 20 REST routes (`routes-free.txt` in the scratchpad), to be compared with Pro's.
+  - **Row 4 passes.** All 11 links in the asset's `readme.txt` end with a 200 on a page that asks for no sign-in (Python GET, redirects followed). The GPL link redirects to GNU's old-licenses page. The repository and its Releases page now open.
+  - Row 7 so far: no `debug.log` at all.
+- Tooling findings, filed in one batch through `bmad-ticket` with the walk's other findings:
+  1. `docs/local-verification.md` step 4's `option patch insert` waits forever when stdin is an open pipe, as in agent shells. WP-CLI 2.12.0 reads the value with `get_value_from_arg_or_stdin( $args, -1 )`, which never finds index -1, so it reads stdin to its end. `</dev/null` fixes it.
+  2. Local's `php.ini` pins `sys_temp_dir` to `C:\Windows\TEMP`. `TEMP`/`TMP` don't move it, and `bin/local-wp.py` cannot pass `-d`.
+  3. The pre-production site's one-time setup must turn automatic updates off.
+  4. The docs ticket from 6b (one privacy policy sentence).
 
 ## Plan Change Log
 
