@@ -5,6 +5,7 @@ parent: initiative-post-quality-manager
 covers: [UV7]
 after: []
 assignee: ""
+status: done
 risk: medium
 ---
 
@@ -64,3 +65,4 @@ GitHub Actions with `GITHUB_TOKEN` only, the template validator, the version che
 - Decision (owner, 2026-11-11, chore 87 AC8): before the switch to public, the owner rotates the production site's database password and salts (and the Pro license key if wished): the public records of story 98's walk (2026-11-03) then describe a closed exposure. Since chore 87 the repository is the fresh one, holding the rewritten history; the old one is `vincentheimann/post-quality-manager-archive` (`memory/delivery-pipeline.md`).
 - Decision (owner delegation, best practice, 2026-10-28): backlog bug 93 (a lapsed Pro license shows Free, with no renew link) fails story 44's AC2, and story 44 gates this entry (ADR 0013 D1). Bug 93 is built before entry 8, and story 44 is marked done after its walk. If bug 93 is the last open gate, entry 8 goes without it: plans are yearly with no trial (ADR 0013 D4), so no license can lapse within a year of the first sale, and the fix ships in the next release.
 - Decision (owner delegation, best practice, 2026-10-28): the first public release stays 4.0.0 (the 2026-10-08 decision). A version number never goes backward: Freemius already holds 3.7.0–3.9.0 (3.10.0 next), the owner's site runs a 3.x build, and WordPress and Freemius offer an update only to a higher number. The major marks the first public, stable release and what existing sites go through on the way (stored names, roles, workflow re-import). Entry 8's launch PR sets it with `release-as`, on the fresh repository (backlog chore 87).
+- Done (2026-11-11): entry 8 merged as PRs #3 (the launch PR), #4 (release 4.0.0), #5 (records) and #6 (the done flip). 4.0.0 is the first public release: Latest on GitHub with the Free build as its one asset, Released in Freemius (deployment 172983), and its zip installed and activated on a clean WordPress 6.6 with `WP_DEBUG` on and no notice. Every entry is done. Closed the same day after the closure check, with the retrospective `epic-delivery-pipeline-retrospective.md` (accepted-with-open-items). Done when 1 and 3 hold as amended by later owner decisions: ADR 0014 amended made the release asset the Free build, and story 95 moved translations to WordPress.org language packs. The retrospective proposes the new wording (R1); this file and the spec are unchanged until the owner approves it.
