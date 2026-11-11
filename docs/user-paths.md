@@ -113,7 +113,7 @@ Unrealized Value ranked by size of the gap between the current and the desired e
 | 4 | Guided activation (welcome screen → checklist → first review) | A3–A5 | Converts evaluators into activated users *(2026-10-07: converted — the guided setup dialog, story 36, owner-verified)* |
 | 5 | Round-trip connection test | A4 | Removes the scariest silent failure for new users *(2026-10-22: converted — template v7, story 2, owner-verified on the production site)* |
 | 6 | Cron for seo/audit commands | B1 | Owner ask *(2026-10-06: converted — one command per schedule, ticket 3; several commands per schedule remain open)* |
-| 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP *(2026-10-24: in progress — the launch pack toward entry 4.8, `/prioritize` pick A; postquality.com live with real captures since story 86)* |
+| 7 | Distribution (WordPress.org, updater) | A1–A2 | Largest long-term UV, deliberately deferred post-MVP *(2026-10-24: in progress — the launch pack toward entry 4.8, `/prioritize` pick A; postquality.com live with real captures since story 86. 2026-11-11: entry 4.8 done, 4.0.0 is public on GitHub Releases (the Free build) and Released in Freemius; the site points installs there; the WordPress.org listing is backlog story 38)* |
 
 **Current Value in one line:** an installed, configured system that continuously scores the back-catalog and shows where to look — verified by the owner in development; no real users yet, so none of it is observed in use.
 
