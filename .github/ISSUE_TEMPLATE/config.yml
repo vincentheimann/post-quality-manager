@@ -3,9 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/vincentheimann/post-quality-manager/security/policy
     about: Report privately through the security policy, never as a public issue.
-  - name: Support for the free plugin
-    url: https://wordpress.org/support/plugin/post-quality-manager/
-    about: Questions about installing or using the plugin go to the WordPress.org support forum.
   - name: Pro support
     url: mailto:hello@postquality.com
     about: Pro customers get email support within 5 business days.
