@@ -3,7 +3,7 @@ title: 'The rewritten history goes to a fresh repository under the same name'
 type: 'chore'
 ticket: 87
 created: '2026-11-11'
-status: 'built'
+status: done
 baseline_revision: '812737964148f894267814bff363c4a8ca229bdd' # main before the rewrite; its rewritten id is recorded below
 route: 'full'
 route_source: 'pinned'
@@ -61,10 +61,10 @@ context: ['{project-root}/_bmad-output/backlog/chore-history-names-the-new-proje
 - [x] `<scratchpad>/chore87/` -- the checks in the matrix's Rewrite row, plus a look at the swapped image and PDF -- AC5
 - [x] AC8 delta -- scan what the 121 commits since the 2026-10-29 review add outside the plugin code (`memory/`, `_bmad-output/`, `.claude/`, the portfolio, `docs/distribution.md`); flags go to the owner in chat; answers become map rows, then rerun -- AC8 (the 2026-10-29 answers stand)
 - [x] owner commands -- written out for the owner: rename the repository to the archive name, create the private one, copy the settings above, add the secret, push `main` and the tags from the mirror -- AC4 (owner only)
-- [ ] local folders -- rename `post-quality-manager` to `post-quality-manager-archive` (no session may hold a file open in it), set its `origin` to the archive, clone the new repository into `post-quality-manager/`, copy `.claude/settings.local.json`, run `npm ci` -- no old branch can reach the new repository
-- [ ] AC7 -- read the new repository's settings beside the archive's through the API; the first push's CI and Release runs pass (`gh run list`) -- AC7
+- [x] local folders -- rename `post-quality-manager` to `post-quality-manager-archive` (no session may hold a file open in it), set its `origin` to the archive, clone the new repository into `post-quality-manager/`, copy `.claude/settings.local.json`, run `npm ci` -- no old branch can reach the new repository
+- [x] AC7 -- read the new repository's settings beside the archive's through the API; the first push's CI and Release runs pass (`gh run list`) -- AC7
 - [x] `chore/87-cited-commit-ids` on the new repository -- cited ids at the tip rewritten from `commit-map`, pruned ones skipped, tags checked; then AC5 again on a fresh clone; draft PR -- AC6
-- [ ] `memory/delivery-pipeline.md`, `memory/workspace-layout.md`, this plan, agent notes -- the switch, the archive's name, the cleanup -- durable facts; mirror deleted after the owner confirms
+- [x] `memory/delivery-pipeline.md`, `memory/workspace-layout.md`, this plan, agent notes -- the switch, the archive's name, the cleanup -- durable facts; mirror deleted after the owner confirms
 
 **Acceptance Criteria:**
 - Given the published repository, when every commit's files, messages and paths are searched with the private pattern, then nothing matches beyond the triaged false positives.
@@ -113,6 +113,12 @@ context: ['{project-root}/_bmad-output/backlog/chore-history-names-the-new-proje
   - The folder swap, and the owner's pre-push guard in the archive clone.
   - The mirror and the private files in the scratchpad are deleted after the merge.
   - The done flip is the owner's word.
+- Closed (2026-11-11), so every task is ticked:
+  - The owner merged #1 (main 0be5d9c); CI and Release on it are green, and CI on #1 was 4/4 green (AC7).
+  - The scratchpad's mirror, map files and the reviewer's scripts were deleted after the merge.
+  - The owner swapped the folders: `post-quality-manager\` is the fresh repository's clone and `post-quality-manager-archive\` the old one.
+  - The owner added the archive clone's `pre-push` guard. It refuses pushes to the fresh repository (dry runs by the owner and the agent).
+  - Done on the owner's word.
 
 ## Plan Change Log
 
