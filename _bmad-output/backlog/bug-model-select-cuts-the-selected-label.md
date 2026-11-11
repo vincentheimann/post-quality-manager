@@ -21,7 +21,7 @@ Settings → AI shows the Default Model select with its label cut: "Claude Sonne
 
 ## Reproduction
 
-1. The showcase, 2026-11-06, the Pro build of main 12c7a77 (3.12.0 + bug 99), licensed; a site that never saved a model.
+1. The showcase, 2026-11-06, the Pro build of main 02af748 (3.12.0 + bug 99), licensed; a site that never saved a model.
 2. Settings → AI, at window widths 790, 1024, 1280 and 1440 px.
 3. Actual: the Default Model select is 400 px wide at every width (computed `max-width: 400px`); the selected label needs about 461 px and ends "pe". Selecting Haiku 5.5 cuts its label too; each `postquality_settings[agent_prompts][<agent>][model]` select does the same.
 4. Expected: the selected label reads whole whenever the form's cell is wide enough for it.

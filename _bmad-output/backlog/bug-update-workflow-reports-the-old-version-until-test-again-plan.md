@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: 99
 created: '2026-11-05'
 status: 'done'
-baseline_revision: 'd2a6d5c7bb244f857e9247f8dc2d2e978f26232e'
+baseline_revision: 'f42d81d1038d3f4b99ed18fa93665695a4ccd94e'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -91,7 +91,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/_bmad-output/initiativ
 
 ## Implementation Notes
 
-Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (baseline `d2a6d5c`).
+Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (baseline `f42d81d`).
 
 - **Code.** `ping_after_activation()` decides on `$window` = a 404, or `answered_older()`. That new private helper returns true for a passing ping whose version is below `POSTQUALITY_WORKFLOW_VERSION`, or for the Free variant inside the Pro block. It never reads `outdated`. The ceiling comment sits in the docblock. `update_n8n_workflow_callback()` runs `delete_option( 'postquality_workflow_version_seen' )` as soon as `update_workflow()` passes. When `answered_older()` still holds after the retries, it sends the still-switching sentence and calls `finish( $reply, null )`. `ping_ok` and `outdated` are then true as the ping returned them, so `tone()` gives a warning. The budget, the filter, and the provisioning, rotation and connect callers are unchanged.
 - **Addition beyond the matrix: a second `delete_option` in the still-switching branch.** In a 404, old, old run, try 1's 404 records a failure on the emptied report. Without the second delete, the page would show "The last test … did not pass: 404" under the still-switching outcome. The second delete clears that, so the page reads "Saved, not checked yet." in every sequence. A harness row covers it ("404, old, old").
@@ -100,27 +100,27 @@ Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (bas
     - The row "an older workflow still answers the ping … the block offers the update again" asserted the bug, so it was removed; the bug 99 rows replace it.
     - The "ping fails after" rows now expect the earlier report gone and the failure on an empty report, with no version line (matrix row "Ping refused after the PUT").
     - Four `writes()` assertions gain the `-postquality_workflow_version_seen` delete.
-  - **Baseline check.** Run against `d2a6d5c`'s `class-pqm-rest-api.php`: 19 rows fail, "Old, then new" among them; the rest pass. With the fix: 219 passed, 0 failed.
+  - **Baseline check.** Run against `f42d81d`'s `class-pqm-rest-api.php`: 19 rows fail, "Old, then new" among them; the rest pass. With the fix: 219 passed, 0 failed.
 - **Free build row.** It is in `free-build-harness.php`'s update row, not the managed harness, because the managed harness runs as Pro only. Its `wp_remote_post()` stub now records pings. The row checks one ping, the variant recorded, and a success line. A Free build made locally shows `answered_older()` stripped to the version check.
 - **The provisioning row** is in the managed harness, as the plan says, next to the update's. It covers old, then new (2 pings, the template's version recorded) and old outlasting the retries (3 pings, the older version recorded as today, no still-switching sentence).
 - **Records.** EXPERIENCE.md Flow 4 has a "n8n still switching" paragraph. `memory/n8n-provisioning.md` line 21 has the cause from the source read and the fix. Lines 15 (the update route) and 22 (the outbox line) said the retry was 404-only, so they now name bug 99 as well.
 - **Verified.** `php -l` is clean on the three touched PHP files. Every `tests/harness/*.php` exits 0. `npm run test:unit` passes: 10 suites, 181 tests. No JS change: grepping `src/` and `admin/js/` confirms that the update reply's readers, `pqm-admin.js` `post()` and `confirmUpdate`, only swap `status_html`. There is no `.pot` file to regenerate.
 - **Left to the orchestrator.** The disposable n8n walk (Verification, manual checks), the review, the commit and the PR.
 - **Walk (2026-11-05, second AC; a fork of the orchestrator ran it, no clicks).** A disposable n8n 2.46.6 on 127.0.0.1 (port 5688) ran against the showcase, which was backed up first.
-  - **Setup:** a Free build of the tree, provisioned through `rest_do_request()`. The report read version 9, variant `free`. Then the Pro build (`npm run zip` of cf40c5a); the page showed the Free-variant notice with Update workflow.
+  - **Setup:** a Free build of the tree, provisioned through `rest_do_request()`. The report read version 9, variant `free`. Then the Pro build (`npm run zip` of 43d9657); the page showed the Free-variant notice with Update workflow.
   - **Update** (POST /n8n/workflow as user 1): 3.5 s, `ping_ok` true, `outdated` false, `rewrite_ready` true, "Workflow updated. Ping OK — … the round trip works." in success. The page read "Your workflow answers. Version 9 · checked just now by a test." with no "needs", no Update workflow and no still-switching line. The report: 9 by a test, no variant.
   - **The window met and retried** (n8n's own executions): execution 2 (20:46:56.9) ran the old published version (`21c0c9e7`, 16 nodes, Free), although `activeVersionId` was already the new one (`11ede0f6`). Execution 3 (20:46:59.6, the retry 2 s later) ran the new one (31 nodes, Pro). One cycle was enough, so the two spare cycles were not run.
   - **Stand-in:** provisioning checks the Anthropic key live (`check_provider_key()`, `GET https://api.anthropic.com/v1/models?limit=1`, a 2xx passes). The walk's own script answered 200 for that one URL through `pre_http_request`. Nothing in the walk calls Claude, and the dummy key lived only in n8n's credential, deleted with n8n.
   - **Logs:** `debug.log` held 54 lines, all WP-CLI's own deprecations.
   - **One aside, not filed:** the first load after the Free build printed "Table 'wp_postquality_reviews' already exists" from the story-91 rename. The rename had completed (30 rows), most likely run at the same moment by a web request (an open showcase tab). Only pre-story-91 sites meet that upgrade, and no public site runs one.
   - **Restore:** plugin list, tables/reviews/users/log, plugin files + `wp-config.php` all "same". n8n stopped by its recorded PID and its task runner's, ports 5678/5688/5689 free, the n8n folder, the walk folders and the dist zip deleted.
-- Released 2026-11-06 in **3.12.1** (#248, merged 10:06Z, release commit c0cd093; pre-release). Release run 42200044650 green. Zip `post-quality-manager-3.12.1.zip` sha256 `eff0ab24…4770`: one root folder, `admin/build/` inside, template v9. Uploaded to Freemius as **deployment 171327**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded.
+- Released 2026-11-06 in **3.12.1** (#248, merged 10:06Z, release commit a0262d8; pre-release). Release run 42200044650 green. Zip `post-quality-manager-3.12.1.zip` sha256 `eff0ab24…4770`: one root folder, `admin/build/` inside, template v9. Uploaded to Freemius as **deployment 171327**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded.
 
 ## Plan Change Log
 
 ## Review Triage Log
 
-**Pass 1 (2026-11-05, Quick lens on Opus 5.5; diff since d2a6d5c):** high 0 · medium 0 · low 3 · false 1 · maybe-false 0. The lens found no code bug: it re-ran `php -l`, the 23 harnesses and Jest, checked every matrix row against its harness row, and read the premium block (ADR 0014 pattern), `tone()` in the still-switching case, the 404 → old → new overwrite and the late-callback guard (`pending_ping()` compares ids).
+**Pass 1 (2026-11-05, Quick lens on Opus 5.5; diff since f42d81d):** high 0 · medium 0 · low 3 · false 1 · maybe-false 0. The lens found no code bug: it re-ran `php -l`, the 23 harnesses and Jest, checked every matrix row against its harness row, and read the premium block (ADR 0014 pattern), `tone()` in the still-switching case, the 404 → old → new overwrite and the late-callback guard (`pending_ping()` compares ids).
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---|---|---|---|
@@ -129,7 +129,7 @@ Implementer subagent, 2026-11-05, on `fix/99-version-after-update-workflow` (bas
 | 3 | The records naming where the report is forgotten list a serve or a URL change, not a passed update: the `postquality_workflow_report()` and `postquality_record_workflow_failure()` docblocks (`pqm-functions.php`), `memory/n8n-provisioning.md` L13 (Entry 7), `memory/llm-options-architecture.md` L15 "Forget on serve" | low | patch | Real: `update_n8n_workflow_callback()` now deletes `postquality_workflow_version_seen` (miswired sentence included) once the PUT passes. Direct corrections, four places. |
 | 4 | `n8n-managed-harness.php` bug 84 row label "a 401 first: no retry (only a 404 is the window)" | low | patch | Real: since this diff a passing answer from an older template is retried too (`$window`), as the bug 99 rows below it assert. A label change only. |
 
-Patch round (2026-11-05, the same Opus implementer): rows 2, 3, 4 fixed (the Entry 9 and Entry 7 memory lines, the two `pqm-functions.php` docblocks, `memory/llm-options-architecture.md` "Forget on serve", the bug 84 row label); comments, memory and a label only. Re-run by the orchestrator: `php -l` clean on the four touched PHP files, every `tests/harness/*.php` 0 failed (23 files), `npm run test:unit` 181/181, LF only. Before the patches the orchestrator also re-ran the baseline check: `d2a6d5c`'s `class-pqm-rest-api.php` swapped in, the managed harness 200 passed, 19 failed ("old, then new" and "old outlasts the retries" among them), the fixed file restored byte-identical (`cmp`).
+Patch round (2026-11-05, the same Opus implementer): rows 2, 3, 4 fixed (the Entry 9 and Entry 7 memory lines, the two `pqm-functions.php` docblocks, `memory/llm-options-architecture.md` "Forget on serve", the bug 84 row label); comments, memory and a label only. Re-run by the orchestrator: `php -l` clean on the four touched PHP files, every `tests/harness/*.php` 0 failed (23 files), `npm run test:unit` 181/181, LF only. Before the patches the orchestrator also re-ran the baseline check: `f42d81d`'s `class-pqm-rest-api.php` swapped in, the managed harness 200 passed, 19 failed ("old, then new" and "old outlasts the retries" among them), the fixed file restored byte-identical (`cmp`).
 
 ## Design Notes
 

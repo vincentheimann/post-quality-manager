@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'auto'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '3d5c520883379724b426b591d9e75f209eb49cc5'
+baseline_revision: '7b167c7ea48d92264e3f339bcff16cbe088f12af'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md', '{project-root}/memory/delivery-pipeline.md']
 ---
 

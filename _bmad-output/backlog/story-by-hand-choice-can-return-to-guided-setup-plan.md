@@ -4,7 +4,7 @@ type: 'feature'
 ticket: 106
 created: '2026-11-05'
 status: 'done'
-baseline_revision: '267acaf1e9a861536c2301c83d3815e1f882e2c1'
+baseline_revision: '4429655691086f3b84e8dc2137c32da516d0a29a'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -82,7 +82,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/_bmad-output/initiativ
 
 ## Review Triage Log
 
-**Pass 1 (2026-11-05, Quick lens on Opus 5.5; diff since 267acaf):** high 0 · medium 1 · low 3 · false 1 · maybe-false 0.
+**Pass 1 (2026-11-05, Quick lens on Opus 5.5; diff since 4429655):** high 0 · medium 1 · low 3 · false 1 · maybe-false 0.
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---|---|---|---|

@@ -4,7 +4,7 @@ type: 'chore'
 ticket: '12'
 created: '2026-10-16'
 status: done
-baseline_revision: '5be19b948cd70c64ab55ad130c3facb0e977056e'
+baseline_revision: '9cf6f03061bad88a93f68c6d6afafe3b3dc27bb5'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -24,7 +24,7 @@ context: []
 
 ## Boundaries & Constraints
 
-**Always:** Records only, no plugin code; the walk runs on a zip of main `5be19b9` already installed on the sandbox. The owner types the three values and presses the buttons; the agent reads, never types a secret. The n8n API is read for verification and written only to mis-wire the sandbox's own workflow (6.7) and to clean up this walk's objects at the end; nothing the production site uses is touched (its workflow, credentials and setup map are not this walk's). The owner's domains stay out of every repo file: "the owner's Local sandbox" and "the owner's n8n instance". Every claim in the records names the environment and the date.
+**Always:** Records only, no plugin code; the walk runs on a zip of main `9cf6f03` already installed on the sandbox. The owner types the three values and presses the buttons; the agent reads, never types a secret. The n8n API is read for verification and written only to mis-wire the sandbox's own workflow (6.7) and to clean up this walk's objects at the end; nothing the production site uses is touched (its workflow, credentials and setup map are not this walk's). The owner's domains stay out of every repo file: "the owner's Local sandbox" and "the owner's n8n instance". Every claim in the records names the environment and the date.
 
 **Never:** No Live Link or tunnel to make the callback land; the line that cannot pass on a `.local` host is recorded as not proven, not simulated. No template version bump (6.9 is exercised by setting the stored version to 5 on the sandbox). No edit of the spec, the epic's Done list, or the frozen blocks of other plans. No `tickets.py mark` (the done chore does it).
 
@@ -53,7 +53,7 @@ context: []
 
 ## Code Map
 
-- The owner's Local sandbox (a Local site, not in the repo; its path, host and the WP-CLI invocation live in the session's scratchpad) -- WP 7.1.3, plugin 3.9.0 = main 5be19b9 installed 2026-10-16 15:45, `pqm_settings.n8n_webhook_url`, `pqm_workflow_version_seen`, `pqm_setup_progress` deleted; no `pqm_n8n_api`, `pqm_n8n_setup`, `pqm_n8n_leftovers`. WP-CLI runs with Local's own PHP binary and the site's `php.ini` (the system PHP lacks `mysqli`). Host slug `pqm-execute-<host-slug>`; `pqm_fs()->is__premium_only()` true (three credentials expected).
+- The owner's Local sandbox (a Local site, not in the repo; its path, host and the WP-CLI invocation live in the session's scratchpad) -- WP 7.1.3, plugin 3.9.0 = main 9cf6f03 installed 2026-10-16 15:45, `pqm_settings.n8n_webhook_url`, `pqm_workflow_version_seen`, `pqm_setup_progress` deleted; no `pqm_n8n_api`, `pqm_n8n_setup`, `pqm_n8n_leftovers`. WP-CLI runs with Local's own PHP binary and the site's `php.ini` (the system PHP lacks `mysqli`). Host slug `pqm-execute-<host-slug>`; `pqm_fs()->is__premium_only()` true (three credentials expected).
 - `post-quality-manager/includes/class-pqm-rest-api.php` L148–L210 -- the routes the checks read: `GET /n8n/connection`, `POST /n8n/provision`, `GET|POST /n8n/adoption`, `POST /n8n/token`, `POST /n8n/workflow`; the agent calls them only for reads, with an Application Password created by WP-CLI on the sandbox; every button press is the owner's.
 - `post-quality-manager/includes/class-pqm-n8n.php` -- `provision()`, `fail()`/`roll_back()`, `removed()`/`gone()`, `diagnose()`, `propose_adoption()`/`adopt()`, `rotate_token()`, `update_workflow()`, `credential_names()`: what each walk line exercises; no change.
 - `post-quality-manager/templates/n8n-workflow.json` -- the Webhook Trigger answers `{"ok":true,"workflow_version":6}` itself (`options.responseData`), so the ping passes on the sandbox; `POST Result to WordPress` posts to the payload's `callback_url` (`pqm-functions.php` L443), which is the `.local` address: the first review cannot land.
@@ -84,7 +84,7 @@ context: []
 ## Implementation Notes
 
 - Sessions run from the workspace root (owner rule 2026-10-16): the bmad-build skill was rendered by hand and followed step by step; the walk is the owner's, the records are written by the session model (no implementer subagent for a records-only plan).
-- Sandbox preparation (agent, before the walk): the Local site carried the production site's webhook token in its copied settings; a fresh UUID replaced it so the n8n credential would never hold production's secret. Plugin 3.4.0 → the Pro zip of main 5be19b9 (`npm run zip`, `wp plugin install --force`); the stale webhook URL, version record and setup progress deleted.
+- Sandbox preparation (agent, before the walk): the Local site carried the production site's webhook token in its copied settings; a fresh UUID replaced it so the n8n credential would never hold production's secret. Plugin 3.4.0 → the Pro zip of main 9cf6f03 (`npm run zip`, `wp plugin install --force`); the stale webhook URL, version record and setup progress deleted.
 - The owner's n8n UI stopped opening workflows during the walk (the editor chunk requested with a trailing slash, 404). Checked from the sandbox: every asset answers 200 at its real path, the instance and its API answered throughout; the owner attributed it to their host and the walk never needed the UI. Not a plugin matter.
 - Beyond the Code Map: entry 6.4's plan also gets a pointer line (its Verification said the real-site check was entry 12's), and backlog story 67 is refined with the walk's UX observations at the owner's request (2026-10-16).
 - The first review's silent end: the template's callback node continues on error, so n8n reports the run as success while the result never reached the site, and the wizard waited without end. Noted in story 67 and story 2's domain; no code in this entry.
@@ -113,7 +113,7 @@ Forcing the failure at `activate` by webhook-path collision is the one failure a
 - `for f in tests/harness/*-harness.php; do php "$f" || echo "FAIL $f"; done` -- expected: green, counts unchanged (sanity: no code touched).
 
 **Manual checks (if no CLI):**
-- **HITL walk, 2026-10-16, on the owner's Local sandbox (a copy of their production site on Local, WordPress 7.1.3, Pro build of main `5be19b9`, Application Passwords available) against the owner's own n8n instance (2.42.x, API enabled), named by the owner as a dry run.** The owner typed three values in the browser (the n8n URL, a dedicated API key expiring in 30 days, the Anthropic key) and pressed every button; the agent read the sandbox with WP-CLI and n8n through the plugin's own client (the stored key never left PHP), and wrote to n8n only to mis-wire the sandbox's workflow and to clean up. Results, one line per matrix row:
+- **HITL walk, 2026-10-16, on the owner's Local sandbox (a copy of their production site on Local, WordPress 7.1.3, Pro build of main `9cf6f03`, Application Passwords available) against the owner's own n8n instance (2.42.x, API enabled), named by the owner as a dry run.** The owner typed three values in the browser (the n8n URL, a dedicated API key expiring in 30 days, the Anthropic key) and pressed every button; the agent read the sandbox with WP-CLI and n8n through the plugin's own client (the stored key never left PHP), and wrote to n8n only to mis-wire the sandbox's workflow and to clean up. Results, one line per matrix row:
   - Connect: "Connected to n8n. Checked 10/16/2026, 4:04:36 PM."; `pqm_n8n_api.probe.ok` true, key hint shown. PASS.
   - Provision: three credentials (`Post Quality webhook - <host>`, `Anthropic - Claude`, `WordPress - <host>`) and one active workflow `Post Quality — <host>` on path `pqm-execute-<host-slug>` created at 14:09:08–09 UTC, every node linked by id (trigger → webhook, six Claude nodes → Anthropic, Update WP Post → WordPress); map `{wizard_created: true}`; one Application Password for the logged-in Administrator; webhook URL saved; ping OK, version 6 recorded; the Anthropic key in no option. PASS. (The owner lost the dialog's result message on a misclick; the status block carried the state.)
   - First review: execution 278 ran Webhook Trigger → Parse Input → Route Command → Build Review Body → Claude - Review Agent (13 s) → Parse Review Result → POST Result to WordPress → Has Notification URL?; the callback node got `getaddrinfo ENOTFOUND <sandbox host>` and continued (template `onError: continueRegularOutput`), so n8n reported success, no review row was stored, and the wizard kept waiting. NOT PROVEN on this environment, as planned: the landing needs an internet-reachable fresh site.

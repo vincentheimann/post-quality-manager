@@ -20,7 +20,7 @@ Bug 72 gave provisioning a lock so that two runs started together make one workf
 
 ## Reproduction
 
-Observed 2026-10-20 on the owner's Local sandbox (Pro build of main 57766d6, WordPress 6.x on MySQL, no persistent object cache), against the owner's n8n instance:
+Observed 2026-10-20 on the owner's Local sandbox (Pro build of main 526a8bf, WordPress 6.x on MySQL, no persistent object cache), against the owner's n8n instance:
 
 1. Site connected to n8n with a key, no setup map, no lock option.
 2. Send two `POST /n8n/provision` requests with the same bogus Anthropic key from two processes started in the same millisecond.

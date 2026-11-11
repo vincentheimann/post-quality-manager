@@ -1,14 +1,16 @@
 ---
 name: workspace-layout
-description: Post Quality workspace structure — two git repos: post-quality-manager (the plugin, since the API plugin retirement 2026-07-23) and the postquality.com site clone (2026-10-22, story 85)
+description: Post Quality workspace structure — two git repos: post-quality-manager (the plugin, since the API plugin retirement 2026-07-23; since chore 87, 2026-11-11, a clone of the fresh repository, with the old history's clone kept as post-quality-manager-archive) and the postquality.com site clone (2026-10-22, story 85)
 metadata:
   type: project
 ---
 
-`c:\Git\Post Quality\` holds two git repos (the root itself is not a repo):
+`c:\Git\Post Quality\` holds two git repos (the root itself is not a repo), plus, since chore 87, the old history's clone (below):
 - `post-quality-manager\` — main WP plugin; the canonical n8n workflow is the plugin template `post-quality-manager\templates\n8n-workflow.json` (placeholders `__PQM_*__`, served pre-filled by the settings download); `n8n\` holds only the Mermaid diagram. Entry docs: CLAUDE.md → AGENTS.md (WORKFLOW.md merged into it 2026-10-01). Living memory: `memory\` incl. `memory\lessons.md`. Work tracking: the BMad ticket tree in `_bmad-output\` (the `tasks\` folder was removed 2026-10-01, ADR 0004, see [[bmad-setup]]). Skills in `.claude\skills\`: BMad skills + `/adr`, `/prioritize`, `/release`.
 - `postquality.com\` — clone of the public site repo `vincentheimann/postquality.com` (Jekyll 3.10 on GitHub Pages with the site's own layouts and one stylesheet, no theme: `theme: null`, story 86 build 1, from the merge of its site PR; served at https://postquality.com); policy pages copied from the plugin's `docs/policies/`, local build per its README (gems in its ignored `vendor\`). Cloned at the workspace root by owner decision 2026-10-22 (story 85); its branches and PRs are separate from the plugin's.
   - 2026-10-23, github-pages gem 232: with no `theme` key GitHub Pages falls back to `jekyll-theme-primer` (the gem's `Configuration::DEFAULTS`); `theme: null` in `_config.yml` switches the fallback off.
+
+Since chore 87 (2026-11-11), `post-quality-manager\` is a clone of the fresh repository, which holds the rewritten history, and the old clone is the folder `post-quality-manager-archive\` (owner decision; plan 87 records when the folders were swapped). Its `origin` is `vincentheimann/post-quality-manager-archive`, and it keeps 148 branches of the old history. Never push from it: the explicit push URL in AGENTS.md now names the fresh repository, and an old-history branch pushed there would publish what the rewrite removed (owner decision 2026-11-11).
 
 The former sibling repo `post-quality-api\` (single-file plugin `post_quality_api.php`) was retired 2026-07-23: local folder deleted, GitHub repo `vincentheimann/post-quality-api` archived by the user. The manager registers the same `post-quality/v1/post-score` endpoint and is the canonical source — do not re-create the standalone plugin.
 

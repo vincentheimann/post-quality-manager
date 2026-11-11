@@ -4,7 +4,7 @@ type: 'chore'
 ticket: 118
 created: '2026-11-09'
 status: done
-baseline_revision: '46ac40b4e2e054ee1318c8a800b7dacaf45048b0'
+baseline_revision: '75725b3073ae6ac2b244e2b4188f8ed24a6db961'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -46,7 +46,7 @@ context:
 
 ## Code Map
 
-Lines as of 46ac40b; every one re-verified 2026-11-09.
+Lines as of 75725b3; every one re-verified 2026-11-09.
 - Value: `post-quality-manager/post-quality-manager.php` L10 (padded `Requires PHP:      8.0`), `post-quality-manager/readme.txt` L6.
 - `.github/workflows/ci.yml`: L23–26 header comment ("harnesses may use newer PHP" goes), job `php` L130–162 (comments L133, L143); the sweep loop body stays.
 - `tests/harness/release-header-harness.php` L40, L131–133: format and header = readme only; reuse `header_value()`.
@@ -86,8 +86,8 @@ Lines as of 46ac40b; every one re-verified 2026-11-09.
 - Website: branch `chore/118-php-floor-8-1` created locally from `main` (a3241bb); with no fetch, whether that `main` is current with origin was not re-checked.
 - The 8.3 harness run used the default temp folder (the three harnesses that write temp files remove them at shutdown); the 8.1.29 run used `-d sys_temp_dir=` the scratch folder, empty afterwards.
 - Orchestrator, 2026-11-09 (step 3): the implementer ran on Opus (owner rule 2026-10-26). The 8.3 run's default temp folder breaks the owner's brief (temporary files in the scratchpad); `%TEMP%` was listed afterwards (read only): no `pqm-free-build-*`, `pqm-n8n-runner-*` or `pqm-n8n-compile-*` entry. Diffs staged in the session scratchpad, not the system temp folder, by the same brief. Matrix audit re-run by the orchestrator: 8.3.32 and 8.1.29 sweeps 23 passed, 0 failed, no PHP message (both with `sys_temp_dir` in the scratchpad); touched PHP files lint clean on both; a `readonly class` file fails `-l` on 8.1.29 ("unexpected token \"readonly\"") and passes on 8.3.32; Row 8 passes on the branch, and its rule fails for CI versions (8.0, 8.3, 8.3) and (8.2, 8.3, 8.3). Rows `/lcm` and `/release` are skill text, checked by reading step 4 of `lcm/SKILL.md` and step 7 of `release/SKILL.md`; no executable test exists for them. Row "CI green" is proven by the PR's checks (step 5).
-- 2026-11-09, the orchestrator: draft PR #266 opened on 50e5244; website PR vincentheimann/postquality.com#16 (25c28b1) merged by the owner as f0f4407. `gh pr checks 266` (run 42613217158): Build admin app pass, PHP lint and harness sweep pass (42 s; its log sets up PHP 8.1.34 and 8.3.36, 22 harness summaries with 0 failed on each, 14 clean lints on each, row 8 "ci.yml's php job sets up PHP 8.1, 8.3"), Plugin Check pass, Free build Plugin Check pass. Criterion 2 met on CI; plan marked `done` with `tickets.py mark` (lands on merge), as chore 103 did on #262.
-- Released 2026-11-09 in **3.13.0** (#268, release commit 31e3fd6; pre-release). Release run 42647414122 green. Zip `post-quality-manager-3.13.0.zip` sha256 `ebe9cec5…5964` (the release asset's digest and Freemius's upload): one root folder, 259 files, `admin/build/` with `index.js`, `meta-box.js`, `meta-box.asset.php` and `style-index.css`. Uploaded to Freemius as **deployment 172263**, release mode pending, Pro build root `post-quality-manager-premium`; the Free build check said "PHP identical: 13 files."; the -free and -pro artifacts were uploaded. Header: `Version` 3.13.0, `Requires at least` 6.6, `Requires PHP` 8.1 (8.0 in 3.12.4), workflow template unchanged (version 10). Release check 2026-11-09: steps 1–5 and 8 green; step 7's Freemius upload green, and its PHP read done afterwards on the Deployment page: "Min PHP version" 8.1 for 3.13.0 (8.0 for 3.12.4), read by the owner through Claude in Chrome on 2026-11-09; from the release after 3.13.1 the job prints it; step 6's clean WordPress 6.6 install is story 38's; step 9 not applicable yet.
+- 2026-11-09, the orchestrator: draft PR #266 opened on b3f3207; website PR vincentheimann/postquality.com#16 (25c28b1) merged by the owner as f0f4407. `gh pr checks 266` (run 42613217158): Build admin app pass, PHP lint and harness sweep pass (42 s; its log sets up PHP 8.1.34 and 8.3.36, 22 harness summaries with 0 failed on each, 14 clean lints on each, row 8 "ci.yml's php job sets up PHP 8.1, 8.3"), Plugin Check pass, Free build Plugin Check pass. Criterion 2 met on CI; plan marked `done` with `tickets.py mark` (lands on merge), as chore 103 did on #262.
+- Released 2026-11-09 in **3.13.0** (#268, release commit fb17b9f; pre-release). Release run 42647414122 green. Zip `post-quality-manager-3.13.0.zip` sha256 `ebe9cec5…5964` (the release asset's digest and Freemius's upload): one root folder, 259 files, `admin/build/` with `index.js`, `meta-box.js`, `meta-box.asset.php` and `style-index.css`. Uploaded to Freemius as **deployment 172263**, release mode pending, Pro build root `post-quality-manager-premium`; the Free build check said "PHP identical: 13 files."; the -free and -pro artifacts were uploaded. Header: `Version` 3.13.0, `Requires at least` 6.6, `Requires PHP` 8.1 (8.0 in 3.12.4), workflow template unchanged (version 10). Release check 2026-11-09: steps 1–5 and 8 green; step 7's Freemius upload green, and its PHP read done afterwards on the Deployment page: "Min PHP version" 8.1 for 3.13.0 (8.0 for 3.12.4), read by the owner through Claude in Chrome on 2026-11-09; from the release after 3.13.1 the job prints it; step 6's clean WordPress 6.6 install is story 38's; step 9 not applicable yet.
 
 ## Plan Change Log
 

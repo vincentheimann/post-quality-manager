@@ -4,7 +4,7 @@ type: 'refactor'
 ticket: '11'
 created: '2026-10-16'
 status: done
-baseline_revision: 'd827d5e22f76b7da3b0a2ae5ca5ca947b576a572'
+baseline_revision: '431bfac6d4b347f46abd51533f4a77e1347f5b13'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'

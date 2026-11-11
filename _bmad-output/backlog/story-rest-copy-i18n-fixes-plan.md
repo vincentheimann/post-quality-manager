@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '13e3e792394bc2109cf1c9032d6ac606ab38d62c'
+baseline_revision: '42f5be458a0b7553b2224b6a6836381a973b6777'
 context: ['{project-root}/docs/brand.md']
 ---
 

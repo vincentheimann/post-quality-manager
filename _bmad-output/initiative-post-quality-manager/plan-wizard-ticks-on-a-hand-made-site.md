@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 1
-baseline_revision: '4dcecb47a8a1e93e5b9fa8631603901f45ddf872'
+baseline_revision: '5316452220e26e0185a265a7b0cfe7ec0eaca102'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-n8n-workflow-page/EXPERIENCE.md']
 ---
 
@@ -94,7 +94,7 @@ Skipped: writing "by hand" into `pqm_setup_progress` for such sites — the deri
 
 ## Review Triage Log
 
-Pass 1 (2026-10-15, lens `quick`, diff against main 4dcecb4 after #128 merged; code reverted for the loopback, the diff kept in the session scratchpad): 0 high, 3 medium, 2 low, 0 false, 0 maybe-false. Routed intent_gap (findings 1 and 5), so the lower entries are moot until re-derivation; their fixes are folded into the amended tasks.
+Pass 1 (2026-10-15, lens `quick`, diff against main 5316452 after #128 merged; code reverted for the loopback, the diff kept in the session scratchpad): 0 high, 3 medium, 2 low, 0 false, 0 maybe-false. Routed intent_gap (findings 1 and 5), so the lower entries are moot until re-derivation; their fixes are folded into the amended tasks.
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---------|---------|-------|----------|
@@ -104,7 +104,7 @@ Pass 1 (2026-10-15, lens `quick`, diff against main 4dcecb4 after #128 merged; c
 | 4 | Release notes still say a connected site sees its n8n steps done | low | folded into tasks | `docs/release-notes/unreleased.md`, the setup-guide paragraph. |
 | 5 | Matrix row "key stored, check failed, URL saved" is unreachable: a later failed check keeps the last passing probe, so the key still passes | low | intent_gap | `record_failure()` keeps the passing probe (entry 2 D1); the harness row passes only on a key without a probe, a state `save()` never writes. |
 
-Pass 2 (2026-10-15, lens `quick`, the rebuild of the amended plan against main 4dcecb4): 0 high, 3 medium, 3 low, 0 false, 0 maybe-false. All six patched; harnesses, Jest 76/76, lint and the build were green before the pass.
+Pass 2 (2026-10-15, lens `quick`, the rebuild of the amended plan against main 5316452): 0 high, 3 medium, 3 low, 0 false, 0 maybe-false. All six patched; harnesses, Jest 76/76, lint and the build were green before the pass.
 
 | # | Finding | Verdict | Route | Evidence |
 |---|---------|---------|-------|----------|

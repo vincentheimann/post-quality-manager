@@ -14,13 +14,13 @@ headless: false
 
 | Ref | Title | Status | Range (baseline → next) |
 |---|---|---|---|
-| 1.1 | Feature gate tracer | done | `bea1c98..e28c0bf` |
-| 1.2 | Role capabilities replace binary checks | done | `e28c0bf..a07bb90` |
-| 1.4 | Author quota | done | `a07bb90..cca8766` |
-| 1.5 | Settings sections follow role and plan | done | `cca8766..fb97112` |
-| 1.6 | Cron under the gate | done | `fb97112..d09642d` |
-| 1.3 | License provider behind is_pro() | done | `d09642d..a6e9deb` |
-| 1.7 | Refactor sweep | done | `a6e9deb..c10f683` (cut at the last epic commit, inferred) |
+| 1.1 | Feature gate tracer | done | `e682f15..0f29853` |
+| 1.2 | Role capabilities replace binary checks | done | `0f29853..aeae132` |
+| 1.4 | Author quota | done | `aeae132..9f95956` |
+| 1.5 | Settings sections follow role and plan | done | `9f95956..4ae55dd` |
+| 1.6 | Cron under the gate | done | `4ae55dd..110b808` |
+| 1.3 | License provider behind is_pro() | done | `110b808..b1268ec` |
+| 1.7 | Refactor sweep | done | `b1268ec..f0635b6` (cut at the last epic commit, inferred) |
 | 1.8 | Manual pass of the epic's Done when | done | no baseline — HITL; evidence is the ticked checklist + result in its story file |
 
 **Evidence inventory:** epic file with declared Done when 1–4; spec + access-matrix companion; 7 build plans with baselines, Implementation Notes, Review Triage Logs and Verification results; `git_evidence.py` run per range (commits + per-file churn); 6 CLI harnesses (caps 173, cron-gate 24, license 21, quota 32, render-matrix 38, sanitize-matrix 86); owner's 1.8 walkthrough result (2026-10-02, all green). Epic-wide churn concentrates where the design says it should: `class-pqm-features.php` +255 net (the gate), `class-pqm-admin.php` +181, `class-pqm-rest-api.php` +71; harness code (+1,086 net across six files) exceeds plugin code added.

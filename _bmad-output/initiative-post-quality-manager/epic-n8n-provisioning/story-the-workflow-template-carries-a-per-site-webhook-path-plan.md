@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '3cc45481125e4e7137bdfd9b026f1b50e33a8138'
+baseline_revision: '286358cd32e69bc491f072ca2482e65002b7855f'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/spec-n8n-provisioning.md', '{project-root}/_bmad-output/initiative-post-quality-manager/spec-n8n-provisioning/brownfield.md']
 ---
 

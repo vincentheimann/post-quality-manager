@@ -20,7 +20,7 @@ When a customer's Pro license expires, Settings → License says "Current plan: 
 
 ## Reproduction
 
-Walked 2026-10-28 on the showcase site (Pro build of main 8502d84 plus story 65, Freemius SDK 2.13.5):
+Walked 2026-10-28 on the showcase site (Pro build of main 1eea10e plus story 65, Freemius SDK 2.13.5):
 1. The site opted in and a sandbox Pro license activated on it: the License section reads "Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked."
 2. In the Freemius dashboard, the license's expiration set to the day before (Licenses → the license → Extend → an earlier date; the dashboard then lists it under Expired).
 3. The SDK's daily sync run at once through WP-CLI: `postquality_fs()->_sync_cron_method( array( get_current_blog_id() ) )` (otherwise it runs on its own within a day).

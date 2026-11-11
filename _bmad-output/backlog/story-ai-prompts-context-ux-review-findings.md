@@ -6,7 +6,7 @@ note: 'findings reviewed with the owner 2026-10-07; target design per ADR 0011. 
 
 # Findings — AI Prompts & Context (story 26)
 
-Review of the Settings section **AI Prompts & Context** on `feat/26-ai-prompts-context-review` (base `8bced41`). Input from story 6 criterion 5: walked green 2026-10-07, no findings.
+Review of the Settings section **AI Prompts & Context** on `feat/26-ai-prompts-context-review` (base `d449d9b`). Input from story 6 criterion 5: walked green 2026-10-07, no findings.
 
 ## 1. The controls
 

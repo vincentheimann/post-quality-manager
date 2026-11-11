@@ -3,7 +3,7 @@ title: 'The Post Reviews detail tabs keep a space after the check mark'
 type: 'bugfix'
 ticket: ''
 created: '2026-10-29'
-baseline_revision: '271ea8e329228f9a17257c5775d490e583c59570'
+baseline_revision: '85bd6aeec1502f0f693b2ffd7faca12b37effa79'
 status: 'done'
 route: 'oneshot'
 route_source: 'auto'
@@ -33,7 +33,7 @@ context: []
 ## Review Triage Log
 
 Pass 1 (2026-10-29, lens `quick`, Opus): 0 high, 0 medium, 1 low, 0 false, 0 maybe-false.
-- low, patch: the deferred-work entry this change fixes had no `resolved:` line (the repo resolves an entry in the branch that fixes it, e.g. bug 90's 29a5082). Added it.
+- low, patch: the deferred-work entry this change fixes had no `resolved:` line (the repo resolves an entry in the branch that fixes it, e.g. bug 90's 2eb523d). Added it.
 - Verified on the side: `npm run build` compiles, and the built CSS carries `margin-right:.25em` in `style-index.css` and `margin-left:.25em` in `style-index-rtl.css`; `npm run lint:js` clean; `npm run test:unit` 174 passed. Not walked in the browser: the look stays the owner's pass (`memory/local-verification.md`).
 
 ## Verification

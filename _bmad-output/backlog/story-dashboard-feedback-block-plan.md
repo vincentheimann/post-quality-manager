@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '79'
 created: '2026-10-24'
 status: 'done'
-baseline_revision: '29f8104416c533f6e8a80c228e0026f6f2683904'
+baseline_revision: 'a663e67dff270c438cd8b722928001efca440bb4'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -78,7 +78,7 @@ context: ['{project-root}/docs/brand.md', '{project-root}/docs/policies/support.
 
 ## Implementation Notes
 
-- Plan written 2026-10-24 (Opus 5.5, bmad-build by hand from the workspace root). Checkpoint 1 taken under the owner's advance approval ("approve and continue, make choices based on best practices"). Branch `feat/dashboard-feedback` from main `29f8104` in the main clone. Implementer on Fable 5.1 (owner's 2026-10-16 decision).
+- Plan written 2026-10-24 (Opus 5.5, bmad-build by hand from the workspace root). Checkpoint 1 taken under the owner's advance approval ("approve and continue, make choices based on best practices"). Branch `feat/dashboard-feedback` from main `a663e67` in the main clone. Implementer on Fable 5.1 (owner's 2026-10-16 decision).
 - Tooling (memory/lessons.md 2026-10-24): edit files with the Edit tool, which keeps text literal and the files LF; a script that writes a file uses `read_bytes()` / `write_bytes()` with no backslash escapes in its text. `wp-scripts lint-js --fix` reformats `post-quality-manager/admin/js/pqm-admin.js` and `bin/zip.js` outside its scope: restore them before handing back.
 - Deviation (2026-10-24): the Fable 5.1 implementer stopped on the account's Fable usage limit with every file written and one Jest row failing. The orchestrator (Opus 5.5, the session model since the owner's switch) finished the tail directly instead of re-dispatching, which the workflow allows when the implementer cannot continue. Two fixes: the `dismissed` arg keeps the schema type alone, like the setup route's flags (`rest_sanitize_boolean` failed the harness's three-argument rule from lessons 2026-10-05, and its own row was updated to match); the Send by email row prevents jsdom's navigation to the `mailto:`, which jsdom cannot perform.
 - Files: `class-pqm-rest-api.php` (`FEEDBACK_META`, the `feedback` key in `GET /dashboard`, `feedback_environment()` with the build word set inside the premium block, `POST /dashboard/feedback`), `class-pqm-activator.php` (uninstall line), `src/dashboard/feedback.js` (new; pure `mailText` / `mailtoUrl` / `copyText` and the card), `src/dashboard.js` (the card last, also on the not-connected Dashboard), `src/dashboard/style.css`, `tests/harness/rest-posts-harness.php`, `tests/harness/free-build-harness.php`, `tests/js/dashboard-feedback.test.js` (new, 13 rows), `docs/distribution.md` (day-0 row adds the issues link), `docs/release-notes/unreleased.md`, `memory/admin-ui-rebuild.md`.

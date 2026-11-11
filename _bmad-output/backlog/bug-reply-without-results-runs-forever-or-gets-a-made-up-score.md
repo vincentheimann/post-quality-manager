@@ -21,7 +21,7 @@ When Claude answers a command with an object that holds none of the results the 
 
 ## Reproduction
 
-1. Workflow template version 10, Pro and Free (main 5288cb3, release 3.13.1). Each `Parse … Result` node's code was run in Node.js on 2026-11-10 with n8n's `$input` and `$()` stood in for, on three replies with `stop_reason` `end_turn`: a bare `{}`, `I cannot review an empty post, so I return {}.`, and `{"error": "no content"}`.
+1. Workflow template version 10, Pro and Free (main ea7cd38, release 3.13.1). Each `Parse … Result` node's code was run in Node.js on 2026-11-10 with n8n's `$input` and `$()` stood in for, on three replies with `stop_reason` `end_turn`: a bare `{}`, `I cannot review an empty post, so I return {}.`, and `{"error": "no content"}`.
 2. Actual, the same for all three replies and on both templates where the node exists:
    - Parse Review Result: success, score 0, status `needs_revision`, result `{}` (or the error object).
    - Parse Takeaways Result: throws `TypeError: Cannot read properties of undefined (reading 'forEach')`.

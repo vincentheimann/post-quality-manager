@@ -4,7 +4,7 @@ type: 'chore'
 ticket: '15'
 created: '2026-10-08'
 status: done
-baseline_revision: 'f06a8bb9a5a718168bf21ecd4294f6afdb643da3'
+baseline_revision: '57e48eedad83ce5b75f20ae354c8aa09a082071b'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -88,8 +88,8 @@ Pass 1 (quick lens), 2026-10-08 — high 0, medium 6, low 1, false 1, maybe-fals
 |---|---------|---------|-------|-------------------|
 | 1 | DoD sentence not identical in AGENTS.md and bmad-build.toml | — | rejected | The two sentences differed before this change; the added clause is identical in both. The fix would edit this plan's AC (Code Map said "verbatim" wrongly). |
 | 2 | AGENTS.md hand-edited inside the bmad-project-context managed block | medium | defer | AGENTS.md:4 header + memory/bmad-setup.md "never hand-edits inside the markers"; a refresh may drop the clause. Agent-context file → deferred-work.md. |
-| 3 | Notes intro false per version ("View as" only in 3.0.0–3.1.1; 3.2.0 ships all five) | medium | patch | `git tag --contains fda18a0` / `c7e510b`; PQM_WORKFLOW_VERSION 5 from v3.0.1. |
-| 4 | "View reviews" entry describes the current workflow wrongly | medium | patch | Template stopped calling `/post-score` in 6e0265c (2026-07-22); only older imports and other REST callers need it. |
+| 3 | Notes intro false per version ("View as" only in 3.0.0–3.1.1; 3.2.0 ships all five) | medium | patch | `git tag --contains 08188ca` / `357c931`; PQM_WORKFLOW_VERSION 5 from v3.0.1. |
+| 4 | "View reviews" entry describes the current workflow wrongly | medium | patch | Template stopped calling `/post-score` in 14d68ae (2026-07-22); only older imports and other REST callers need it. |
 | 5 | Re-import entry blames the new import's credential for the unauthenticated trigger | medium | patch | README § Installation: the pre-v4 trigger stays unauthenticated until re-imported. |
 | 6 | "Workflow update available" only shows after a reported version | medium | patch | `render_workflow_status()` shows "not checked yet" while no report exists. |
 | 7 | Role-rights entry omits the documented role-editor ceiling | low | patch | class-pqm-features.php:45-46; direct one-clause correction. |

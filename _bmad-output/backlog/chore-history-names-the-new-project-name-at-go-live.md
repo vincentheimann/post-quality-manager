@@ -30,7 +30,7 @@ Owner decision (2026-10-24, at story 66's PR #189): the git history is rewritten
    - the old name in every spelling (with or without separators, the name part of its domain, the short form in names and paths) reads "Post Quality", or the matching short form;
    - host names and URLs read the placeholders the tree has used since story 66 (`<owner-n8n>`, `<owner-chat>`, and `<owner-site>` for the blog's own address), and each URL keeps its path.
 3. **The images change too**
-   **Given** the portfolio image and PDFs committed in `bfe298b` and `419543b`
+   **Given** the portfolio image and PDFs committed in `7d91589` and `02deadd`
    **When** the rewrite runs
    **Then** their blobs are replaced by the ones story 66 committed (`assets/portfolio/dashboard.png`, `Portfolio - Post Quality.pdf`), so no commit shows the old site
 4. **Nothing old stays reachable once public**

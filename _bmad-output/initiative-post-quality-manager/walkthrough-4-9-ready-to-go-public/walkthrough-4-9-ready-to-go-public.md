@@ -1,6 +1,6 @@
 # Walkthrough: entry 4.9 — The repository is ready to go public
 
-Target: commit `3c4ca39` on `main` (PR #83, merged 2026-10-08). Plan: [story-the-repository-is-ready-to-go-public-plan.md](../epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md).
+Target: commit `b2e218d` on `main` (PR #83, merged 2026-10-08). Plan: [story-the-repository-is-ready-to-go-public-plan.md](../epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md).
 Review complete 2026-10-08: all six blocks accepted. Blocks 2 and 4 were trimmed during review (scope rule: the removed archive is named by folder and count only).
 
 ## Block 1 — Intent  ☑ done (accepted as pasted, no change)
@@ -11,7 +11,7 @@ Pasted verbatim from the plan's frozen `## Intent` section.
 
 **Approach:** Add the verbatim GPL-2.0 text as `LICENSE` at the repository root; delete `_archives/turbo-drill/` and every note that tells agents to ignore it; record the history scan (gitleaks 8.30.1, all refs, run from a scratchpad download, nothing installed) and settle each finding with the owner. The owner switches visibility only in 4.8.
 
-**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`1b3ba98`, `e06713d`, `6e0265c`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`https://<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
+**Scan result (planning, 2026-10-08):** 2 findings, both in n8n exports of the first three commits (`a060153`, `93e9b2a`, `14d68ae`; files gone from `main` since 2026-07-22): a kChat slash-command verification token (UUID) and, beside it, a kChat incoming-webhook URL (`https://<owner-chat>/hooks/019caee5-…`), the owner's own site URLs, kChat team/user ids and request IPs. No API key, no WordPress application password, no GitHub or Anthropic token anywhere in history.
 
 **Decisions (owner, 2026-10-08):** both findings are rotated and accepted, history is not rewritten. The owner deletes or regenerates the old kChat slash command and incoming webhook (or confirms they are gone); the personal data in the same exports (own public blog URLs, kChat ids, username, request IPs) is accepted as is.
 
@@ -22,7 +22,7 @@ A chore commit: 19 files, 444 lines added, 7946 removed, no plugin code. Open th
 1. [LICENSE](../../../LICENSE) — the verbatim GPL-2.0 text, new at the root; the file GitHub's license detection reads.
 2. [README.md:104](../../../README.md#L104) — the License section now points at that file.
 3. [memory/delivery-pipeline.md:39](../../../memory/delivery-pipeline.md#L39) — the one paragraph that records the history scan, its three findings and the owner's rotation.
-4. `_archives/` — the unrelated project's folder, 12 files, deleted (`git show --stat 3c4ca39`); nothing replaces it.
+4. `_archives/` — the unrelated project's folder, 12 files, deleted (`git show --stat b2e218d`); nothing replaces it.
 5. [Review Triage Log](../epic-delivery-pipeline/story-the-repository-is-ready-to-go-public-plan.md#L74) — how the review changed the scan record before the commit.
 
 ## Block 3 — License detection  ☑ done

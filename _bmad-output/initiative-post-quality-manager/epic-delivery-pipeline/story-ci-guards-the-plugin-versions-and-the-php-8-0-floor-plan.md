@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'auto'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: 'd1cb93f8e25959932ac0f8cdce554237c665ccb5'
+baseline_revision: 'e6b3ffab8cdc62ed73374eee7468fd4210d14f1c'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md', '{project-root}/memory/delivery-pipeline.md']
 ---
 
@@ -18,7 +18,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-deli
 
 ## Intent
 
-**Problem:** Nothing checks that the plugin header `Version`, `PQM_VERSION` and `package.json` agree (commit 495f61a once fixed a mismatch by hand), and CI lints only on PHP 8.3 while the header promises 8.0.
+**Problem:** Nothing checks that the plugin header `Version`, `PQM_VERSION` and `package.json` agree (commit a05b3b5 once fixed a mismatch by hand), and CI lints only on PHP 8.3 while the header promises 8.0.
 
 **Approach:** Extend the release-header harness with a version-agreement row, run that harness in the release workflow before anything is uploaded or published, and lint every plugin PHP file on 8.0 as well as 8.3.
 

@@ -1,4 +1,4 @@
-# WordPress.org directory practices: audit of post-quality-manager (main a4ab38d, 2026-10-24)
+# WordPress.org directory practices: audit of post-quality-manager (main 4a8fc00, 2026-10-24)
 
 Read-only audit, run by an agent for the owner's 2026-10-24 decision that the public repository follows the directory's practices (chore 87 Notes). The Free tree was rebuilt with `bin/build-free.php` outside the repository. The owner's answers to section 2 are in section 4; the gaps went to story 38 (criteria), chore 87 (AC7), story 88 (prefix) and chore 89 (SDK).
 

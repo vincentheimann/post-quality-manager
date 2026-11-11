@@ -55,6 +55,6 @@ Story 88 moves the names in code to `postquality` / `PostQuality` / `POSTQUALITY
 ## Notes
 
 - Decision (owner, 2026-10-26): split from story 88 so each build has its own plan; both merge before entry 4.8.
-- Scale on 2026-10-24 (main a4ab38d): 11 options, 5 user meta keys, 6 capabilities, 1 cron hook, 1 table.
+- Scale on 2026-10-24 (main 4a8fc00): 11 options, 5 user meta keys, 6 capabilities, 1 cron hook, 1 table.
 - Assumption: no real users exist, so the upgrade needs to carry only sites on the latest release (3.9.0 or the 3.10.0 that carries story 88); the owner's sites are the ones it meets first.
 - Done (owner, 2026-10-26): merged in PR #196. The hitl upgrade walk ran on the owner's showcase site (Local, Free build, WP 7.1.3), started by the owner and run by the agent at the owner's request: walks A–F and the before/after page comparison passed (plan, Implementation Notes). The owner accepted it as this story's walk; the production site upgrades through the 3.10.0 release like any site.

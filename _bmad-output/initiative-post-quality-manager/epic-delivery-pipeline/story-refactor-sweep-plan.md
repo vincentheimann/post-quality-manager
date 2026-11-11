@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '7a2cc157d57ff398480b958fdf4ddea57401b7ca'
+baseline_revision: 'ca8e1a86b265557e50987d56f04799d060664f44'
 context: ['{project-root}/memory/delivery-pipeline.md']
 ---
 

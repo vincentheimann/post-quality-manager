@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '4'
 created: '2026-10-01'
 status: done
-baseline_revision: 'a07bb90ced173e850484b83ac4da082691eebae8'
+baseline_revision: 'aeae1320a519e862181a94a16d86e3f2451f47f4'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -74,7 +74,7 @@ context: ['{project-root}/docs/brand.md']
 
 ## Implementation Notes
 
-Built 2026-10-01 against baseline `a07bb90`.
+Built 2026-10-01 against baseline `aeae132`.
 
 - `PQM_Features` grew a "Author quota (spec CAP-4)" section after `can()`: `USAGE_META_KEY` const (`pqm_monthly_usage`), `is_quota_subject()` (= `! current_user_can('pqm_run_paid_agents')`), `quota_state(): ?array` (`['limit','used','remaining','resets']`; null when exempt or `author_quota < 1`), `consume_quota()` (no-op when `quota_state()` is null, else writes `['month' => wp_date('Y-m'), 'count' => used + 1]`), plus private `usage_this_month()` (stale month reads as 0 — the self-reset), `current_month()` (`wp_date('Y-m')`, site timezone) and `quota_reset_date()` (first day of next month via `DateTimeImmutable` + `wp_timezone()`, formatted with the site `date_format`).
 - `trigger_review_callback()`: quota refusal sits between the feature-gate block and `get_post()` — role/plan refusals keep priority, refusal fires before any webhook. `consume_quota()` + a fresh `quota_state()` run only inside the `2xx` branch, so an unreachable n8n (`pqm_n8n_error` path returns earlier) *and* a non-2xx n8n answer leave the count untouched. Response gained `quota_remaining` (null for exempt/unlimited; pre-trigger value when n8n answered non-2xx).

@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: '59'
 created: '2026-10-24'
 status: 'done'
-baseline_revision: '29f8104416c533f6e8a80c228e0026f6f2683904'
+baseline_revision: 'a663e67dff270c438cd8b722928001efca440bb4'
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
@@ -26,7 +26,7 @@ context: []
 
 ## Implementation Notes
 
-- Oneshot: three code files (main plugin file, `admin/class-pqm-admin.php`, `tests/harness/render-matrix-harness.php`), under 30 lines, no DB, REST, payload or template change. Built in a worktree from main `29f8104` (story 41 occupies the main clone); the git-ignored `admin/build/` copied in from the main clone so the render-matrix harness runs (without it five n8n page rows fail on a clean main: an environment artifact, not code).
+- Oneshot: three code files (main plugin file, `admin/class-pqm-admin.php`, `tests/harness/render-matrix-harness.php`), under 30 lines, no DB, REST, payload or template change. Built in a worktree from main `a663e67` (story 41 occupies the main clone); the git-ignored `admin/build/` copied in from the main clone so the render-matrix harness runs (without it five n8n page rows fail on a clean main: an environment artifact, not code).
 - Correction to the Intent's Problem sentence (review, same day; the frozen block is left as approved): `menu.pricing` false does not leave the page unregistered. Once the SDK adds its submenu items it registers `pqm-dashboard-pricing` as a hidden page, so outside activation mode the Upgrade links opened Freemius's in-admin pricing page, which shows no plans until story 44 releases them; WordPress's "not allowed" screen appears only in activation mode (Pro waiting for its key, Free before the opt-in choice) or for a user without `manage_options`. The Approach is unchanged: one public pricing page for every Upgrade link (option (a)). SDK facts recorded in `memory/freemium-and-roles.md`.
 - The filter answers the SDK's `null` probe with `null` (review finding 1): a filter that always returned the public URL made `add_submenu_items()` swap the hidden pricing page for a link item, which drops the in-admin checkout `checkout_url()` builds for renewals; a lapsed customer's "Renew" would then have landed on the public page and bought a new license instead of renewing.
 - AC2 (a licensed site's Account page shows no dead link), from the source: the Account page stays registered (`menu.account` true); its Upgrade links now open the public page; its renewal and checkout links keep targeting the hidden pricing page, still registered thanks to the `null` answer. Not walked; story 44's owner pass covers a licensed site.

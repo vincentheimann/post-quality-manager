@@ -4,7 +4,7 @@ type: 'chore'
 ticket: ''
 created: '2026-10-23'
 status: 'done'
-baseline_revision: '68ebb918ef8eccff6f8c069ba51fc5895e9b83a0'
+baseline_revision: 'd823a18cccaaa5975640f6c394741e8ccc0a358d'
 route: 'oneshot'
 route_source: 'pinned'
 review: 'quick'
@@ -28,7 +28,7 @@ context: ['{project-root}/docs/brand.md']
 
 ## Implementation Notes
 
-- Route: oneshot, pinned by the session. The house threshold is at most 3 files; this touches 7, of which 3 are code or test (`admin/class-pqm-admin.php`, `includes/class-pqm-rest-api.php`, `tests/harness/quota-harness.php`) and 4 are records (README, release notes, brand.md, memory). About 15 changed lines, no schema, REST route shape or n8n template change (one error message string changes). The owner approved the change directly. Built in a scratch worktree on `fix/admin-post-quality-name` from main `68ebb91`. Implemented by the session (Opus 5.5).
+- Route: oneshot, pinned by the session. The house threshold is at most 3 files; this touches 7, of which 3 are code or test (`admin/class-pqm-admin.php`, `includes/class-pqm-rest-api.php`, `tests/harness/quota-harness.php`) and 4 are records (README, release notes, brand.md, memory). About 15 changed lines, no schema, REST route shape or n8n template change (one error message string changes). The owner approved the change directly. Built in a scratch worktree on `fix/admin-post-quality-name` from main `d823a18`. Implemented by the session (Opus 5.5).
 
 - Verified: `php -l` clean on the three touched PHP files; all 19 CLI harnesses pass (quota 71/0 with the new message). Four of them first failed in the scratch worktree because the git-ignored `post-quality-manager/admin/build/` was absent there; with the main tree's build copied in (built after the last `src/` commit, no JS touched by this change) they pass as on main (free-build 83, n8n-adoption 88, n8n-managed 169, render-matrix 416). Jest not run: no JS changed.
 

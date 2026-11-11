@@ -15,7 +15,7 @@ risk: low
 
 ## Description
 
-Four commits shipped on 2026-07-24 (`70ca1ee`, `d8b960b`, `05ecf82`, `ea41e78`) with `php -l` / `node --check` clean but no manual pass; `docs/user-paths.md` marks their claims *pending validation*. A person runs the plugin on a WordPress install and either confirms each claim or files a bug. Migrated from the 2026-07-24 `USER:` items in the retired `tasks/todo.md`; the older 2026-07-22/23 items are story 6 (`story-manual-pass-agnostic-and-llm-pivots.md`). Refined 2026-10-06: the React Dashboard and Post Reviews (epic-ui-rebuild) replaced the July pages, so criteria 1, 4 and 6 now check the React pages, and anything the 5.9 checklist already covers is pointed there, not repeated. Run in one sitting with story 6 and the 5.9 checklist.
+Four commits shipped on 2026-07-24 (`24cc356`, `e15e15e`, `f78edee`, `12e7de0`) with `php -l` / `node --check` clean but no manual pass; `docs/user-paths.md` marks their claims *pending validation*. A person runs the plugin on a WordPress install and either confirms each claim or files a bug. Migrated from the 2026-07-24 `USER:` items in the retired `tasks/todo.md`; the older 2026-07-22/23 items are story 6 (`story-manual-pass-agnostic-and-llm-pivots.md`). Refined 2026-10-06: the React Dashboard and Post Reviews (epic-ui-rebuild) replaced the July pages, so criteria 1, 4 and 6 now check the React pages, and anything the 5.9 checklist already covers is pointed there, not repeated. Run in one sitting with story 6 and the 5.9 checklist.
 
 ## Acceptance Criteria
 

@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: 'b03a3aa1e91da4bf628dd32a6a56fab15c5701c9'
+baseline_revision: '4eb645c4d7f0632dfe47d17a7d79265f7073341a'
 context: ['{project-root}/docs/brand.md', '{project-root}/memory/freemium-and-roles.md']
 ---
 

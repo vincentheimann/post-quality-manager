@@ -4,7 +4,7 @@ type: 'feature'
 ticket: 26
 created: '2026-10-07'
 status: done
-baseline_revision: '8bced4168d137dcb687d53ccf62aa3076d791667'
+baseline_revision: 'd449d9bcc11be3efbb05f189dc080fad039a9f1f'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -99,7 +99,7 @@ context:
 | 1 | `pqm-admin.js` `bindFillWithUndo()`: a second pick, Custom after a fill, or arrowing through the radios replaces the snapshot, so typed text is unrecoverable | high | patch | Each `change` runs `clearNotice()` and takes `before = area.value`; arrow keys fire `change` per radio passed. Breaks AC1 on the keyboard path. Fix: keep the first snapshot while a notice is open. |
 | 2 | `pqm-admin.js`: notice inserted already filled with `role="status"`, often not announced | medium | patch | Live regions announce changes inside an existing region; this one is created with its text. Fix: `wp.a11y.speak()` (core `wp-a11y` dependency), drop the role. |
 | 3 | `pqm_resolved_voice()` + textarea: after an untouched Save the stored text is in the saving admin's locale; before, a preset was translated at trigger time (cron = site locale) | low | rejected | Real, and the intended effect of D2/F3 (one source). Reachable only with translations installed: the plugin ships no `languages/` and is not on WordPress.org, so no language packs reach any site today. Fix would add a normalization branch. Surfaced to the owner. |
-| 4 | Matrix row 4 / harness label: sites that typed a voice, then picked a preset before 0dd22af (2026-07-23, textarea hidden) and never saved since also diverge | low | rejected | Real, but no real users exist (owner, 2026-10-07) and the owner's site has saved Settings since; fix edits this plan's wording. Surfaced to the owner. |
+| 4 | Matrix row 4 / harness label: sites that typed a voice, then picked a preset before 1fc13d0 (2026-07-23, textarea hidden) and never saved since also diverge | low | rejected | Real, but no real users exist (owner, 2026-10-07) and the owner's site has saved Settings since; fix edits this plan's wording. Surfaced to the owner. |
 | 5 | Empty Editorial Standards under a non-Custom preset (JS off or direct POST) resolves to the preset instruction, not the described default | low | rejected | Real by D2's resolution rule; with JS on, clearing the text flips the radios to Custom, so everyday use never meets it; fix adds a sanitizer branch. |
 
 Patches 1–2 applied by the implementer (snapshot kept while the notice is open; `wp.a11y.speak()` with core `wp-a11y` as a `pqm-admin` dependency, role dropped). Re-verified: `php -l`, `node --check`, 13 harnesses, build and lint all green. *(Pass 1 reviewed the fill-and-undo build, superseded the same day by the owner's renegotiation of D2–D5.)*

@@ -4,7 +4,7 @@ type: 'bugfix'
 ticket: '97'
 created: '2026-10-29'
 status: done
-baseline_revision: '2b2b8b3bd61e58b165a14d729d3dcaa05b702ddd'
+baseline_revision: '9861178db67d8c609d5f287a5234e06959a44692'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -81,7 +81,7 @@ context: ['{project-root}/docs/brand.md']
 - Deviation, Code Map: L158 of the failure harness holds two 7s; the post id stays 7, its `workflow_version === 7` became 8 (the row fails otherwise). `template-guard-harness.php` had no literal 7 to change.
 - Deviation, small: in `memory/llm-options-architecture.md` the Template variant paragraph's "30 → 15 nodes" became "31 → 16 nodes since v8" (same file, now stale otherwise). `PORTFOLIO.md` (L24, L225) said "30 nodes": fixed to 31 in the review-fix round below.
 - Review-fix round (2026-10-29, the orchestrator's list): the bug 97 release-note paragraph rewritten (the address is lost after the save; the outdated notice quoted as "Your workflow is version 7; this plugin needs 8." with Update workflow / Re-import the workflow); Format Rewrite Confirmation's error return now sets `chat_message: '❌ ' + d.message` (Pro only; the Free derivation is unchanged) with one Pro-only Notification row for a rewrite error; `deferred-work.md`'s Notification URL entry gained `ticket:` and `resolved:` lines; `docs/user-paths.md` A6's UV line gained a dated note; `PORTFOLIO.md` 30 → 31 nodes. template-failure 91 passed, template-guard 63, rest-reviews 79, 0 failed.
-- AC5 red proof, run on scratch copies of the failure harness (repo files untouched): (a) the fixed templates with version 7's three notification expressions restored → 72 passed, 18 failed, exactly the 9 Notification expression rows on each template; (b) the baseline 2b2b8b3 templates → 55 passed, 35 failed (the new structural and expression rows, plus the version-8 stamp rows). With the fix: 90 passed, 0 failed.
+- AC5 red proof, run on scratch copies of the failure harness (repo files untouched): (a) the fixed templates with version 7's three notification expressions restored → 72 passed, 18 failed, exactly the 9 Notification expression rows on each template; (b) the baseline 9861178 templates → 55 passed, 35 failed (the new structural and expression rows, plus the version-8 stamp rows). With the fix: 90 passed, 0 failed.
 - Verification: `php -l` clean on the main plugin file and the three harnesses; all 21 `tests/harness/*-harness.php` 0 failed (template-failure 90, template-guard 63, rest-reviews 79); `python -I tests/harness/local-wp-harness.py` 36 passed, 0 failed; `npm run test:unit` 10 suites, 174 tests passed; `git diff --stat` 9 files, all in the Code Map; no CR in any touched file. The run in n8n (Manual checks) is the orchestrator's and was not done here.
 
 - 2026-10-29, orchestrator (Opus 5.5, session rule: every agent on Opus).

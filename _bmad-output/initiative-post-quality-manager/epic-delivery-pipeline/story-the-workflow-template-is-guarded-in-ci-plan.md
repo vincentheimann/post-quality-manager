@@ -10,7 +10,7 @@ review: 'quick'
 review_source: 'auto'
 lenses_ran: ['quick']
 review_loop_iteration: 0
-baseline_revision: '3c10d204c247ac7ed01b92f33aef7fef6dc9cc75'
+baseline_revision: '8e33fff6af134ac9069ec1df9b896bf3e54a88a5'
 context: ['{project-root}/_bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/spec-delivery-pipeline.md', '{project-root}/_bmad-output/initiative-post-quality-manager/spec-delivery-pipeline/brownfield.md', '{project-root}/memory/delivery-pipeline.md']
 ---
 

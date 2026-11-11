@@ -11,7 +11,7 @@ review_source: 'pinned'
 lenses_ran: ['quick']
 review_loop_iteration: 0
 context: []
-baseline_revision: 'aff36163af77ad20be94c1f9b6c84e13605d5716'
+baseline_revision: '94a1aaf38ca3538118d7cd03c508d49ad2078a50'
 ---
 
 <frozen-after-approval reason="human-owned intent — do not modify unless human renegotiates">
@@ -32,7 +32,7 @@ Oneshot: two source files and one test file (`src/setup/steps.js` L350–396, `s
 - DOM order is field, button, help, Pro sentence, the same as what a sighted user sees on a phone, where the row wraps (focus reaches the help's link after the button, as it is drawn); no CSS `order`.
 - The help paragraph gets core's help look from the plugin's own class `pqm-setup-help` (12px, gray 700 `#757575`, as BaseControl's styled help in WordPress 7.1.4; the class `components-base-control__help` carries no CSS of its own, review pass 1); the row gap gives core's 8px above it. The Pro sentence keeps `pqm-muted`.
 - Skipped: a CSS-only fix (aligning the button to the input needs the label's height in pixels) — add when a second form with a help line joins `.pqm-setup-connect`.
-- 2026-11-06, built by the orchestrator (Opus 5.5; oneshot, no implementer subagent), commit 263c7c5. Files: `src/setup/steps.js` (the help line from `TextControl`'s `help` to a `<p id="pqm-setup-key-help" class="components-base-control__help">` after the button, named by the input's `aria-describedby`; the Pro sentence after it; the button moved up), `src/setup/style.css` (`.pqm-setup-connect > p { flex-basis: 100%; margin: 0; }`; after review pass 1 also `.pqm-setup-help`), `tests/js/setup-provision.test.js` (the mock forwards `aria-describedby`; a new test checks the link and the form's order INPUT, BUTTON, P, P). The new test fails on aff3616's `steps.js` and passes on the fix. Jest 182 passed, `npm run lint:js` clean, `npm run build` compiled, harnesses 23 files 0 failed.
+- 2026-11-06, built by the orchestrator (Opus 5.5; oneshot, no implementer subagent), commit ad25a84. Files: `src/setup/steps.js` (the help line from `TextControl`'s `help` to a `<p id="pqm-setup-key-help" class="components-base-control__help">` after the button, named by the input's `aria-describedby`; the Pro sentence after it; the button moved up), `src/setup/style.css` (`.pqm-setup-connect > p { flex-basis: 100%; margin: 0; }`; after review pass 1 also `.pqm-setup-help`), `tests/js/setup-provision.test.js` (the mock forwards `aria-describedby`; a new test checks the link and the form's order INPUT, BUTTON, P, P). The new test fails on 94a1aaf's `steps.js` and passes on the fix. Jest 182 passed, `npm run lint:js` clean, `npm run build` compiled, harnesses 23 files 0 failed.
 - Showcase check (2026-11-06, Playwright driving Edge, a WP-CLI session for user 1). Backup first (3.9.0 Free, 13 tables, 30 rows, 1 user). Step 2 staged with a stored n8n connection (placeholder key, a passing probe record, never called), so the dialog opened on Set up the workflow. Measured in CSS px, top-bottom:
 
   | Build, window | Input | Button | Help line | Pro sentence |
@@ -44,7 +44,7 @@ Oneshot: two source files and one test file (`src/setup/steps.js` L350–396, `s
 
   The button is 36 px tall and the input 40 px, so bottoms level means tops 4 px apart (the components' default heights). `aria-describedby` named the help line in every run, and there were no console errors. `debug.log` held only WP-CLI's own lines. Restore: 3× "same".
 - Not measured, and why: step 1's form (Connect by URL, L105) and the first review's row (`.pqm-setup-run`) hold no `<p>` child, and the new rule matches only `.pqm-setup-connect > p`; their markup is unchanged. Before the fix, the owner's 2026-11-04 screenshot is the evidence: about 30 px lower, the button's bottom on the help line's.
-- Released 2026-11-06 in **3.12.4** (#260, release commit d3dbbc7; pre-release). Release run 42241927319 green. Zip `post-quality-manager-3.12.4.zip` sha256 `f5fd0fce…a462`: one root folder, `admin/build/` inside, its `style-index.css` with `.pqm-setup-connect>p` and `.pqm-setup-help`. Uploaded to Freemius as **deployment 171447**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Release check 2026-11-09: the zip's 218 files equal the plugin folder on main, which chore 103's showcase walk installed that day on WordPress 7.1.4; the clean WordPress 6.6 install waits for story 38's pre-production site.
+- Released 2026-11-06 in **3.12.4** (#260, release commit 16a83a2; pre-release). Release run 42241927319 green. Zip `post-quality-manager-3.12.4.zip` sha256 `f5fd0fce…a462`: one root folder, `admin/build/` inside, its `style-index.css` with `.pqm-setup-connect>p` and `.pqm-setup-help`. Uploaded to Freemius as **deployment 171447**, release mode pending; the Free build check said "PHP identical: 11 files."; the -free and -pro artifacts were uploaded. Release check 2026-11-09: the zip's 218 files equal the plugin folder on main, which chore 103's showcase walk installed that day on WordPress 7.1.4; the clean WordPress 6.6 install waits for story 38's pre-production site.
 
 ## Plan Change Log
 

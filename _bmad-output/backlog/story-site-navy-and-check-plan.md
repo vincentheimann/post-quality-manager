@@ -4,7 +4,7 @@ type: 'feature'
 build_of: '86'
 created: '2026-10-23'
 status: 'done'
-baseline_revision: 'b41ba057809a81013fa285f8a5c2dd39175d1a76'
+baseline_revision: '358c12648226a6481aaaa4fc0c181236698f32a1'
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
@@ -46,7 +46,7 @@ context: ['{project-root}/_bmad-output/initiative-post-quality-manager/ux-postqu
 
 ## Code Map
 
-Site repository `C:/Git/Post Quality/postquality.com` (`main` = `2e1d851`), plugin repository `C:/Git/Post Quality/post-quality-manager` (`main` = `b41ba05`). Local build recipe: story 85's plan, Implementation Notes (`C:/Ruby32-x64`, `env -u MSYSTEM -u MSYS`, `JEKYLL_ENV=production PAGES_REPO_NWO=vincentheimann/postquality.com bundle exec jekyll build --baseurl ""`; gems already in `vendor/`).
+Site repository `C:/Git/Post Quality/postquality.com` (`main` = `2e1d851`), plugin repository `C:/Git/Post Quality/post-quality-manager` (`main` = `358c126`). Local build recipe: story 85's plan, Implementation Notes (`C:/Ruby32-x64`, `env -u MSYSTEM -u MSYS`, `JEKYLL_ENV=production PAGES_REPO_NWO=vincentheimann/postquality.com bundle exec jekyll build --baseurl ""`; gems already in `vendor/`).
 
 Where to write: the site work happens in `C:/Git/Post Quality/postquality.com` on branch `feat/site-navy-and-check`. The plugin-side edits of this build (`docs/policies/terms.md`, `docs/policies/privacy.md`, `docs/brand.md`) happen in the worktree `C:/Users/vhe/AppData/Local/Temp/claude/c--Git-Post-Quality/791539b7-e82f-436f-8344-969669871d84/scratchpad/pqm-feat` (branch `feat/site-navy-and-check` from plugin `main`), never in the main plugin tree, which stays on `chore/ux-postquality-website` where this plan lives; Implementation Notes go into this plan file at its usual path. Copy the policies to the site from the worktree's `docs/policies/`. Scratch files and screenshots go under that scratchpad. Nothing is committed or pushed by the implementer.
 
@@ -94,7 +94,7 @@ Headless Edge (machine rule, shared with other sessions): start each run with it
 
 ## Implementation Notes
 
-- Baselines: plugin repository `b41ba057809a81013fa285f8a5c2dd39175d1a76` (main; the plugin-side edits sit in the scratchpad worktree on `feat/site-navy-and-check`, the plan on `chore/ux-postquality-website`, draft PR #176); site repository `2e1d85165f6bb488f54012bc92e214b817238063` on `feat/site-navy-and-check`. Approved by the owner 2026-10-23 ("Approve and continue"); session and implementer on Opus 5.5 (owner's word). Rendered by hand from the workspace root (owner rule 2026-10-16).
+- Baselines: plugin repository `358c12648226a6481aaaa4fc0c181236698f32a1` (main; the plugin-side edits sit in the scratchpad worktree on `feat/site-navy-and-check`, the plan on `chore/ux-postquality-website`, draft PR #176); site repository `2e1d85165f6bb488f54012bc92e214b817238063` on `feat/site-navy-and-check`. Approved by the owner 2026-10-23 ("Approve and continue"); session and implementer on Opus 5.5 (owner's word). Rendered by hand from the workspace root (owner rule 2026-10-16).
 - Implemented 2026-10-23 (implementer, Opus 5.5). Nothing staged, committed or pushed; `assets/main.scss` and `index.md` are working-tree deletions.
 - Plugin worktree (`pqm-feat`, `feat/site-navy-and-check`):
   - `docs/policies/terms.md`, dated 2026-10-23:
@@ -207,7 +207,7 @@ Headless Edge (machine rule, shared with other sessions): start each run with it
 
 - Review patches applied 2026-10-23 (implementer re-engaged, Opus 5.5; triage pass 1 rows 1–9): type sizes as `--fs-*` custom properties (desktop and `-mobile` twins, phone roles reassigned in the 760 px query; 42 before/after full-page pairs pixel-identical), `.shot-url` in rem; the stacked review figure capped at 480 px below 1000 px, the hero and setup phone crops at 480 px below 760 px (overlap kept); the signature tooltip hidden by `visibility` with an 8 px transparent bridge (WCAG 1.4.13) and the link named "Created by heimvin, heimvin.me"; the mailto body with `%0D%0A`, the placement phrase url-encoded; `/404.html` matched explicitly in the header, `else` = "the " + page title; the README's full local-check command; plugin worktree: `memory/workspace-layout.md` and `docs/distribution.md` no longer name minima, `docs/brand.md` § Icon points to § Lockup, dated lines for the github-pages 232 Primer fallback (`workspace-layout.md`) and Freemius's free localhost/staging activations, SDK 2.13.4 (`freemium-and-roles.md`). Re-verified by the orchestrating session after the patches: production builds in both states; `check_site.py` NO PROBLEMS in both (WARNs only for build 2's docs page); overflow harness 56/56 in both states; `git diff --check` clean in both repositories. Owner screenshots retaken in `scratchpad/shots/final/`. Nothing committed: commit, push and the two draft PRs wait for the owner's screenshot approval (frozen AC4).
 
-- Owner approved the screenshots 2026-10-23 ("Approved, go ahead"). Committed and pushed: site `6900f0600de0e24fcc7c33985664bfd1c58adf56` on `feat/site-navy-and-check`, draft PR vincentheimann/postquality.com#3; plugin `a9899bcffec1fc667a20a5e2740234889af2c536` on `feat/site-navy-and-check`, draft PR #177. Builds 2 and 3 add commits to these two PRs instead of stacking new ones (stacked PRs need a force push after the first merge, which the push rules deny); the docs anchors then land with the home page.
+- Owner approved the screenshots 2026-10-23 ("Approved, go ahead"). Committed and pushed: site `6900f0600de0e24fcc7c33985664bfd1c58adf56` on `feat/site-navy-and-check`, draft PR vincentheimann/postquality.com#3; plugin `4143206991da83e87cfc664f99132dac8441610c` on `feat/site-navy-and-check`, draft PR #177. Builds 2 and 3 add commits to these two PRs instead of stacking new ones (stacked PRs need a force push after the first merge, which the push rules deny); the docs anchors then land with the home page.
 
 - The owner merged the site PR #3 on 2026-10-23 (merge `00875a18859035dfacd82e7d5081de764f446296`); GitHub Pages built it the same minute, so build 1 is live. Build 2 therefore moved to its own site branch and PR (`feat/site-pricing-docs`, #4) instead of adding commits to #3; the plugin side stays on #177.
 

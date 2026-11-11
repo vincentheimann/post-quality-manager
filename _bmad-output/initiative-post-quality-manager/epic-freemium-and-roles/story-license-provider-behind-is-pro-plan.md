@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '3'
 created: '2026-10-02'
 status: 'done'
-baseline_revision: 'd09642ddb41d08cb629496c32a7592cd0b876b41'
+baseline_revision: '110b8086567142677ae7c6c414f242879125ab9b'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -89,7 +89,7 @@ Sanitize-matrix fixture gained `'license_key' => 'PQM-STORED-KEY'` and `$ADMIN_O
 ### 2026-10-02 — quick lens, pass 1 (verdicts: 0 high, 1 medium, 0 low, 0 false, 0 maybe-false)
 
 - **medium / surfaced to owner (HITL)** — the DoD's real-WP manual leg (AC1 "a paid command reaches n8n", AC2 relock) is proven only by CLI stub harnesses; the plan's Results line records it as pending. Accurate, but not a code defect: this story is `hitl` by ticket, and the manual pass is the owner's step before it closes — same flow as story 1.1 (owner ran the pass 2026-10-01 before done). Checklist handed over at presentation; no code change.
-- No other findings. The lens independently re-verified all four ACs, the boundaries (10 files, nothing extra vs baseline `d09642d`), brand/i18n/escaping rules, the AJAX merge-save path carrying the key, and re-ran lint + the full harness suite itself (201/201).
+- No other findings. The lens independently re-verified all four ACs, the boundaries (10 files, nothing extra vs baseline `110b808`), brand/i18n/escaping rules, the AJAX merge-save path carrying the key, and re-ran lint + the full harness suite itself (201/201).
 
 ## Design Notes
 

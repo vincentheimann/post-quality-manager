@@ -8,7 +8,7 @@ headless: false
 
 # Retrospective — epic n8n-provisioning
 
-Run interactively on 2026-10-16 by the session model (Fable 5.1), the BMad retrospective skill rendered by hand (sessions run from the workspace root). Every finding carries a source; the lenses ran as subagents at the session model over the epic's code diff `3cfaf8a..5be19b9`, and each claim an action item relies on was re-read in the tree by the orchestrator (noted "verified" below). Paths are relative to the repository root; `N8N` = `post-quality-manager/includes/class-pqm-n8n.php`, `REST` = `post-quality-manager/includes/class-pqm-rest-api.php`, `ADMIN` = `post-quality-manager/admin/class-pqm-admin.php`.
+Run interactively on 2026-10-16 by the session model (Fable 5.1), the BMad retrospective skill rendered by hand (sessions run from the workspace root). Every finding carries a source; the lenses ran as subagents at the session model over the epic's code diff `40731c6..9cf6f03`, and each claim an action item relies on was re-read in the tree by the orchestrator (noted "verified" below). Paths are relative to the repository root; `N8N` = `post-quality-manager/includes/class-pqm-n8n.php`, `REST` = `post-quality-manager/includes/class-pqm-rest-api.php`, `ADMIN` = `post-quality-manager/admin/class-pqm-admin.php`.
 
 ## Epic summary
 
@@ -16,18 +16,18 @@ Run interactively on 2026-10-16 by the session model (Fable 5.1), the BMad retro
 
 | Ref | Title | Status | Range (baseline → next) | Commits |
 |---|---|---|---|---|
-| 6.1 | Tracer bullet: connect an n8n instance by key | done | 3cfaf8a → 3cc4548 | 3 |
-| 6.3 | Per-site webhook path (template v6) | done | 3cc4548 → 8d27f80 | 4 |
-| 6.2 | Workflow File section as the manual path | done | 8d27f80 → 3f3ef21 | 7 |
-| 6.4 | Server-side provisioning | done | 3f3ef21 → 39b5e80 | 6 |
-| 6.5 | Rollback of a failed provisioning | done | 39b5e80 → 314bdc4 | 3 |
-| 6.6 | The wizard connects and provisions, or hands over | done | 314bdc4 → 6932020 | 8 |
-| 6.7 | Mis-wiring diagnosis | done | 6932020 → 2db32f4 | 2 |
-| 6.8 | Adopt an existing manual setup | done | 2db32f4 → 8ebe115 | 3 |
-| 6.10 | Rotate the webhook token | done | 8ebe115 → 75f367d | 3 |
-| 6.9 | One-click template update | done | 75f367d → d827d5e | 4 |
-| 6.11 | Refactor sweep | built (done chore PR #145 open) | d827d5e → 5be19b9 (inferred) | 1 |
-| 6.12 | Success-signal walk and records | built (this branch, uncommitted at run time) | 5be19b9 → HEAD, records only | 0 |
+| 6.1 | Tracer bullet: connect an n8n instance by key | done | 40731c6 → 286358c | 3 |
+| 6.3 | Per-site webhook path (template v6) | done | 286358c → 3e0ea3b | 4 |
+| 6.2 | Workflow File section as the manual path | done | 3e0ea3b → e50acab | 7 |
+| 6.4 | Server-side provisioning | done | e50acab → 302f56b | 6 |
+| 6.5 | Rollback of a failed provisioning | done | 302f56b → 15c42f8 | 3 |
+| 6.6 | The wizard connects and provisions, or hands over | done | 15c42f8 → b212c4e | 8 |
+| 6.7 | Mis-wiring diagnosis | done | b212c4e → f136b3a | 2 |
+| 6.8 | Adopt an existing manual setup | done | f136b3a → 08b7c06 | 3 |
+| 6.10 | Rotate the webhook token | done | 08b7c06 → 576b68b | 3 |
+| 6.9 | One-click template update | done | 576b68b → 431bfac | 4 |
+| 6.11 | Refactor sweep | built (done chore PR #145 open) | 431bfac → 9cf6f03 (inferred) | 1 |
+| 6.12 | Success-signal walk and records | built (this branch, uncommitted at run time) | 9cf6f03 → HEAD, records only | 0 |
 
 `pending_tickets` is empty: every ticket is `built` or `done`. Two are still at `built`, finished by the build and not yet called done (6.11, 6.12). Ranges follow each plan's `baseline_revision` ordered by ancestry (the 6.3 build started before 6.2's, 6.10's before 6.9's); the last two are inferred to HEAD. Twelve PRs merged (#106, #107, #109, #112, #117, #124, #127, #134, #137, #140, #142, #144) plus the fixes beside the epic (#129 wizard ticks, #138 n8n Instance states, the key hint, the update-notice primary action).
 
@@ -76,7 +76,7 @@ Dispositions: **fix now** (an action item below), **defer** (recorded with what 
 3. "Never changed without explicit confirmation" (`spec:56`) vs one-click Rotate (recorded, 6.10 plan D3) and one-click Update workflow on an adopted workflow (no decision recorded in the 6.9 plan). Rotation: **accept**. Update on an adopted, hand-edited workflow: **fix now** (A6).
 4. The Application Password self-call (`failure-modes.md:19`) dropped, the credential Pro-only and optional: recorded as 6.4 plan D1/D2 and in memory. **Accept** (A14 closes the spec's open question).
 5. CAP-3 "verified through the API" shipped harness-only (6.5 review row 4 rejected as a plan edit) and was walked in 6.12 for one step (activation refused). **Accept**; the per-step real-instance forcing stays harness-only (Open questions).
-6. CAP-5 built as a conditional primary action (Update workflow when `managed_blocked()` is null) with the re-import notice kept elsewhere; the re-import primary action came from a loose plan (`plan-update-notice-primary-action.md`, commit 561d0ae) the epic file's Notes do not list. **Accept**; one line in the epic Notes (done chore, A15).
+6. CAP-5 built as a conditional primary action (Update workflow when `managed_blocked()` is null) with the re-import notice kept elsewhere; the re-import primary action came from a loose plan (`plan-update-notice-primary-action.md`, commit d131f1c) the epic file's Notes do not list. **Accept**; one line in the epic Notes (done chore, A15).
 7. Workflow name: the spec says `Post Quality - <host>`; the template carries `Post Quality — <host>` (em dash) while the credentials use a hyphen; no guard or plan mentions it. **Fix now** (A14: reconcile the spec to the template, since adopted workflows keep their names anyway).
 8. The epic file's Notes still carry the 6.1 assumption "the n8n version is read from `GET /rest/settings` (`versionCli`)" (`epic-n8n-provisioning.md:78`); the probe found no version is exposed to an API key, the spec was amended, the Note was not. **Fix now** (A15, the done chore).
 9. Behaviour added beyond the spec, each with a record: the leftovers record (6.5 D1), the key hint (`plan-n8n-key-hint.md`), adoption's third refusal (Claude nodes on different credentials; 6.8 plan). **Accept**.
@@ -114,7 +114,7 @@ Dispositions: **fix now** (an action item below), **defer** (recorded with what 
 
 Exercised end to end, by the owner in the browser unless stated:
 
-- **6.12 walk, 2026-10-16, the owner's Local sandbox (a copy of their production site, Pro build of main 5be19b9) against their own n8n instance**, three values typed, no n8n UI visit: connect; provisioning (three credentials, one active workflow, every node linked by id, map, Application Password, ping version 6); a forced failure (activation refused with 409 for the held path → rollback left nothing, the Application Password revoked, no leftovers); the diagnosis on the list path (clean) and the setup-map path (a hand-made mis-wiring reported in one sentence); adoption of the map-less workflow (nothing on n8n changed); Update workflow (the first real PUT: ids and path kept, the mis-wired node repaired, version 6, workflow still active); rotation (old token 403, new 200); cleanup by id. Not proven: the first review landing on a fresh site (the instance cannot call a `.local` host back; n8n ran the review, the callback failed with ENOTFOUND, the template's callback node continued on error, n8n reported success and the wizard waited without end). Record: `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification.
+- **6.12 walk, 2026-10-16, the owner's Local sandbox (a copy of their production site, Pro build of main 9cf6f03) against their own n8n instance**, three values typed, no n8n UI visit: connect; provisioning (three credentials, one active workflow, every node linked by id, map, Application Password, ping version 6); a forced failure (activation refused with 409 for the held path → rollback left nothing, the Application Password revoked, no leftovers); the diagnosis on the list path (clean) and the setup-map path (a hand-made mis-wiring reported in one sentence); adoption of the map-less workflow (nothing on n8n changed); Update workflow (the first real PUT: ids and path kept, the mis-wired node repaired, version 6, workflow still active); rotation (old token 403, new 200); cleanup by id. Not proven: the first review landing on a fresh site (the instance cannot call a `.local` host back; n8n ran the review, the callback failed with ENOTFOUND, the template's callback node continued on error, n8n reported success and the wizard waited without end). Record: `story-the-success-signal-walk-passes-and-the-records-say-so-plan.md` § Verification.
 - Production site walks: 6.1 (probe shapes, 2026-10-13), 6.2 (manual path, agent-run from the rendered page, 2026-10-14), 6.7 (list path, 2026-10-15, the owner's own mis-wiring reported), 6.8 (adoption, 2026-10-15, verified from the live state 2026-10-16), 6.10 (rotation, agent-run at the owner's request, 2026-10-16: a review landed through the return path), the n8n Instance section's browser checks (PR #138, 2026-10-16).
 - Not exercised at runtime: the Free build's provisioning (harness-only, owner decision 2026-10-16); the manual path by choice in a browser (Copy clicks); the per-step forced failures other than activation (harness); the wizard on a site whose instance refuses the probe.
 - Gates at the end of the epic: 16 harnesses green (2,149 checks), Jest 132 tests, lint and build clean; GitHub Actions blocked until 2026-11-01, so local gates were the merge evidence for PRs #140–#145.

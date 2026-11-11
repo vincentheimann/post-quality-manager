@@ -50,7 +50,7 @@ The niche-agnostic pivot (`feat/agnostic-mvp`), the settings/Yoast/import-URL wo
 
 ## References
 
-- source — `git show f95b45d^:tasks/todo.md` (the file was deleted in f95b45d), sections "Pivot to modern LLM options", "Import from URL", "Settings UX", "Yoast scores on the Post Reviews screen", "Settings polish", "Pivot to niche-agnostic plugin" (their open `USER:` items)
+- source — `git show f3b2983^:tasks/todo.md` (the file was deleted in f3b2983), sections "Pivot to modern LLM options", "Import from URL", "Settings UX", "Yoast scores on the Post Reviews screen", "Settings polish", "Pivot to niche-agnostic plugin" (their open `USER:` items)
 - facts — memory/llm-options-architecture.md, memory/pivot-agnostic.md
 - sibling — _bmad-output/backlog/story-manual-pass-lean-ux-and-locked-knobs.md (the 2026-07-24 items; run both passes in one sitting)
 

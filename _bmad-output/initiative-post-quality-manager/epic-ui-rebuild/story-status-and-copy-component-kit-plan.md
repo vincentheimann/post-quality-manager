@@ -4,7 +4,7 @@ type: 'feature'
 ticket: '2'
 created: '2026-10-02'
 status: 'done'
-baseline_revision: '361cafe2374116622151d63ed4a8b1e83fad5de9'
+baseline_revision: 'bb035b9ff6fb1c994a96f67c999ec91b4549c024'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -110,4 +110,4 @@ Why a REST extension and not a localize: the spec prefers extending existing RES
 **Manual checks (if no CLI):**
 - [x] Post Reviews as admin (free plan): badges/pills per mockup, quota note absent (exempt); as a free-tier Author: note shows correct numbers; as a Contributor-like viewer with `pqm_view_reviews` only: no note in the DOM.
 
-**Result (2026-10-05):** PR #22 merged (`da3ab0d`); the owner walked the manual checks on the real site and reported all green — no failures, no bug tickets. Story verify met end to end.
+**Result (2026-10-05):** PR #22 merged (`2a83540`); the owner walked the manual checks on the real site and reported all green — no failures, no bug tickets. Story verify met end to end.

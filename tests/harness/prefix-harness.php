@@ -55,7 +55,7 @@ const STORED_LITERALS = [
     // cron hook and schedule, table, form field names
     'postquality_cron_review_posts', 'postquality_weekly', 'postquality_reviews', 'postquality_settings[',
 ];
-/** The stored names of release 3.9.0 (main 9b8ac0f): read only by the upgrade and the uninstall, from PostQuality_Activator::LEGACY_NAMES. */
+/** The stored names of release 3.9.0 (main 4c3dd70): read only by the upgrade and the uninstall, from PostQuality_Activator::LEGACY_NAMES. */
 const LEGACY_LITERALS = [
     'pqm_settings', 'pqm_db_version', 'pqm_workflow_version_seen', 'pqm_cron_nudge_dismissed', 'pqm_caps_version',
     'pqm_setup_progress', 'pqm_n8n_api', 'pqm_n8n_setup', 'pqm_n8n_leftovers', 'pqm_n8n_provisioning', 'pqm_ping',
