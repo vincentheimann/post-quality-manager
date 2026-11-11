@@ -133,6 +133,11 @@ _Updated by the agent after any user correction. Reviewed at the start of each s
 **Root cause:** The redaction assumed `diff` would print only the lines that changed, and masked one known line, instead of never letting the file's content reach the output.
 **Rule going forward:** Never print the content of a file that holds secrets (`wp-config.php`, `.env`, key files, a `.secrets/` file, a database dump), not even through `diff`, `grep` or `head`. Compare with `cmp` or a hash. When the changed constants must be named, print only their names (for example, PHP that reads both files and lists the keys whose values differ). A masking `sed` is not a safeguard.
 
+## [2026-11-11] — Forcing every cron event on a site kept at an old WordPress
+**What happened:** In story 38's Free walk, `wp cron event run --all` on the clean WordPress 6.6 site ran core's `wp_maybe_auto_update`. New installs have major auto-updates on, so WordPress upgraded itself to 7.1.4 (files and database) mid-walk. One criterion ran on the wrong version, and the walk's restore brought back only the database; the core files had to be put back by hand.
+**Root cause:** "One WP-Cron run" was treated as harmless, without reading what the site's own scheduled events do. A site pinned to an old version for a test is not protected by default.
+**Rule going forward:** A site kept at a WordPress version for a test carries `AUTOMATIC_UPDATER_DISABLED` in `wp-config.php` before any walk. Run only the cron events a check names (`wp cron event run <hook>`), never `--all` on a pinned site. Check `wp core version` at the start and the end of every walk.
+
 ## [2026-11-05] — Writing a walk prompt's expected results from memory of the plan
 **What happened:** For story 106's showcase walk, the agent wrote a prompt for the owner's Claude in Chrome with an expected result per step. Step 3 expected the dialog to stay open on its Set up by hand step after "Set up by hand instead"; the dialog closed, as EXPERIENCE.md L79 and the code (`onByHand` → `close( BY_HAND_ID )`) have said since story 67. The walk stopped on a false failure and the owner ran it twice.
 **Root cause:** The expected results came from the agent's picture of the flow, not from the spec row and the handler each step exercises.
