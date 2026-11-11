@@ -594,6 +594,18 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
     - The Free build has 20 REST routes (`routes-free.txt` in the scratchpad), to be compared with Pro's.
   - **Row 4 passes.** All 11 links in the asset's `readme.txt` end with a 200 on a page that asks for no sign-in (Python GET, redirects followed). The GPL link redirects to GNU's old-licenses page. The repository and its Releases page now open.
   - Row 7 so far: no `debug.log` at all.
+- **F1, after the pause (2026-11-11):**
+  - The owner's look ran through Claude in Chrome from an agent-written prompt with 8 steps; every expected result was quoted from a fresh DOM read of the same state. Result: 5 pass, 3 differ. The look-and-feel notes go to the triage below.
+  - **Row 7 passes.** After the look, `debug.log` still does not exist. The logger recorded 18 core requests in total and only the plugin's two webhook POSTs. WordPress was still 6.6.
+  - **Row 5, the form's scan:** Plugin Check 2.2.0, installed after the `debug.log` read and run from the scratchpad on the installed asset with the form's exact arguments, reports **0 `ERROR`** and **32 `ERROR_LOW_SEVERITY`**:
+    - 22 `WordPress.WP.I18n.MissingTranslatorsComment`: 8 in `admin/class-pqm-admin.php`, 8 in `includes/class-pqm-n8n.php`, 6 in `includes/class-pqm-rest-api.php`;
+    - 10 `WordPress.Security.EscapeOutput.OutputNotEscaped` in `admin/class-pqm-admin.php`. Build lines 643, 1018, 1305, 1321 (twice), 1337, 1353, 1649, 1714 and 1814 echo variables built earlier (`$license_line`, `$guided_link`, `$primary`, `$secondary`, `$by_hand_link`, `$n8n`, `$nodes_pick`, `$json`, and `self`).
+    - **What the form does with them** (WordPress.org trunk, read 2026-11-11):
+      - Only a record whose type is exactly `ERROR` sets the verdict to false (`plugin-directory/jobs/class-plugin-scan.php`, `run_plugin_check()`), so these do not block the upload.
+      - The upload handler (`shortcodes/class-upload-handler.php`, `check_plugin()`) shows them as "ERROR*" with "This may be a false-positive, and will be manually checked by a reviewer."
+      - The scan runs under `timeout -k 15s 45s`.
+    - Story 95's "0 errors" (2026-10-29) came from a default-severity run. The form's `--error-severity=7 --include-low-severity-errors` was never run, and Plugin Check reports these 32 below the default threshold, so neither CI nor that run showed them.
+  - **Restore:** the listener was stopped by its PID. Plugin Check and the plugin were deleted, the logger and its folder removed, the database and `wp-config.php` restored. The three checks read "same", and WordPress is 6.6. Both walk folders are deleted; the scan output, the route list and the page reads stay in the scratchpad's `s38/findings/`.
 - Tooling findings, filed in one batch through `bmad-ticket` with the walk's other findings:
   1. `docs/local-verification.md` step 4's `option patch insert` waits forever when stdin is an open pipe, as in agent shells. WP-CLI 2.12.0 reads the value with `get_value_from_arg_or_stdin( $args, -1 )`, which never finds index -1, so it reads stdin to its end. `</dev/null` fixes it.
   2. Local's `php.ini` pins `sys_temp_dir` to `C:\Windows\TEMP`. `TEMP`/`TMP` don't move it, and `bin/local-wp.py` cannot pass `-d`.
