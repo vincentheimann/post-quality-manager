@@ -1,12 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "last-release-sha": "6938f4c63100444d5b649a45fe31447aaeaae1a2",
   "include-component-in-tag": false,
   "draft": true,
   "force-tag-creation": true,
-  "prerelease": true,
   "packages": {
     ".": {
       "release-type": "node",
+      "release-as": "4.0.0",
       "extra-files": [
         {
           "type": "generic",

@@ -20,6 +20,9 @@
  * Row 8 (story 118, ADR 0018): every php-version in ci.yml's php job is at
  * least the header's Requires PHP, and the header's value is among them, so
  * CI keeps running the checks on the floor when the floor moves.
+ * Row 9 (entry 8, the launch PR): ci.yml has no paths-ignore, the
+ * release-please config no prerelease key, and release.yml's publish step
+ * comes after the Free build check and takes steps.freemius.outputs.free.
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -161,5 +164,21 @@ preg_match_all('/^\s*php-version:\s*[\'"]?([\d.]+)[\'"]?\s*$/m', $php_job, $m);
 $ci_php = $m[1];
 check("ci.yml's php job sets up PHP " . implode(', ', $ci_php) . ": the header's Requires PHP $floor is among them and none is below it",
     in_array($floor, $ci_php, true) && array_filter($ci_php, static fn($v) => version_compare($v, $floor, '<')) === []);
+
+echo "Row 9 — public releases: CI on every PR, no pre-release key, publish after the Free build check (entry 8)\n";
+check('ci.yml has no paths-ignore, so every PR reports the four required checks', !str_contains($ci, 'paths-ignore'));
+check('release-please-config.json has no "prerelease" key', is_array($rp) && !array_key_exists('prerelease', $rp));
+$release = str_replace("\r", '', (string) file_get_contents($root . '/.github/workflows/release.yml'));
+$free_check_at = strpos($release, '- name: Check the Free build Freemius generated');
+$publish_at = strpos($release, '- name: Attach the Free build, append release notes, publish');
+$publish = '';
+if ($publish_at !== false) {
+    $next = strpos($release, "\n      - ", $publish_at); // the next step, if any
+    $publish = substr($release, $publish_at, $next === false ? null : $next - $publish_at);
+}
+check('release.yml: the publish step comes after "Check the Free build Freemius generated"',
+    $free_check_at !== false && $publish_at !== false && $publish_at > $free_check_at);
+check("release.yml: the publish step's env takes steps.freemius.outputs.free",
+    preg_match('/^\s+[A-Z_]+:\s*\$\{\{\s*steps\.freemius\.outputs\.free\s*\}\}\s*$/m', $publish) === 1);
 
 harness_exit();
