@@ -3,7 +3,7 @@ title: 'The rewritten history goes to a fresh repository under the same name'
 type: 'chore'
 ticket: 87
 created: '2026-11-11'
-status: 'draft'
+status: 'ready-for-dev'
 route: 'full'
 route_source: 'pinned'
 review: ''
