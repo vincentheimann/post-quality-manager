@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.3...v4.0.0) (2026-11-11)
+
+
+### Features
+
+* **dashboard:** link the public issue tracker from the feedback card ([e073a18](https://github.com/vincentheimann/post-quality-manager/commit/e073a181942fc6985535ebb953d9023157e2686d))
+
 ## [3.13.3](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.2...v3.13.3) (2026-11-10)
 
 
