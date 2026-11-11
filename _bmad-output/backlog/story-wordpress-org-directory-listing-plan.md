@@ -558,6 +558,17 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   - The restore deletes the walk's plugin folders by their exact paths (`post-quality-manager/`, `post-quality-manager-premium/`, Plugin Check's, and the logger file), then imports the dump and copies `wp-config.php` back.
   - Commands that name the slug take `post-quality-manager-premium` in the Pro walk.
   - The leftover check after the 4.0.0 deletion is the baseline's proof.
+- Sandbox purchase (owner, through Claude in Chrome, 2026-11-11):
+  - The checkout came from Plans → Pro → USD → Single Site → "Checkout Link" → "Sandbox / Testing" (`…/licenses/1/?sandbox=true`).
+  - It showed Pro, Annual, Single Site, $49.00 USD, and "Prefill Form (Only visible in Sandbox mode)". The test card ended in 4242. A required "Confirm email address" field appeared after the email.
+  - The result is one Pro license for 1 site, expiring 2027-11-12, with its user and subscription. The dashboard's Licenses page does not mark it as sandbox.
+  - Its IDs are in the agent's private notes for chore 81. The key never reached the agent.
+- Site gate (2026-11-11, WordPress66 after the owner's switch):
+  - The site: PHP 8.1.29, WordPress 6.6 with the 6.6 database schema (`db_version` 57155), MySQL 8.4.0, one user, only 4.0.0 installed, no must-use folder, port 8765 free, `WP_ENVIRONMENT_TYPE` local.
+  - A database export went to the scratchpad first. Then 4.0.0 was removed with `plugin deactivate` and `plugin uninstall`, both with `--user=1`.
+  - After the deletion: no `postquality_*` option, no table, capability, user meta, post meta or cron event, and no plugin folder. This matches `docs/policies/privacy.md` L29.
+  - **Six Freemius SDK options stayed:** `fs_accounts`, which still names this plugin (its `plugin_data`, `plugins`, `file_slug_map` and product id), plus `fs_active_plugins`, `fs_api_cache` (an empty array, so no API reply was cached), `fs_debug_mode` and the two `fs_garbage_collection` site transients.
+  - Under Decision Q1 that trace sends the question back to the owner.
 
 ## Plan Change Log
 
