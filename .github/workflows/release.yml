@@ -5,21 +5,26 @@
 # PR tags v<version> and creates a *draft* GitHub Release. Events made with
 # GITHUB_TOKEN start no other workflow and drafts never fire `release`, so the
 # package job runs here, gated on release_created: it builds admin/build/ from
-# the tag, zips post-quality-manager/ as post-quality-manager-<version>.zip,
-# attaches it, appends docs/release-notes/<version>.md when present, and
-# publishes, as a pre-release while the config's "prerelease" key is true.
-# If packaging fails the release stays a draft: re-run the job.
+# the tag and zips post-quality-manager/ as post-quality-manager-<version>.zip,
+# the full build, kept as a workflow artifact.
 #
-# After publishing (story 58, ADR 0014), the same zip goes to Freemius as an
-# unreleased (pending) version through its product-scoped API, with the
+# Then (story 58, ADR 0014) that zip goes to Freemius as an unreleased
+# (pending) version through its product-scoped API, with the
 # FREEMIUS_API_TOKEN secret (product Settings → API & Keys). The Free and Pro
 # builds Freemius generates come back as artifacts <zip>-free.zip and
 # <zip>-pro.zip; the Free one is checked and diffed against bin/build-free.php.
-# A Freemius failure leaves the published release as it is; a re-run uploads
-# nothing twice. Releasing the version to customers stays an owner step.
+# Releasing the version to customers stays an owner step.
+#
+# Last, once that check has passed (entry 8, ADR 0014 amended 2026-10-28), the
+# publish step attaches the Free build to the release under the zip's name,
+# appends docs/release-notes/<version>.md when present, and publishes it,
+# shown as Latest (a pre-release only while the config sets "prerelease").
+# A red step anywhere before leaves the release a draft with its tag and no
+# zip: fix the cause and re-run the job. A re-run uploads nothing to Freemius
+# twice, and the draft's body holds no notes yet, so they are appended once.
 #
 # A manual dispatch runs only the package job on the chosen ref and uploads the
-# zip as a workflow artifact: no tag, no release.
+# zip as a workflow artifact: no Freemius call, no tag, no release.
 
 name: Release
 
@@ -98,27 +103,6 @@ jobs:
           if-no-files-found: error
           # A re-run of the package job replaces the artifact instead of failing.
           overwrite: true
-
-      - name: Attach zip, append release notes, publish
-        if: needs.release-please.outputs.release_created == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-          ZIP: ${{ steps.zip.outputs.file }}
-          NOTES: docs/release-notes/${{ steps.zip.outputs.version }}.md
-        run: |
-          gh release upload "$TAG" "$ZIP" --clobber
-          BODY="$RUNNER_TEMP/release-body.md"
-          gh release view "$TAG" --json body --jq .body > "$BODY"
-          if [ -f "$NOTES" ]; then
-            printf '\n' >> "$BODY"
-            cat "$NOTES" >> "$BODY"
-          fi
-          # release-please flags a release as pre-release only for a
-          # suffixed or 0.x version (src/manifest.ts), so the config's
-          # "prerelease" key is applied here. The launch PR removes the key.
-          PRE=$(jq -r '.prerelease // false' release-please-config.json)
-          gh release edit "$TAG" --notes-file "$BODY" --draft=false --prerelease="$PRE"
 
       # Story 58. Freemius API, product scope (OpenAPI spec read 2026-10-13,
       # tags/latest.json taken up 2026-11-03): GET tags/latest.json, POST
@@ -268,3 +252,31 @@ jobs:
           path: ${{ steps.freemius.outputs.free }}
           if-no-files-found: error
           overwrite: true
+
+      # Entry 8 (ADR 0014, amended 2026-10-28): last, so the release is
+      # published only once the Free build check has passed; it carries that
+      # Free build under the release zip's name. Until then it stays a draft.
+      - name: Attach the Free build, append release notes, publish
+        if: needs.release-please.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          ZIP: ${{ steps.zip.outputs.file }}
+          FREE_ZIP: ${{ steps.freemius.outputs.free }}
+          NOTES: docs/release-notes/${{ steps.zip.outputs.version }}.md
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          cp "$FREE_ZIP" "$RUNNER_TEMP/release/$ZIP"
+          gh release upload "$TAG" "$RUNNER_TEMP/release/$ZIP" --clobber
+          BODY="$RUNNER_TEMP/release-body.md"
+          gh release view "$TAG" --json body --jq .body > "$BODY"
+          if [ -f "$NOTES" ]; then
+            printf '\n' >> "$BODY"
+            cat "$NOTES" >> "$BODY"
+          fi
+          # release-please flags a release as pre-release only for a
+          # suffixed or 0.x version (src/manifest.ts), so the config's
+          # "prerelease" key is applied here; without it (public since
+          # 4.0.0) it reads as false.
+          PRE=$(jq -r '.prerelease // false' release-please-config.json)
+          gh release edit "$TAG" --notes-file "$BODY" --draft=false --prerelease="$PRE"
