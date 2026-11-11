@@ -157,6 +157,13 @@ Its `feat:` commit is the releasable commit release-please needs: there is none 
     - the database account's password could not be changed, and the owner accepted that risk ("Accept, go public as is").
   - Left for release day (order step 6's records PR): `docs/distribution.md` L144 (the launch-plan row's state) and L122 (`main`'s protection, once the owner applies it).
 
+- 2026-11-11, after the review, owner's request ("Don't forget to update the README; I also would like a reread with the Fable 5.2 model of the README"):
+  - The README refresh moved into this PR, since it shares Installation's lines with it.
+  - A Fable 5.2 subagent reread it (read only; the owner's model choice, an exception to the all-Opus rule). Its 16 findings were checked against the code before they were applied: Free and Pro up front, the setup guide's real buttons (Set up n8n, Run your first review, Finish setting up), the Set up by hand section, the Pro-only Settings tabs, the schedule's real options, a Help section, and Contributions per `CONTRIBUTING.md`.
+  - The same reread found the old section name "Workflow File" in `docs/release-notes/4.0.0.md` (L11, L19) and `readme.txt` L30; both now say Set up by hand.
+  - Left for a separate bug: the n8n error message `class-pqm-n8n.php` L462 still says "the Workflow File section" (asserted by three harnesses and one Jest file).
+  - The issue chooser's dead WordPress.org entry (review finding 7) is removed here too.
+
 ## Plan Change Log
 
 ## Review Triage Log
@@ -175,7 +182,7 @@ Its `feat:` commit is the releasable commit release-please needs: there is none 
 | 4 | `docs/user-paths.md` L19 says "no public repository" | low | patch | The repository has been public since 2026-11-11. Reworded |
 | 5 | `docs/distribution.md` L144 says "the release PR drops `prerelease`" | low | patch | The launch PR drops it. Wording fixed; the row's State stays for release day |
 | 6 | README Installation links `releases/latest`, which is 404 until 4.0.0 is published | low | reject | Exposed only between the launch PR's merge and the release's publication, both merged by the owner in one sitting. A failed run has the by-hand fallback (`/release` step 5). The fix would split the README change into a post-release PR, more than a direct correction |
-| 7 | `issues/new/choose` lists "Support for the free plugin", which points to a WordPress.org forum that does not exist before story 38 | medium | defer | Pre-existing (`.github/ISSUE_TEMPLATE/config.yml`, story 48), exposed by the switch to public, not by this diff. Fixed the same day in the follow-up docs PR `docs/readme-public`, which removes the entry; story 38 re-adds it with the forum (`deferred-work.md`) |
+| 7 | `issues/new/choose` lists "Support for the free plugin", which points to a WordPress.org forum that does not exist before story 38 | medium | defer | Pre-existing (`.github/ISSUE_TEMPLATE/config.yml`, story 48), exposed by the switch to public, not by this diff. Fixed in this PR's README commit, which removes the entry; story 38 re-adds it with the forum (`deferred-work.md`) |
 | 8 | `/release` steps 1 and 4 do not say that release PRs run no CI and are merged past the pending required checks | low | patch | Owner decision 2026-10-28; an agent reading `gh pr checks` would report a false blocker. Patched: one sentence in step 4 |
 
 Also in the patch round, at the orchestrator's request (records, not findings), the owner's step 5 of 2026-11-11, read back through the API:
