@@ -107,3 +107,4 @@ The Free build of the release that goes to WordPress.org is submitted to the plu
   - The bearer-token fetch in story 54's inputs: story 58 replaced it.
   - The delivery-pipeline spec reference (CAP-2, CAP-3): the readme has been in the zip and versioned since 2026-10-13.
 - Refined 2026-10-29 (owner approved the nine defaults of the split; text reviewed in the PR).
+- Fact (2026-11-16): bug 125 shipped in 4.0.1; bugs 128, 129 and 130 merged after the 4.0.1 tag and shipped in 4.0.2 (#13; Freemius deployment 174834, pending), so the pre-production pass runs on 4.0.2. The form's scan (Plugin Check 2.2.0, WordPress66) reports nothing for 4.0.2's Free asset. The pass also settles bug 130's criterion 1 on the current WordPress release.

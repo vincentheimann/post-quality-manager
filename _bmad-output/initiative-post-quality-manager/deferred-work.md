@@ -193,18 +193,21 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/bug-submission-scan-flags-32-low-severity-errors-in-the-free-build-plan.md`
   summary: Bug 125's ticket Notes still list the recurrence check as an open question for the owner, although the owner decided it on 2026-11-16 (the reprint-comments harness, plus story 131 for the release step).
   evidence: Quick review pass 1, finding 5 (2026-11-16). A build never writes to a ticket file, so the decision and story 131's name go into the ticket's records at bug 125's done step.
+  resolved: 2026-11-16, at bug 125's done step: the ticket's Done line records the owner's answer (the reprint-comments harness, story 131 for the release step) (branch `chore/records-125-130-done`).
 - source_plan: `_bmad-output/backlog/bug-submission-scan-flags-32-low-severity-errors-in-the-free-build-plan.md`
   summary: Story 131 (`story-release-runs-the-directory-form-scan-on-the-free-build.md`) was written by hand, following `bmad-ticket`'s ticket reference, instead of through the skill's workflow, so the skill's validation has not run on it.
   evidence: Quick review pass 1, finding 6 (2026-11-16). The file parses in `tickets.py` and is `refined: false`; its refinement through `bmad-ticket` runs the validation.
 - source_plan: `_bmad-output/backlog/bug-dashboard-shows-processing-for-a-non-review-command-plan.md`
   summary: Bug 128's ticket Notes still list the owner's question about the window between a Review click and the start as open, although the owner decided on 2026-11-16 that the Dashboard matches Post Reviews.
   evidence: Quick review pass 1, finding 2 (2026-11-16). A build never writes to a ticket file, so the decision goes into the ticket's records at bug 128's done step.
+  resolved: 2026-11-16, at bug 128's done step: the ticket's Done line records the owner's answer (branch `chore/records-125-130-done`).
 - source_plan: `_bmad-output/backlog/bug-welcome-notice-asks-for-setup-after-the-webhook-url-is-saved-plan.md`
   summary: In Needs attention (a failed, mis-wired, outdated or Free-on-Pro check) with no result stored, the Dashboard shows the welcome notice "Your n8n workflow needs attention before your first review" above its own prompt "You are all set — run your first review", because the prompt (`src/dashboard.js` L218–236) never reads the workflow report.
   evidence: Quick review pass 1, finding 3 (2026-11-16). The pair already contradicted each other in 4.0.0 ("set up the n8n workflow first" beside "You are all set"); bug 129's plan fixes the notice's side and forbids changing the Dashboard prompt (frozen matrix: "the needs-attention notice still shows there"). Fix candidate for the owner: the Dashboard prompt hides, or names the fix, while the n8n Workflow page reads Needs attention.
 - source_plan: `_bmad-output/backlog/bug-welcome-notice-asks-for-setup-after-the-webhook-url-is-saved-plan.md`
   summary: Bug 129's ticket Boundaries and Notes still say the welcome notice "stays one notice that opens the setup guide (story 55's criterion 1)", and stories 36 and 55 still state that criterion unnarrowed, although the owner's 2026-11-16 decisions narrowed it to the state with no URL saved.
   evidence: Quick review pass 1, finding 2 (2026-11-16). A build never writes to ticket files; the ticket's records at done, and a note on stories 36 and 55, carry the narrowing (EXPERIENCE.md L81 already does, in the bug's PR).
+  resolved: 2026-11-16, at bug 129's done step: the ticket's Done line, a Narrowed note on stories 36 and 55, and `docs/user-paths.md` A3's CV line carry the narrowing (branch `chore/records-125-130-done`).
 - source_plan: `_bmad-output/backlog/bug-crowded-radios-wide-status-box-and-split-model-id-plan.md`
   summary: Bug 130's criterion 1 asks for the radio spacing on WordPress 6.6 and on the current WordPress release; the before-and-after measurements ran on WordPress 6.6 only.
   evidence: Quick review pass 1, finding 1 (2026-11-16). The core rules behind the defect (`forms.css` `.form-table td fieldset label` and its phone rule) read the same in trunk (ticket Notes, 2026-11-11), so the fix should hold. What settles it: `scratchpad/s130/measure.js`'s fieldset check on a site running the current release, or the owner's look in story 38's 4.0.2 pass.

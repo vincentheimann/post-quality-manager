@@ -3,7 +3,7 @@ title: 'The Free build passes the directory form scan with no low-severity error
 type: 'bugfix'
 ticket: 125
 created: '2026-11-16'
-status: 'built'
+status: done
 baseline_revision: '6c8384961d2209f1aed605cabc0c09f6f462c14c'
 route: 'full'
 route_source: 'auto'
@@ -125,6 +125,7 @@ context:
   - **Records.** `memory/delivery-pipeline.md`'s Freemius deployment line gains the re-print's comment rules (bug 125, seen 2026-11-11, rules read 2026-11-16). Story 131 (`story-release-runs-the-directory-form-scan-on-the-free-build.md`) is the release-step scan, written by hand per `bmad-ticket`'s ticket reference (standalone, numbered criteria, `refined: false` for the owner's refine).
   - **Correction after review (2026-11-16):** the trailing ignores in `class-pqm-activator.php`, `class-pqm-db.php` and `pqm-functions.php` numbered 17, not fifteen, and they moved too. Each now sits, text unchanged, on its own line directly above the line where its sniff reports. With PHPCS 3.13.6 and the WPCS that the showcase's Plugin Check bundles, the sniffs named by the six files' ignores, plus `EscapeOutput` and `I18n`, report the same 19 findings before and after (`DirectDatabaseQuery` in `class-pqm-db.php`, which no ignore covers), and nothing in the admin class. The harness's rule 2 now reads every file, and the three-file scope with its self-test row is gone. The import sentence in `render_workflow_file()` is one `printf` again: the note sits before its `esc_html__()`, and the link-or-plain value is a ternary of two escaped strings.
   - **Not done here:** criterion 4 (CI on the pull request) and criterion 1 (4.0.1's asset) wait for the commit, the PR and the owner's merges. `npm run test:unit` was not run: no JS changed.
+- 2026-11-16, after #10 merged (9c2120d; its CI 4/4 green): done on the owner's word, marked with `tickets.py mark`. Released in 4.0.1 (#11; Freemius deployment 174787, pending; the Free build check "PHP identical: 13 files"). Criterion 1, run on WordPress66 with Plugin Check 2.2.0 and the form's command: the 4.0.1 and 4.0.2 Free assets report nothing, and 4.0.0's asset under the same command still reports its 32 low-severity errors.
 
 ## Plan Change Log
 

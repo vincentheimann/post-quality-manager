@@ -3,7 +3,7 @@ title: 'The Dashboard queue shows Processing only while a review runs'
 type: 'bugfix'
 ticket: 128
 created: '2026-11-16'
-status: 'built'
+status: done
 baseline_revision: '9c2120de0ce3fc8ead2867d2afb89bae7e4c0265'
 route: 'oneshot'
 route_source: 'auto'
@@ -51,6 +51,7 @@ context:
   - Against the old line (stashed), cases 1 and 3 fail ("Processing…" received, "Needs revision" expected) and case 2 passes; all 3 pass on the fix.
   - `npm run test:unit`: 13 suites, 214 tests green on three runs. A first run reported 1 suite failed with 185 tests passed and did not name the suite in the captured lines; it never recurred, so it is recorded as a possible flake.
   - `wp-scripts lint-js` is clean on both files.
+- 2026-11-16, after #12 merged (264f08a; its CI 4/4 green): done on the owner's word, marked with `tickets.py mark`. The merge came after the 4.0.1 tag, so the fix shipped in 4.0.2 (#13; Freemius deployment 174834, pending).
 
 ## Review Triage Log
 

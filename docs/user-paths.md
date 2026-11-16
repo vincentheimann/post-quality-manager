@@ -29,7 +29,7 @@ They read the README and weigh the requirements: an n8n instance **and** a Claud
 ### A3. Install & activate
 Download the zip from the latest GitHub Release, upload it (Plugins → Add New Plugin → Upload Plugin), activate. Since 4.0.0 (2026-11-11) that zip is the Free build, downloadable without signing in.
 
-- **CV:** standard WP install, clean activation; a welcome notice offers "Set up the workflow" and opens the setup guide directly until the setup is complete, and every other signpost (dashboard setup CTA, error notices) routes to it (2026-07-24 and story 36, owner-verified 2026-10-07). No activation redirect by choice — the notice greets.
+- **CV:** standard WP install, clean activation; a welcome notice offers "Set up the workflow" and opens the setup guide directly until a webhook URL is saved, and every other signpost (dashboard setup CTA, error notices) routes to it (2026-07-24 and story 36, owner-verified 2026-10-07); once a URL is saved and until setup is complete, the notice names the first review and opens the Dashboard, or, while the n8n workflow needs attention, opens the n8n Workflow page (bug 129, 4.0.2, 2026-11-16). No activation redirect by choice — the notice greets.
 - **UV:** no update channel (GitHub releases don't surface in WP's updater).
 - **Signal:** activation → n8n Workflow page visit rate.
 
