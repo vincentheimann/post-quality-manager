@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.1](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.0...v4.0.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* keep translator notes and escapes through Freemius's Free build re-print ([9c2120d](https://github.com/vincentheimann/post-quality-manager/commit/9c2120de0ce3fc8ead2867d2afb89bae7e4c0265))
+
 ## [4.0.0](https://github.com/vincentheimann/post-quality-manager/compare/v3.13.3...v4.0.0) (2026-11-11)
 
 
