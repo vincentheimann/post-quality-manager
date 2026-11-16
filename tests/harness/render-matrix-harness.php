@@ -1272,7 +1272,7 @@ $GLOBALS['tw_enqueued'] = [];
 PostQuality_Admin::enqueue_assets('post-quality_page_postquality-settings');
 check('Settings page: pqm-admin.js only, no app bundle', $GLOBALS['tw_enqueued'] === ['postquality-admin']);
 
-/* Welcome notice: until setup is complete, managers only, links to the auto-opening dialog */
+/* Welcome notice: until setup is complete, managers only; no URL: links to the auto-opening dialog; a URL saved: the first review or the fix (bug 129) */
 $GLOBALS['tw_screen'] = 'toplevel_page_postquality-dashboard';
 function get_current_screen() { return (object) ['id' => $GLOBALS['tw_screen']]; }
 $notice_for = static function (array $caps, array $settings, array $options): string {
@@ -1290,19 +1290,51 @@ $notice_for = static function (array $caps, array $settings, array $options): st
 $wpdb = new class { public $prefix = 'wp_'; public $has_result = null; public function get_var($sql) { return $this->has_result; } };
 $manager = ['postquality_manage_settings'];
 $link = 'href="/wp-admin/admin.php?page=postquality-workflow&postquality_setup=1"';
+$set_up_first = '<div class="notice notice-warning"><p>Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first — a guide walks you through it. <a ' . $link . '>Set up the workflow</a></p></div>';
+$first_review = '<div class="notice notice-info"><p>Welcome to Post Quality Manager! Your webhook URL is saved: run your first review next. <a href="/wp-admin/admin.php?page=postquality-dashboard">Open the Dashboard</a></p></div>';
+$needs_fix    = '<div class="notice notice-warning"><p>Welcome to Post Quality Manager! Your n8n workflow needs attention before your first review. <a href="/wp-admin/admin.php?page=postquality-workflow">See what to fix</a></p></div>';
 $html = $notice_for($manager, ['n8n_webhook_url' => ''], []);
-check('fresh site: notice offers "Set up the workflow", linked to the auto-opening dialog',
-    str_contains($html, '>Set up the workflow</a>') && str_contains($html, $link));
-check('connected, no result yet, no progress: notice still shows', str_contains($notice_for($manager, [], []), $link));
+check('fresh site: notice offers "Set up the workflow", linked to the auto-opening dialog (4.0.0\'s warning, unchanged)',
+    $html === $set_up_first);
+$passing = ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]];
+foreach (['post-quality_page_postquality-posts' => 'Post Reviews', 'post-quality_page_postquality-settings' => 'Settings'] as $screen_id => $screen_name) {
+    $GLOBALS['tw_screen'] = $screen_id;
+    $html = $notice_for($manager, [], []);
+    check("bug 129: URL saved, not checked yet, no result ($screen_name): the info notice names the first review and links to the Dashboard; nothing asks to set up the workflow first",
+        $html === $first_review && !str_contains($html, 'set up the n8n workflow first') && !str_contains($html, 'postquality_setup'));
+    check("bug 129: URL saved, a passing check, no result ($screen_name): the same first-review notice",
+        $notice_for($manager, [], $passing) === $first_review);
+}
+$GLOBALS['tw_screen'] = 'toplevel_page_postquality-dashboard';
+check('bug 129: the Dashboard in the first-review state (not checked yet, or passing): no notice, its own prompt says it',
+    $notice_for($manager, [], []) === '' && $notice_for($manager, [], $passing) === '');
+$problems = [
+    'a failed check' => ['failed' => ['message' => 'n8n responded with 404.', 'at' => time()]],
+    'a mis-wired workflow' => $passing['postquality_workflow_version_seen'] + ['miswired' => 'The Review node is not wired.'],
+    'an outdated workflow' => ['version' => POSTQUALITY_WORKFLOW_VERSION - 1, 'via' => 'test', 'at' => time()],
+    'the Free variant on Pro' => $passing['postquality_workflow_version_seen'] + ['variant' => 'free'],
+];
+foreach ($problems as $problem => $report) {
+    foreach (['post-quality_page_postquality-posts' => 'Post Reviews', 'toplevel_page_postquality-dashboard' => 'Dashboard'] as $screen_id => $screen_name) {
+        $GLOBALS['tw_screen'] = $screen_id;
+        check("bug 129: URL saved, $problem, no result ($screen_name): the warning says the workflow needs attention and links to the n8n Workflow page, not the guide",
+            $notice_for($manager, [], ['postquality_workflow_version_seen' => $report]) === $needs_fix);
+    }
+}
+$GLOBALS['tw_screen'] = 'toplevel_page_postquality-dashboard';
 $wpdb->has_result = '1';
 check('legacy connected + a result stored, no progress option: no notice', $notice_for($manager, [], []) === '');
-check('result stored but URL emptied since: notice shows again', str_contains($notice_for($manager, ['n8n_webhook_url' => ''], []), $link));
+check('legacy connected + a result stored + a failed check: no notice (set up wins)', $notice_for($manager, [], ['postquality_workflow_version_seen' => $problems['a failed check']]) === '');
+check('result stored but URL emptied since: notice shows again (the guide)', $notice_for($manager, ['n8n_webhook_url' => ''], []) === $set_up_first);
 $wpdb->has_result = null;
-check('version handshake seen (a ping\'s report) but no real result stored: notice still shows', str_contains($notice_for($manager, [], ['postquality_workflow_version_seen' => ['version' => POSTQUALITY_WORKFLOW_VERSION, 'via' => 'test', 'at' => time()]]), $link));
 check('progress complete (the dialog\'s first review): no notice', $notice_for($manager, ['n8n_webhook_url' => ''], [POSTQUALITY_SETUP_OPTION => ['steps' => [], 'complete' => true]]) === '');
 check('non-manager: no notice', $notice_for(['postquality_manage_agents', 'postquality_view_reviews'], ['n8n_webhook_url' => ''], []) === '');
+$GLOBALS['tw_screen'] = 'post-quality_page_postquality-posts';
+check('bug 129: non-manager, URL saved, set up and no result (Post Reviews, where a manager gets the first-review notice): no notice',
+    $notice_for($manager, [], []) === $first_review && $notice_for(['postquality_manage_agents', 'postquality_view_reviews'], [], []) === '');
 $GLOBALS['tw_screen'] = 'post-quality_page_postquality-workflow';
 check('n8n Workflow page itself: no notice (the button is there)', $notice_for($manager, ['n8n_webhook_url' => ''], []) === '');
+check('bug 129: n8n Workflow page itself, URL saved, set up and no result: no notice', $notice_for($manager, [], []) === '');
 $GLOBALS['tw']['caps'] = [];
 
 /* Story 35: sanitizer warnings are printed on this custom page after a save */
