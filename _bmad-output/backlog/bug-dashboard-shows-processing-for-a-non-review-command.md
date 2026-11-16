@@ -78,3 +78,4 @@ The queue row's badge reads Processing when the row is busy or when the server l
 - Assumption: risk low. The change stays in what the Dashboard's badge reads; the shared polling hook and Post Reviews do not change (Boundaries). A change to the shared kit would make it medium.
 - Fact: the JS unit tests already render whole pages with Jest and jsdom (`tests/js/post-reviews-table.test.js`); no test covers the Dashboard queue today.
 - Handoff: bugs 125, 129 and 130 also ship in 4.0.1; none of them touches the Dashboard's React code.
+- Done 2026-11-16: fixed by #12 (main 264f08a), released in 4.0.2 (#13): the merge came after the 4.0.1 tag. The open question above, answered by the owner on 2026-11-16: the Dashboard matches Post Reviews, with no Processing between a Review click and the start; the button's spinner covers that wait.

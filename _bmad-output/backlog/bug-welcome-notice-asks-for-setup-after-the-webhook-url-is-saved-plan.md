@@ -3,7 +3,7 @@ title: 'Once a webhook URL is saved, the welcome notice names the next step'
 type: 'bugfix'
 ticket: 129
 created: '2026-11-16'
-status: 'built'
+status: done
 baseline_revision: '264f08af2d33becfb463be707d06c8a4d885c90b'
 route: 'full'
 route_source: 'auto'
@@ -96,6 +96,7 @@ Owner decisions (2026-11-16):
   - Local check on WordPress66 (`npm run build`, `php bin/build-free.php`, the Free build copied in and activated, opt-in not answered; scripts in `scratchpad/s129/scripts/`, notices read with `wp --user=1 eval-file` and `set_current_screen()` on the hooks `register_pages()` gives): no URL: 4.0.0's warning on the Dashboard, Post Reviews and Settings, none on the n8n Workflow page. URL `http://127.0.0.1:9/webhook/pqm-execute-bug129` saved, not checked: no notice on the Dashboard, the info notice on Post Reviews and Settings, linking to the Dashboard. After the page's Test path (`PostQuality_Admin::ping_webhook()` on the saved URL, cURL error 7, the failure recorded): the needs-attention warning on all three, linking to `page=postquality-workflow`. No debug.log. Restored: `walk_check` all same, `wp core version` 6.6 at start and end.
   - Review (2026-11-16): the info notice's draft "Your workflow is in place: run your first review next." claimed more than the "not checked yet" state knows; it became "Your webhook URL is saved: run your first review next." (link unchanged), in the code, the harness and the Design Notes. The Local check above ran with the earlier draft. Two harness rows were added for the new branches' early returns with a URL saved: a non-manager, and the n8n Workflow page.
   - Unchecked: Freemius's Account page (not reachable with the opt-in skipped) and the notices in a browser (read as HTML only).
+- 2026-11-16, after #14 merged (9e04c26; its CI 4/4 green): done on the owner's word, marked with `tickets.py mark`; the owner merged the wording as proposed. Shipped in 4.0.2 (#13; Freemius deployment 174834, pending). Records at done: `docs/user-paths.md` A3's CV line, the ticket's Notes, and a note on stories 36 and 55; the Dashboard prompt in Needs attention stays open in `deferred-work.md` for the owner.
 
 ## Plan Change Log
 

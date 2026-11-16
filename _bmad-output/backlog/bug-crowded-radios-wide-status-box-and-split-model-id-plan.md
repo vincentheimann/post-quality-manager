@@ -3,7 +3,7 @@ title: 'Spaced radio labels, a status box as wide as its dividers, model ids on 
 type: 'bugfix'
 ticket: 130
 created: '2026-11-16'
-status: 'built'
+status: done
 baseline_revision: '9e04c26d5b6d91efc95ce2a37b98338e8376f016'
 route: 'oneshot'
 route_source: 'auto'
@@ -76,6 +76,7 @@ Route oneshot: a handful of CSS rules, one wrapper `div` and harness rows, about
 
 - No `debug.log` was written. WordPress66 was restored afterwards: `walk_check` reports it the same, and the core version is still 6.6. The captures and scripts stay in the session scratchpad.
 - The measurements ran on WordPress 6.6 only. The core rules behind (c), `forms.css` L901 and L1779, are the same in trunk (ticket Notes, read 2026-11-11). Story 38's 4.0.2 pass carries the owner's look on the current release.
+- 2026-11-16, after #15 merged (54d1673; its CI 4/4 green): done on the owner's word, marked with `tickets.py mark`. Shipped in 4.0.2 (#13; Freemius deployment 174834, pending), whose Free asset carries the four bug 130 rules. Open: criterion 1 on the current WordPress release (`deferred-work.md`), for story 38's 4.0.2 pass.
 
 ## Review Triage Log
 
