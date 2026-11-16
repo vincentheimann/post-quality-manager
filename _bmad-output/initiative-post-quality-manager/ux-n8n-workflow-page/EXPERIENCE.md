@@ -78,7 +78,7 @@ State numbers follow the site's lifecycle (1 = first visit). The table rows foll
 | Webhook token | Hand-made setup: the manual step 2 copy row. Provisioned or adopted setup: the Webhook disclosure (rotation, 6.10) | Settings shows a link instead of the read-only field |
 | Manual steps | This page, Set up by hand | 6.6 replaces the wizard's manual n8n steps with connect → provision → first review; "Set up by hand instead" in the wizard closes it and opens state 3; "Use the guided setup instead" (state 3 by choice, and the wizard's Set up by hand step by choice while no URL is saved) removes the choice and leads back to the key path (story 106) |
 | Per-agent table | Settings → AI, where its values are edited (AC4) | Removed from this page |
-| "Set up the workflow" entry points on other pages (welcome notice, Dashboard card, Post Reviews notice) | Stay; they link here | — |
+| "Set up the workflow" entry points on other pages (welcome notice, Dashboard card, Post Reviews notice) | Stay; they link here. The welcome notice links here while no URL is saved; with a URL saved it names the first review (a link to the Dashboard, no notice on the Dashboard itself) or, in Needs attention, the fix (a link to this page) (bug 129) | — |
 
 ## Voice and Tone
 

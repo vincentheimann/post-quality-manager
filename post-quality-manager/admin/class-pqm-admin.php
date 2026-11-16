@@ -142,15 +142,43 @@ class PostQuality_Admin
 
         // Shown until the setup is complete (story 36); a site that was
         // already connected and receiving results counts as set up.
-        if (!postquality_setup_complete()) {
-            $setup_url = admin_url('admin.php?page=postquality-workflow&' . self::SETUP_QUERY_ARG . '=1');
+        if (postquality_setup_complete()) {
+            return;
+        }
+
+        // Bug 129: once a URL is saved, the notice follows the n8n Workflow
+        // page's own state: the first review next, or the fix on that page.
+        $state = self::workflow_page_state()['state'];
+        if ($state === 'set-up') {
+            // The Dashboard's own prompt names the first review there.
+            if (str_ends_with($screen->id, 'postquality-dashboard')) {
+                return;
+            }
+            printf(
+                '<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
+                esc_html__('Welcome to Post Quality Manager! Your webhook URL is saved: run your first review next.', 'post-quality-manager'),
+                esc_url(admin_url('admin.php?page=postquality-dashboard')),
+                esc_html__('Open the Dashboard', 'post-quality-manager')
+            );
+            return;
+        }
+        if ($state === 'needs-attention') {
             printf(
                 '<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
-                esc_html__('Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first — a guide walks you through it.', 'post-quality-manager'),
-                esc_url($setup_url),
-                esc_html__('Set up the workflow', 'post-quality-manager')
+                esc_html__('Welcome to Post Quality Manager! Your n8n workflow needs attention before your first review.', 'post-quality-manager'),
+                esc_url(admin_url('admin.php?page=postquality-workflow')),
+                esc_html__('See what to fix', 'post-quality-manager')
             );
+            return;
         }
+
+        $setup_url = admin_url('admin.php?page=postquality-workflow&' . self::SETUP_QUERY_ARG . '=1');
+        printf(
+            '<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
+            esc_html__('Welcome to Post Quality Manager! To start reviewing posts, set up the n8n workflow first — a guide walks you through it.', 'post-quality-manager'),
+            esc_url($setup_url),
+            esc_html__('Set up the workflow', 'post-quality-manager')
+        );
     }
 
     /* ─── Assets ─────────────────────────────────────────────────────── */
