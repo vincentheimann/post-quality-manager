@@ -1906,6 +1906,8 @@ class PostQuality_Admin
 ?>
                 <h2 class="pqm-section-gap"><?php esc_html_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php esc_html_e('These values travel with every command, so a model change here applies on the next command — no n8n re-import needed. Only plugin updates that change the workflow itself need an update in n8n.', 'post-quality-manager'); ?></p>
+                <?php /* Bug 130: on a phone, or with a long custom id, the table scrolls in this frame, not past the window. */ ?>
+                <div class="pqm-llm-scroll" role="region" aria-label="<?php esc_attr_e('What Each Agent Sends to Claude', 'post-quality-manager'); ?>" tabindex="0">
                 <table class="widefat striped pqm-llm-preview">
                     <thead>
                         <tr>
@@ -1931,6 +1933,7 @@ class PostQuality_Admin
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
 <?php
     }
 
