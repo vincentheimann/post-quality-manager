@@ -196,3 +196,6 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/bug-submission-scan-flags-32-low-severity-errors-in-the-free-build-plan.md`
   summary: Story 131 (`story-release-runs-the-directory-form-scan-on-the-free-build.md`) was written by hand, following `bmad-ticket`'s ticket reference, instead of through the skill's workflow, so the skill's validation has not run on it.
   evidence: Quick review pass 1, finding 6 (2026-11-16). The file parses in `tickets.py` and is `refined: false`; its refinement through `bmad-ticket` runs the validation.
+- source_plan: `_bmad-output/backlog/bug-dashboard-shows-processing-for-a-non-review-command-plan.md`
+  summary: Bug 128's ticket Notes still list the owner's question about the window between a Review click and the start as open, although the owner decided on 2026-11-16 that the Dashboard matches Post Reviews.
+  evidence: Quick review pass 1, finding 2 (2026-11-16). A build never writes to a ticket file, so the decision goes into the ticket's records at bug 128's done step.

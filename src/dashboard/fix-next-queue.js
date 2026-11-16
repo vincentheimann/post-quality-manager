@@ -59,9 +59,12 @@ export default function FixNextQueue( {
 										) }
 							</span>
 						</span>
+						{ /* A running review shows Processing, as in Post Reviews;
+						     another command, or the wait for a start, only
+						     disables Review (bug 128). */ }
 						<StatusBadge
 							status={
-								busy || inFlight( item )
+								inFlight( item )
 									? 'processing'
 									: item.latest_status
 							}
