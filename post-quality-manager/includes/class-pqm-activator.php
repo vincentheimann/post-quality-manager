@@ -98,8 +98,10 @@ class PostQuality_Activator {
         self::migrate_stored_names();
 
         foreach ( self::LEGACY_NAMES['table'] as $old => $new ) {
-            $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . $new ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-            $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . $old ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . $new ) );
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $wpdb->prefix . $old ) );
         }
 
         if ( postquality_fs()->is__premium_only() ) {
@@ -210,7 +212,8 @@ class PostQuality_Activator {
     /** User meta moves per user holding it; the retired View as meta is deleted for all users. */
     private static function migrate_user_meta(): void {
         foreach ( self::LEGACY_NAMES['user_meta'] as $old => $new ) {
-            foreach ( get_users( [ 'meta_key' => $old, 'fields' => 'ids' ] ) as $user_id ) { // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a one-time migration lookup
+            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a one-time migration lookup
+            foreach ( get_users( [ 'meta_key' => $old, 'fields' => 'ids' ] ) as $user_id ) {
                 if ( ! metadata_exists( 'user', $user_id, $new ) ) {
                     add_user_meta( $user_id, $new, get_user_meta( $user_id, $old, true ), true );
                 }
@@ -301,16 +304,21 @@ class PostQuality_Activator {
         foreach ( self::LEGACY_NAMES['table'] as $old => $new ) {
             $old = $wpdb->prefix . $old;
             $new = $wpdb->prefix . $new;
-            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $old ) ) ) !== $old ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $old ) ) ) !== $old ) {
                 continue;
             }
-            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $new ) ) ) === $new ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-                if ( '0' !== $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $new ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $new ) ) ) === $new ) {
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                if ( '0' !== $wpdb->get_var( $wpdb->prepare( 'SELECT COUNT(*) FROM %i', $new ) ) ) {
                     continue;
                 }
-                $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $new ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+                $wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %i', $new ) );
             }
-            if ( false === $wpdb->query( $wpdb->prepare( 'RENAME TABLE %i TO %i', $old, $new ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+            if ( false === $wpdb->query( $wpdb->prepare( 'RENAME TABLE %i TO %i', $old, $new ) ) ) {
                 return false;
             }
         }

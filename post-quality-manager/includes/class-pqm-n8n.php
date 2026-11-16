@@ -556,36 +556,39 @@ class PostQuality_N8n {
 
         if ( [] !== $shared ) {
             $credential = (string) ( $trigger['credentials']['httpHeaderAuth']['name'] ?? '' );
+            // The notes sit above statements, where Freemius's re-print of the Free build keeps them (bug 125).
             if ( '' === $credential ) {
-                return sprintf(
-                    $adopting
-                        /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                        ? __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' )
-                        /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                        : __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
-                    wp_sprintf( '%l', $shared )
-                );
+                if ( $adopting ) {
+                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    $format = __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' );
+                } else {
+                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                    $format = __( 'In n8n, the webhook credential is set on %s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' );
+                }
+
+                return sprintf( $format, wp_sprintf( '%l', $shared ) );
             }
 
-            return sprintf(
-                $adopting
-                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    ? __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' )
-                    /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    : __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' ),
-                $credential,
-                wp_sprintf( '%l', $shared )
-            );
+            if ( $adopting ) {
+                /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                $format = __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then try again.', 'post-quality-manager' );
+            } else {
+                /* translators: 1: the n8n credential's name, e.g. "Header Auth account"; 2: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                $format = __( 'In n8n, the webhook credential “%1$s” is set on %2$s instead of your Anthropic credential: pick the Anthropic one there, publish the workflow, then test again.', 'post-quality-manager' );
+            }
+
+            return sprintf( $format, $credential, wp_sprintf( '%l', $shared ) );
         }
         if ( [] !== $other ) {
-            return sprintf(
-                $adopting
-                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    ? __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then try again.', 'post-quality-manager' )
-                    /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
-                    : __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then test again.', 'post-quality-manager' ),
-                wp_sprintf( '%l', $other )
-            );
+            if ( $adopting ) {
+                /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                $format = __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then try again.', 'post-quality-manager' );
+            } else {
+                /* translators: %s: n8n node names, e.g. "Claude - Review Agent and Claude - SEO Agent" */
+                $format = __( 'In n8n, %s uses a credential of another type than Header Auth: pick the Header Auth credential made for it there (your Anthropic credential in a Claude node, the webhook credential in the Webhook Trigger), publish the workflow, then test again.', 'post-quality-manager' );
+            }
+
+            return sprintf( $format, wp_sprintf( '%l', $other ) );
         }
         if ( [] !== $missing ) {
             return self::no_credential( $missing, $adopting );
@@ -596,14 +599,15 @@ class PostQuality_N8n {
 
     /** The sentence for nodes that need a credential and have none; `$adopting` as in miswiring(). */
     private static function no_credential( array $names, bool $adopting ): string {
-        return sprintf(
-            $adopting
-                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
-                ? __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then try again.', 'post-quality-manager' )
-                /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
-                : __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then test again.', 'post-quality-manager' ),
-            wp_sprintf( '%l', $names )
-        );
+        if ( $adopting ) {
+            /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
+            $format = __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then try again.', 'post-quality-manager' );
+        } else {
+            /* translators: %s: n8n node names, e.g. "Update WP Post (Rewrite)" */
+            $format = __( 'In n8n, no credential is set on %s: add one there, publish the workflow, then test again.', 'post-quality-manager' );
+        }
+
+        return sprintf( $format, wp_sprintf( '%l', $names ) );
     }
 
     /** Whether a node calls Claude: an HTTP Request to api.anthropic.com. */
@@ -889,7 +893,8 @@ class PostQuality_N8n {
         global $wpdb;
 
         $lock = maybe_serialize( [ 'at' => time() ] );
-        $rows = $wpdb->query( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        $rows = $wpdb->query( $wpdb->prepare(
             "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'off')",
             self::LOCK_OPTION,
             $lock
@@ -908,7 +913,8 @@ class PostQuality_N8n {
         if ( (int) ( $held['at'] ?? 0 ) > time() - self::LOCK_TTL ) {
             return false; // Held fresh. Any other value (a hand-edited or corrupted one included) is stale: taken over below.
         }
-        $rows = $wpdb->query( $wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+        $rows = $wpdb->query( $wpdb->prepare(
             "UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s",
             $lock,
             self::LOCK_OPTION,

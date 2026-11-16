@@ -498,7 +498,8 @@ function postquality_n8n_payload(WP_Post $post, string $command, array $settings
 {
     $post_id       = $post->ID;
     $content_html  = get_post_field('post_content', $post_id);
-    $content_plain = wp_strip_all_tags(apply_filters('the_content', $content_html)); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
+    // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
+    $content_plain = wp_strip_all_tags(apply_filters('the_content', $content_html));
     $yoast_active  = defined('WPSEO_VERSION');
 
     $excerpt = has_excerpt($post_id)

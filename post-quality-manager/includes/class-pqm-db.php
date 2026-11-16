@@ -81,7 +81,8 @@ class PostQuality_DB {
         $placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
         $sql          = "SELECT post_id, command FROM {$table} WHERE post_id IN ($placeholders) GROUP BY post_id, command";
         $rows         = $wpdb->get_results(
-            $wpdb->prepare( $sql, ...$post_ids ), // phpcs:ignore WordPress.DB.PreparedSQL
+            // phpcs:ignore WordPress.DB.PreparedSQL
+            $wpdb->prepare( $sql, ...$post_ids ),
             ARRAY_A
         ) ?: [];
 
@@ -126,7 +127,8 @@ class PostQuality_DB {
             GROUP BY r1.post_id, r1.command
         ";
         $rows         = $wpdb->get_results(
-            $wpdb->prepare( $sql, ...$post_ids ), // phpcs:ignore WordPress.DB.PreparedSQL
+            // phpcs:ignore WordPress.DB.PreparedSQL
+            $wpdb->prepare( $sql, ...$post_ids ),
             ARRAY_A
         ) ?: [];
 
@@ -148,7 +150,8 @@ class PostQuality_DB {
         global $wpdb;
         $table = self::table_name();
 
-        return (bool) $wpdb->get_var( "SELECT 1 FROM {$table} WHERE status NOT IN ('', 'processing', 'error') LIMIT 1" ); // phpcs:ignore WordPress.DB.PreparedSQL
+        // phpcs:ignore WordPress.DB.PreparedSQL
+        return (bool) $wpdb->get_var( "SELECT 1 FROM {$table} WHERE status NOT IN ('', 'processing', 'error') LIMIT 1" );
     }
 
     /**
@@ -311,7 +314,8 @@ class PostQuality_DB {
                 {$having_sql}
             ) AS counted
         ";
-        $total = (int) $wpdb->get_var( $count_sql ); // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant.
+        // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant.
+        $total = (int) $wpdb->get_var( $count_sql );
 
         $pages  = (int) ceil( $total / $args['per_page'] );
         $offset = ( $args['page'] - 1 ) * $args['per_page'];
@@ -336,8 +340,10 @@ class PostQuality_DB {
             LIMIT %d OFFSET %d
         ";
 
-        $items = $wpdb->get_results( // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant; ORDER BY comes from $order_map.
-            $wpdb->prepare( $items_sql, $args['per_page'], $offset ), // phpcs:ignore WordPress.DB.PreparedSQL
+        // phpcs:ignore PluginCheck.Security.DirectDB.UnescapedDBParameter -- every fragment is prepare()d or a code constant; ORDER BY comes from $order_map.
+        $items = $wpdb->get_results(
+            // phpcs:ignore WordPress.DB.PreparedSQL
+            $wpdb->prepare( $items_sql, $args['per_page'], $offset ),
             ARRAY_A
         ) ?: [];
 
@@ -368,7 +374,8 @@ class PostQuality_DB {
             GROUP BY lr.status
         ";
 
-        $rows = $wpdb->get_results( $sql, ARRAY_A ) ?: []; // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- no input: table names and constants only.
+        // phpcs:ignore WordPress.DB.PreparedSQL, PluginCheck.Security.DirectDB.UnescapedDBParameter -- no input: table names and constants only.
+        $rows = $wpdb->get_results( $sql, ARRAY_A ) ?: [];
 
         $counts = [
             'all'            => 0,
@@ -494,7 +501,8 @@ class PostQuality_DB {
         ";
 
         return $wpdb->get_results(
-            $wpdb->prepare( $sql, $command, $command, $min_score, $cutoff, $limit ), // phpcs:ignore WordPress.DB.PreparedSQL
+            // phpcs:ignore WordPress.DB.PreparedSQL
+            $wpdb->prepare( $sql, $command, $command, $min_score, $cutoff, $limit ),
             ARRAY_A
         ) ?: [];
     }
