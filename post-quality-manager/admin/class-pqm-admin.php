@@ -47,6 +47,23 @@ class PostQuality_Admin
      */
     private const MENU_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMCAyMCI+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNIDEzLjEgOS41NSBBIDYuMyA2LjMgMCAxIDEgMC41IDkuNTUgQSA2LjMgNi4zIDAgMSAxIDEzLjEgOS41NSBaIE0gMTAuODUgOS41NSBBIDQuMDUgNC4wNSAwIDEgMCAyLjc1IDkuNTUgQSA0LjA1IDQuMDUgMCAxIDAgMTAuODUgOS41NSBaIi8+PHJlY3QgZmlsbD0iI2ZmZmZmZiIgeD0iMCIgeT0iLTEuMTIiIHdpZHRoPSI0LjgxIiBoZWlnaHQ9IjIuMjQiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDkuNDcgMTIuMjIpIHJvdGF0ZSg0NSkiLz48cmVjdCBmaWxsPSIjZmZmZmZmIiB4PSIwIiB5PSItMS4xMiIgd2lkdGg9IjcuNzgiIGhlaWdodD0iMi4yNCIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTIuODcgMTUuNjIpIHJvdGF0ZSgtNDUpIi8+PGNpcmNsZSBmaWxsPSIjZmZmZmZmIiBjeD0iOS40NyIgY3k9IjEyLjIyIiByPSIxLjEyIi8+PGNpcmNsZSBmaWxsPSIjZmZmZmZmIiBjeD0iMTIuODciIGN5PSIxNS42MiIgcj0iMS4xMiIvPjxjaXJjbGUgZmlsbD0iI2ZmZmZmZiIgY3g9IjE4LjM4IiBjeT0iMTAuMTIiIHI9IjEuMTIiLz48L3N2Zz4=';
 
+    /*
+     * What each value built for the n8n Workflow page may hold, for the
+     * wp_kses() that prints it (bug 125): the tags and attributes it is built
+     * with and no others, so the output is the input unchanged.
+     */
+    /** The status block's actions ($primary, $secondary): the setup, test, update and re-import buttons, the Post Reviews link. */
+    private const ACTIONS_HTML = [
+        'button' => ['type' => true, 'class' => true, 'data-step' => true, 'data-pqm-post' => true, 'data-pqm-confirm' => true, 'data-pqm-busy' => true],
+        'a'      => ['class' => true, 'href' => true],
+    ];
+    /** "Use the guided setup instead" ($guided_link). */
+    private const GUIDED_LINK_HTML = ['p' => [], 'button' => ['type' => true, 'class' => true, 'data-step' => true]];
+    /** "Set up by hand instead" ($by_hand_link). */
+    private const BY_HAND_LINK_HTML = ['p' => [], 'a' => ['href' => true, 'class' => true, 'data-pqm-post' => true, 'data-pqm-body' => true, 'data-pqm-focus' => true]];
+    /** The credential names in Set up by hand's step 3 ($nodes_pick). */
+    private const NODES_PICK_HTML = ['strong' => []];
+
     /* ─── Menu Registration ──────────────────────────────────────────── */
 
     public static function register_pages(): void
@@ -753,7 +770,9 @@ class PostQuality_Admin
         <div class="wrap pqm-wrap">
             <h1><?php esc_html_e('Settings', 'post-quality-manager'); ?></h1>
 
-            <?php if (!empty($_GET['settings-updated'])): // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- core's redirect flag after options.php saves; it only shows a notice. ?>
+            <?php
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- core's redirect flag after options.php saves; it only shows a notice.
+            if (!empty($_GET['settings-updated'])): ?>
             <!-- Custom save notice: settings ride the webhook payload, so no n8n re-import is ever needed. -->
             <div class="notice notice-success is-dismissible">
                 <p><?php esc_html_e('Settings saved — they apply on the next command. No n8n re-import needed.', 'post-quality-manager'); ?></p>
@@ -799,36 +818,40 @@ class PostQuality_Admin
                      key lives on the SDK's own screens, and this is the one upsell. -->
                 <h2><?php esc_html_e('License', 'post-quality-manager'); ?></h2>
                 <p class="description"><?php
+                    // Printed where it is escaped (bug 125). The Pro build prints its
+                    // own line first; the Free line is the fallback.
+                    $license_printed = false;
+                    if ( postquality_fs()->is__premium_only() ) {
+                        if ($is_pro) {
+                            esc_html_e('Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.', 'post-quality-manager');
+                            $license_printed = true;
+                        } elseif (PostQuality_License::has_lapsed()) {
+                            // The pricing page, not the Account page: once the SDK detaches the license,
+                            // that page offers no renewal (bug 93).
+                            printf(
+                                /* translators: %s: link to the pricing page */
+                                esc_html__('Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. %s', 'post-quality-manager'),
+                                '<a href="' . esc_url(POSTQUALITY_PRICING_URL) . '">' . esc_html__('Renew Pro', 'post-quality-manager') . '</a>'
+                            );
+                            $license_printed = true;
+                        }
+                    }
                     // The Free build (ADR 0014) has no Pro code to unlock: a
                     // license activated on it (the SDK accepts one there) points
                     // to the Pro download the Account page offers.
-                    if ($is_pro) {
-                        $license_line = sprintf(
+                    if (!$license_printed && $is_pro) {
+                        printf(
                             /* translators: %s: link to the Account page */
                             esc_html__('Your Pro license is active. Install the Pro version to use it: %s', 'post-quality-manager'),
                             '<a href="' . esc_url(postquality_fs()->get_account_url()) . '">' . esc_html__('Open the Account page', 'post-quality-manager') . '</a>'
                         );
-                    } else {
-                        $license_line = sprintf(
+                    } elseif (!$license_printed) {
+                        printf(
                             /* translators: %s: link to the pricing page */
                             esc_html__('Current plan: Free — Review and Key Takeaways are included. %s', 'post-quality-manager'),
                             '<a href="' . esc_url(POSTQUALITY_PRICING_URL) . '">' . esc_html__('Get Pro', 'post-quality-manager') . '</a>'
                         );
                     }
-                    if ( postquality_fs()->is__premium_only() ) {
-                        if ($is_pro) {
-                            $license_line = esc_html__('Current plan: Pro — all agents, per-agent overrides, scheduled reviews and role settings are unlocked.', 'post-quality-manager');
-                        } elseif (PostQuality_License::has_lapsed()) {
-                            // The pricing page, not the Account page: once the SDK detaches the license,
-                            // that page offers no renewal (bug 93).
-                            $license_line = sprintf(
-                                /* translators: %s: link to the pricing page */
-                                esc_html__('Current plan: Free — your Pro license has lapsed. Your overrides, schedules and role settings are kept and apply again once you renew. %s', 'post-quality-manager'),
-                                '<a href="' . esc_url(POSTQUALITY_PRICING_URL) . '">' . esc_html__('Renew Pro', 'post-quality-manager') . '</a>'
-                            );
-                        }
-                    }
-                    echo $license_line; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped piece by piece above.
                 ?></p>
 
                 <!-- n8n Connection -->
@@ -1393,8 +1416,8 @@ class PostQuality_Admin
 
     /**
      * The n8n Workflow page (story 67): the H1, the setup dialog's mount
-     * point (story 36) and one body, #pqm-workflow-body, rendered by
-     * render_workflow_body() from the site's state. Every reply that
+     * point (story 36) and one body, #pqm-workflow-body, printed by
+     * print_workflow_body() from the site's state. Every reply that
      * carries `status_html` carries that whole body and pqm-admin.js swaps
      * the body's content (the aria-live region stays); the n8n connection
      * island inside it remounts on each swap (src/index.js).
@@ -1410,7 +1433,7 @@ class PostQuality_Admin
             // only; the status block's primary action opens it (.pqm-open-setup).
             self::render_app_root('pqm-setup-root');
             ?>
-            <div id="pqm-workflow-body" aria-live="polite"><?php echo self::render_workflow_body(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped inside. ?></div>
+            <div id="pqm-workflow-body" aria-live="polite"><?php self::print_workflow_body(); ?></div>
         </div>
 <?php
     }
@@ -1531,6 +1554,18 @@ class PostQuality_Admin
      */
     public static function render_workflow_body(string $outcome = '', string $tone = 'success'): string
     {
+        ob_start();
+        self::print_workflow_body($outcome, $tone);
+
+        return (string) ob_get_clean();
+    }
+
+    /**
+     * Prints the body render_workflow_body() returns: the page load prints
+     * it, so each value is escaped where it is printed (bug 125).
+     */
+    private static function print_workflow_body(string $outcome = '', string $tone = 'success'): void
+    {
         $settings = postquality_get_settings();
         $state    = self::workflow_page_state();
         $report   = $state['report'];
@@ -1583,11 +1618,14 @@ class PostQuality_Admin
                         $sentence = $report['miswired']; // raw (n8n supplies the names): escaped below, once
                         break;
                     case 'outdated':
-                        $sentence = $report['version'] > 0
+                        // The notes sit above statements, where Freemius's re-print of the Free build keeps them (bug 125).
+                        if ($report['version'] > 0) {
                             /* translators: 1: the workflow's version, 2: the version this plugin needs */
-                            ? sprintf(__('Your workflow is version %1$d; this plugin needs %2$d.', 'post-quality-manager'), $report['version'], POSTQUALITY_WORKFLOW_VERSION)
+                            $sentence = sprintf(__('Your workflow is version %1$d; this plugin needs %2$d.', 'post-quality-manager'), $report['version'], POSTQUALITY_WORKFLOW_VERSION);
+                        } else {
                             /* translators: %d: the version this plugin needs */
-                            : sprintf(__('Your workflow is an older version that does not report its number; this plugin needs %d.', 'post-quality-manager'), POSTQUALITY_WORKFLOW_VERSION);
+                            $sentence = sprintf(__('Your workflow is an older version that does not report its number; this plugin needs %d.', 'post-quality-manager'), POSTQUALITY_WORKFLOW_VERSION);
+                        }
                         break;
                     default: // free
                         $sentence = __('Your workflow is the Free variant: it lacks the Sources, SEO, Audit and Rewrite branches.', 'post-quality-manager');
@@ -1612,19 +1650,24 @@ class PostQuality_Admin
         }
         $version_line = '';
         if ($report !== null && ($report['version'] > 0 || $report['at'] > 0)) {
-            $version = $report['version'] > 0
+            if ($report['version'] > 0) {
                 /* translators: %d: workflow version number */
-                ? sprintf(__('Version %d', 'post-quality-manager'), $report['version'])
-                : __('An older version that does not report its number', 'post-quality-manager');
+                $version = sprintf(__('Version %d', 'post-quality-manager'), $report['version']);
+            } else {
+                $version = __('An older version that does not report its number', 'post-quality-manager');
+            }
             if ($report['at'] === 0) {
                 // Stored by a pre-v5 plugin: a command reported it, time unknown.
                 $how = __('reported by a command', 'post-quality-manager');
             } else {
-                $how = $report['via'] === 'test'
+                if ($report['via'] === 'test') {
                     /* translators: %s: when, e.g. "just now" or "3 hours ago" */
-                    ? sprintf(__('checked %s by a test', 'post-quality-manager'), self::when($report['at']))
+                    $format = __('checked %s by a test', 'post-quality-manager');
+                } else {
                     /* translators: %s: when, e.g. "just now" or "3 hours ago" */
-                    : sprintf(__('checked %s by a command', 'post-quality-manager'), self::when($report['at']));
+                    $format = __('checked %s by a command', 'post-quality-manager');
+                }
+                $how = sprintf($format, self::when($report['at']));
             }
             /* translators: 1: "Version 6" or "An older version…", 2: "checked just now by a test" */
             $version_line = sprintf(__('%1$s · %2$s.', 'post-quality-manager'), $version, $how);
@@ -1670,9 +1713,9 @@ class PostQuality_Admin
         if ($kind === 'set-up' && $state['checked'] && !str_contains($primary, 'pqm-open-setup') && self::app_built()) {
             $open = self::open_setup_steps();
             if ($open !== []) {
-                $secondary .= ($secondary !== '' ? ' ' : '') . '<button type="button" class="button-link pqm-open-setup">'
-                    /* translators: %s: the open steps, e.g. "Blog Profile, scheduled reviews" */
-                    . esc_html(sprintf(__('Finish setting up: %s', 'post-quality-manager'), implode(__(', ', 'post-quality-manager'), $open))) . '</button>';
+                /* translators: %s: the open steps, e.g. "Blog Profile, scheduled reviews" */
+                $finish     = sprintf(__('Finish setting up: %s', 'post-quality-manager'), implode(__(', ', 'post-quality-manager'), $open));
+                $secondary .= ($secondary !== '' ? ' ' : '') . '<button type="button" class="button-link pqm-open-setup">' . esc_html($finish) . '</button>';
             }
         }
         if ($state['also'] !== '') {
@@ -1694,8 +1737,6 @@ class PostQuality_Admin
         $guided_link = $kind === 'manual' && ($state['reason']['kind'] ?? '') === 'choice' && self::app_built()
             ? '<p><button type="button" class="button-link pqm-open-setup" data-step="guided">' . esc_html__('Use the guided setup instead', 'post-quality-manager') . '</button></p>'
             : '';
-
-        ob_start();
 ?>
         <div class="pqm-workflow-status" data-state="<?php echo esc_attr($accent); ?>">
             <?php if ($outcome !== ''): ?>
@@ -1705,12 +1746,12 @@ class PostQuality_Admin
             <?php foreach ($details as $detail): ?>
             <p><?php echo esc_html($detail); ?></p>
             <?php endforeach; ?>
-            <?php echo $guided_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+            <?php echo wp_kses($guided_link, self::GUIDED_LINK_HTML); ?>
             <?php if ($version_line !== ''): ?>
             <p class="description pqm-workflow-version"><?php echo esc_html($version_line); ?></p>
             <?php endif; ?>
             <?php if ($primary !== '' || $secondary !== ''): ?>
-            <p class="pqm-workflow-actions"><?php echo $primary . ($primary !== '' && $secondary !== '' ? ' ' : '') . $secondary; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?></p>
+            <p class="pqm-workflow-actions"><?php echo wp_kses($primary . ($primary !== '' && $secondary !== '' ? ' ' : '') . $secondary, self::ACTIONS_HTML); ?></p>
             <?php endif; ?>
         </div>
         <?php
@@ -1720,12 +1761,12 @@ class PostQuality_Admin
         ?>
         <?php if ($kind === 'not-set-up'): ?>
         <p><?php esc_html_e('The setup asks for three values: your n8n address, an n8n API key with an expiry date, and an Anthropic API key. The plugin then creates everything in n8n for you: the credentials, the workflow and its publication.', 'post-quality-manager'); ?></p>
-        <?php echo $by_hand_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+        <?php echo wp_kses($by_hand_link, self::BY_HAND_LINK_HTML); ?>
         <?php elseif ($kind === 'connected'): ?>
         <?php if ($state['leftovers']): ?>
         <div class="notice notice-info inline pqm-inline-notice"><p><?php esc_html_e('An earlier setup left a workflow or credentials in n8n. Setting up removes them first.', 'post-quality-manager'); ?></p></div>
         <?php endif; ?>
-        <?php echo $by_hand_link; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?>
+        <?php echo wp_kses($by_hand_link, self::BY_HAND_LINK_HTML); ?>
         <?php endif; ?>
 
         <?php if ($disclosures['by-hand']): ?>
@@ -1754,7 +1795,6 @@ class PostQuality_Admin
         </details>
         <?php endif; ?>
 <?php
-        return (string) ob_get_clean();
     }
 
     /**
@@ -1781,10 +1821,12 @@ class PostQuality_Admin
     /** "just now" or "3 hours ago", for a timestamp. */
     private static function when(int $at): string
     {
-        return time() - $at < MINUTE_IN_SECONDS
-            ? __('just now', 'post-quality-manager')
-            /* translators: %s: time span, e.g. "3 hours" */
-            : sprintf(__('%s ago', 'post-quality-manager'), human_time_diff($at));
+        if (time() - $at < MINUTE_IN_SECONDS) {
+            return __('just now', 'post-quality-manager');
+        }
+
+        /* translators: %s: time span, e.g. "3 hours" */
+        return sprintf(__('%s ago', 'post-quality-manager'), human_time_diff($at));
     }
 
     /**
@@ -1917,9 +1959,6 @@ class PostQuality_Admin
         $claude   = $names['anthropic'];
         $download = wp_nonce_url(admin_url('admin-post.php?action=postquality_download_workflow'), 'postquality_download_workflow');
         $n8n_url  = self::n8n_editor_url((string) $settings['n8n_webhook_url']);
-        $n8n      = $n8n_url !== ''
-            ? '<a href="' . esc_url($n8n_url) . '">' . esc_html__('your n8n', 'post-quality-manager') . '</a>'
-            : esc_html__('n8n', 'post-quality-manager');
         $name     = __('Credential name', 'post-quality-manager');
 
         // The Free template has no Rewrite branch: two credentials, two Claude nodes.
@@ -1953,7 +1992,7 @@ class PostQuality_Admin
                     printf(
                         /* translators: %s: "your n8n", linked to the n8n instance when its address is known, else "n8n" */
                         esc_html__('Download the workflow, then in %s open a new, empty workflow, open the workflow menu (the three dots right after the workflow\'s name, at the top left) and choose "Import", then "From file" — in n8n 3, "Import JSON". Pick the file you downloaded.', 'post-quality-manager'),
-                        $n8n // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.
+                        $n8n_url !== '' ? '<a href="' . esc_url($n8n_url) . '">' . esc_html__('your n8n', 'post-quality-manager') . '</a>' : esc_html__('n8n', 'post-quality-manager')
                     );
                 ?></p>
                 <p><a href="<?php echo esc_url($download); ?>" class="button"><?php esc_html_e('Download n8n workflow', 'post-quality-manager'); ?></a></p>
@@ -1990,7 +2029,7 @@ class PostQuality_Admin
             <li>
                 <h3><?php esc_html_e('Check the credential in each node', 'post-quality-manager'); ?></h3>
                 <p><?php echo esc_html($nodes_hint); ?></p>
-                <p><?php echo $nodes_pick; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above. ?></p>
+                <p><?php echo wp_kses($nodes_pick, self::NODES_PICK_HTML); ?></p>
             </li>
             <li>
                 <h3><?php esc_html_e('Publish and connect', 'post-quality-manager'); ?></h3>
@@ -2051,10 +2090,11 @@ class PostQuality_Admin
      */
     private static function render_copy_value(string $label, string $value, string $credential = ''): void
     {
-        $a11y_label = $credential === ''
-            ? $label
+        $a11y_label = $label;
+        if ($credential !== '') {
             /* translators: 1: credential name, e.g. "Anthropic - Claude", 2: the field, e.g. "Credential name" or "Value" */
-            : sprintf(__('%1$s: %2$s', 'post-quality-manager'), $credential, $label);
+            $a11y_label = sprintf(__('%1$s: %2$s', 'post-quality-manager'), $credential, $label);
+        }
 ?>
         <div class="pqm-copy-row">
             <span class="pqm-copy-label"><?php echo esc_html($label); ?></span>
@@ -2109,7 +2149,8 @@ class PostQuality_Admin
         nocache_headers();
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="post-quality-workflow-' . sanitize_file_name($host) . '.json"');
-        echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file download, not HTML.
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file body, not HTML
+        echo $json;
         exit;
     }
 

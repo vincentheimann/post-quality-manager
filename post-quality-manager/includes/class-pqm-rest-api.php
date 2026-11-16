@@ -441,18 +441,21 @@ class PostQuality_REST_API {
         // Setup global post data for shortcodes.
         global $post;
         $original_post = $post;
-        $post          = $queried_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+        // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+        $post = $queried_post;
         setup_postdata( $post );
 
         $content_html  = get_post_field( 'post_content', $id );
-        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
+        // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's own the_content filter applied to the post body
+        $content_plain = wp_strip_all_tags( apply_filters( 'the_content', $content_html ) );
 
         $excerpt = has_excerpt( $id )
             ? wp_strip_all_tags( get_the_excerpt( $id ) )
             : wp_trim_words( $content_plain, 55, '...' );
 
         // Restore.
-        $post = $original_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+        // phpcs:ignore WordPress.WP.GlobalVariablesOverride
+        $post = $original_post;
         if ( $post ) {
             setup_postdata( $post );
         } else {
@@ -725,18 +728,16 @@ class PostQuality_REST_API {
         ] );
 
         if ( is_wp_error( $response ) ) {
-            return new WP_Error(
-                'pqm_n8n_error',
-                sprintf(
-                    $can_manage
-                        /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
-                        ? __( 'Could not connect to n8n (%s). Check your Webhook URL in Settings.', 'post-quality-manager' )
-                        /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
-                        : __( 'Could not connect to n8n (%s). Ask an administrator to check the n8n connection, then try again.', 'post-quality-manager' ),
-                    $response->get_error_message()
-                ),
-                [ 'status' => 502 ]
-            );
+            // The notes sit above statements, where Freemius's re-print of the Free build keeps them (bug 125).
+            if ( $can_manage ) {
+                /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
+                $format = __( 'Could not connect to n8n (%s). Check your Webhook URL in Settings.', 'post-quality-manager' );
+            } else {
+                /* translators: %s: the HTTP error message, e.g. "cURL error 7" */
+                $format = __( 'Could not connect to n8n (%s). Ask an administrator to check the n8n connection, then try again.', 'post-quality-manager' );
+            }
+
+            return new WP_Error( 'pqm_n8n_error', sprintf( $format, $response->get_error_message() ), [ 'status' => 502 ] );
         }
 
         $status_code = wp_remote_retrieve_response_code( $response );
@@ -761,24 +762,23 @@ class PostQuality_REST_API {
             );
         }
 
+        if ( $accepted ) {
+            /* translators: 1: agent command label, e.g. "Review", 2: post title */
+            $message = sprintf( __( '%1$s started for "%2$s".', 'post-quality-manager' ), PostQuality_Features::label( $command ), $post->post_title );
+        } else {
+            if ( $can_manage ) {
+                /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
+                $format = __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' );
+            } else {
+                /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
+                $format = __( '%1$s could not start — n8n answered HTTP %2$d. Ask an administrator to check the workflow in n8n, then try again.', 'post-quality-manager' );
+            }
+            $message = sprintf( $format, PostQuality_Features::label( $command ), $status_code );
+        }
+
         return new WP_REST_Response( [
             'success'         => $accepted,
-            'message'         => $accepted
-                ? sprintf(
-                    /* translators: 1: agent command label, e.g. "Review", 2: post title */
-                    __( '%1$s started for "%2$s".', 'post-quality-manager' ),
-                    PostQuality_Features::label( $command ),
-                    $post->post_title
-                )
-                : sprintf(
-                    $can_manage
-                        /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
-                        ? __( '%1$s could not start — n8n answered HTTP %2$d. Check that the workflow is active in n8n, then try again.', 'post-quality-manager' )
-                        /* translators: 1: agent command label, e.g. "Review"; 2: HTTP status code n8n answered with */
-                        : __( '%1$s could not start — n8n answered HTTP %2$d. Ask an administrator to check the workflow in n8n, then try again.', 'post-quality-manager' ),
-                    PostQuality_Features::label( $command ),
-                    $status_code
-                ),
+            'message'         => $message,
             'n8n_status'      => $status_code,
             // Post-trigger remaining count; null for exempt/unlimited users.
             'quota_remaining' => $quota !== null ? $quota['remaining'] : null,
@@ -1880,11 +1880,14 @@ class PostQuality_REST_API {
             // Not the update's result, and neither is a 404 an earlier try recorded: the workflow answers.
             delete_option( 'postquality_workflow_version_seen' );
         } else {
-            $message = $ping['ok']
+            if ( $ping['ok'] ) {
                 /* translators: %s: the test ping's message, e.g. "Ping OK — this site reaches n8n…" */
-                ? sprintf( __( 'Workflow updated. %s', 'post-quality-manager' ), $ping['message'] )
+                $format = __( 'Workflow updated. %s', 'post-quality-manager' );
+            } else {
                 /* translators: %s: why the ping failed and what to check, e.g. "n8n responded with 404. Check the URL…" */
-                : sprintf( __( 'The workflow was updated in n8n. %s', 'post-quality-manager' ), $ping['message'] );
+                $format = __( 'The workflow was updated in n8n. %s', 'post-quality-manager' );
+            }
+            $message = sprintf( $format, $ping['message'] );
         }
 
         $reply = [ 'updated' => true, 'ping_ok' => $ping['ok'], 'outdated' => $ping['outdated'], 'message' => $message ];

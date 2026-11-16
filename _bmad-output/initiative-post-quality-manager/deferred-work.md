@@ -190,3 +190,9 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/initiative-post-quality-manager/epic-delivery-pipeline/story-the-first-public-release-is-published-plan.md`
   summary: The issue chooser (`.github/ISSUE_TEMPLATE/config.yml`) lists "Support for the free plugin" pointing to the WordPress.org support forum, which does not exist before story 38's listing; since the switch to public (2026-11-11), the feedback card's new "open an issue on GitHub" link leads users to it.
   evidence: Entry 8 review pass 1, finding 7 (2026-11-11); the entry comes from story 48 and is pre-existing, outside the launch PR's diff. Fixed the same day in the launch PR's README commit (#3), which removes the entry; story 38 re-adds it once the forum exists (`docs/distribution.md` L28 names the forum URL "once listed").
+- source_plan: `_bmad-output/backlog/bug-submission-scan-flags-32-low-severity-errors-in-the-free-build-plan.md`
+  summary: Bug 125's ticket Notes still list the recurrence check as an open question for the owner, although the owner decided it on 2026-11-16 (the reprint-comments harness, plus story 131 for the release step).
+  evidence: Quick review pass 1, finding 5 (2026-11-16). A build never writes to a ticket file, so the decision and story 131's name go into the ticket's records at bug 125's done step.
+- source_plan: `_bmad-output/backlog/bug-submission-scan-flags-32-low-severity-errors-in-the-free-build-plan.md`
+  summary: Story 131 (`story-release-runs-the-directory-form-scan-on-the-free-build.md`) was written by hand, following `bmad-ticket`'s ticket reference, instead of through the skill's workflow, so the skill's validation has not run on it.
+  evidence: Quick review pass 1, finding 6 (2026-11-16). The file parses in `tickets.py` and is `refined: false`; its refinement through `bmad-ticket` runs the validation.
