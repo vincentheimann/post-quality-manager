@@ -20,9 +20,13 @@
 .pqm-hidden { display: none !important; } /* Bug 107: core's phone rules show form-table fields (display: block, 0,2,2); hidden wins. */
 .pqm-section-gap { margin-top: 2em; }
 .pqm-inline-notice { margin-bottom: 20px; }
-.pqm-radio-label { margin-right: 15px; }
+/* Bug 130: core sets these labels' margin with !important, so the gap after each label is padding;
+   on a phone each option takes its own line (core's own phone rule loses to its 0,1,3 inline-block). */
+.pqm-radio-label { padding-right: 16px; }
+@media screen and (max-width: 782px) {
+    .form-table td fieldset .pqm-radio-label { display: block; }
+}
 .pqm-context-intro { max-width: 720px; }
-.pqm-profile-fieldset .pqm-radio-label { display: inline-block; margin: 0 16px 6px 0; }
 .pqm-voice-fieldset { margin-bottom: 10px; }
 .form-table td .pqm-preset-text { max-width: 720px; margin-top: 10px; }
 .pqm-agents-intro { margin-bottom: 1em; }
@@ -64,8 +68,11 @@
 #pqm_default_model, .pqm-wrap .pqm-agent-model { max-width: 100%; }
 
 /* Settings → AI: what each agent sends to Claude (story 67: moved from the Workflow page) */
-.pqm-llm-preview { max-width: 900px; margin-top: 8px; }
-.pqm-llm-preview code { font-size: 11px; color: #50575e; }
+.pqm-llm-preview { max-width: 900px; }
+.pqm-llm-preview code { font-size: 11px; color: #50575e; white-space: nowrap; } /* Bug 130: an id never splits at its hyphens. */
+/* Bug 130: a phone, or a long custom id, scrolls the table in this frame, not past the window (bug 108's pattern). */
+.pqm-llm-scroll { margin-top: 8px; overflow-x: auto; } /* the table's 8 px, kept outside the frame so it still collapses */
+.pqm-llm-scroll:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
 .pqm-settings-readonly { display: inline-block; margin-top: 6px; }
 
 /* ─── n8n Workflow page (story 67): the status block ─────────
@@ -75,6 +82,7 @@
 .pqm-workflow-status {
     background: #fff; border: 1px solid #c3c4c7; border-left-width: 4px;
     box-shadow: 0 1px 1px rgba(0, 0, 0, .04); margin: 16px 0; padding: 12px 16px; max-width: 760px;
+    box-sizing: border-box; /* Bug 130: 760 px outside, as wide as the dividers below. */
 }
 .pqm-workflow-status[data-state="not-set-up"] { border-left-color: #c3c4c7; }
 .pqm-workflow-status[data-state="connected"],

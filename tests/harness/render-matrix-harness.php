@@ -1478,6 +1478,23 @@ $connection_panel = tab_panels($settings_html)['connection'] ?? '';
 check('Settings → AI: the per-agent table, after the AI Prompts & Context table; the n8n Workflow page has none',
     ($t = strpos(tab_panels($settings_html)['ai'] ?? '', '<table class="widefat striped pqm-llm-preview">')) !== false && $t > strpos(tab_panels($settings_html)['ai'], 'Editorial Standards')
     && !str_contains($render_workflow([]), 'pqm-llm-preview') && !str_contains($render_workflow([]), 'What Each Agent Sends'));
+/* Bug 130: three layout defects, measured in headless Edge (plan); these rows read the rules a test can read. */
+$llm_frame = '<div class="pqm-llm-scroll" role="region" aria-label="What Each Agent Sends to Claude" tabindex="0">';
+check('Settings → AI: the per-agent table sits directly in its scroll frame, a focusable labelled region (one) (bug 130)',
+    substr_count($settings_html, 'pqm-llm-scroll') === 1
+    && preg_match('/' . preg_quote($llm_frame, '/') . '\s*<table class="widefat striped pqm-llm-preview">.*?<\/table>\s*<\/div>/s', tab_panels($settings_html)['ai'] ?? '') === 1);
+check('CSS: radio labels are spaced with padding (core overrides their margin with !important) and no margin rule of theirs is left; each option on its own line at 782 px or less, above core\'s 0,1,3 inline-block (bug 130)',
+    (bool) preg_match('/^\.pqm-radio-label \{ padding-right: 16px; \}/m', $css)
+    && !preg_match('/\.pqm-radio-label[^{]*\{[^}]*margin/', $css)
+    && (bool) preg_match('/@media screen and \(max-width: 782px\) \{\s*\.form-table td fieldset \.pqm-radio-label \{ display: block; \}\s*\}/', $css));
+check('CSS: the status box measures its 760 px cap outside its padding and border, as wide as the dividers (bug 130)',
+    (bool) preg_match('/^\.pqm-workflow-status \{[^}]*max-width: 760px;[^}]*box-sizing: border-box;/m', $css)
+    && (bool) preg_match('/^\.pqm-disclosure \{[^}]*max-width: 760px;/m', $css));
+check('CSS: a model id never wraps; its frame scrolls sideways with a focus outline and carries the table\'s 8 px top margin, the table none (bug 130)',
+    (bool) preg_match('/^\.pqm-llm-preview code \{[^}]*white-space: nowrap;/m', $css)
+    && str_contains($css, '.pqm-llm-scroll { margin-top: 8px; overflow-x: auto; }')
+    && str_contains($css, '.pqm-llm-preview { max-width: 900px; }')
+    && str_contains($css, '.pqm-llm-scroll:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }'));
 check('Settings → Connection: the URL read-only with "Change it on the n8n Workflow page", no field, no Send test ping; the token row a link to the page; Notification URL kept',
     str_contains($connection_panel, '<code class="pqm-settings-readonly">https://n8n.example/webhook</code>')
     && str_contains($connection_panel, 'Change it on the <a href="/wp-admin/admin.php?page=postquality-workflow">n8n Workflow page</a>.')

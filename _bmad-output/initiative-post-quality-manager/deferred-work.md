@@ -205,3 +205,6 @@ Trigger: end of `epic-freemium-and-roles`, when third-party distribution starts.
 - source_plan: `_bmad-output/backlog/bug-welcome-notice-asks-for-setup-after-the-webhook-url-is-saved-plan.md`
   summary: Bug 129's ticket Boundaries and Notes still say the welcome notice "stays one notice that opens the setup guide (story 55's criterion 1)", and stories 36 and 55 still state that criterion unnarrowed, although the owner's 2026-11-16 decisions narrowed it to the state with no URL saved.
   evidence: Quick review pass 1, finding 2 (2026-11-16). A build never writes to ticket files; the ticket's records at done, and a note on stories 36 and 55, carry the narrowing (EXPERIENCE.md L81 already does, in the bug's PR).
+- source_plan: `_bmad-output/backlog/bug-crowded-radios-wide-status-box-and-split-model-id-plan.md`
+  summary: Bug 130's criterion 1 asks for the radio spacing on WordPress 6.6 and on the current WordPress release; the before-and-after measurements ran on WordPress 6.6 only.
+  evidence: Quick review pass 1, finding 1 (2026-11-16). The core rules behind the defect (`forms.css` `.form-table td fieldset label` and its phone rule) read the same in trunk (ticket Notes, 2026-11-11), so the fix should hold. What settles it: `scratchpad/s130/measure.js`'s fieldset check on a site running the current release, or the owner's look in story 38's 4.0.2 pass.
