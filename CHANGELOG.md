@@ -1,5 +1,14 @@
 # Changelog
 
+## [4.0.2](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.1...v4.0.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **admin:** space the radio labels, fit the status box to its dividers, keep model ids whole ([54d1673](https://github.com/vincentheimann/post-quality-manager/commit/54d1673e14f30dac7440373da24765a376af6d48))
+* **admin:** the welcome notice names the next step once a webhook URL is saved ([9e04c26](https://github.com/vincentheimann/post-quality-manager/commit/9e04c26d5b6d91efc95ce2a37b98338e8376f016))
+* **dashboard:** show Processing in the queue only while a review runs ([264f08a](https://github.com/vincentheimann/post-quality-manager/commit/264f08af2d33becfb463be707d06c8a4d885c90b))
+
 ## [4.0.1](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.0...v4.0.1) (2026-11-16)
 
 
