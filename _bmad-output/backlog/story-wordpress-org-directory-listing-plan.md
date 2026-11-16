@@ -125,7 +125,7 @@ Then the owner submits the same Free build, and the agent carries the review to 
   
   This is criterion 1's Given.
 - [x] Builds -- `gh release download v4.0.0` and `gh run download 43019155750 -n post-quality-manager-4.0.0-pro.zip`, into the scratchpad. Record each sha256; the Free one must equal the release digest.
-- [ ] Free walk -- one frame:
+- [ ] Free walk (F1 passed on 4.0.2, 2026-11-16; pass-list frames to come) -- one frame:
   1. install and activate the Free asset;
   2. add the logger;
   3. Skip the opt-in in the browser;
@@ -626,6 +626,34 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
     - 8a: once a webhook URL is saved, the welcome notice says the next step is the first review (copy per `docs/brand.md`, approved at the PR).
     - Tickets: one bug for the scan, one for (a), one for (b), and one for (c)–(e). Plus a docs story for the tooling findings and one for the privacy sentence (6b).
   - **Restore:** the listener was stopped by its PID. Plugin Check and the plugin were deleted, the logger and its folder removed, the database and `wp-config.php` restored. The three checks read "same", and WordPress is 6.6. Both walk folders are deleted; the scan output, the route list and the page reads stay in the scratchpad's `s38/findings/`.
+- **The pass moves to 4.0.2 (owner, 2026-11-16: "go ahead with story 38's pass on 4.0.2").** This is the Boundaries' "a newer release replaces both, on the owner's word". 4.0.1 carries bug 125; 4.0.2 adds bugs 128, 129 and 130. Branch `chore/38-pass-4.0.2` from main 6dcab3d.
+  - **Free:** the Release asset `post-quality-manager-4.0.2.zip`, sha256 `40ac99bc2beef25cfcea3057d0c700e5bb7fa5948d13ca6d4563a9b9bb43eaec`, equal to the release digest. 255 files under `post-quality-manager/`, `Version: 4.0.2`, the Free template only.
+  - **Pro:** the artifact `post-quality-manager-4.0.2-pro.zip` of release run 43886728948, sha256 `c1a4eb5cbdf989036ee3807e7729c5440f57e5d2f51f612e4c4e1aa92f09747c`. 257 files under `post-quality-manager-premium/`, `Version: 4.0.2`, the cron class and both templates.
+  - Freemius deployments 174787 (4.0.1) and 174834 (4.0.2), both pending.
+- **F1 on 4.0.2 (2026-11-16, WordPress66, WordPress 6.6, PHP 8.1.29, folder `s38/f1`):**
+  - **Preflight:** `AUTOMATIC_UPDATER_DISABLED` 1, one user, port 8765 free, no must-use folder. The backup was taken, the checked Free asset installed by WP-CLI with the debug log on, and the logger placed.
+  - **Row 1 passes:**
+    - The activation opened the opt-in, and Skip landed on the Dashboard.
+    - Every plugin page and Settings tab was read, plus Posts, a post's editor, Profile, the privacy guide and Plugins. No PHP error showed.
+    - The 12 cron events ran by name, never `--all`: the list held no `wp_maybe_auto_update`.
+    - The logger recorded 11 requests, all from core. WordPress stayed 6.6.
+  - **Row 2 passes:**
+    - Review (post 8) and Key Takeaways (post 9) reached the listener with `X-PQM-Token`.
+    - `sources`, `seo`, `audit` and `rewrite` answered 400 `rest_invalid_param`.
+    - `GET /posts` answered 200 for administrator, editor and author and 403 `rest_forbidden` for contributor.
+  - **Row 3 passes:**
+    - No page shows a Pro command or setting. The only upsell is Settings → License ("Current plan: Free — Review and Key Takeaways are included. Get Pro").
+    - Bug 129 on the build: Post Reviews and the Settings tabs show "Welcome to Post Quality Manager! Your webhook URL is saved: run your first review next. Open the Dashboard". The Dashboard shows no notice, only "You are all set — run your first review".
+    - Bug 128 on the build: in Fix next, post 8 (review running) reads "Processing…" and post 9 (Key Takeaways only) reads "Not analyzed".
+    - Bug 130 on the build: `s130/measure.js` gives the fix's figures at 360/782/1024/1280 px:
+      - one option per line at 782 px or less, 19.8 px after each label above that;
+      - box = dividers (338/760);
+      - ids on one line, the page never wider than the window, the frame scrolling at 360 px.
+  - **Row 4 passes:** all 11 links in the installed `readme.txt` end with a 200 on a page that asks for no sign-in.
+  - **The owner's look passed** (through Claude in Chrome, an 8-step prompt whose expectations were quoted from a fresh DOM read): "all 8 steps as expected", the three bugs included.
+  - **Row 7 passes:** no `debug.log`. The logger's 17 requests: 15 from core and the plugin's two webhook POSTs. WordPress 6.6.
+  - **Row 5 passes:** Plugin Check 2.2.0 was installed after the `debug.log` read. The form's command on the installed build reports **nothing**, neither `ERROR` nor `ERROR_LOW_SEVERITY` (4.0.0: 32).
+  - **Restore:** the listener was stopped by its PID (23608) and port 8765 is free. The restore removed the plugin, Plugin Check, the logger and its folder. The three checks read "same"; WordPress is 6.6 with one user and no must-use folder.
 - Tooling findings, filed in one batch through `bmad-ticket` with the walk's other findings:
   1. `docs/local-verification.md` step 4's `option patch insert` waits forever when stdin is an open pipe, as in agent shells. WP-CLI 2.12.0 reads the value with `get_value_from_arg_or_stdin( $args, -1 )`, which never finds index -1, so it reads stdin to its end. `</dev/null` fixes it.
   2. Local's `php.ini` pins `sys_temp_dir` to `C:\Windows\TEMP`. `TEMP`/`TMP` don't move it, and `bin/local-wp.py` cannot pass `-d`.
