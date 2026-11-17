@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.3](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.2...v4.0.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* **post-reviews:** draw the Details tabs' focus ring around the label ([89659ee](https://github.com/vincentheimann/post-quality-manager/commit/89659eeea3989f653261c2f7a87e4c6cb49829d9))
+
 ## [4.0.2](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.1...v4.0.2) (2026-11-16)
 
 
