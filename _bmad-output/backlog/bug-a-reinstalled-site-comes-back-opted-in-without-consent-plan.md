@@ -3,7 +3,7 @@ title: 'An opted-out site stays opted out when the plugin is activated again'
 type: 'bugfix'
 ticket: '135'
 created: '2026-11-17'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'pinned'
 review: 'quick'
