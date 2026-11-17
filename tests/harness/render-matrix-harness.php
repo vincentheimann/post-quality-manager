@@ -1495,6 +1495,10 @@ check('CSS: a model id never wraps; its frame scrolls sideways with a focus outl
     && str_contains($css, '.pqm-llm-scroll { margin-top: 8px; overflow-x: auto; }')
     && str_contains($css, '.pqm-llm-preview { max-width: 900px; }')
     && str_contains($css, '.pqm-llm-scroll:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }'));
+$reviews_css = (string) file_get_contents(dirname(__DIR__, 2) . '/src/post-reviews/style.css');
+check('CSS: the Details tabs keep their compact size, and their focus ring is a centred 24 px box 8 px in from the sides, not core\'s 12 px insets for a 48 px tab (bug 132)',
+    (bool) preg_match('/^\.pqm-detail-tabs \.components-tab-panel__tabs-item \{\s*height: auto;\s*padding: 6px 12px;/m', $reviews_css)
+    && (bool) preg_match('/^\.pqm-detail-tabs \.components-tab-panel__tabs-item::before \{\s*top: calc\(50% - 12px\);\s*bottom: calc\(50% - 12px\);\s*left: 8px;\s*right: 8px;\s*\}/m', $reviews_css));
 check('Settings → Connection: the URL read-only with "Change it on the n8n Workflow page", no field, no Send test ping; the token row a link to the page; Notification URL kept',
     str_contains($connection_panel, '<code class="pqm-settings-readonly">https://n8n.example/webhook</code>')
     && str_contains($connection_panel, 'Change it on the <a href="/wp-admin/admin.php?page=postquality-workflow">n8n Workflow page</a>.')
