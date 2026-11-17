@@ -77,6 +77,16 @@ baseline_revision: 'b3c6330485280b2996d71262a426718af639242f'
 - Upstream report drafted at the session scratchpad (`freemius-issue-reset-anonymous-mode.md`), not committed; the owner sends it.
 - Verified: `php -l` on the four touched PHP files, every `tests/harness/*-harness.php` green (`free-build-harness.php` included), `npm run test:unit` 214/214; `bin/build-free.php` keeps both hooks and methods in the Free tree. The Local walk (acceptance criteria 1–2) is open.
 - Review pass 1 patches (2026-11-17, the same implementer): a `free-build-harness.php` row proves the stripped Free tree registers both activation hooks; the memory bullet's SDK citation corrected. Re-verified by the coordinator: `php -l` clean, every harness green, `npm run test:unit` 214/214, no carriage returns in the touched files, no Freemius ids or emails in the diff.
+- **Local walk (2026-11-17, WordPress66, WordPress 6.6, PHP 8.1.29): acceptance criteria 1 and 2 pass.** Build: CI's `free-build` artifact for PR #27 zipped (version 4.0.3, both hooks present). One frame per `docs/local-verification.md`: backup, a must-use request logger (method, host, path, caller, context; no bodies), `WP_DEBUG_LOG`, user 1's email and `admin_email` set to the project mailbox for the frame; the coordinator ran stage A, an Opus agent stage B; the owner gave both opt-ins through Claude in Chrome.
+  - **Skipped row (matrix):** activate → opt-in screen → Skip → deactivate → activate: the opt-in screen came back (the SDK's behaviour, unchanged); no Freemius request.
+  - **Opt-in (owner):** "Allow & Continue", no confirmation email this time; registered and sharing.
+  - **Communication opt-out** on the Plugins row: not registered, anonymous, `shares_usage_data()` false; one `PUT …/permissions.json` (the opt-out itself).
+  - **Deactivate and activate:** no feedback form; landed on the Plugins screen, no opt-in screen, row "Opt In | Deactivate"; anonymous, not registered, not sharing. **Delete and reinstall** (same zip) **and activate:** the same. After each, the Dashboard, Plugins and Post Reviews loaded; no `fs_` cron event; **no request to any Freemius host from the opt-out to the owner's next opt-in** (only WordPress.org update checks).
+  - **The guard acted:** the SDK's stored opt-out carried the reinstall's activation time (96 s after the opt-out), which only the restore's `skip_connection()` writes there.
+  - **Opt-in again (owner):** the row's dialog, "Opt In" beside Communication; the page reloaded itself; row "Opt Out | Deactivate"; registered and sharing; one `PUT …/permissions.json`.
+  - **`debug.log`:** nothing from the plugin; one vendor SDK warning ("foreach() argument must be of type array|object, null given", `class-freemius.php` L18758) between the opt-in and stage B.
+  - **Restore:** the plugin, the logger and its folder removed (the deletion of the opted-in plugin sent its usual uninstall update), the dump imported, `wp-config.php` back; plugin list, tables/options/users/posts and files "same"; WordPress 6.6, both emails the site's own.
+  - **Open:** criterion 5 of the ticket (re-walk of story 38's opt-in steps on the 4.0.x release with the owner's dashboard read); the Freemius report, drafted, for the owner to send.
 
 ## Plan Change Log
 
