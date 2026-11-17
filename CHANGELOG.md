@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.4](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.3...v4.0.4) (2026-11-17)
+
+
+### Bug Fixes
+
+* **license:** keep a Communication opt-out when the plugin is activated again ([4887b0a](https://github.com/vincentheimann/post-quality-manager/commit/4887b0a4f2699b0f2b2434756ed4f6d5225c06e8))
+
 ## [4.0.3](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.2...v4.0.3) (2026-11-17)
 
 
