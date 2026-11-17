@@ -310,6 +310,17 @@
 	color: #50575e;
 }
 
+/* The keyboard focus ring: core insets it 12px for its 48px tab, which leaves a 5px pill
+   through the label on this compact tab (WordPress 6.6). Centred 24px tall, the box core
+   draws on 48px (WordPress 7.1.4 forces that height, so our height loses there), and 8px
+   from the sides: a 4px gap inside our 12px padding (bug 132). */
+.pqm-detail-tabs .components-tab-panel__tabs-item::before {
+	top: calc(50% - 12px);
+	bottom: calc(50% - 12px);
+	left: 8px;
+	right: 8px;
+}
+
 .pqm-detail-tabs .components-tab-panel__tabs-item.is-active {
 	color: #135e96;
 	font-weight: 600;
