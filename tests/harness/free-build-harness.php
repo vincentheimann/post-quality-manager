@@ -679,6 +679,12 @@ check('... in activation mode (before the opt-in choice) nothing removed, the SD
 postquality_fs()->activation_mode = false;
 postquality_fs()->removed_stickies = [];
 
+/* ─── Row: the activation guard is in the Free build (bug 135) ──────── */
+echo "Row — the Free build, the one where the SDK clears a Communication opt-out on reactivation, keeps both activation hooks (bug 135)\n";
+check('activate_<plugin file>: note_opt_out at priority 9 and keep_opt_out at 11, around the SDK\'s step at 10',
+    in_array(['activate_post-quality-manager.php', ['PostQuality_License', 'note_opt_out'], 9], $GLOBALS['free_actions'] ?? [], true)
+    && in_array(['activate_post-quality-manager.php', ['PostQuality_License', 'keep_opt_out'], 11], $GLOBALS['free_actions'] ?? [], true));
+
 /* ─── Row: the lapse record and the renew link are Pro code (bug 93) ─── */
 echo "Row — the Free build registers none of the three license hooks nor the notice filter (bug 93); its uninstall still knows the record's name\n";
 check('no after_license_deactivation, after_license_change, after_license_activation or sticky_message_license_expired hook on postquality_fs()',

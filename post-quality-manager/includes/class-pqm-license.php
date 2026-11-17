@@ -26,6 +26,9 @@ class PostQuality_License {
     /** The SDK released this site's license earlier in this request (its expiry path, bug 93). */
     private static $license_deactivated = false;
 
+    /** Noted before the SDK's activation step: the site had opted out of Communication (bug 135). */
+    private static $opted_out_before_activation = false;
+
     /**
      * Whether this site may run Pro: a trial or a license whose features are
      * enabled. An expired or cancelled license blocks them (the Pro plan's
@@ -89,6 +92,30 @@ class PostQuality_License {
         $fs = postquality_fs();
 
         return $fs->is_registered() && $fs->is_tracking_allowed();
+    }
+
+    /**
+     * Before the SDK's activation step: whether this site opted in once and
+     * opted out of Communication since (anonymous, account kept). The SDK's
+     * step clears that opt-out when the same version is activated again
+     * (bug 135, see memory/freemium-and-roles.md).
+     */
+    public static function note_opt_out(): void {
+        self::$opted_out_before_activation = function_exists( 'postquality_fs' )
+            && postquality_fs()->is_anonymous()
+            && postquality_fs()->is_registered( true );
+    }
+
+    /**
+     * After the SDK's activation step: puts the Communication opt-out noted
+     * above back if the step cleared it. skip_connection() only stores the
+     * flag and sends nothing. A site that only skipped the opt-in has no
+     * account and keeps the SDK's behaviour (bug 135).
+     */
+    public static function keep_opt_out(): void {
+        if ( self::$opted_out_before_activation && ! postquality_fs()->is_anonymous() ) {
+            postquality_fs()->skip_connection();
+        }
     }
 
     /**
