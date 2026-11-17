@@ -3,7 +3,7 @@ title: 'The Details tabs keyboard focus ring surrounds the tab label'
 type: 'bugfix'
 ticket: '132'
 created: '2026-11-17'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
