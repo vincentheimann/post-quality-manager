@@ -162,6 +162,11 @@ add_action('admin_init', static function () {
 // At deletion, a site that does not share usage data now drops any stored feedback answer before
 // the SDK's own uninstall step runs (bug 90). See memory/freemium-and-roles.md.
 add_action('uninstall_' . plugin_basename(__FILE__), ['PostQuality_License', 'forget_feedback_unless_sharing'], 9);
+// Activating the same version again (a reactivation, or a deletion and reinstall) must not undo a
+// Communication opt-out: noted before the SDK's activation step (priority 10), put back after it when
+// the SDK cleared it (bug 135). See memory/freemium-and-roles.md.
+add_action('activate_' . plugin_basename(__FILE__), ['PostQuality_License', 'note_opt_out'], 9);
+add_action('activate_' . plugin_basename(__FILE__), ['PostQuality_License', 'keep_opt_out'], 11);
 // Capability upgrade for installs updated without reactivation (REST and cron requests included).
 add_action('init', ['PostQuality_Activator', 'maybe_upgrade']);
 

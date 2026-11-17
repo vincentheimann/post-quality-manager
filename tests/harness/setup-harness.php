@@ -751,6 +751,60 @@ check('the removal is hooked on uninstall_<plugin file> at priority 9, before th
     in_array(['uninstall_post-quality-manager.php', ['PostQuality_License', 'forget_feedback_unless_sharing'], 9], $GLOBALS['tw']['actions'], true));
 $form_shows(false, false, false); // back to the harness default: a free site that never opted in
 
+/* Rows (bug 135): when the same version is activated again (a reactivation, or a deletion and reinstall), the SDK's
+ * activation step (priority 10 on activate_<plugin file>) clears its "skipped" flag on a site that is not registered
+ * and anonymous (SDK 2.13.5 L7487–7515), and the kept account then counts as registered and sharing. The plugin notes
+ * an opted-in site that opted out of Communication at priority 9 and puts the opt-out back at 11 through
+ * skip_connection(), once, only when the SDK cleared it. $sdk_step plays the SDK's step between the two callbacks: a
+ * registered site (Pro counts any account as registered) takes the other branch, an anonymous one is reset. One row
+ * per line of the plan's matrix; every row fails (null) when either callback is not registered. */
+echo "An opted-out site stays opted out when the plugin is activated again (bug 135)\n";
+$activation_cb = static function (int $priority) {
+    foreach ($GLOBALS['tw']['actions'] as [$tag, $cb, $p]) {
+        if ($tag === 'activate_post-quality-manager.php' && $p === $priority) { return $cb; }
+    }
+    return null;
+};
+$note_cb = $activation_cb(9);
+$keep_cb = $activation_cb(11);
+$activate = static function (bool $account, bool $anonymous, bool $tracking, bool $pro_build = false) use ($note_cb, $keep_cb) {
+    $fs = postquality_fs();
+    $fs->registered = false;
+    $fs->account = $account;
+    $fs->anonymous = $anonymous;
+    $fs->tracking = $tracking;
+    $fs->skipped = [];
+    if (!is_callable($note_cb) || !is_callable($keep_cb)) { return null; }
+    $note_cb();
+    $sdk_registered = $pro_build ? $fs->account : $fs->is_registered();
+    if (!$sdk_registered && $fs->is_anonymous()) { $fs->anonymous = false; } // reset_anonymous_mode(), same version
+    $keep_cb();
+    return ['skipped' => count($fs->skipped), 'anonymous' => $fs->is_anonymous(), 'registered' => $fs->is_registered(),
+        'sharing' => PostQuality_License::shares_usage_data(), 'tracking' => $fs->tracking];
+};
+check('the note is hooked on activate_<plugin file> at priority 9, the restore at 11, around the SDK\'s step at 10',
+    in_array(['activate_post-quality-manager.php', ['PostQuality_License', 'note_opt_out'], 9], $GLOBALS['tw']['actions'], true)
+    && in_array(['activate_post-quality-manager.php', ['PostQuality_License', 'keep_opt_out'], 11], $GLOBALS['tw']['actions'], true));
+check('Communication opted out (anonymous, account kept), reactivated or reinstalled: skip_connection() once, anonymous again, not registered, not sharing',
+    $activate(true, true, true) === ['skipped' => 1, 'anonymous' => true, 'registered' => false, 'sharing' => false, 'tracking' => true]);
+check('Communication and Diagnostic Info opted out: restored the same way, the site permission stays off',
+    $activate(true, true, false) === ['skipped' => 1, 'anonymous' => true, 'registered' => false, 'sharing' => false, 'tracking' => false]);
+check('Diagnostic Info only opted out (not anonymous, account kept): nothing, still registered and not sharing',
+    $activate(true, false, false) === ['skipped' => 0, 'anonymous' => false, 'registered' => true, 'sharing' => false, 'tracking' => false]);
+check('skipped the opt-in (anonymous, no account): nothing, the SDK\'s reset stands and the opt-in screen returns',
+    $activate(false, true, false) === ['skipped' => 0, 'anonymous' => false, 'registered' => false, 'sharing' => false, 'tracking' => false]);
+check('opted in and sharing (also a site that opted in again through the Plugins row\'s dialog): nothing, still sharing',
+    $activate(true, false, true) === ['skipped' => 0, 'anonymous' => false, 'registered' => true, 'sharing' => true, 'tracking' => true]);
+$pro_row = $activate(true, true, true, true); // the stub's is_registered() follows the Free rule, so only these two are read
+check('Pro build, Communication opted out: the SDK counts it as registered and skips the reset, so nothing, still anonymous',
+    $pro_row !== null && $pro_row['skipped'] === 0 && $pro_row['anonymous'] === true);
+check('never answered (first install: no account, not anonymous): nothing',
+    $activate(false, false, false) === ['skipped' => 0, 'anonymous' => false, 'registered' => false, 'sharing' => false, 'tracking' => false]);
+postquality_fs()->account = false;
+postquality_fs()->anonymous = false;
+postquality_fs()->skipped = [];
+$form_shows(false, false, false); // back to the harness default
+
 /* Rows (story 65): on the update path the SDK adds its opt-in sticky while Pro waits for its license, and passes
  * the text through sticky_message_connect_account; the Pro build answers with the license copy and the SDK's
  * activation URL (the license screen), escaped in the plugin's text domain. The Free build has no such filter

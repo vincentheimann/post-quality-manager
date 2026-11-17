@@ -21,6 +21,12 @@ class PQM_FS_Stub {
     public $has_license = false;
     /** is_registered(): the site opted in or activated a license (false = skipped or never answered); what an opt-out does to it is in memory/freemium-and-roles.md. */
     public $registered = false;
+    /** The SDK's kept account (`_user`): the site opted in once; a deletion and a Communication opt-out keep it (bug 135). */
+    public $account = false;
+    /** is_anonymous(): the SDK's stored "skipped" flag, set by skipping the opt-in or by a Communication opt-out (bug 135). */
+    public $anonymous = false;
+    /** skip_connection(): every call, its argument recorded; it sets the anonymous flag, as the SDK stores it (bug 135). */
+    public $skipped = [];
     /** is_tracking_allowed(): the site shares usage data now (false = skipped, or opted out since) (bug 90). */
     public $tracking = false;
     /** is_deactivation_snoozed(): the SDK's "temporary deactivation" period is running (bug 90). */
@@ -39,7 +45,10 @@ class PQM_FS_Stub {
     public function can_use_premium_code() { return $this->pro; }
     public function is__premium_only() { return true; }
     public function _get_license() { return $this->has_license ? (object) ['id' => 1] : null; }
-    public function is_registered() { return $this->registered; }
+    /** `registered` forces it; otherwise the SDK's rule on the Free build: an account, and not anonymous unless told to ignore it (bug 135). */
+    public function is_registered($ignore_anonymous_state = false) { return $this->registered || ($this->account && ($ignore_anonymous_state || !$this->anonymous)); }
+    public function is_anonymous() { return $this->anonymous; }
+    public function skip_connection($network_or_blog_ids = false) { $this->skipped[] = $network_or_blog_ids; $this->anonymous = true; }
     public function is_tracking_allowed() { return $this->tracking; }
     public static function is_deactivation_snoozed() { return self::$snoozed; }
     public function get_storage() { return $this->storage; }
