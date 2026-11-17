@@ -659,6 +659,11 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
   2. Local's `php.ini` pins `sys_temp_dir` to `C:\Windows\TEMP`. `TEMP`/`TMP` don't move it, and `bin/local-wp.py` cannot pass `-d`.
   3. The pre-production site's one-time setup must turn automatic updates off.
   4. The docs ticket from 6b (one privacy policy sentence).
+- **The findings batch (2026-11-17, `bmad-ticket`):**
+  - The four tooling findings were already filed on 2026-11-11: 1–3, with the clean-site frame, as story 126; 4 as story 127. The F2 frames found no new tooling gap, so nothing was filed again.
+  - P296 (the Details tabs' focus ring): **owner, 2026-11-17: a bug fixed in 4.0.3 before submission.** Filed as bug 132, now in story 38's `after`.
+  - P281 (the score trend's weekly values from the keyboard): filed as story 133, low priority, not blocking story 38.
+  - **Owner, 2026-11-17: the Pro walk runs on 4.0.2.** Once 4.0.3 ships bug 132, F1 and the rows P296 and P311 run again on 4.0.3.
 
 ## Plan Change Log
 
