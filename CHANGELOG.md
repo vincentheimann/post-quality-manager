@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.5](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.4...v4.0.5) (2026-11-18)
+
+
+### Bug Fixes
+
+* **reviews:** a run that fails within a second shows its result, not Processing ([9e1af92](https://github.com/vincentheimann/post-quality-manager/commit/9e1af924b7ceb0a2ac0340285a2f4a8ccab60c10))
+
 ## [4.0.4](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.3...v4.0.4) (2026-11-17)
 
 
