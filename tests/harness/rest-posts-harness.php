@@ -28,6 +28,10 @@
  * Post Reviews link): declared by type only, absent / 0 = the list as
  * before, N = a prepared `p.ID = %d` in the count and items queries; the
  * counts, the key order and the viewer block stay as they are.
+ *
+ * Bug 137 appends the same-second rows: the latest row per post and command
+ * is MAX(id), joined on that id alone, in the in_flight query, the
+ * latest-review subquery (items, count, counts) and the cron selection.
  */
 
 date_default_timezone_set('UTC'); // deterministic latest_reviewed_display assertions
@@ -264,8 +268,9 @@ check('unreviewed post: null score, empty status/date, no commands, nothing in f
     && $never['commands'] === []
     && $never['in_flight'] === []);
 $in_flight_sql = $wpdb->results_sql[2];
-check('in_flight query: latest row per post+command (MAX(reviewed_at) join) with status processing, one query',
-    strpos($in_flight_sql, 'MAX(reviewed_at)') !== false
+check('in_flight query: latest row per post+command (MAX(id) join, bug 137) with status processing, one query',
+    strpos($in_flight_sql, 'MAX(id) AS max_id') !== false
+    && strpos($in_flight_sql, 'r1.id = r2.max_id') !== false
     && strpos($in_flight_sql, 'GROUP BY post_id, command') !== false
     && strpos($in_flight_sql, "r1.status = 'processing'") !== false
     && count($wpdb->results_sql) === 4);
@@ -275,6 +280,17 @@ check('default order: latest_reviewed DESC', strpos($limit['sql'], 'ORDER BY lat
 check('latest-review subquery excludes the processing placeholder (5.4: a running review never moves the post)',
     strpos($limit['sql'], "WHERE command = 'review' AND status <> 'processing'") !== false
     && strpos($wpdb->last_var_sql, "WHERE command = 'review' AND status <> 'processing'") !== false);
+/* Bug 137: the stub runs no SQL, so the same-second rows are asserted on the latest-review
+   subquery's shape, in the three queries that join it: the items, their count, and the
+   status counts behind the tiles and chips. */
+$latest_sqls = [$limit['sql'], $wpdb->last_var_sql];
+$wpdb = fresh_wpdb([[]], []);
+PostQuality_DB::count_posts_by_status();
+$latest_sqls[] = $wpdb->results_sql[0];
+check('fast success, same second: the latest result is MAX(id) per post, joined on that id, in the items, count and counts queries, so the post counts once',
+    count(array_filter($latest_sqls, fn($s) => strpos($s, 'SELECT MAX(id) AS max_id') !== false && strpos($s, ') r2 ON r1.id = r2.max_id') !== false)) === 3);
+check('other command, same second: no reviewed_at in the join of those three queries, so a takeaways placeholder of the result\'s second never joins as lr',
+    count(array_filter($latest_sqls, fn($s) => strpos($s, 'max_date') === false && strpos($s, 'r1.reviewed_at =') === false)) === 3);
 
 /* Row: bad params — clamped/whitelisted, silently sanitized, still 200 */
 echo "Bad params\n";
@@ -816,23 +832,24 @@ check('items [] with yoast_active true, no cache prime',
 $GLOBALS['tw']['post_meta'] = [];
 
 /* ─── Ticket 3: cron selection per command — PostQuality_DB::get_posts_needing_review()
-       prepares the command as %s in the latest-row subquery and the r1 join ── */
-echo "Cron selection per command (ticket 3)\n";
+       prepares the command as %s in the latest-row subquery; bug 137 joins that row on its id ── */
+echo "Cron selection per command (ticket 3, bug 137)\n";
 defined('DAY_IN_SECONDS') || define('DAY_IN_SECONDS', 86400);
 foreach (['audit' => [70, 14, 4, 'audit'], 'review (default)' => [70, 14, 4]] as $what => $call) {
     $wpdb = fresh_wpdb([], []);
     PostQuality_DB::get_posts_needing_review(...$call);
     $cmd = $call[3] ?? 'review';
-    $p   = prepared_with($wpdb, 'MAX(reviewed_at)');
+    $p   = prepared_with($wpdb, 'MAX(id)');
     $sql = preg_replace('/\s+/', ' ', $p['sql'] ?? '');
     check("$what: no hard-coded command literal", $p !== null && strpos($sql, "command = '") === false);
-    check("$what: command is %s in the subquery and the r1 join",
-        strpos($sql, 'WHERE command = %s GROUP BY post_id') !== false
-        && strpos($sql, 'r1.reviewed_at = r2.max_date AND r1.command = %s') !== false);
-    check("$what: args in placeholder order (command, command, min_score, cutoff, limit)",
-        count($p['args']) === 5 && $p['args'][0] === $cmd && $p['args'][1] === $cmd
-        && $p['args'][2] === 70 && $p['args'][4] === 4
-        && $p['args'][3] === gmdate('Y-m-d H:i:s', strtotime($p['args'][3])) && strtotime($p['args'][3]) < time() - 13 * 86400);
+    check("$what: command is %s in the subquery, whose MAX(id) keeps processing rows as before",
+        strpos($sql, 'SELECT MAX(id) AS max_id FROM wp_postquality_reviews WHERE command = %s GROUP BY post_id') !== false);
+    check("$what: cron, same second: the latest row joins on its id alone, so the post is listed once",
+        strpos($sql, ') r2 ON r1.id = r2.max_id ) lr ON p.ID = lr.post_id') !== false && strpos($sql, 'max_date') === false);
+    check("$what: args in placeholder order (command, min_score, cutoff, limit)",
+        count($p['args']) === 4 && $p['args'][0] === $cmd
+        && $p['args'][1] === 70 && $p['args'][3] === 4
+        && $p['args'][2] === gmdate('Y-m-d H:i:s', strtotime($p['args'][2])) && strtotime($p['args'][2]) < time() - 13 * 86400);
     check("$what: placeholder count matches args", substr_count($p['sql'], '%') === count($p['args']));
 }
 

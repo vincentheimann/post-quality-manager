@@ -8,8 +8,8 @@ metadata:
 Built 2026-10-05 (story 23); the owner swapped the typed block-name field for a pattern picker on 2026-10-06. ADR [0008](../docs/adr/0008-plugin-writes-agent-output-into-posts.md) says why the plugin does this and n8n does not.
 
 - **Insert path:** `POST /insert-block` (`post_id`, `command` = `takeaways` | `sources`). Its `permission_callback` is `PostQuality_REST_API::check_can_insert()`: `edit_post` on that post, then `PostQuality_Features::why_not()`, whose refusal goes through the shared `gate_error()` helper (same 403 copy as `/trigger-review`). The route calls `PostQuality_Blocks::insert()` (`includes/class-pqm-blocks.php`), which:
-  - reads the command's newest row from `PostQuality_DB::get_reviews_for_post( $id, 50 )`: `rewritten_items` for Takeaways, `rewritten_sources` for Sources (`PostQuality_Blocks::item_keys()`; Sources only in the Pro build since story 54);
-  - answers 409 "Run Takeaways first, then insert." when that row has no items (processing, failed, or empty);
+  - reads the command's newest row from `PostQuality_DB::get_reviews_for_post( $id, 50 )` (newest = the highest `id` since bug 137, the list's only order, so a result stored in its placeholder's second comes first): `rewritten_items` for Takeaways, `rewritten_sources` for Sources (`PostQuality_Blocks::item_keys()`; Sources only in the Pro build since story 54);
+  - answers 409 "Run Takeaways first, then insert." when that row has no items (processing, failed, or empty); a `processing` row answers 409 only while it is the newest row, its run still in flight;
   - resolves the copy: the stored pattern's `parse_blocks()` when the site is Pro and the ID is in `PostQuality_Blocks::patterns()`, otherwise `[]` = plain list (free site, or the pattern was deleted, unpublished or lost its List: silent fallback);
   - runs `parse_blocks` → `place()` → `serialize_blocks`, then `wp_update_post( wp_slash( … ) )` with ID + content only.
   The post status is kept and WP saves a revision. There is no n8n call, no quota spend and no History row.

@@ -7,7 +7,9 @@
  * list's polling. Bug 31 adds POST /save-review's failure contract and
  * static checks that the n8n template speaks it (behavior per node lives
  * in template-failure-harness.php). WP + wpdb stubs copied from rest-posts-harness.php, no
- * WP install.
+ * WP install. Bug 137 adds the same-second rows: the latest row per post
+ * and command is the highest id (the reviews order, the in_flight join and
+ * latest_id(), read by the trigger).
  */
 
 date_default_timezone_set('UTC');
@@ -83,7 +85,12 @@ class PQM_Stub_WPDB {
         $this->results_sql[] = $sql;
         return array_shift($this->results_queue) ?: [];
     }
-    public function get_var($sql) { return 0; }
+    public $var_queue = [];     // values returned by successive get_var(), 0 once empty
+    public $var_sql = [];       // SQL of every get_var(), in call order
+    public function get_var($sql) {
+        $this->var_sql[] = $sql;
+        return $this->var_queue ? array_shift($this->var_queue) : 0;
+    }
     public $inserted = [];      // every insert(): ['table' => ..., 'data' => [...]]
     public $insert_id = 0;
     public function insert($table, $data, $format = null) {
@@ -153,10 +160,17 @@ check('invalid JSON stays the raw string', $rows[2]['result_data'] === 'not json
 echo "Row limit\n";
 $p = null;
 foreach ($wpdb->prepared as $q) {
-    if (strpos($q['sql'], 'ORDER BY reviewed_at DESC LIMIT %d') !== false) { $p = $q; }
+    if (strpos($q['sql'], 'FROM %i WHERE post_id = %d') !== false) { $p = $q; }
 }
-check('query is FROM %i WHERE post_id = %d ... ORDER BY reviewed_at DESC LIMIT %d', $p !== null && strpos($p['sql'], 'FROM %i WHERE post_id = %d') !== false);
+check('query is FROM %i WHERE post_id = %d ... LIMIT %d', $p !== null && str_ends_with($p['sql'], ' LIMIT %d'));
 check('prepared with [wp_postquality_reviews, 7, 50]', $p !== null && $p['args'] === ['wp_postquality_reviews', 7, 50]);
+
+/* Bug 137, fast failure: a placeholder and its error row stored in the same second.
+   The stub runs no SQL, so the order is asserted on the query: by id alone, the order
+   every other reader's MAX(id) pick follows, with no reviewed_at before it. */
+echo "Same-second rows (bug 137)\n";
+check('fast failure: newest id first and nothing else, so the error row leads its placeholder of the same second',
+    $p !== null && $p['sql'] === 'SELECT * FROM %i WHERE post_id = %d ORDER BY id DESC LIMIT %d');
 
 /* Row: no reviews — 200 with an empty array */
 echo "No reviews\n";
@@ -408,10 +422,12 @@ check('map keyed by post_id → commands, posts with nothing in flight absent',
     $map === [7 => ['takeaways', 'review'], 9 => ['seo']]);
 $sql = $wpdb->results_sql[0];
 check('one query', count($wpdb->results_sql) === 1);
-check('joins the latest row per post+command on MAX(reviewed_at)',
-    strpos($sql, 'MAX(reviewed_at) AS max_date') !== false
+check('picks the latest row per post+command as MAX(id), grouped per command, and joins on that id (bug 137: newer run, other command of the same second)',
+    strpos($sql, 'SELECT MAX(id) AS max_id') !== false
     && strpos($sql, 'GROUP BY post_id, command') !== false
-    && strpos($sql, 'r1.command = r2.command AND r1.reviewed_at = r2.max_date') !== false);
+    && strpos($sql, ') r2 ON r1.id = r2.max_id') !== false);
+check('fast failure / fast success: no reviewed_at in the pick, so a result in its placeholder\'s second is the latest and nothing is in flight',
+    strpos($sql, 'reviewed_at') === false);
 check('filters on the processing status of that latest row', strpos($sql, "WHERE r1.status = 'processing'") !== false);
 check('post ids prepared as %d placeholders',
     $wpdb->prepared[0]['args'] === [7, 9, 11] && strpos($wpdb->prepared[0]['sql'], 'IN (%d,%d,%d)') !== false);
@@ -425,5 +441,17 @@ check('[] → [] without touching wpdb', PostQuality_DB::get_in_flight_for_posts
 echo "In flight, none\n";
 fresh_wpdb([[]]);
 check('no processing rows → []', PostQuality_DB::get_in_flight_for_posts([7]) === []);
+
+/* Bug 137: latest_id() — the trigger's read of a post's newest row of one command */
+echo "Latest id (bug 137)\n";
+$wpdb = fresh_wpdb([]);
+$wpdb->var_queue = ['12', null]; // $wpdb answers a string, or null when the post has no row of that command
+check('latest_id() casts MAX(id) to int', PostQuality_DB::latest_id(7, 'review') === 12);
+check('no row of that command → 0', PostQuality_DB::latest_id(7, 'Takeaways') === 0);
+check('one query per call: MAX(id) of that post and command, prepared',
+    count($wpdb->var_sql) === 2
+    && $wpdb->prepared[0]['sql'] === 'SELECT MAX(id) FROM %i WHERE post_id = %d AND command = %s'
+    && $wpdb->prepared[0]['args'] === ['wp_postquality_reviews', 7, 'review']);
+check('the command is sanitized like save_review() stores it', $wpdb->prepared[1]['args'] === ['wp_postquality_reviews', 7, 'takeaways']);
 
 harness_exit();

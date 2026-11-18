@@ -3,6 +3,8 @@
  * CLI harness for story 4 (author quota) — WP stubs, no WP install.
  * Exercises every row of the plan's I/O & Edge-Case Matrix against
  * PostQuality_Features quota helpers and PostQuality_REST_API::trigger_review_callback().
+ * Bug 137 adds the trigger's placeholder skip when the run's result is
+ * stored while the webhook call returns.
  */
 
 define('ABSPATH', __DIR__ . '/');
@@ -18,6 +20,7 @@ $GLOBALS['tw'] = [
     'webhook_result' => 200,           // int status, or 'error' for WP_Error
     'webhook_calls'  => 0,
     'webhook_args'   => null,          // the $args of the last wp_remote_post() (story 35)
+    'callback_first' => null,          // bug 137: a status the run's callback stores while the webhook call returns, or null
 ];
 
 /* ─── WP stubs ───────────────────────────────────────────────────────── */
@@ -44,6 +47,11 @@ function postquality_n8n_headers($settings) { return ['Content-Type' => 'applica
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['webhook_calls']++;
     $GLOBALS['tw']['webhook_args'] = $args;
+    if ($GLOBALS['tw']['callback_first'] !== null) {
+        // Bug 137: n8n's callback (POST /save-review) stores the run's result before the trigger's placeholder insert.
+        $body = json_decode($args['body'], true);
+        PostQuality_DB::save_review($body['post_id'], $body['command'], 0, $GLOBALS['tw']['callback_first'], ['error' => 'invalid x-api-key']);
+    }
     if ($GLOBALS['tw']['webhook_result'] === 'error') { return new WP_Error('http_request_failed', 'cURL error 7'); }
     return ['response' => ['code' => $GLOBALS['tw']['webhook_result']]];
 }
@@ -54,11 +62,18 @@ class PQM_Stub_WPDB {
     public $prefix = 'wp_';
     public $insert_id = 0;
     public $inserts = []; // every insert(): ['table' => ..., 'data' => [...]]
+    public $max_id = 0;   // bug 137: the table's highest id, what latest_id()'s MAX(id) reads
+    public $prepared = []; // every prepare(): ['sql' => ..., 'args' => [...]]
     public function insert($table, $data, $format = null) {
         $this->inserts[] = ['table' => $table, 'data' => $data];
-        $this->insert_id = count($this->inserts);
+        $this->insert_id = ++$this->max_id;
         return 1;
     }
+    public function prepare($sql, ...$args) {
+        $this->prepared[] = ['sql' => $sql, 'args' => $args];
+        return $sql;
+    }
+    public function get_var($sql) { return $this->max_id ? (string) $this->max_id : null; } // $wpdb answers a string, null on no row
 }
 $wpdb = new PQM_Stub_WPDB();
 
@@ -83,7 +98,10 @@ function reset_world($caps, $meta = null, $settings = []) {
     $GLOBALS['tw']['webhook_calls'] = 0;
     $GLOBALS['tw']['webhook_args'] = null;
     $GLOBALS['tw']['now_month'] = '2026-10';
+    $GLOBALS['tw']['callback_first'] = null;
     $GLOBALS['wpdb']->inserts = [];
+    $GLOBALS['wpdb']->max_id = 0;
+    $GLOBALS['wpdb']->prepared = [];
 }
 /** The processing rows written during the current world, as [post_id, command, status] triples. */
 function processing_rows() {
@@ -206,6 +224,24 @@ trigger('takeaways');
 trigger('review');
 check('two triggers → two rows, each for its own command',
     processing_rows() === [[7, 'takeaways', 'processing'], [7, 'review', 'processing']]);
+
+/* ─── Bug 137: a result stored while the webhook call returns is not buried by its placeholder ── */
+echo "Extra — the run's result stored before the placeholder (bug 137)\n";
+reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);
+$GLOBALS['tw']['callback_first'] = 'error'; // a refused API key whose fast callback is stored before the placeholder insert, WordPress being slow after n8n's 2xx (n8n's timing: memory/admin-ui-rebuild.md)
+$r = trigger('review');
+check('result before placeholder: the callback\'s error row stays the post\'s latest, no placeholder written; the trigger still reports the start and spends the action (n8n answered 2xx)',
+    processing_rows() === [[7, 'review', 'error']]
+    && !is_wp_error($r) && $r->get_data()['success'] === true && stored_count() === 6 && $r->get_data()['quota_remaining'] === 14);
+
+reset_world(author_caps(), ['month' => '2026-10', 'count' => 5]);
+$GLOBALS['wpdb']->max_id = 41; // earlier runs' finished rows
+$r = trigger('review');
+$reads = array_values(array_filter($GLOBALS['wpdb']->prepared, fn($p) => str_starts_with($p['sql'], 'SELECT MAX(id) FROM %i')));
+check('newer run / slow run: the newest row of this post and command, read before and after the call, is unchanged → one placeholder after the finished rows',
+    count($reads) === 2 && $reads[0]['args'] === ['wp_postquality_reviews', 7, 'review'] && $reads[1]['args'] === $reads[0]['args']
+    && !is_wp_error($r) && processing_rows() === [[7, 'review', 'processing']] && $GLOBALS['wpdb']->insert_id === 42);
+/* Refused trigger (call failed, non-2xx): no row written, unchanged; Row 4 holds it. */
 
 /* ─── Decision: score (free-tier registry entry since story 14) consumes quota too */
 echo "Extra — score spends quota\n";
