@@ -726,6 +726,7 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
     - The History tab keeps each run's `processing` placeholder beside its result and counts it in "History (n)".
     - A post whose Review failed falls in no Dashboard tile or status chip, only in "All" (at the walk, the tiles added to 2 for 4 posts).
     - The failure reason shown to the user is Anthropic's raw JSON (escaped quotes, a request id), from the Free template's "Parse Review Result" node (v11).
+- **4.0.5 (2026-11-18):** bug 137 (#33); the notes PR #35 merged before the release PR #34 (15:38 and 15:41 UTC), so the release body carries `docs/release-notes/4.0.5.md`, the first time since 4.0.2. Release run 44338646140 green: v4.0.5 published, Latest, not a pre-release, one asset `post-quality-manager-4.0.5.zip`, sha256 `35a7d8f0609362ea0a714aff1c65017c798579709bf422bdcde512fb28856c7b`. Freemius deployment 175720, release mode pending (the owner sets Released); Freemius records Requires PHP 8.1; the Pro build's root folder is `post-quality-manager-premium`; the Free build check: "PHP identical: 13 files". The rest of the pass (N2a, N2b, N3 with N1's five pending rows and P007, N4) runs on 4.0.5.
 
 ## Plan Change Log
 
