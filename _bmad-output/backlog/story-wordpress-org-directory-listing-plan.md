@@ -720,6 +720,12 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
     - Copy: the 404 test sentence and the trigger refusal say "activated" / "active" where n8n 2.48.5 and the plugin's own step 4 say "Publish"; a failed test states its cause twice; the Free template's score report prints "N/A/10" for an unscored metric; `first-review.js` names a "step 6" that no setup path has (read in the code).
   - **Frame:** the build activated with Skip on the opt-in; the Free workflow downloaded from the plugin and imported by hand; its two credentials made from files; three sample posts and the four `pq-smoke-*` users. The listener (P016, P046) stopped by its PID. Claude runs: two Reviews, both refused. No `debug.log`. n8n back to its start inventory. Restore: three "same", WordPress 6.6, one user, port 8765 free.
   - **Slip:** one line of the frame's own dialog script printed the local webhook address (127.0.0.1 with the per-site path, no token) to the session once; it dies with the disposable n8n.
+- **P007 → bug 137 (2026-11-18):** filed in story 38's `after`, fixed by #33 (main 9e1af92) through `bmad-build` (full route, two quick review passes, one loopback); it ships in 4.0.5. The owner's key is still refused, so the rest of the n8n frames wait for a working one.
+- **W137 (2026-11-18, an Opus agent, WordPress66, WordPress 6.6, CI's Free build of #33, n8n 2.48.5, a fixed invalid Anthropic key): bug 137's Local walk passes** (records in its plan). P007's own row is re-run on the 4.0.5 release asset with N3.
+  - **Findings for the owner, no ticket yet (all older than bug 137):**
+    - The History tab keeps each run's `processing` placeholder beside its result and counts it in "History (n)".
+    - A post whose Review failed falls in no Dashboard tile or status chip, only in "All" (at the walk, the tiles added to 2 for 4 posts).
+    - The failure reason shown to the user is Anthropic's raw JSON (escaped quotes, a request id), from the Free template's "Parse Review Result" node (v11).
 
 ## Plan Change Log
 
