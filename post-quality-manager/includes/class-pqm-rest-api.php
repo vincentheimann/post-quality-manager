@@ -720,6 +720,10 @@ class PostQuality_REST_API {
         // Build payload for n8n (shared with the cron batch).
         $payload = postquality_n8n_payload( $post, $command, $settings );
 
+        // The newest row of this post and command before the call, compared
+        // after it below (bug 137).
+        $latest_before = PostQuality_DB::latest_id( $post_id, $command );
+
         // Fire-and-forget request to n8n, authenticated with the token header.
         $response = wp_remote_post( $settings['n8n_webhook_url'], [
             'headers' => postquality_n8n_headers( $settings ),
@@ -752,14 +756,23 @@ class PostQuality_REST_API {
             // The `processing` placeholder is written once, here, on the
             // POST /trigger-review route: the Post Reviews polling
             // reads it back as `in_flight` and the n8n callback's result
-            // row supersedes it. A refused or failed trigger writes nothing.
-            PostQuality_DB::save_review(
-                $post_id,
-                $command,
-                0,
-                'processing',
-                [ 'summary' => __( 'Running asynchronously in n8n...', 'post-quality-manager' ) ]
-            );
+            // row, the newer id, supersedes it. When WordPress is slow
+            // between n8n's 2xx answer and this insert (the quota writes, a
+            // slow database), a fast callback's row can be stored first: a
+            // row of this post and command stored since the read above is
+            // taken as this run's result, which a newer placeholder would
+            // bury, so none is written (bug 137; n8n's timing:
+            // memory/admin-ui-rebuild.md). A refused or failed trigger
+            // writes nothing.
+            if ( PostQuality_DB::latest_id( $post_id, $command ) === $latest_before ) {
+                PostQuality_DB::save_review(
+                    $post_id,
+                    $command,
+                    0,
+                    'processing',
+                    [ 'summary' => __( 'Running asynchronously in n8n...', 'post-quality-manager' ) ]
+                );
+            }
         }
 
         if ( $accepted ) {

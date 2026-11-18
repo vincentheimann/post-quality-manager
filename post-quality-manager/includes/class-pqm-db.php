@@ -47,7 +47,11 @@ class PostQuality_DB {
     }
 
     /**
-     * Get all reviews for a post, newest first.
+     * Get all reviews for a post, newest first: by id alone, the write
+     * order, so the first row per command is the latest row every other
+     * reader picks (bug 137). `reviewed_at` counts whole seconds and comes
+     * from the web server that wrote the row, so sorting on it first could
+     * put a placeholder before its result.
      */
     public static function get_reviews_for_post( int $post_id, int $limit = 20 ): array {
         global $wpdb;
@@ -55,13 +59,32 @@ class PostQuality_DB {
 
         return $wpdb->get_results(
             $wpdb->prepare(
-                'SELECT * FROM %i WHERE post_id = %d ORDER BY reviewed_at DESC LIMIT %d',
+                'SELECT * FROM %i WHERE post_id = %d ORDER BY id DESC LIMIT %d',
                 $table,
                 $post_id,
                 $limit
             ),
             ARRAY_A
         ) ?: [];
+    }
+
+    /**
+     * Id of a post's newest row of $command, 0 when it has none. The
+     * latest row per post and command is the one with the highest id:
+     * ids follow write order, and `reviewed_at` only counts seconds
+     * (bug 137). The trigger compares it around its webhook call.
+     */
+    public static function latest_id( int $post_id, string $command ): int {
+        global $wpdb;
+
+        return (int) $wpdb->get_var(
+            $wpdb->prepare(
+                'SELECT MAX(id) FROM %i WHERE post_id = %d AND command = %s',
+                self::table_name(),
+                $post_id,
+                sanitize_key( $command )
+            )
+        );
     }
 
     /**
@@ -100,7 +123,9 @@ class PostQuality_DB {
      * (story 5.4). A command is in flight when its latest row for that
      * post is the `processing` placeholder; a newer result row (any
      * status, including the stored error) ends it. One query, joined on
-     * MAX(reviewed_at) per post+command like latest_review_subquery().
+     * MAX(id) per post+command like latest_review_subquery(): the highest
+     * id is the latest row, even when a result shares its placeholder's
+     * second (bug 137).
      *
      * @param  int[] $post_ids
      * @return array  Keyed by post_id → array of in-flight command names; posts with none are absent.
@@ -118,13 +143,12 @@ class PostQuality_DB {
             SELECT r1.post_id, r1.command
             FROM {$table} r1
             INNER JOIN (
-                SELECT post_id, command, MAX(reviewed_at) AS max_date
+                SELECT MAX(id) AS max_id
                 FROM {$table}
                 WHERE post_id IN ($placeholders)
                 GROUP BY post_id, command
-            ) r2 ON r1.post_id = r2.post_id AND r1.command = r2.command AND r1.reviewed_at = r2.max_date
+            ) r2 ON r1.id = r2.max_id
             WHERE r1.status = 'processing'
-            GROUP BY r1.post_id, r1.command
         ";
         $rows         = $wpdb->get_results(
             // phpcs:ignore WordPress.DB.PreparedSQL
@@ -176,6 +200,10 @@ class PostQuality_DB {
      * latest_* is its last *result*, so a running review never changes
      * list membership, ordering or counts — `in_flight` from
      * get_in_flight_for_posts() is the only processing signal.
+     *
+     * The latest result is the highest id among them, joined on that id
+     * alone (bug 137): a row of another command or status stored in the
+     * same second never joins, so each post has one `lr` row.
      */
     private static function latest_review_subquery(): string {
         $table = self::table_name();
@@ -184,11 +212,11 @@ class PostQuality_DB {
             SELECT r1.*
             FROM {$table} r1
             INNER JOIN (
-                SELECT post_id, MAX(reviewed_at) AS max_date
+                SELECT MAX(id) AS max_id
                 FROM {$table}
                 WHERE command = 'review' AND status <> 'processing'
                 GROUP BY post_id
-            ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date
+            ) r2 ON r1.id = r2.max_id
         ";
     }
 
@@ -469,6 +497,9 @@ class PostQuality_DB {
      * Get posts that need a $command run (never run, low score, or stale),
      * judged by each post's latest result of that command (ticket 3: a
      * scheduled audit moves on instead of re-picking the same posts).
+     * The latest row is the highest id, joined on that id alone, so a
+     * placeholder and a result of the same second list the post once
+     * (bug 137).
      */
     public static function get_posts_needing_review( int $min_score = 60, int $max_age_days = 30, int $limit = 10, string $command = 'review' ): array {
         global $wpdb;
@@ -483,11 +514,11 @@ class PostQuality_DB {
                 SELECT r1.post_id, r1.overall_score, r1.reviewed_at
                 FROM {$table} r1
                 INNER JOIN (
-                    SELECT post_id, MAX(reviewed_at) AS max_date
+                    SELECT MAX(id) AS max_id
                     FROM {$table}
                     WHERE command = %s
                     GROUP BY post_id
-                ) r2 ON r1.post_id = r2.post_id AND r1.reviewed_at = r2.max_date AND r1.command = %s
+                ) r2 ON r1.id = r2.max_id
             ) lr ON p.ID = lr.post_id
             WHERE p.post_status = 'publish'
               AND p.post_type = 'post'
@@ -502,7 +533,7 @@ class PostQuality_DB {
 
         return $wpdb->get_results(
             // phpcs:ignore WordPress.DB.PreparedSQL
-            $wpdb->prepare( $sql, $command, $command, $min_score, $cutoff, $limit ),
+            $wpdb->prepare( $sql, $command, $min_score, $cutoff, $limit ),
             ARRAY_A
         ) ?: [];
     }
