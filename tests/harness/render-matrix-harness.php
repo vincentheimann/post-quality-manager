@@ -1090,7 +1090,7 @@ check('... recorded as the failure, the version kept; the body needs attention w
     && $sentence_of($r->data['status_html']) === 'The last test just now did not pass: ' . $r->data['message'] && $primaries($r->data['status_html']) === 1 && !isset($GLOBALS['tw_options']['postquality_ping']));
 $GLOBALS['tw_ping_callback'] = 'none';
 $r = ping('');
-check('current reply, no callback within the wait: error, the message names the wait, this site\'s REST address and the execution log', $r->ok === false
+check('current reply, no callback within the wait: error, one ping (the Test button never retries, bug 138), the message names the wait, this site\'s REST address and the execution log', $r->ok === false && count($GLOBALS['tw_pings']) === 1
     && $r->data['message'] === 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach /wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.'
     && $state_of($r->data['status_html']) === 'failing' && (postquality_workflow_report()['failed']['message'] ?? '') === $r->data['message'] && !isset($GLOBALS['tw_options']['postquality_ping']));
 $GLOBALS['tw_ping_callback'] = 'received';

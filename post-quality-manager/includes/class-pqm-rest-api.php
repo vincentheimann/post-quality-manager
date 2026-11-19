@@ -1623,7 +1623,9 @@ class PostQuality_REST_API {
      * no webhook base — ping it, record the replied version. The Anthropic
      * key is passed on and never echoed. The ping goes through
      * ping_after_activation(): a 404 right after activation is usually n8n
-     * still publishing (bug 80), so it is retried before it counts. A failed
+     * still publishing (bug 80), and a late callback is usually the new
+     * workflow's slow first run (bug 138), so each is retried before it
+     * counts. A failed
      * ping keeps everything: n8n may serve webhooks on another address than
      * its editor (WEBHOOK_URL), so the reply points to pasting the Webhook
      * Trigger's production URL.
@@ -1680,22 +1682,29 @@ class PostQuality_REST_API {
      * memory/n8n-provisioning.md (publication outbox finding, 2026-10-20).
      * An updated webhook can also go on answering from the version it
      * replaced until n8n has switched (bug 99; memory/n8n-provisioning.md,
-     * the 2026-11-05 source read). So a 404 and a passing answer from an
-     * older template (answered_older()) are retried, up to PROVISION_PINGS
-     * pings 2 s apart (filter `postquality_provision_ping_retry_wait`; the
-     * harness sets 0); every other answer, pass or fail, counts the first
-     * time. Provisioning and the update (bug 84; memory/n8n-provisioning.md)
-     * are the callers that just published something: the Test button,
-     * POST /setup/connect and the rotation (a credential only) ping once.
-     * Ceiling: at the current version a Free answer waits for its callback
-     * on each try (ping_reply()), so a site n8n cannot call back waits up to
-     * 3 × 8 s.
+     * the 2026-11-05 source read). And the first run of a just-published
+     * workflow can be slow enough that its callback lands after
+     * PostQuality_Admin::PING_WAIT (bug 138: 8.2 s on n8n 2.48.5, later runs
+     * 0.1–0.2 s; memory/n8n-provisioning.md). So a 404, a passing answer
+     * from an older template (answered_older()) and a late callback
+     * (`callback` `none`) are retried, up to PROVISION_PINGS pings 2 s apart
+     * (filter `postquality_provision_ping_retry_wait`; the harness sets 0);
+     * every other answer, pass or fail, counts the first time — a refused
+     * callback too (a wrong token is not slowness). A late callback of an
+     * earlier try meets a replaced pending id and is answered 404
+     * (ping_callback()). Provisioning and the update (bug 84;
+     * memory/n8n-provisioning.md) are the callers that just published
+     * something: the Test button, POST /setup/connect and the rotation (a
+     * credential only) ping once.
+     * Ceiling: at the current version every try waits for its callback
+     * (ping_reply()), so a site n8n cannot call back waits about
+     * 3 × 8 s + 2 × 2 s ≈ 28 s before the callback sentence.
      */
     private static function ping_after_activation( string $url ): array {
         for ( $attempt = 1; ; $attempt++ ) {
             // The workflow was just created or updated: a 404 here is the window, never a gone workflow (story 71, no read).
             $ping   = PostQuality_Admin::ping_webhook( $url, true, false );
-            $window = 404 === ( $ping['code'] ?? 0 ) || self::answered_older( $ping );
+            $window = 404 === ( $ping['code'] ?? 0 ) || 'none' === ( $ping['callback'] ?? '' ) || self::answered_older( $ping );
             if ( ! $window || $attempt >= self::PROVISION_PINGS ) {
                 return $ping;
             }
@@ -1859,8 +1868,8 @@ class PostQuality_REST_API {
      * Update the managed workflow to the bundled template:
      * PostQuality_N8n::update_workflow() reads it once and PUTs the build's template
      * onto it (credentials and path kept), then the ping of the saved URL
-     * (a 404 or an answer from the replaced version retried,
-     * ping_after_activation()), its diagnosis included, proves the new
+     * (a 404, an answer from the replaced version or a late callback
+     * retried, ping_after_activation()), its diagnosis included, proves the new
      * version answers. A passed update forgets the stored report, as a
      * template serve does. When the last ping still answers from an older
      * template, n8n has not switched yet (bug 99): the message says so and
@@ -1884,8 +1893,9 @@ class PostQuality_REST_API {
         // runs there, so the page shows "not checked yet" until a ping.
         delete_option( 'postquality_workflow_version_seen' );
 
-        // The PUT just passed: a 404, or the replaced version answering, is the publication window
-        // (bugs 84 and 99, memory/n8n-provisioning.md), retried like provisioning's, never a gone workflow (story 71, no read).
+        // The PUT just passed: a 404, or the replaced version answering, is the publication window, and a late callback the
+        // new version's slow first run (bugs 84, 99 and 138, memory/n8n-provisioning.md), retried like provisioning's, never a
+        // gone workflow (story 71, no read).
         $ping      = self::ping_after_activation( (string) postquality_get_settings()['n8n_webhook_url'] );
         $switching = self::answered_older( $ping );
         if ( $switching ) {

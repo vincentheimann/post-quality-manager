@@ -53,6 +53,7 @@ $GLOBALS['tw'] = [
     'ping_queue'    => [],   // scripted ping answers, in call order; ping_response once empty (bug 80)
     'filters'       => ['postquality_provision_ping_retry_wait' => 0, 'postquality_ping_callback_wait' => 0, 'postquality_unpublish_retry_wait' => 0], // apply_filters() answers: no wait between the retried pings, none for the ping's callback (story 2: the stub plays it before the reply), none between the retried workflow DELETEs (bug 114)
     'ping_callback' => 'received', // story 2: what wp_remote_post() plays as n8n's callback of the ping — received, refused or none
+    'ping_callbacks' => [], // bug 138: scripted callbacks, one per ping in call order; ping_callback once empty
     'app_passwords' => true, // wp_is_application_passwords_available_for_user()
     'app_refuses'   => false, // bug 113: WordPress refuses to create one (a WP_Error, nothing created)
     'app_created'   => [],   // Application Passwords created: [user_id, args]
@@ -130,7 +131,8 @@ function n8n_publish_refusal(string $url, array $args): ?array {
 function wp_remote_get($url, $args) { return wp_remote_request($url, $args + ['method' => 'GET']); }
 function wp_remote_post($url, $args) {
     $GLOBALS['tw']['pings'][] = [$url, $args];
-    pqm_harness_ping_callback($args, $GLOBALS['tw']['ping_callback']); // story 2: n8n calls the site back before the plugin reads the reply
+    $callback = $GLOBALS['tw']['ping_callbacks'] !== [] ? array_shift($GLOBALS['tw']['ping_callbacks']) : $GLOBALS['tw']['ping_callback'];
+    pqm_harness_ping_callback($args, $callback); // story 2: n8n calls the site back before the plugin reads the reply
     return $GLOBALS['tw']['ping_queue'] !== [] ? array_shift($GLOBALS['tw']['ping_queue']) : $GLOBALS['tw']['ping_response'];
 }
 /* Entry 10 rotates to a distinct token through tw.uuid, which the bootstrap's wp_generate_uuid4() reads. */
@@ -355,6 +357,7 @@ function connected(array $queue, array $extra = []): void {
         'postquality_settings' => ['webhook_token' => TOKEN]] + $extra, $queue);
     $GLOBALS['tw']['pings']         = [];
     $GLOBALS['tw']['ping_queue']    = [];
+    $GLOBALS['tw']['ping_callbacks'] = [];
     $GLOBALS['tw']['ping_response'] = resp(200, ['ok' => true, 'workflow_version' => POSTQUALITY_WORKFLOW_VERSION]);
     $GLOBALS['tw']['app_passwords'] = true;
     $GLOBALS['tw']['app_refuses']   = false;
