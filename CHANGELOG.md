@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.6](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.5...v4.0.6) (2026-11-19)
+
+
+### Bug Fixes
+
+* **build:** the migration's meta query stays suppressed in the Free build ([56d8f55](https://github.com/vincentheimann/post-quality-manager/commit/56d8f555d7f2b8af94ea06ad5d6607dcddb4a549))
+* **n8n:** a late callback right after a publish is retried, not a failure ([bd8a665](https://github.com/vincentheimann/post-quality-manager/commit/bd8a6650691a401d526f03f6f42efc053fec8c03))
+
 ## [4.0.5](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.4...v4.0.5) (2026-11-18)
 
 
