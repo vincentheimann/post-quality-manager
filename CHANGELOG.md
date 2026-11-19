@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.7](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.6...v4.0.7) (2026-11-19)
+
+
+### Bug Fixes
+
+* **readme:** the n8n line reads as a sentence and caption 1 matches its screenshot ([19056e1](https://github.com/vincentheimann/post-quality-manager/commit/19056e128115e72a8ce75e8d9c29fe1ae822907d))
+
 ## [4.0.6](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.5...v4.0.6) (2026-11-19)
 
 
