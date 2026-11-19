@@ -4,7 +4,7 @@ type: story
 title: "The plugin is accepted in the WordPress.org plugin directory"
 parent: none
 covers: [UV7]
-after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89, 91, 95, 70, 122, 125, 128, 129, 130, 132, 135, 137]
+after: [10, 15, 41, 9, 44, 46, 47, 54, 58, 65, 88, 89, 91, 95, 70, 122, 125, 128, 129, 130, 132, 135, 137, 138]
 assignee: ""
 refined: true
 hitl: true
