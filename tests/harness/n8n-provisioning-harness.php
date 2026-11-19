@@ -567,18 +567,28 @@ foreach (['a 401' => [resp(401, ['message' => 'Authorization data is wrong!']), 
         && str_starts_with($r['message'], 'Your workflow is set up and active in n8n, but the test did not pass. ' . $cause) && !str_contains($r['message'], 'did not answer yet')
         && str_ends_with($r['message'], 'paste it as the n8n Webhook URL.') && str_starts_with(postquality_workflow_report()['failed']['message'] ?? '', $cause));
 }
-/* Story 2: the ping got through and its callback failed — the address was right, so the sentence carries no editor-address hint */
-foreach (['refused' => 'n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.',
-    'none' => 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.'] as $callback => $cause) {
+/* Story 2: the ping got through and its callback failed — the address was right, so the sentence carries no editor-address hint.
+   Bug 138: a missing callback is retried like the 404 window (3 pings), a refused one is not (a wrong token is not slowness). */
+foreach (['refused' => ['n8n reached this site, but the callback was refused: it carried a token that is not this site\'s webhook token. In n8n, open the POST Result to WordPress node and set its X-PQM-Token header to {{ $json.auth_token }}, then test again.', 1],
+    'none' => ['n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.', 3]] as $callback => [$cause, $pings]) {
     connected(PRO_OK);
     $GLOBALS['tw']['ping_callback'] = $callback;
     $r = provision();
-    check("the callback $callback: one ping, ping_ok false, 'the test did not pass' + the callback's own sentence, no editor-address hint; that cause on record, Set up the workflow open", count($GLOBALS['tw']['pings']) === 1
+    check("the callback $callback: $pings ping(s), no more; ping_ok false, 'the test did not pass' + the callback's own sentence, no editor-address hint; that cause on record, Set up the workflow open", count($GLOBALS['tw']['pings']) === $pings
         && $r['provisioned'] === true && $r['ping_ok'] === false && $r['message'] === 'Your workflow is set up and active in n8n, but the test did not pass. ' . $cause
         && (postquality_workflow_report()['failed']['message'] ?? '') === $cause && ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] ?? null) === false
         && str_contains($r['status_html'], 'data-state="failing"'));
 }
 $GLOBALS['tw']['ping_callback'] = 'received';
+/* Bug 138: n8n's first run of the new workflow calls back after the wait (8.2 s on 2.48.5), the next one in time */
+connected(PRO_OK);
+$GLOBALS['tw']['ping_callbacks'] = ['none', 'received'];
+$r = provision();
+check('a late first callback, then one in time: 2 pings; provisioned, ping_ok, "Ping OK"; the version recorded, no failure on record; Set up the workflow done, status_html set up; the diagnosis read once, after the passing ping',
+    count($GLOBALS['tw']['pings']) === 2 && $r['provisioned'] === true && $r['ping_ok'] === true && str_starts_with($r['message'], 'Ping OK')
+    && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && !isset(postquality_workflow_report()['failed'])
+    && ($GLOBALS['tw']['options'][POSTQUALITY_SETUP_OPTION]['steps']['connect'] ?? null) === true && str_contains($r['status_html'], 'data-state="set-up"')
+    && calls() === [...CREATE_ALL, READ_WF] && $GLOBALS['tw']['queue'] === []);
 check('the retry wait is the filter postquality_provision_ping_retry_wait, 2 s by default, in the REST callbacks\' ping_after_activation() only, never in the Test button\'s ping (class-pqm-admin.php); which callbacks retry is n8n-managed\'s rows (bug 84)',
     (bool) preg_match('/sleep\\( max\\( 0, \\(int\\) apply_filters\\( \'postquality_provision_ping_retry_wait\', 2 \\) \\) \\);/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/includes/class-pqm-rest-api.php'))
     && !preg_match('/postquality_provision_ping_retry_wait|(?<!u)sleep\\(/', file_get_contents(dirname(__DIR__, 2) . '/post-quality-manager/admin/class-pqm-admin.php'))); // usleep() is the ping's callback wait (story 2), not a retry

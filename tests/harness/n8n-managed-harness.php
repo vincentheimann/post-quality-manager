@@ -601,6 +601,54 @@ $r = connect_ping(HOOK);
 check('POST /setup/connect still pings once: an older answer recorded as it comes (the rotation: its row above; the Test button: no retry in class-pqm-admin.php, the provisioning harness\'s source pin)', count($GLOBALS['tw']['pings']) === 1
     && $r['ping_ok'] === true && $r['outdated'] === true && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION - 1);
 
+/* ─── Bug 138: n8n's first run after the PUT calls back after the wait (one row per line of its plan's matrix) ─ */
+echo "Update: the first run's callback comes late (bug 138)\n";
+const NO_CALLBACK = 'n8n accepted the ping but did not call this site back within 0 seconds. n8n must reach https://example.com/wp-json/ (this site\'s REST API): a local, private or password-protected site cannot be called back. Check the ping\'s execution in n8n, then test again.';
+managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
+$GLOBALS['tw']['ping_callbacks'] = ['none', 'received'];
+$r = update();
+check('late, then in time: 2 pings; updated, ping_ok, not outdated, "Workflow updated." + the ping\'s message; the diagnosis read once, after the passing ping', is_array($r) && count($GLOBALS['tw']['pings']) === 2
+    && $r['updated'] === true && $r['ping_ok'] === true && $r['outdated'] === false && $r['message'] === 'Workflow updated. ' . PING_OK
+    && calls() === [READ_WF, PUT_WF, READ_WF] && $GLOBALS['tw']['queue'] === []);
+check('... the new version recorded by a test, the late try\'s failure cleared; the block set up', postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION
+    && postquality_workflow_report()['via'] === 'test' && !isset(postquality_workflow_report()['failed']) && state_of($r['status_html']) === 'set-up');
+
+managed([CLEAN_WF, UPDATED, CLEAN_WF, CLEAN_WF], $setup_map + $free_report);
+$GLOBALS['tw']['ping_queue']     = [$answers(POSTQUALITY_WORKFLOW_VERSION, 'free')];
+$GLOBALS['tw']['ping_callbacks'] = ['received', 'none', 'received'];
+$r = update();
+check('Free answers, then late, then in time (the Pro build, story 38\'s P030 on n8n 2.48.5): 3 pings; updated, ping_ok, not outdated, "Workflow updated." + the ping\'s message; the version recorded without the variant, set up',
+    is_array($r) && count($GLOBALS['tw']['pings']) === 3 && $r['ping_ok'] === true && $r['outdated'] === false && $r['message'] === 'Workflow updated. ' . PING_OK
+    && postquality_workflow_report()['version'] === POSTQUALITY_WORKFLOW_VERSION && !isset(postquality_workflow_report()['variant']) && !isset(postquality_workflow_report()['failed'])
+    && state_of($r['status_html']) === 'set-up' && calls() === [READ_WF, PUT_WF, READ_WF, READ_WF] && $GLOBALS['tw']['queue'] === []);
+
+managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
+$GLOBALS['tw']['ping_callback'] = 'none';
+$r = update();
+check('a site n8n cannot call back: 3 pings, no more; updated, ping_ok false, "The workflow was updated in n8n." + today\'s callback sentence; that sentence on record, no version; needs attention',
+    is_array($r) && count($GLOBALS['tw']['pings']) === 3 && $r['updated'] === true && $r['ping_ok'] === false && $r['outdated'] === false
+    && str_starts_with($r['message'], 'The workflow was updated in n8n. ' . NO_CALLBACK) && (postquality_workflow_report()['failed']['message'] ?? '') === NO_CALLBACK
+    && array_keys($GLOBALS['tw']['options']['postquality_workflow_version_seen']) === ['failed'] && state_of($r['status_html']) === 'failing'
+    && writes() === ['-postquality_workflow_version_seen', ...array_fill(0, 3, 'postquality_workflow_version_seen')] && calls() === [READ_WF, PUT_WF]);
+
+managed([CLEAN_WF, UPDATED], $setup_map + $older_report);
+$GLOBALS['tw']['ping_callback'] = 'refused';
+$r = update();
+check('the callback refused (a wrong token is not slowness): 1 ping; updated, ping_ok false, "The workflow was updated in n8n." + today\'s refused sentence; needs attention',
+    is_array($r) && count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false
+    && str_starts_with($r['message'], 'The workflow was updated in n8n. n8n reached this site, but the callback was refused') && state_of($r['status_html']) === 'failing');
+
+managed([PATCHED]);
+$GLOBALS['tw']['ping_callback'] = 'none';
+$r = rotate();
+check('the rotation, no callback: rotated, 1 ping (no retry), ping_ok false, "Token rotated." + today\'s callback sentence', is_array($r) && $r['rotated'] === true
+    && count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false && str_contains($r['message'], NO_CALLBACK));
+managed([]);
+$GLOBALS['tw']['ping_callback'] = 'none';
+$r = connect_ping(HOOK);
+check('POST /setup/connect, no callback: 1 ping (no retry), ping_ok false (the Test button: render-matrix\'s callback row)', count($GLOBALS['tw']['pings']) === 1 && $r['ping_ok'] === false);
+$GLOBALS['tw']['ping_callback'] = 'received';
+
 echo "Update: after\n";
 managed([CLEAN_WF, UPDATED, CLEAN_WF], $setup_map + $older_report);
 update();
