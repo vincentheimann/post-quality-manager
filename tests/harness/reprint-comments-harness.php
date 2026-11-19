@@ -22,7 +22,11 @@
  *      label's `:` (`case`, `default`, `else:`, `if (…):`), or the note opens
  *      a call argument that is itself a call (`sprintf( /* … *\/ __( … ) )`);
  *   2. a `phpcs:ignore` shares its line with code: an ignore alone on its
- *      line applies to the next line, before and after the re-print.
+ *      line applies to the next line, before and after the re-print;
+ *   3. a `phpcs:ignore` alone on its line sits above a line holding an array
+ *      literal of two or more items: the re-print gives each item its own
+ *      line, past the line the ignore covers (bug 139, 4.0.5's activator);
+ *      a `phpcs:disable` / `phpcs:enable` pair on their own lines spans it.
  * It models the printer from what 4.0.0's build shows; only the release
  * job sees the real re-print. The self-test rows feed the rules each
  * pattern the re-print loses and each one it keeps.
@@ -149,7 +153,9 @@ function reprint_keeps(array $tk, int $c): bool {
 
 /**
  * The re-print findings of one file: [line, message] per translator note the
- * re-print loses or WPCS would not see, and per phpcs:ignore sharing a line.
+ * re-print loses or WPCS would not see, per phpcs:ignore sharing a line, and
+ * per own-line phpcs:ignore above a multi-item array (rule 3). A comment
+ * counts as an ignore only when it opens with the directive, as PHPCS reads it.
  */
 function reprint_findings(string $src): array {
     $tk = lined_tokens($src);
@@ -180,16 +186,42 @@ function reprint_findings(string $src): array {
         }
     }
     foreach ($tk as $i => $t) {
-        if (!is_comment($t) || !str_contains($t['text'], 'phpcs:ignore')) { continue; }
+        if (!is_comment($t) || !preg_match('#^(//|\#|/\*+)\s*phpcs:ignore\b#', $t['text'])) { continue; }
         $p = prev_code($tk, $i);
         $n = next_code($tk, $i);
         $code_before = $p !== null && $tk[$p]['line'] === $t['line'] && !is_comment($tk[$p]) && $tk[$p]['id'] !== T_OPEN_TAG;
         $code_after  = $n !== null && $tk[$n]['line'] === end_line($t) && $tk[$n]['id'] !== T_CLOSE_TAG;
         if ($code_before || $code_after) {
             $findings[] = [$t['line'], 'a phpcs:ignore shares its line with code: the re-print moves it to the next line, where it no longer applies'];
+        } elseif ($n !== null && multi_item_array_on_line($tk, $n)) {
+            $findings[] = [$t['line'], 'a phpcs:ignore above a line with an array of two or more items: the re-print puts the items on later lines, where it no longer applies'];
         }
     }
     return $findings;
+}
+
+/**
+ * Bug 139: whether the line starting at token $n holds an array literal
+ * (`[` not indexing, or `array(`) with a comma at its own depth before the
+ * line ends — the re-print gives each item of such an array its own line.
+ */
+function multi_item_array_on_line(array $tk, int $n): bool {
+    $line  = $tk[$n]['line'];
+    $stack = []; // per open bracket: true when it opened an array literal
+    for ($i = $n; $i < count($tk) && $tk[$i]['line'] === $line; $i++) {
+        $s = $tk[$i]['text'];
+        if ($s === '[' || $s === '(') {
+            $p = prev_code($tk, $i);
+            $index = $s === '[' && $p !== null && ($tk[$p]['id'] === T_VARIABLE || in_array($tk[$p]['text'], [']', ')', '}'], true) || $tk[$p]['id'] === T_STRING);
+            $literal = ($s === '[' && !$index) || ($s === '(' && $p !== null && $tk[$p]['id'] === T_ARRAY);
+            $stack[] = $literal;
+        } elseif ($s === ']' || $s === ')') {
+            array_pop($stack);
+        } elseif ($s === ',' && $stack !== [] && end($stack) === true) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /* ─── Self-test: the rules on each pattern the re-print loses and keeps ── */
@@ -222,6 +254,9 @@ $kept = [
     'a string with no placeholder needs no note' => "\$s = \$a ? __('100%% sure', 'd') : __('No', 'd');",
     'a method named like gettext is not gettext' => "\$s = \$o->__('I %s');",
     'a phpcs:ignore alone on its line' => "// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON file body, not HTML\necho \$json;",
+    'a phpcs:ignore above a one-item array and an index' => "// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key\n\$u = get_users( [ 'meta_key' => \$k ] ) + \$m[ f( \$a, \$b ) ];",
+    'prose that mentions phpcs:ignore above a multi-item array' => "// A pair, not a phpcs:ignore: the re-print splits the array.\n\$u = get_users( [ 'meta_key' => \$k, 'fields' => 'ids' ] );",
+    'a phpcs:disable / enable pair around a multi-item array' => "// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- why\nforeach ( get_users( [ 'meta_key' => \$k, 'fields' => 'ids' ] ) as \$id ) {\n    // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key\n    f( \$id );\n}",
 ];
 foreach ($kept as $label => $body) {
     $r = $f($body);
@@ -232,6 +267,8 @@ $ignores = [
     'a phpcs:ignore trailing an argument' => "printf(\n    '%s',\n    \$x // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped above.\n);",
     'a phpcs:ignore trailing an open parenthesis' => "\$rows = \$wpdb->query( \$wpdb->prepare( // phpcs:ignore WordPress.DB.DirectDatabaseQuery\n    'SELECT 1'\n) );",
     'a phpcs:ignore trailing an echo in a template' => "?><p><?php echo \$x; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p><?php",
+    'a phpcs:ignore above a multi-item array (bug 139)' => "// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key\nforeach ( get_users( [ 'meta_key' => \$k, 'fields' => 'ids' ] ) as \$id ) {\n}",
+    'a phpcs:ignore above a multi-item array()' => "// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key\n\$u = get_users( array( 'meta_key' => \$k, 'fields' => 'ids' ) );",
 ];
 foreach ($ignores as $label => $body) {
     $r = $f($body);
@@ -250,7 +287,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($plugin, F
     }
 }
 ksort($files);
-check('the three files the form scanned are read', array_diff(['admin/class-pqm-admin.php', 'includes/class-pqm-n8n.php', 'includes/class-pqm-rest-api.php'], array_keys($files)) === []);
+check('the three files the form scanned are read, and the activator (bug 139)', array_diff(['admin/class-pqm-admin.php', 'includes/class-pqm-n8n.php', 'includes/class-pqm-rest-api.php', 'includes/class-pqm-activator.php'], array_keys($files)) === []);
 $notes = 0;
 foreach ($files as $rel => $path) {
     $src = (string) file_get_contents($path);
@@ -260,6 +297,15 @@ foreach ($files as $rel => $path) {
         echo "    $rel:$line $message\n";
     }
     check("$rel: every translator note and phpcs:ignore survives the re-print", $findings === []);
+    if ($rel === 'includes/class-pqm-activator.php') {
+        // The disable on its own line before the migration's get_users() call, the enable after it, once each (bug 139).
+        $off  = strpos($src, '// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key');
+        $call = strpos($src, "get_users( [ 'meta_key' => \$old");
+        $on   = strpos($src, '// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key');
+        check('... the activator suppresses the migration\'s meta query with a disable before the call and an enable after it, once each (bug 139)',
+            $off !== false && $call !== false && $on !== false && $off < $call && $call < $on
+            && substr_count($src, 'phpcs:disable') === 1 && substr_count($src, 'phpcs:enable') === 1);
+    }
 }
 check("the files hold translator notes ($notes)", $notes > 50);
 

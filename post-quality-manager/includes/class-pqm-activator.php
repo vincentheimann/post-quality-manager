@@ -212,8 +212,10 @@ class PostQuality_Activator {
     /** User meta moves per user holding it; the retired View as meta is deleted for all users. */
     private static function migrate_user_meta(): void {
         foreach ( self::LEGACY_NAMES['user_meta'] as $old => $new ) {
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a one-time migration lookup
+            // A disable / enable pair, not a one-line ignore: Freemius's re-print puts the array's items on later lines (bug 139).
+            // phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- a one-time migration lookup
             foreach ( get_users( [ 'meta_key' => $old, 'fields' => 'ids' ] ) as $user_id ) {
+                // phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key
                 if ( ! metadata_exists( 'user', $user_id, $new ) ) {
                     add_user_meta( $user_id, $new, get_user_meta( $user_id, $old, true ), true );
                 }
