@@ -44,3 +44,4 @@ Two lines of `post-quality-manager/readme.txt`, which the WordPress.org director
 ## Notes
 
 - Decision (owner, 2026-11-19): fixed before the submission, in a 4.0.7; joins story 38's `after`.
+- Done 2026-11-23 (owner's word): fixed by #42 (main 19056e1); released in 4.0.7 (#43, notes #44).

@@ -3,7 +3,7 @@ title: 'A run that fails within a second shows Processing forever'
 type: 'bugfix'
 ticket: '137'
 created: '2026-11-18'
-status: 'built'
+status: done
 baseline_revision: 'df7f05f10f823ebe2203d941f5a37b0c9b019942'
 route: 'full'
 route_source: 'auto'

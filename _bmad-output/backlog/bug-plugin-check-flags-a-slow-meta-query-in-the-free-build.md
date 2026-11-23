@@ -61,3 +61,4 @@ Plugin Check on the Free release zip reports one warning beyond the accepted lis
 - Decision (owner, 2026-11-19): ships with bug 138 in the same 4.0.x release; it joins story 38's `after`.
 - Fact: the directory form's exact submission scan did not report it (story 38's T1 frame); normal Plugin Check runs do.
 - Assumption: severity P3, risk low — a warning, not an error; the change touches one call's comment or layout.
+- Done 2026-11-23 (owner's word): fixed by #39 (main 56d8f55); released in 4.0.6 (#40, notes #41); story 38's P068 and P035 passed on the Free 4.0.6 release zip: Plugin Check 2.2.0 reports 0 errors and the 22 accepted warnings, no `slow_db_query_meta_key`, the same as CI's two Plugin Check jobs.

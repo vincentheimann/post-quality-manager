@@ -3,7 +3,7 @@ title: 'The readme has a broken n8n sentence and a caption that misses its scree
 type: 'bugfix'
 ticket: '140'
 created: '2026-11-19'
-status: 'built'
+status: done
 baseline_revision: '7ad6510'
 route: 'oneshot'
 route_source: 'auto'

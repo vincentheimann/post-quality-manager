@@ -3,7 +3,7 @@ title: 'A successful update reports a failed ping when n8n''s first run is slow'
 type: 'bugfix'
 ticket: '138'
 created: '2026-11-19'
-status: 'built'
+status: done
 baseline_revision: '613bca077a8795bed2871eef22ee6b379f3a049e'
 route: 'full'
 route_source: 'auto'
