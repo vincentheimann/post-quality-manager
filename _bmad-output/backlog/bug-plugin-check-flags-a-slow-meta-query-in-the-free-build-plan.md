@@ -3,7 +3,7 @@ title: 'Plugin Check flags a slow meta query in the Free build'
 type: 'bugfix'
 ticket: '139'
 created: '2026-11-19'
-status: 'built'
+status: done
 baseline_revision: '613bca077a8795bed2871eef22ee6b379f3a049e'
 route: 'oneshot'
 route_source: 'auto'

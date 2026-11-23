@@ -71,3 +71,4 @@ The trigger writes a `processing` placeholder right after n8n's webhook answers,
 - Fact: a wrong key in the provisioned (key) path is refused before anything is created, so this is reached mainly through a hand-made setup, a key revoked later, a rate limit or an overloaded API: any failure n8n reports within a second.
 - Assumption: severity P2 — normal runs work; a fast failure loses its reason in the UI, and the reason can still be read in n8n's execution data. Risk medium — the queries every screen reads a post's state through.
 - Open question: whether the Dashboard's queue and tiles, which read the latest row per post the same way, show the same tie; the plan checks each reader of the latest row.
+- Done 2026-11-23 (owner's word): fixed by #33 (main 9e1af92); released in 4.0.5 (#34, notes #35); the Local walk passed (#36), and story 38's N3 frame passed P007 on 4.0.5 against a disposable n8n 2.48.5.
