@@ -58,3 +58,4 @@ Freemius generates the Free build by re-printing every PHP file, and the WordPre
 - Open question: how the release job runs Plugin Check on a build: the `wordpress/plugin-check-action` CI already pins (its inputs mirror the form's arguments, and it fails only on `ERROR` unless `strict` is on, per bug 125's Notes), or WP-CLI on a WordPress the job sets up. The choice must fail on `ERROR_LOW_SEVERITY` too.
 - Open question: whether the job pins the Plugin Check version, or takes the latest as the form does and so may fail a release on a check Plugin Check added since.
 - Assumption: the scan fits in the job's time without a limit of its own; the form gives its scan 45 seconds.
+- Finding (story 38's findings batch, owner 2026-11-23: folded here): main's push runs of `ci.yml` skip both Plugin Check jobs (they run on pull requests only), so main has no Plugin Check output of its own; story 38's P035 compared the site with the release PR's run instead (T1, 2026-11-19).
