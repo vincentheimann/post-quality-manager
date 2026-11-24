@@ -3,7 +3,7 @@ title: 'The plugin header gives different Plugin and Author URIs'
 type: 'bugfix'
 ticket: '151'
 created: '2026-11-24'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'quick'
