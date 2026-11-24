@@ -23,6 +23,9 @@
  * Row 9 (entry 8, the launch PR): ci.yml has no paths-ignore, the
  * release-please config no prerelease key, and release.yml's publish step
  * comes after the Free build check and takes steps.freemius.outputs.free.
+ * Row 1 (bug 151): Plugin URI and Author URI are both set and differ, since
+ * WordPress.org's upload form refuses equal values, and Plugin URI is not a
+ * WordPress.org address (the header handbook forbids one there).
  */
 
 require __DIR__ . '/lib/wp-stubs.php'; // the runner (check(), harness_exit()); no plugin code is loaded here
@@ -44,6 +47,12 @@ check("Version is a bare semver (got '$version')", is_string($version) && preg_m
 check('Plugin Name parses', header_value($data, 'Plugin Name') === 'Post Quality Manager');
 check('Requires at least parses', preg_match('/^\d+\.\d+$/', (string) header_value($data, 'Requires at least')) === 1);
 check('Requires PHP parses', preg_match('/^\d+\.\d+$/', (string) header_value($data, 'Requires PHP')) === 1);
+$plugin_uri = (string) header_value($data, 'Plugin URI');
+$author_uri = (string) header_value($data, 'Author URI');
+check("Plugin URI and Author URI differ ('$plugin_uri', '$author_uri')", $plugin_uri !== '' && $author_uri !== '' && $plugin_uri !== $author_uri);
+$plugin_host = strtolower((string) parse_url($plugin_uri, PHP_URL_HOST));
+check("Plugin URI is not a WordPress.org address (host '$plugin_host')",
+    $plugin_host !== '' && $plugin_host !== 'wordpress.org' && !str_ends_with($plugin_host, '.wordpress.org'));
 
 echo "Row 2 — the block annotation encloses exactly the Version line\n";
 $lines = explode("\n", str_replace("\r", '', file_get_contents($file)));

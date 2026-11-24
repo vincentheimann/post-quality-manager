@@ -9,7 +9,7 @@
  * Requires at least: 6.6
  * Requires PHP:      8.1
  * Author:            Vincent Heimann
- * Author URI:        https://postquality.com
+ * Author URI:        https://profiles.wordpress.org/heimvin/
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       post-quality-manager

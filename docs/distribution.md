@@ -13,7 +13,7 @@ _Every field a platform asks for before the plugin can be listed, sold or found,
 | Requires at least | 6.6 | memory/admin-ui-rebuild.md (WordPress floor) |
 | Requires PHP | 8.1 | ADR 0018, story 118 |
 | Author | Vincent Heimann | ADR 0013 D2 (private person) |
-| Author URI | https://postquality.com (set by story 45, 2026-10-09) | ADR 0013 |
+| Author URI | https://profiles.wordpress.org/heimvin/, the owner's WordPress.org profile (bug 151, 2026-11-24: WordPress.org's upload form refuses a Plugin URI equal to the Author URI; story 45 had set both to https://postquality.com) | ADR 0013 (amended 2026-11-24) |
 | License / License URI | GPL-2.0-or-later / https://www.gnu.org/licenses/gpl-2.0.html | LICENSE, entry 4.9 |
 | Text Domain / Domain Path | post-quality-manager / none since story 95 (2026-10-29): translations come from the WordPress.org language packs in `wp-content/languages/plugins/`, no bundled folder, no loader | docs/brand.md § Naming; entry 4.6; story 95 (audit D2) |
 

@@ -541,7 +541,7 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
 - Readme links: the 4.0.7 readme carries the same 11 unique links F1 opened on 4.0.3 (bug 140 changed a sentence, not a link). These are the data sheet's CHECK markers for tags, Tested up to and the third-party legal links.
 - Free asset to submit: the v4.0.7 release zip, sha256 `992177ba…16ea`.
 
-**submission: clear**
+**submission: blocked by 151** (2026-11-24): WordPress.org's upload form refused the v4.0.7 Free asset because its Plugin URI and Author URI are the same; the asset to submit becomes 4.0.8's, which carries the fix.
 
 ## Implementation Notes
 
@@ -744,6 +744,7 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
 - **The pass list holds no pending row** (merged 2026-11-23): 108 rows filled; 15 rows filled earlier (`deferred` or P007's 4.0.4 fail) carry the newer result first and the old entry after "Earlier:". Bugs 137–140 are done on the owner's word (#45).
 - **Findings** from the 2026-11-19 frames, the E looks and the licensed sitting go to one `bmad-ticket` batch; none blocks submission (owner, 2026-11-23).
 - **submission: clear (2026-11-24):** P036, the last deferred row, passes on the owner's word, based on the 2026-11-23 Account page evidence. The submission prep holds (slug free, Tested up to 7.1 = core 7.1.5's major, tag `content-quality`, the same 11 readme links). The owner submits the v4.0.7 Free asset on WordPress.org.
+- **submission: blocked by 151 (2026-11-24):** the owner's upload of the v4.0.7 Free asset (Claude in Chrome, signed in as `postquality`) ended on "Error: Your plugin and author URIs are the same." and nothing was queued: WordPress.org's upload handler (`class-upload-handler.php`, `process_upload()`, "Prevent duplicate URLs", read on trunk 2026-11-24) refuses equal `Plugin URI` and `Author URI` headers, and story 45 had set both to https://postquality.com. The handler's checks before this one passed, since the form reached it. Its checks after this one pass on 4.0.7: the readme (present; its title check searches the same post statuses as the handler's earlier title check on the header's Plugin Name, the same string "Post Quality Manager", which passed since the form reached the URI check), the readme's license (`GPL-2.0-or-later`), and Plugin Check (P068 ran the form's exact scan on 4.0.6; 4.0.7 changed only the readme's text and the version lines). One cannot be read from outside: the name in the wild, which WordPress.org checks against its own install stats for plugins hosted elsewhere. Bug 151 moves `Author URI` to https://profiles.wordpress.org/heimvin/ and adds the two URI checks to `release-header-harness.php`. Next: 4.0.8 ships the fix, the owner sets its Freemius deployment to Released and submits 4.0.8's Free asset.
 - **Slips:** 2026-11-19, the license was deactivated by the agent script before P161 had run (P161 ran in the licensed sitting); 2026-11-23, the page crawler listed the Account page's links, among them the Freemius invoice link (account and payment ids, a signed download link), in the session transcript; nothing reached the repository, and the crawler is kept off the Account page.
 
 ## Plan Change Log
