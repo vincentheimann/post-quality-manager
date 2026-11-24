@@ -149,7 +149,7 @@ Then the owner submits the same Free build, and the agent carries the review to 
   - `Tested up to` is the current major (api.wordpress.org's version check);
   - the tag "content quality" is checked against the directory's tag page;
   - the data sheet's CHECK markers.
-- [ ] Owner (hitl) -- display name, two-factor sign-in, submit the checked Free asset, read the slug the form shows.
+- [x] Owner (hitl) -- display name, two-factor sign-in, submit the checked Free asset, read the slug the form shows.
 - [ ] Review loop -- the agent drafts a reply for each email and files each finding through `bmad-ticket`. Each fix ships in a patch release, and that release's checked Free build goes with the reply.
 - [ ] Records at done -- `docs/distribution.md`:
   - row 0 (submitted and approved, with dates);
@@ -539,9 +539,9 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
 - `Tested up to: 7.1` is the current major: api.wordpress.org's version check offers 7.1.5 (both days, so no re-run was needed).
 - Tag: the directory's `content-quality` tag page exists (7 plugins), so the readme's "content quality" joins an existing tag.
 - Readme links: the 4.0.7 readme carries the same 11 unique links F1 opened on 4.0.3 (bug 140 changed a sentence, not a link). These are the data sheet's CHECK markers for tags, Tested up to and the third-party legal links.
-- Free asset to submit: the v4.0.7 release zip, sha256 `992177ba…16ea`.
+- Free asset submitted: the v4.0.8 release zip, sha256 `26374a84…1151`. The v4.0.7 zip (`992177ba…16ea`) was refused (bug 151).
 
-**submission: blocked by 151** (2026-11-24): WordPress.org's upload form refused the v4.0.7 Free asset because its Plugin URI and Author URI are the same; the asset to submit becomes 4.0.8's, which carries the fix.
+**submission: clear** (2026-11-24, on 4.0.8). Earlier the same day, the pass list read "submission: blocked by 151": WordPress.org's upload form had refused the v4.0.7 Free asset because its Plugin URI and Author URI were the same. 4.0.8 carries the fix, and the form accepted its Free asset.
 
 ## Implementation Notes
 
@@ -745,6 +745,11 @@ Criterion 3's list (task 1, 2026-11-11): 345 manual checks from 115 plans. Four 
 - **Findings** from the 2026-11-19 frames, the E looks and the licensed sitting go to one `bmad-ticket` batch; none blocks submission (owner, 2026-11-23).
 - **submission: clear (2026-11-24):** P036, the last deferred row, passes on the owner's word, based on the 2026-11-23 Account page evidence. The submission prep holds (slug free, Tested up to 7.1 = core 7.1.5's major, tag `content-quality`, the same 11 readme links). The owner submits the v4.0.7 Free asset on WordPress.org.
 - **submission: blocked by 151 (2026-11-24):** the owner's upload of the v4.0.7 Free asset (Claude in Chrome, signed in as `postquality`) ended on "Error: Your plugin and author URIs are the same." and nothing was queued: WordPress.org's upload handler (`class-upload-handler.php`, `process_upload()`, "Prevent duplicate URLs", read on trunk 2026-11-24) refuses equal `Plugin URI` and `Author URI` headers, and story 45 had set both to https://postquality.com. The handler's checks before this one passed, since the form reached it. Its checks after this one pass on 4.0.7: the readme (present; its title check searches the same post statuses as the handler's earlier title check on the header's Plugin Name, the same string "Post Quality Manager", which passed since the form reached the URI check), the readme's license (`GPL-2.0-or-later`), and Plugin Check (P068 ran the form's exact scan on 4.0.6; 4.0.7 changed only the readme's text and the version lines). One cannot be read from outside: the name in the wild, which WordPress.org checks against its own install stats for plugins hosted elsewhere. Bug 151 moves `Author URI` to https://profiles.wordpress.org/heimvin/ and adds the two URI checks to `release-header-harness.php`. Next: 4.0.8 ships the fix, the owner sets its Freemius deployment to Released and submits 4.0.8's Free asset.
+- **Submitted (2026-11-24):**
+  - **4.0.8:** bug 151 (#48), notes #50 merged before the release PR #49, release run 45411185910 green: v4.0.8 published, Latest, the notes in its body, one asset sha256 `26374a84…1151`. Freemius recorded Requires PHP 8.1, and its Free build check passed ("PHP identical: 13 files"). The owner set the Freemius deployment to Released the same day.
+  - **The account:** the owner set the profile's display name to "Post Quality" (Claude in Chrome, read back after a reload), so the listing's "By" line reads "By Post Quality". Two-factor sign-in is on (an app, backup codes verified).
+  - **The submission:** the owner ticked the form's eight confirmations and selected the 4.0.8 zip; Claude in Chrome checked both, typed the Additional Information note and clicked Upload once. Result: "Results of Automated Plugin Scanning: Pass", initial slug `post-quality-manager`, review status "Awaiting Review", 281 plugins in the first-review queue. The slug's change link was left alone.
+  - Story 38 stays `in-progress` until the review team's approval email. The review loop is next: the owner forwards each email, the agent drafts the reply, and each finding goes through `bmad-ticket`.
 - **Slips:** 2026-11-19, the license was deactivated by the agent script before P161 had run (P161 ran in the licensed sitting); 2026-11-23, the page crawler listed the Account page's links, among them the Freemius invoice link (account and payment ids, a signed download link), in the session transcript; nothing reached the repository, and the crawler is kept off the Account page.
 
 ## Plan Change Log
