@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.0.8](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.7...v4.0.8) (2026-11-24)
+
+
+### Bug Fixes
+
+* **plugin:** give the Author URI the owner's WordPress.org profile ([4cfa558](https://github.com/vincentheimann/post-quality-manager/commit/4cfa55829c27f9290b7a66fb1afac01d324f791e))
+
 ## [4.0.7](https://github.com/vincentheimann/post-quality-manager/compare/v4.0.6...v4.0.7) (2026-11-19)
 
 
